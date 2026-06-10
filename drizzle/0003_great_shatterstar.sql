@@ -1,0 +1,1 @@
+ALTER TABLE "clients" ADD COLUMN "agent_name" text;

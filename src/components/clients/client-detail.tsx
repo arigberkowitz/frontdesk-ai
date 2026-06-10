@@ -1,0 +1,216 @@
+"use client";
+
+import { CalendarCheck, Download, Inbox } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MetricCard } from "@/components/metric-card";
+import { EmptyState } from "@/components/empty-state";
+import { CallsChart } from "@/components/charts/calls-chart";
+import { CallsTable } from "@/components/clients/calls-table";
+import type { ClientMetrics } from "@/lib/data/metrics";
+import { ServicesTab } from "@/components/clients/services-tab";
+import { HoursTab } from "@/components/clients/hours-tab";
+import { KnowledgeTab } from "@/components/clients/knowledge-tab";
+import { AgentConfigTab } from "@/components/clients/agent-config-tab";
+import { SettingsTab } from "@/components/clients/settings-tab";
+import { formatCurrencyCents, formatPercent, formatPhone } from "@/lib/format";
+import { AppointmentsView } from "@/components/appointments-view";
+import type { VoiceMeta } from "@/config/voice";
+import type {
+  Appointment,
+  BusinessHour,
+  Call,
+  Client,
+  KnowledgeItem,
+  Lead,
+  Service,
+} from "@/db/schema";
+
+type AppointmentWithService = Appointment & { service: Service | null };
+
+interface Props {
+  client: Client;
+  services: Service[];
+  hours: BusinessHour[];
+  knowledge: KnowledgeItem[];
+  calls: Call[];
+  appointments: AppointmentWithService[];
+  leads: Lead[];
+  metrics: ClientMetrics;
+  retellReady: boolean;
+  voices: VoiceMeta[];
+}
+
+function sentimentLabel(score: number | null): string {
+  if (score == null) return "—";
+  if (score > 0.2) return "Positive";
+  if (score < -0.2) return "Negative";
+  return "Neutral";
+}
+
+function ExportCsvButton({
+  clientId,
+  type,
+}: {
+  clientId: string;
+  type: "calls" | "appointments" | "leads";
+}) {
+  return (
+    <div className="flex justify-end">
+      <Button
+        variant="outline"
+        size="sm"
+        nativeButton={false}
+        render={<a href={`/api/clients/${clientId}/export?type=${type}`} download />}
+      >
+        <Download className="size-4" />
+        Export CSV
+      </Button>
+    </div>
+  );
+}
+
+const TABS = [
+  "overview",
+  "calls",
+  "appointments",
+  "leads",
+  "services",
+  "hours",
+  "knowledge",
+  "agent",
+  "settings",
+] as const;
+
+export function ClientDetail(props: Props) {
+  const {
+    client,
+    services,
+    hours,
+    knowledge,
+    calls,
+    appointments,
+    leads,
+    metrics,
+    retellReady,
+    voices,
+  } = props;
+
+  return (
+    <Tabs defaultValue="overview">
+      <div className="overflow-x-auto">
+        <TabsList className="mb-4">
+          {TABS.map((t) => (
+            <TabsTrigger key={t} value={t} className="capitalize">
+              {t}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
+
+      <TabsContent value="overview" className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            label="Revenue captured"
+            value={formatCurrencyCents(metrics.estRevenueCents)}
+            hint="Bookings × avg price"
+          />
+          <MetricCard label="Calls" value={String(metrics.totalCalls)} hint="All time" />
+          <MetricCard label="Bookings" value={String(metrics.bookings)} />
+          <MetricCard label="After-hours saves" value={String(metrics.afterHoursCalls)} />
+          <MetricCard
+            label="Containment"
+            value={formatPercent(metrics.containmentRate)}
+            hint="Handled without a human"
+          />
+          <MetricCard label="Answer rate" value={formatPercent(metrics.answerRate)} />
+          <MetricCard label="Leads" value={String(metrics.leads)} />
+          <MetricCard label="Sentiment" value={sentimentLabel(metrics.sentimentScore)} />
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Calls and bookings — last 14 days</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CallsChart data={metrics.callsByDay} />
+          </CardContent>
+        </Card>
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground">Recent calls</h3>
+          <CallsTable clientId={client.id} calls={calls.slice(0, 5)} timezone={client.timezone} />
+        </div>
+      </TabsContent>
+
+      <TabsContent value="calls" className="space-y-3">
+        {calls.length > 0 ? <ExportCsvButton clientId={client.id} type="calls" /> : null}
+        <CallsTable clientId={client.id} calls={calls} timezone={client.timezone} />
+      </TabsContent>
+
+      <TabsContent value="appointments" className="space-y-3">
+        {appointments.length > 0 ? (
+          <ExportCsvButton clientId={client.id} type="appointments" />
+        ) : null}
+        {appointments.length === 0 ? (
+          <EmptyState icon={CalendarCheck} title="No appointments yet" />
+        ) : (
+          <AppointmentsView
+            appointments={appointments.map((a) => ({
+              id: a.id,
+              callId: a.callId,
+              customerName: a.customerName,
+              customerPhone: a.customerPhone,
+              startAt: a.startAt,
+              endAt: a.endAt,
+              status: a.status,
+              serviceName: a.service?.name ?? null,
+            }))}
+            callBasePath={`/clients/${client.id}/calls`}
+          />
+        )}
+      </TabsContent>
+
+      <TabsContent value="leads" className="space-y-3">
+        {leads.length > 0 ? <ExportCsvButton clientId={client.id} type="leads" /> : null}
+        {leads.length === 0 ? (
+          <EmptyState icon={Inbox} title="No leads yet" />
+        ) : (
+          <ul className="divide-y rounded-xl border">
+            {leads.map((l) => (
+              <li key={l.id} className="flex items-center justify-between gap-3 p-4">
+                <div>
+                  <p className="font-medium">{l.name ?? "Caller"}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatPhone(l.phone)}
+                    {l.reason ? ` · ${l.reason}` : ""}
+                    {l.message ? ` — "${l.message}"` : ""}
+                  </p>
+                </div>
+                <Badge variant="outline" className="capitalize">
+                  {l.status}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </TabsContent>
+
+      <TabsContent value="services">
+        <ServicesTab clientId={client.id} services={services} />
+      </TabsContent>
+      <TabsContent value="hours">
+        <HoursTab clientId={client.id} hours={hours} />
+      </TabsContent>
+      <TabsContent value="knowledge">
+        <KnowledgeTab clientId={client.id} knowledge={knowledge} />
+      </TabsContent>
+      <TabsContent value="agent">
+        <AgentConfigTab client={client} retellReady={retellReady} voices={voices} />
+      </TabsContent>
+      <TabsContent value="settings">
+        <SettingsTab client={client} />
+      </TabsContent>
+    </Tabs>
+  );
+}
