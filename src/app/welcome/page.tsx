@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Phone } from "lucide-react";
 import { getCurrentDbUser } from "@/lib/auth-guard";
 import { listClients } from "@/lib/data/clients";
+import { integrations } from "@/lib/env";
 import { OnboardingWelcome } from "@/components/onboarding-welcome";
 
 export const metadata = { title: "Get started" };
@@ -21,7 +22,7 @@ export default async function WelcomePage() {
         <span className="font-heading font-semibold tracking-tight">FrontDesk AI</span>
       </header>
       <main className="flex flex-1 items-center justify-center p-6">
-        <OnboardingWelcome />
+        <OnboardingWelcome aiReady={integrations.anthropic()} />
       </main>
     </div>
   );

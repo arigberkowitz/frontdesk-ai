@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Sparkles } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
 import { getClientMetrics } from "@/lib/data/metrics";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
@@ -13,7 +14,12 @@ import { formatCurrencyCents, formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Overview" };
 
-export default async function PortalOverviewPage() {
+export default async function PortalOverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ onboarded?: string }>;
+}) {
+  const { onboarded } = await searchParams;
   const { clientId } = await resolvePortalClient();
   const [client, m, appts, callsList] = await Promise.all([
     getClientByIdUnsafe(clientId),
@@ -59,6 +65,22 @@ export default async function PortalOverviewPage() {
         title="Your AI receptionist"
         description="Here's what it caught for you. Tap any number for the details."
       />
+
+      {onboarded ? (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-start gap-3 p-4 text-sm">
+            <Sparkles className="mt-0.5 size-5 shrink-0 text-primary" />
+            <div>
+              <p className="font-medium">We drafted your receptionist from your website.</p>
+              <p className="text-muted-foreground">
+                Review your <strong>Services</strong>, <strong>Hours</strong>, and <strong>FAQ</strong>{" "}
+                tabs, set the greeting and voice under <strong>Your AI</strong>, then activate it. Edit
+                anything that&apos;s off — nothing goes live until you activate.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} />

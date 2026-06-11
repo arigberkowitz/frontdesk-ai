@@ -66,34 +66,17 @@ async function applyProfile(
 }
 
 /**
- * Onboard from a website: create a draft client, scrape the site, structure it
- * with Claude, and populate services/hours/FAQ — then send the operator to the
- * detail page to review before provisioning (human-in-the-loop, §8 step 5).
+ * Shared core: create a draft client, scrape the site, structure it with Claude,
+ * and populate services/hours/FAQ. Scrape/AI failures are swallowed so a bad site
+ * still leaves a usable draft (just the name + URL). Returns the new client id.
  */
-export async function onboardFromWebsiteAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const user = await requireOperator();
-  const parsed = onboardSchema.safeParse({
-    name: formData.get("name"),
-    websiteUrl: formData.get("websiteUrl"),
-  });
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
-
-  const { name, websiteUrl } = parsed.data;
-  // Create the draft first so a scrape failure still leaves a usable client.
-  const client = await createClient(user.orgId, {
-    name,
-    websiteUrl,
-    timezone: DEFAULT_TIMEZONE,
-  });
-
+async function runWebsiteOnboard(orgId: string, name: string, websiteUrl: string): Promise<string> {
+  const client = await createClient(orgId, { name, websiteUrl, timezone: DEFAULT_TIMEZONE });
   try {
     const scraped = await scrapeWebsite(websiteUrl);
     const profile = await structureBusinessProfile(name, scraped.combinedText);
     if (profile) {
-      await applyProfile(user.orgId, client.id, profile);
+      await applyProfile(orgId, client.id, profile);
       logger.info("onboard.structured", {
         clientId: client.id,
         services: profile.services.length,
@@ -106,7 +89,45 @@ export async function onboardFromWebsiteAction(
       error: err instanceof Error ? err.message : String(err),
     });
   }
+  return client.id;
+}
 
+/**
+ * Operator dashboard: onboard from a website, then go to the client detail page
+ * to review before provisioning (human-in-the-loop, §8 step 5).
+ */
+export async function onboardFromWebsiteAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireOperator();
+  const parsed = onboardSchema.safeParse({
+    name: formData.get("name"),
+    websiteUrl: formData.get("websiteUrl"),
+  });
+  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
+
+  const clientId = await runWebsiteOnboard(user.orgId, parsed.data.name, parsed.data.websiteUrl);
   revalidatePath("/clients");
-  redirect(`/clients/${client.id}?onboarded=1`);
+  redirect(`/clients/${clientId}?onboarded=1`);
+}
+
+/**
+ * Self-serve signup: a business owner drafts their own receptionist from their
+ * website, then lands in their portal to review the drafted services/hours/FAQ.
+ */
+export async function onboardFromWebsitePortalAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireOperator();
+  const parsed = onboardSchema.safeParse({
+    name: formData.get("name"),
+    websiteUrl: formData.get("websiteUrl"),
+  });
+  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
+
+  await runWebsiteOnboard(user.orgId, parsed.data.name, parsed.data.websiteUrl);
+  revalidatePath("/portal", "layout");
+  redirect("/portal?onboarded=1");
 }
