@@ -31,7 +31,14 @@ export const env = {
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? "",
   // Public number for the sales demo agent (§11 screen 9).
   DEMO_PHONE_NUMBER: process.env.DEMO_PHONE_NUMBER ?? "",
-  APP_URL: process.env.APP_URL ?? "http://localhost:3300",
+  // Public base URL for webhook + agent-tool callbacks (baked into Retell at
+  // provision time). Prefer an explicit APP_URL; on Vercel, fall back to the
+  // stable production domain it injects; otherwise local dev.
+  APP_URL:
+    process.env.APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : "http://localhost:3300"),
   // Shared secret the agent-tool callbacks check (baked into Retell tool URLs).
   // Use `||` so an empty RETELL_API_KEY doesn't become the secret.
   AGENT_TOOLS_SECRET:
