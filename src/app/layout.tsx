@@ -35,7 +35,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      // Use the in-app /sign-in and /sign-up pages (the custom animated flow)
+      // instead of Clerk's hosted Account Portal. After auth, land on "/" so the
+      // root route can send each role to the right home.
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      signInFallbackRedirectUrl="/"
+      signUpFallbackRedirectUrl="/"
+    >
       <html
         lang="en"
         className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
