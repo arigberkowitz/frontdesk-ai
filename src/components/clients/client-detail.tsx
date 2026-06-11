@@ -2,7 +2,7 @@
 
 import { CalendarCheck, Download, Inbox } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { LeadStatusControl } from "@/components/clients/lead-status-control";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricCard } from "@/components/metric-card";
@@ -196,9 +196,7 @@ export function ClientDetail(props: Props) {
                     {l.message ? ` — "${l.message}"` : ""}
                   </p>
                 </div>
-                <Badge variant="outline" className="capitalize">
-                  {l.status}
-                </Badge>
+                <LeadStatusControl leadId={l.id} clientId={client.id} status={l.status} />
               </li>
             ))}
           </ul>

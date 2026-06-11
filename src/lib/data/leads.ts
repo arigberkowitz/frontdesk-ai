@@ -1,13 +1,25 @@
 import "server-only";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { leads, type NewLead } from "@/db/schema";
+import { leads, type Lead, type NewLead } from "@/db/schema";
 
 export async function listLeads(clientId: string) {
   return db.query.leads.findMany({
     where: and(eq(leads.clientId, clientId), isNull(leads.deletedAt)),
     orderBy: [desc(leads.createdAt)],
   });
+}
+
+/** Update a lead's follow-up status (scoped to its client). */
+export async function updateLeadStatus(
+  clientId: string,
+  leadId: string,
+  status: Lead["status"],
+): Promise<void> {
+  await db
+    .update(leads)
+    .set({ status })
+    .where(and(eq(leads.id, leadId), eq(leads.clientId, clientId), isNull(leads.deletedAt)));
 }
 
 export async function createLead(clientId: string, input: Omit<NewLead, "clientId" | "id">) {

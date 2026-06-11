@@ -4,7 +4,7 @@ import { resolvePortalClient } from "@/lib/auth-guard";
 import { listLeads } from "@/lib/data/leads";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
-import { Badge } from "@/components/ui/badge";
+import { LeadStatusControl } from "@/components/clients/lead-status-control";
 import { formatPhone } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Leads" };
@@ -37,9 +37,7 @@ export default async function PortalLeadsPage() {
                   {l.message ? ` — "${l.message}"` : ""}
                 </p>
               </div>
-              <Badge variant="outline" className="capitalize">
-                {l.status}
-              </Badge>
+              <LeadStatusControl leadId={l.id} clientId={clientId} status={l.status} />
             </li>
           ))}
         </ul>
