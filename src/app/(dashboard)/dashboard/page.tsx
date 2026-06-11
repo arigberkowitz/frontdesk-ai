@@ -1,14 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  Building2,
-  CalendarCheck,
-  Clock,
-  DollarSign,
-  Phone,
-  Plus,
-  TrendingUp,
-} from "lucide-react";
+import { Building2, Plus } from "lucide-react";
 import { requireOperator } from "@/lib/auth-guard";
 import { getPortfolioMetrics } from "@/lib/data/metrics";
 import { PageHeader } from "@/components/page-header";
@@ -26,12 +18,46 @@ export default async function DashboardPage() {
   const user = await requireOperator();
   const m = await getPortfolioMetrics(user.orgId);
 
-  const activeBreakdown = m.clients.length
-    ? m.clients.map((c) => `${c.name} — ${c.status}`)
-    : ["No clients yet."];
-  const callsTodayBreakdown = m.clients.some((c) => c.callsToday > 0)
-    ? m.clients.filter((c) => c.callsToday > 0).map((c) => `${c.name}: ${c.callsToday}`)
-    : ["No calls yet today."];
+  const money = formatCurrencyCents;
+  const perClientOverhead = m.activeClients ? Math.round(m.overheadCents / m.activeClients) : 0;
+
+  const revenueBreakdown = [
+    "Estimated booking revenue captured this month.",
+    `${m.bookingsThisMonth} booking${m.bookingsThisMonth === 1 ? "" : "s"} this month × ${money(m.avgServiceCents)} avg service price`,
+    `= ${money(m.estRevenueMonthCents)}`,
+  ];
+  const activeClientsList = m.clients.filter((c) => c.status === "live" || c.status === "trial");
+  const activeBreakdown = activeClientsList.length
+    ? ["Clients on a live or trial plan:", ...activeClientsList.map((c) => `${c.name} — ${c.status}`)]
+    : ["No live or trial clients yet."];
+  const callsTodayBreakdown = [
+    "Inbound calls your agents answered since midnight.",
+    ...(m.clients.some((c) => c.callsToday > 0)
+      ? m.clients.filter((c) => c.callsToday > 0).map((c) => `${c.name}: ${c.callsToday}`)
+      : ["No calls yet today."]),
+  ];
+  const bookingsTodayBreakdown = [
+    "Appointments booked today — counted when the booking was made, not when it's scheduled.",
+    `${m.bookingsToday} booked today across your clients`,
+  ];
+  const afterHoursBreakdown = [
+    "Calls answered outside business hours in the last 7 days — ones you'd likely have missed.",
+    `${m.afterHoursThisWeek} after-hours call${m.afterHoursThisWeek === 1 ? "" : "s"} this week`,
+  ];
+  const mrrBreakdown = [
+    "Recurring monthly revenue from clients on an active or trial plan.",
+    ...(m.mrrByClient.length
+      ? m.mrrByClient.map((s) => `${s.name} — ${money(s.cents)}/mo`)
+      : ["No paid plans yet."]),
+    `= ${money(m.mrrCents)}/mo`,
+  ];
+  const marginBreakdown = [
+    "What you keep this month after vendor costs.",
+    `MRR ${money(m.mrrCents)}`,
+    `− Retell call costs ${money(m.retellCostMonthCents)}`,
+    `− Overhead ${money(m.overheadCents)} (${m.activeClients} client${m.activeClients === 1 ? "" : "s"} × ${money(perClientOverhead)})`,
+    `= ${money(m.marginCents)}`,
+  ];
 
   return (
     <div className="space-y-6">
@@ -43,19 +69,13 @@ export default async function DashboardPage() {
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          label="Revenue captured"
-          value={formatCurrencyCents(m.estRevenueMonthCents)}
-          hint="Bookings × avg price, this month"
-          icon={TrendingUp}
-          href="/clients"
-        />
-        <MetricCard label="Active clients" value={String(m.activeClients)} hint="Live + trial" icon={Building2} href="/clients" breakdown={activeBreakdown} />
-        <MetricCard label="Calls today" value={String(m.callsToday)} hint="Across all clients" icon={Phone} href="/clients" breakdown={callsTodayBreakdown} />
-        <MetricCard label="Bookings today" value={String(m.bookingsToday)} hint="Appointments captured" icon={CalendarCheck} href="/clients" />
-        <MetricCard label="After-hours saves" value={String(m.afterHoursThisWeek)} hint="This week" icon={Clock} href="/clients" />
-        <MetricCard label="MRR" value={formatCurrencyCents(m.mrrCents)} hint="Recurring revenue" icon={DollarSign} href="/clients" />
-        <MetricCard label="Est. margin" value={formatCurrencyCents(m.marginCents)} hint="Price − vendor cost, this month" icon={TrendingUp} href="/clients" />
+        <MetricCard label="Revenue captured" value={money(m.estRevenueMonthCents)} hint="Bookings × avg price, this month" href="/clients" breakdown={revenueBreakdown} />
+        <MetricCard label="Active clients" value={String(m.activeClients)} hint="Live + trial" href="/clients" breakdown={activeBreakdown} />
+        <MetricCard label="Calls today" value={String(m.callsToday)} hint="Across all clients" href="/clients" breakdown={callsTodayBreakdown} />
+        <MetricCard label="Bookings today" value={String(m.bookingsToday)} hint="Appointments captured" href="/clients" breakdown={bookingsTodayBreakdown} />
+        <MetricCard label="After-hours saves" value={String(m.afterHoursThisWeek)} hint="This week" breakdown={afterHoursBreakdown} />
+        <MetricCard label="MRR" value={money(m.mrrCents)} hint="Recurring revenue" href="/clients" breakdown={mrrBreakdown} />
+        <MetricCard label="Est. margin" value={money(m.marginCents)} hint="Price − vendor cost, this month" breakdown={marginBreakdown} />
       </div>
 
       {m.clients.length === 0 ? (

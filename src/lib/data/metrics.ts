@@ -216,6 +216,12 @@ export interface PortfolioMetrics {
   estRevenueMonthCents: number;
   marginCents: number;
   clients: PortfolioClientCard[];
+  // Component figures behind the headline numbers — surfaced in the card breakdowns.
+  bookingsThisMonth: number;
+  avgServiceCents: number;
+  retellCostMonthCents: number;
+  overheadCents: number;
+  mrrByClient: { name: string; cents: number }[];
 }
 
 export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetrics> {
@@ -235,6 +241,11 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     estRevenueMonthCents: 0,
     marginCents: 0,
     clients: [],
+    bookingsThisMonth: 0,
+    avgServiceCents: 0,
+    retellCostMonthCents: 0,
+    overheadCents: 0,
+    mrrByClient: [],
   };
   if (!ids.length) return empty;
 
@@ -283,13 +294,27 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     .where(and(inArray(appointments.clientId, ids), isNull(appointments.deletedAt)))
     .groupBy(appointments.clientId);
 
+  const mrrRows = await db
+    .select({ name: clients.name, cents: subscriptions.monthlyPriceCents })
+    .from(subscriptions)
+    .innerJoin(clients, eq(subscriptions.clientId, clients.id))
+    .where(
+      and(
+        inArray(subscriptions.clientId, ids),
+        isNull(subscriptions.deletedAt),
+        sql`${subscriptions.status} in ('active','trialing')`,
+      ),
+    );
+
   const callMap = new Map(callsByClient.map((c) => [c.clientId, c]));
   const apptMap = new Map(apptByClient.map((a) => [a.clientId, a.total]));
 
   const avgServiceCents = avgPrice != null ? Math.round(Number(avgPrice)) : 0;
-  const estRevenueMonthCents = (apptAgg?.month ?? 0) * avgServiceCents;
+  const bookingsThisMonth = apptAgg?.month ?? 0;
+  const estRevenueMonthCents = bookingsThisMonth * avgServiceCents;
   const overheadCents = activeClients * COST_ASSUMPTIONS.overheadPerClientCents;
-  const marginCents = (mrr ?? 0) - (callAgg?.retellCostMonth ?? 0) - overheadCents;
+  const retellCostMonthCents = callAgg?.retellCostMonth ?? 0;
+  const marginCents = (mrr ?? 0) - retellCostMonthCents - overheadCents;
 
   return {
     totalClients: rows.length,
@@ -308,5 +333,10 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
       totalCalls: callMap.get(r.id)?.total ?? 0,
       bookings: apptMap.get(r.id) ?? 0,
     })),
+    bookingsThisMonth,
+    avgServiceCents,
+    retellCostMonthCents,
+    overheadCents,
+    mrrByClient: mrrRows.map((r) => ({ name: r.name, cents: r.cents ?? 0 })),
   };
 }

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { CalendarCheck, Clock, Phone, TrendingUp } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
 import { getClientMetrics } from "@/lib/data/metrics";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
@@ -25,21 +24,33 @@ export default async function PortalOverviewPage() {
   const answered = Math.max(0, m.totalCalls - m.bookings - m.leads);
   const afterHours = callsList.filter((c) => c.isAfterHours && c.startAt);
 
-  const revenueBreakdown =
-    m.bookings > 0 && m.avgServicePriceCents != null
-      ? [`${m.bookings} booking${m.bookings === 1 ? "" : "s"} × ${formatCurrencyCents(m.avgServicePriceCents)} avg`]
-      : ["No bookings yet this period."];
-  const callsBreakdown = [
-    `${m.bookings} booked`,
-    `${m.leads} lead${m.leads === 1 ? "" : "s"}`,
-    `${answered} question${answered === 1 ? "" : "s"} answered`,
+  const revenueBreakdown = [
+    "Estimated value of the appointments your AI booked.",
+    ...(m.bookings > 0 && m.avgServicePriceCents != null
+      ? [
+          `${m.bookings} booking${m.bookings === 1 ? "" : "s"} × ${formatCurrencyCents(m.avgServicePriceCents)} avg service price`,
+          `= ${formatCurrencyCents(m.estRevenueCents)}`,
+        ]
+      : ["No bookings yet this period."]),
   ];
-  const apptBreakdown = appts.length
-    ? appts.slice(0, 4).map((a) => `${a.customerName ?? "Caller"} — ${formatDateTime(a.startAt, tz)}`)
-    : ["No appointments yet."];
-  const afterHoursBreakdown = afterHours.length
-    ? afterHours.slice(0, 4).map((c) => `1 call at ${formatDateTime(c.startAt, tz)}`)
-    : ["None — your AI caught everything during open hours."];
+  const callsBreakdown = [
+    "Every call your AI answered, by what happened on it.",
+    `${m.bookings} booked an appointment`,
+    `${m.leads} left a message`,
+    `${answered} got a question answered`,
+  ];
+  const apptBreakdown = [
+    "The appointments your AI put on the calendar.",
+    ...(appts.length
+      ? appts.slice(0, 4).map((a) => `${a.customerName ?? "Caller"} — ${formatDateTime(a.startAt, tz)}`)
+      : ["No appointments yet."]),
+  ];
+  const afterHoursBreakdown = [
+    "Calls your AI caught outside your open hours — ones you'd likely have missed.",
+    ...(afterHours.length
+      ? afterHours.slice(0, 4).map((c) => `Call at ${formatDateTime(c.startAt, tz)}`)
+      : ["None yet — your AI caught everything during open hours."]),
+  ];
 
   return (
     <div className="space-y-6">
@@ -49,34 +60,10 @@ export default async function PortalOverviewPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          label="Revenue captured"
-          value={formatCurrencyCents(m.estRevenueCents)}
-          icon={TrendingUp}
-          href="/portal/appointments"
-          breakdown={revenueBreakdown}
-        />
-        <MetricCard
-          label="Calls answered"
-          value={String(m.totalCalls)}
-          icon={Phone}
-          href="/portal/calls"
-          breakdown={callsBreakdown}
-        />
-        <MetricCard
-          label="Appointments booked"
-          value={String(m.bookings)}
-          icon={CalendarCheck}
-          href="/portal/appointments"
-          breakdown={apptBreakdown}
-        />
-        <MetricCard
-          label="After-hours saves"
-          value={String(m.afterHoursCalls)}
-          icon={Clock}
-          href="/portal/calls"
-          breakdown={afterHoursBreakdown}
-        />
+        <MetricCard label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} />
+        <MetricCard label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} />
+        <MetricCard label="Appointments booked" value={String(m.bookings)} href="/portal/appointments" breakdown={apptBreakdown} />
+        <MetricCard label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} />
       </div>
 
       <Card>

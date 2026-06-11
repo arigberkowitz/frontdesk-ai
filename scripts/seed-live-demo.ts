@@ -45,6 +45,12 @@ type Spec = {
 type Service = { name: string; durationMin: number; priceCents: number; description: string };
 type Hour = { day: number; closed: boolean; open?: string; close?: string };
 type Faq = { q: string; a: string };
+type Subscription = {
+  plan: string;
+  monthlyCents: number;
+  setupCents: number;
+  status: "active" | "trialing";
+};
 type DemoClient = {
   name: string;
   industry: string;
@@ -58,6 +64,7 @@ type DemoClient = {
   hours: Hour[];
   faq: Faq[];
   specs: Spec[];
+  subscription: Subscription;
 };
 
 const WEEK_9_5: Hour[] = [
@@ -107,6 +114,11 @@ const DENTAL_SPECS: Spec[] = [
     summary: "Insurance question — confirmed Delta Dental PPO in-network." },
   { daysAgo: 10, hour: 11, durSec: 41, from: "+14155550144", outcome: "missed", sentiment: "neutral", cost: 3,
     transcript: "(Caller hung up before stating their reason.)", summary: "Caller hung up early — no details captured." },
+  { daysAgo: 0, hour: 9, durSec: 128, from: "+14155550150", outcome: "booked", sentiment: "positive", cost: 16,
+    transcript: "Caller: Can I book a cleaning this week?\nAgent: I have tomorrow at 11 — booking you.", summary: "Booked a cleaning.",
+    appt: { name: "Ben Ortiz", inDays: 1, hour: 11, status: "booked", service: "Cleaning" } },
+  { daysAgo: 0, hour: 11, durSec: 48, from: "+14155550151", outcome: "faq_answered", sentiment: "neutral", cost: 6,
+    transcript: "Caller: Are you open Saturday?\nAgent: Yes, 9 to 1.", summary: "Saturday hours question answered." },
 ];
 
 const BARBER_SPECS: Spec[] = [
@@ -129,6 +141,9 @@ const BARBER_SPECS: Spec[] = [
   { daysAgo: 1, hour: 13, durSec: 71, from: "+14155550206", outcome: "booked", sentiment: "positive", cost: 9,
     transcript: "Caller: Kids' cut for my son this week?\nAgent: Of course — how's Friday at 4?", summary: "Kids' cut booked.",
     appt: { name: "Rosa Diaz", inDays: 4, hour: 16, status: "booked", service: "Kids" } },
+  { daysAgo: 0, hour: 12, durSec: 70, from: "+14155550210", outcome: "booked", sentiment: "positive", cost: 9,
+    transcript: "Caller: Got time for a fade today?\nAgent: 5pm's open — booking you.", summary: "Skin fade booked.",
+    appt: { name: "Kofi Mensah", inDays: 0, hour: 17, status: "booked", service: "Skin Fade" } },
 ];
 
 const CLIENTS: DemoClient[] = [
@@ -155,6 +170,7 @@ const CLIENTS: DemoClient[] = [
       { q: "What are your hours?", a: "Monday to Friday 9 to 5, and Saturdays 9 to 1. Closed Sundays." },
     ],
     specs: DENTAL_SPECS,
+    subscription: { plan: "pro", monthlyCents: 45000, setupCents: 100000, status: "active" },
   },
   {
     name: "Fade Factory",
@@ -187,6 +203,7 @@ const CLIENTS: DemoClient[] = [
       { q: "What are your hours?", a: "Tuesday to Saturday — closed Sundays and Mondays." },
     ],
     specs: BARBER_SPECS,
+    subscription: { plan: "starter", monthlyCents: 30000, setupCents: 75000, status: "trialing" },
   },
 ];
 
@@ -226,6 +243,13 @@ async function seedClient(orgId: string, def: DemoClient): Promise<void> {
       values (${clientId}, ${f.q}, ${f.a}, 'manual', true)`;
   }
 
+  // Subscription drives MRR + the margin calc on the dashboard.
+  await sql`delete from subscriptions where client_id=${clientId}`;
+  const periodEnd = new Date(Date.now() + 20 * 86_400_000);
+  await sql`insert into subscriptions (client_id, plan, monthly_price_cents, setup_fee_cents, status, current_period_end)
+    values (${clientId}, ${def.subscription.plan}, ${def.subscription.monthlyCents}, ${def.subscription.setupCents},
+      ${def.subscription.status}::subscription_status, ${periodEnd})`;
+
   const services = await sql<{ id: string; name: string; duration_min: number }[]>`
     select id, name, duration_min from services where client_id=${clientId} and deleted_at is null order by created_at`;
   const fallback = services[0] ?? null;
@@ -241,14 +265,16 @@ async function seedClient(orgId: string, def: DemoClient): Promise<void> {
   for (const c of def.specs) {
     const start = at(c.daysAgo, c.hour, c.min ?? 0);
     const end = new Date(start.getTime() + c.durSec * 1000);
+    // created_at = the call time, so "today"/"this month" metrics reflect the
+    // simulated timeline rather than when the seed happened to run.
     const [row] = await sql<{ id: string }[]>`
       insert into calls
         (client_id, retell_call_id, direction, from_number, to_number, start_at, end_at,
-         duration_sec, transcript, summary, sentiment, outcome, is_after_hours, retell_cost_cents)
+         duration_sec, transcript, summary, sentiment, outcome, is_after_hours, retell_cost_cents, created_at)
       values
         (${clientId}, ${"demo_" + def.name.slice(0, 3) + (1000 + i)}, 'inbound', ${c.from}, '+14155551234',
          ${start}, ${end}, ${c.durSec}, ${c.transcript}, ${c.summary}, ${c.sentiment}::call_sentiment,
-         ${c.outcome}::call_outcome, ${c.afterHours ?? false}, ${c.cost})
+         ${c.outcome}::call_outcome, ${c.afterHours ?? false}, ${c.cost}, ${start})
       returning id`;
 
     if (c.appt) {
@@ -256,13 +282,13 @@ async function seedClient(orgId: string, def: DemoClient): Promise<void> {
       const aStart = at(-c.appt.inDays, c.appt.hour);
       const aEnd = new Date(aStart.getTime() + (svc?.duration_min ?? 30) * 60000);
       await sql`insert into appointments
-        (client_id, call_id, customer_name, customer_phone, service_id, start_at, end_at, status, external_booking_id)
+        (client_id, call_id, customer_name, customer_phone, service_id, start_at, end_at, status, external_booking_id, created_at)
         values (${clientId}, ${row.id}, ${c.appt.name}, ${c.from}, ${svc?.id ?? null}, ${aStart}, ${aEnd},
-          ${c.appt.status}::appointment_status, ${"demo_cal_" + def.name.slice(0, 3) + (1000 + i)})`;
+          ${c.appt.status}::appointment_status, ${"demo_cal_" + def.name.slice(0, 3) + (1000 + i)}, ${start})`;
     }
     if (c.lead) {
-      await sql`insert into leads (client_id, call_id, name, phone, reason, message, status)
-        values (${clientId}, ${row.id}, ${c.lead.name}, ${c.from}, ${c.lead.reason}, ${c.lead.message}, ${c.lead.status}::lead_status)`;
+      await sql`insert into leads (client_id, call_id, name, phone, reason, message, status, created_at)
+        values (${clientId}, ${row.id}, ${c.lead.name}, ${c.from}, ${c.lead.reason}, ${c.lead.message}, ${c.lead.status}::lead_status, ${start})`;
     }
     i++;
   }

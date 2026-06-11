@@ -16,6 +16,7 @@ import { KnowledgeTab } from "@/components/clients/knowledge-tab";
 import { AgentConfigTab } from "@/components/clients/agent-config-tab";
 import { SettingsTab } from "@/components/clients/settings-tab";
 import { formatCurrencyCents, formatPercent, formatPhone } from "@/lib/format";
+import { clientMetricBreakdowns } from "@/lib/metric-breakdowns";
 import { AppointmentsView } from "@/components/appointments-view";
 import type { VoiceMeta } from "@/config/voice";
 import type {
@@ -98,6 +99,8 @@ export function ClientDetail(props: Props) {
     voices,
   } = props;
 
+  const bd = clientMetricBreakdowns(metrics);
+
   return (
     <Tabs defaultValue="overview">
       <div className="overflow-x-auto">
@@ -112,22 +115,14 @@ export function ClientDetail(props: Props) {
 
       <TabsContent value="overview" className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            label="Revenue captured"
-            value={formatCurrencyCents(metrics.estRevenueCents)}
-            hint="Bookings × avg price"
-          />
-          <MetricCard label="Calls" value={String(metrics.totalCalls)} hint="All time" />
-          <MetricCard label="Bookings" value={String(metrics.bookings)} />
-          <MetricCard label="After-hours saves" value={String(metrics.afterHoursCalls)} />
-          <MetricCard
-            label="Containment"
-            value={formatPercent(metrics.containmentRate)}
-            hint="Handled without a human"
-          />
-          <MetricCard label="Answer rate" value={formatPercent(metrics.answerRate)} />
-          <MetricCard label="Leads" value={String(metrics.leads)} />
-          <MetricCard label="Sentiment" value={sentimentLabel(metrics.sentimentScore)} />
+          <MetricCard label="Revenue captured" value={formatCurrencyCents(metrics.estRevenueCents)} hint="Bookings × avg price" breakdown={bd.revenue} />
+          <MetricCard label="Calls" value={String(metrics.totalCalls)} hint="All time" breakdown={bd.calls} />
+          <MetricCard label="Bookings" value={String(metrics.bookings)} breakdown={bd.bookings} />
+          <MetricCard label="After-hours saves" value={String(metrics.afterHoursCalls)} breakdown={bd.afterHours} />
+          <MetricCard label="Containment" value={formatPercent(metrics.containmentRate)} hint="Handled without a human" breakdown={bd.containment} />
+          <MetricCard label="Answer rate" value={formatPercent(metrics.answerRate)} breakdown={bd.answerRate} />
+          <MetricCard label="Leads" value={String(metrics.leads)} breakdown={bd.leads} />
+          <MetricCard label="Sentiment" value={sentimentLabel(metrics.sentimentScore)} breakdown={bd.sentiment} />
         </div>
         <Card>
           <CardHeader>
