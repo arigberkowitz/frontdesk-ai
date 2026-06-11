@@ -38,7 +38,7 @@ export function clientMetricBreakdowns(m: ClientMetrics): Record<string, string[
     ],
     leads: [
       "Callers who left a message when booking wasn't the right fit.",
-      `${m.leads} lead${m.leads === 1 ? "" : "s"} captured`,
+      `${m.leads} captured${m.newLeads > 0 ? ` · ${m.newLeads} new, awaiting follow-up` : ""}`,
     ],
     sentiment: [
       "Net caller mood across rated calls (positive minus negative).",

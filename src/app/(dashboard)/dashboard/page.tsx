@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Building2, Plus } from "lucide-react";
+import { Building2, MessageSquare, Plus } from "lucide-react";
 import { requireOperator } from "@/lib/auth-guard";
 import { getPortfolioMetrics } from "@/lib/data/metrics";
 import { PageHeader } from "@/components/page-header";
@@ -22,6 +22,7 @@ export default async function DashboardPage() {
 
   const money = formatCurrencyCents;
   const perClientOverhead = m.activeClients ? Math.round(m.overheadCents / m.activeClients) : 0;
+  const clientsWithNew = m.clients.filter((c) => c.newLeads > 0);
 
   const revenueBreakdown = [
     "Estimated booking revenue captured this month.",
@@ -69,6 +70,32 @@ export default async function DashboardPage() {
           New client
         </Button>
       </PageHeader>
+
+      {m.newLeads > 0 ? (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="flex items-start gap-3 p-4">
+            <MessageSquare className="mt-0.5 size-5 shrink-0 text-amber-600" />
+            <div className="text-sm">
+              <p className="font-medium">
+                {m.newLeads} new message{m.newLeads === 1 ? "" : "s"} waiting for follow-up
+              </p>
+              <p className="text-muted-foreground">
+                {clientsWithNew.map((c, i) => (
+                  <span key={c.id}>
+                    {i > 0 ? " · " : ""}
+                    <Link
+                      href={`/clients/${c.id}`}
+                      className="underline underline-offset-2 hover:text-foreground"
+                    >
+                      {c.name} ({c.newLeads})
+                    </Link>
+                  </span>
+                ))}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="Revenue captured" value={money(m.estRevenueMonthCents)} hint="Bookings × avg price, this month" href="/clients" breakdown={revenueBreakdown} />
@@ -136,6 +163,9 @@ export default async function DashboardPage() {
                       <span>
                         <span className="font-medium text-foreground tabular-nums">{c.bookings}</span> booked
                       </span>
+                      {c.newLeads > 0 ? (
+                        <span className="font-medium text-amber-600 tabular-nums">{c.newLeads} new</span>
+                      ) : null}
                     </div>
                   </CardContent>
                 </Card>

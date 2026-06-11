@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Sparkles } from "lucide-react";
+import Link from "next/link";
+import { MessageSquare, Sparkles } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
 import { getClientMetrics } from "@/lib/data/metrics";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
@@ -65,6 +66,28 @@ export default async function PortalOverviewPage({
         title="Your AI receptionist"
         description="Here's what it caught for you. Tap any number for the details."
       />
+
+      {m.newLeads > 0 ? (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="flex items-start gap-3 p-4 text-sm">
+            <MessageSquare className="mt-0.5 size-5 shrink-0 text-amber-600" />
+            <div>
+              <p className="font-medium">
+                {m.newLeads} new message{m.newLeads === 1 ? "" : "s"} for you
+              </p>
+              <p className="text-muted-foreground">
+                Someone left a message your AI couldn&apos;t book.{" "}
+                <Link
+                  href="/portal/leads"
+                  className="font-medium text-foreground underline underline-offset-2"
+                >
+                  View messages →
+                </Link>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {onboarded ? (
         <Card className="border-primary/30 bg-primary/5">

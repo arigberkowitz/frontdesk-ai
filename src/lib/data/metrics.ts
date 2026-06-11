@@ -20,6 +20,7 @@ export interface ClientMetrics {
   afterHoursCalls: number;
   bookings: number;
   leads: number;
+  newLeads: number;
   escalated: number;
   missed: number;
   answerRate: number; // 0..1
@@ -90,8 +91,11 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
       ),
     );
 
-  const [{ leadCount }] = await db
-    .select({ leadCount: sql<number>`count(*)::int` })
+  const [{ leadCount, newLeadCount }] = await db
+    .select({
+      leadCount: sql<number>`count(*)::int`,
+      newLeadCount: sql<number>`count(*) filter (where ${leads.status} = 'new')::int`,
+    })
     .from(leads)
     .where(and(eq(leads.clientId, clientId), isNull(leads.deletedAt)));
 
@@ -129,6 +133,7 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
     afterHoursCalls: agg?.afterHours ?? 0,
     bookings,
     leads: leadCount,
+    newLeads: newLeadCount,
     escalated: agg?.escalated ?? 0,
     missed: agg?.missed ?? 0,
     answerRate: total > 0 ? (total - (agg?.missed ?? 0)) / total : 1,
@@ -204,6 +209,7 @@ export interface PortfolioClientCard {
   callsToday: number;
   totalCalls: number;
   bookings: number;
+  newLeads: number;
 }
 
 export interface PortfolioMetrics {
@@ -212,6 +218,7 @@ export interface PortfolioMetrics {
   callsToday: number;
   bookingsToday: number;
   afterHoursThisWeek: number;
+  newLeads: number;
   mrrCents: number;
   estRevenueMonthCents: number;
   marginCents: number;
@@ -240,6 +247,7 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     callsToday: 0,
     bookingsToday: 0,
     afterHoursThisWeek: 0,
+    newLeads: 0,
     mrrCents: 0,
     estRevenueMonthCents: 0,
     marginCents: 0,
@@ -336,8 +344,19 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     .where(and(inArray(calls.clientId, ids), isNull(calls.deletedAt)))
     .groupBy(calls.outcome);
 
+  const newLeadsByClient = await db
+    .select({
+      clientId: leads.clientId,
+      count: sql<number>`count(*) filter (where ${leads.status} = 'new')::int`,
+    })
+    .from(leads)
+    .where(and(inArray(leads.clientId, ids), isNull(leads.deletedAt)))
+    .groupBy(leads.clientId);
+
   const callMap = new Map(callsByClient.map((c) => [c.clientId, c]));
   const apptMap = new Map(apptByClient.map((a) => [a.clientId, a.total]));
+  const newLeadMap = new Map(newLeadsByClient.map((l) => [l.clientId, l.count]));
+  const newLeads = newLeadsByClient.reduce((sum, l) => sum + l.count, 0);
 
   const avgServiceCents = avgPrice != null ? Math.round(Number(avgPrice)) : 0;
   const bookingsThisMonth = apptAgg?.month ?? 0;
@@ -352,6 +371,7 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     callsToday: callAgg?.today ?? 0,
     bookingsToday: apptAgg?.today ?? 0,
     afterHoursThisWeek: callAgg?.afterHoursWeek ?? 0,
+    newLeads,
     mrrCents: mrr ?? 0,
     estRevenueMonthCents,
     marginCents,
@@ -362,6 +382,7 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
       callsToday: callMap.get(r.id)?.today ?? 0,
       totalCalls: callMap.get(r.id)?.total ?? 0,
       bookings: apptMap.get(r.id) ?? 0,
+      newLeads: newLeadMap.get(r.id) ?? 0,
     })),
     bookingsThisMonth,
     avgServiceCents,
