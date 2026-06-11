@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useFormStatus } from "react-dom";
-import { ArrowRight, CalendarCheck, MessageSquare, Phone, Sparkles } from "lucide-react";
+import { CalendarCheck, MessageSquare, Phone, Sparkles } from "lucide-react";
 import { createStarterClientAction } from "@/lib/actions/clients";
 import { Button } from "@/components/ui/button";
 
@@ -55,10 +54,6 @@ export function OnboardingWelcome() {
           We&apos;ll start you off with example services, hours, and FAQs already filled in — just edit
           each one to match your business.
         </p>
-        <Button variant="ghost" size="sm" render={<Link href="/clients/new" />} nativeButton={false}>
-          Have a website? Draft it from there instead
-          <ArrowRight className="size-4" />
-        </Button>
       </div>
     </div>
   );

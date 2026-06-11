@@ -222,6 +222,9 @@ export interface PortfolioMetrics {
   retellCostMonthCents: number;
   overheadCents: number;
   mrrByClient: { name: string; cents: number }[];
+  // Chart series across all clients.
+  callsByDay: DayPoint[];
+  outcomes: { outcome: string; count: number }[];
 }
 
 export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetrics> {
@@ -246,6 +249,8 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     retellCostMonthCents: 0,
     overheadCents: 0,
     mrrByClient: [],
+    callsByDay: fillDays([], 14, "UTC"),
+    outcomes: [],
   };
   if (!ids.length) return empty;
 
@@ -306,6 +311,31 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
       ),
     );
 
+  const byDayRows = await db
+    .select({
+      date: sql<string>`to_char(date_trunc('day', ${calls.startAt} AT TIME ZONE 'UTC'), 'YYYY-MM-DD')`,
+      calls: sql<number>`count(*)::int`,
+      bookings: sql<number>`count(*) filter (where ${calls.outcome} = 'booked')::int`,
+    })
+    .from(calls)
+    .where(
+      and(
+        inArray(calls.clientId, ids),
+        isNull(calls.deletedAt),
+        sql`${calls.startAt} >= now() - interval '13 days'`,
+      ),
+    )
+    .groupBy(sql`1`);
+
+  const outcomeRows = await db
+    .select({
+      outcome: sql<string>`coalesce(${calls.outcome}::text, 'unknown')`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(calls)
+    .where(and(inArray(calls.clientId, ids), isNull(calls.deletedAt)))
+    .groupBy(calls.outcome);
+
   const callMap = new Map(callsByClient.map((c) => [c.clientId, c]));
   const apptMap = new Map(apptByClient.map((a) => [a.clientId, a.total]));
 
@@ -338,5 +368,7 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     retellCostMonthCents,
     overheadCents,
     mrrByClient: mrrRows.map((r) => ({ name: r.name, cents: r.cents ?? 0 })),
+    callsByDay: fillDays(byDayRows, 14, "UTC"),
+    outcomes: outcomeRows,
   };
 }

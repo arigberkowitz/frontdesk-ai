@@ -14,6 +14,7 @@ import {
   updateAgentVoice,
 } from "@/lib/retell";
 import { env, integrations, webhookUrl } from "@/lib/env";
+import { logger } from "@/lib/logger";
 import { type ActionState, fieldErrorsOf } from "./types";
 
 export async function saveAgentConfigAction(
@@ -129,7 +130,16 @@ async function runProvision(
     revalidatePath("/portal", "layout");
     return { ok: true, data: { phoneNumber: result.phoneNumber } };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Provisioning failed." };
+    // Log the real cause server-side; never surface raw vendor/DB errors to users.
+    logger.error("agent.provision.failed", {
+      clientId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return {
+      ok: false,
+      error:
+        "We couldn't set up your receptionist just now. Please try again in a moment, or contact support if it keeps happening.",
+    };
   }
 }
 

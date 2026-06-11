@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { CallsChart } from "@/components/charts/calls-chart";
+import { OutcomesChart } from "@/components/charts/outcomes-chart";
 import { CallsTable } from "@/components/clients/calls-table";
 import type { ClientMetrics } from "@/lib/data/metrics";
 import { ServicesTab } from "@/components/clients/services-tab";
@@ -124,14 +125,24 @@ export function ClientDetail(props: Props) {
           <MetricCard label="Leads" value={String(metrics.leads)} breakdown={bd.leads} />
           <MetricCard label="Sentiment" value={sentimentLabel(metrics.sentimentScore)} breakdown={bd.sentiment} />
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Calls and bookings — last 14 days</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CallsChart data={metrics.callsByDay} />
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Calls and bookings — last 14 days</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CallsChart data={metrics.callsByDay} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>What happened on calls</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OutcomesChart data={metrics.outcomes} />
+            </CardContent>
+          </Card>
+        </div>
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-muted-foreground">Recent calls</h3>
           <CallsTable clientId={client.id} calls={calls.slice(0, 5)} timezone={client.timezone} />

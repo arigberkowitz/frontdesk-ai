@@ -7,7 +7,9 @@ import { PageHeader } from "@/components/page-header";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CallsChart } from "@/components/charts/calls-chart";
+import { OutcomesChart } from "@/components/charts/outcomes-chart";
 import { StatusBadge } from "@/components/clients/status-badge";
 import { formatCurrencyCents } from "@/lib/format";
 import type { ClientStatus } from "@/db/schema";
@@ -94,9 +96,28 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          <h2 className="text-sm font-medium text-muted-foreground">Clients</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Calls &amp; bookings — last 14 days</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CallsChart data={m.callsByDay} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>What happened on calls</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <OutcomesChart data={m.outcomes} />
+              </CardContent>
+            </Card>
+          </div>
+          <div className="space-y-3">
+            <h2 className="text-sm font-medium text-muted-foreground">Clients</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {m.clients.map((c) => (
               <Link key={c.id} href={`/clients/${c.id}`}>
                 <Card className="transition-colors hover:border-primary/40">
@@ -120,8 +141,9 @@ export default async function DashboardPage() {
                 </Card>
               </Link>
             ))}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

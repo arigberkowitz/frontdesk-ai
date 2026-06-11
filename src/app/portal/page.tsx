@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { MetricCard } from "@/components/metric-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CallsChart } from "@/components/charts/calls-chart";
+import { OutcomesChart } from "@/components/charts/outcomes-chart";
 import { formatCurrencyCents, formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -66,14 +67,24 @@ export default async function PortalOverviewPage() {
         <MetricCard label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Calls and bookings — last 14 days</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <CallsChart data={m.callsByDay} />
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Calls and bookings — last 14 days</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CallsChart data={m.callsByDay} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>What happened on your calls</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <OutcomesChart data={m.outcomes} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
