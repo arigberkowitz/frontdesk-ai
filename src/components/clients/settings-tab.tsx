@@ -28,10 +28,11 @@ import {
 import { Field } from "@/components/form/field";
 import { NativeSelect } from "@/components/form/native-select";
 import { SubmitButton } from "@/components/form/submit-button";
+import { BillingCard, type BillingInfo } from "@/components/clients/billing-card";
 import { CLIENT_STATUSES, INDUSTRIES, STATUS_LABELS, TIMEZONES } from "@/config/options";
 import type { Client } from "@/db/schema";
 
-export function SettingsTab({ client }: { client: Client }) {
+export function SettingsTab({ client, billing }: { client: Client; billing: BillingInfo }) {
   const [profile, profileAction, profilePending] = useActionState(
     updateClientProfileAction,
     initialActionState,
@@ -123,6 +124,8 @@ export function SettingsTab({ client }: { client: Client }) {
           </form>
         </CardContent>
       </Card>
+
+      <BillingCard clientId={client.id} billing={billing} />
 
       <Card>
         <CardHeader>

@@ -16,6 +16,7 @@ import { HoursTab } from "@/components/clients/hours-tab";
 import { KnowledgeTab } from "@/components/clients/knowledge-tab";
 import { AgentConfigTab } from "@/components/clients/agent-config-tab";
 import { SettingsTab } from "@/components/clients/settings-tab";
+import type { BillingInfo } from "@/components/clients/billing-card";
 import { formatCurrencyCents, formatPercent, formatPhone } from "@/lib/format";
 import { clientMetricBreakdowns } from "@/lib/metric-breakdowns";
 import { AppointmentsView } from "@/components/appointments-view";
@@ -43,6 +44,7 @@ interface Props {
   metrics: ClientMetrics;
   retellReady: boolean;
   voices: VoiceMeta[];
+  billing: BillingInfo;
 }
 
 function sentimentLabel(score: number | null): string {
@@ -98,6 +100,7 @@ export function ClientDetail(props: Props) {
     metrics,
     retellReady,
     voices,
+    billing,
   } = props;
 
   const bd = clientMetricBreakdowns(metrics);
@@ -215,7 +218,7 @@ export function ClientDetail(props: Props) {
         <AgentConfigTab client={client} retellReady={retellReady} voices={voices} />
       </TabsContent>
       <TabsContent value="settings">
-        <SettingsTab client={client} />
+        <SettingsTab client={client} billing={billing} />
       </TabsContent>
     </Tabs>
   );

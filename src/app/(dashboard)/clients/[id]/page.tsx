@@ -8,7 +8,11 @@ import { listAppointments } from "@/lib/data/appointments";
 import { listLeads } from "@/lib/data/leads";
 import { getClientMetrics } from "@/lib/data/metrics";
 import { listRetellVoices } from "@/lib/retell";
+import { isStripeTestMode } from "@/lib/stripe";
 import { integrations } from "@/lib/env";
+import { and, eq, isNull } from "drizzle-orm";
+import { db } from "@/db";
+import { subscriptions } from "@/db/schema";
 import type { VoiceMeta } from "@/config/voice";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -21,10 +25,10 @@ export default async function ClientPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ onboarded?: string }>;
+  searchParams: Promise<{ onboarded?: string; billing?: string }>;
 }) {
   const { id } = await params;
-  const { onboarded } = await searchParams;
+  const { onboarded, billing: billingResult } = await searchParams;
   const user = await requireOperator();
   const client = await getClient(user.orgId, id);
   if (!client) notFound();
@@ -46,6 +50,24 @@ export default async function ClientPage({
       voices = [];
     }
   }
+
+  const [subRow] = await db
+    .select()
+    .from(subscriptions)
+    .where(and(eq(subscriptions.clientId, id), isNull(subscriptions.deletedAt)))
+    .limit(1);
+  const billing = {
+    stripeReady: integrations.stripe(),
+    testMode: isStripeTestMode(),
+    subscription: subRow
+      ? {
+          status: subRow.status ?? "",
+          plan: subRow.plan,
+          monthlyPriceCents: subRow.monthlyPriceCents,
+          currentPeriodEnd: subRow.currentPeriodEnd,
+        }
+      : null,
+  };
 
   return (
     <div className="space-y-6">
@@ -73,6 +95,23 @@ export default async function ClientPage({
           <StatusBadge status={client.status} />
         </div>
       </PageHeader>
+      {billingResult === "success" ? (
+        <Card className="border-emerald-500/30 bg-emerald-500/5">
+          <CardContent className="p-4 text-sm">
+            <p className="font-medium text-emerald-700 dark:text-emerald-400">Checkout complete.</p>
+            <p className="text-muted-foreground">
+              The subscription appears under Settings → Billing once Stripe confirms the payment
+              (a second or two via webhook).
+            </p>
+          </CardContent>
+        </Card>
+      ) : billingResult === "cancel" ? (
+        <Card>
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            Checkout canceled — no charge was made. You can start it again under Settings → Billing.
+          </CardContent>
+        </Card>
+      ) : null}
       {onboarded ? (
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="flex items-start gap-3 p-4">
@@ -99,6 +138,7 @@ export default async function ClientPage({
         metrics={metrics}
         retellReady={integrations.retell()}
         voices={voices}
+        billing={billing}
       />
     </div>
   );
