@@ -19,7 +19,11 @@ const isPublicRoute = createRouteMatcher([
 
 export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
-    await auth.protect();
+    // Send unauthenticated visitors to our own /sign-in page (the custom animated
+    // flow) instead of Clerk's hosted Account Portal.
+    await auth.protect({
+      unauthenticatedUrl: new URL("/sign-in", req.url).toString(),
+    });
   }
 });
 

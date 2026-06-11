@@ -2,7 +2,7 @@ import "server-only";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, organizations, users, type User } from "@/db/schema";
 
@@ -59,6 +59,21 @@ export async function requireAuth(): Promise<{ clerkUserId: string }> {
 }
 
 /**
+ * The platform owner(s) always govern from an *agency* workspace (full admin +
+ * the cross-workspace Platform view). If a super-admin's workspace was created as
+ * a self-serve "business" (e.g. they signed up like any other user), upgrade it
+ * to "agency" so they land on the governing dashboard. Idempotent — the WHERE
+ * clause makes it a no-op once the workspace is already an agency.
+ */
+async function ensureSuperAdminGoverns(user: User): Promise<void> {
+  if (!SUPER_ADMIN_EMAILS.has(user.email.toLowerCase())) return;
+  await db
+    .update(organizations)
+    .set({ kind: "agency" })
+    .where(and(eq(organizations.id, user.orgId), ne(organizations.kind, "agency")));
+}
+
+/**
  * Resolve the Clerk-authenticated user to our `users` row, bootstrapping it (and
  * a default agency org) on first login. Single-operator v1: the first user
  * creates the org as `operator`; subsequent operators join the existing org.
@@ -70,7 +85,10 @@ export async function getCurrentDbUser(): Promise<User> {
   const existing = await db.query.users.findFirst({
     where: and(eq(users.clerkUserId, userId), isNull(users.deletedAt)),
   });
-  if (existing) return existing;
+  if (existing) {
+    await ensureSuperAdminGoverns(existing);
+    return existing;
+  }
 
   const cu = await currentUser();
   // The org you join is decided by your email DOMAIN, so it must come from a
@@ -142,6 +160,7 @@ export async function getCurrentDbUser(): Promise<User> {
       .returning()
   )[0];
   if (!created) throw new Error("Failed to create user record.");
+  await ensureSuperAdminGoverns(created);
   return created;
 }
 
