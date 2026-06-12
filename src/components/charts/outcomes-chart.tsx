@@ -8,7 +8,7 @@ const OUTCOME_META: Record<string, { label: string; color: string }> = {
   booked: { label: "Booked an appointment", color: CHART_COLORS.booked },
   lead: { label: "Took a message", color: CHART_COLORS.message },
   faq_answered: { label: "Answered a question", color: CHART_COLORS.answered },
-  escalated: { label: "Transferred to a person", color: "#f59e0b" },
+  escalated: { label: "Transferred to a person", color: CHART_COLORS.escalated },
   missed: { label: "Missed", color: CHART_COLORS.missed },
   unknown: { label: "Other", color: CHART_COLORS.other },
 };
@@ -51,11 +51,11 @@ export function OutcomesChart({ data }: { data: { outcome: string; count: number
                 <Cell key={r.key} fill={r.color} />
               ))}
             </Pie>
-            <Tooltip contentStyle={{ ...TOOLTIP_STYLE }} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} />
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-mono text-3xl font-semibold tabular-nums">{total}</span>
+          <span className="font-heading text-3xl font-semibold tabular-nums">{total}</span>
           <span className="text-xs text-muted-foreground">calls</span>
         </div>
       </div>
