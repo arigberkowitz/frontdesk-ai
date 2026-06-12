@@ -106,10 +106,10 @@ export default async function PortalOverviewPage({
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} />
-        <MetricCard label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} />
-        <MetricCard label="Appointments booked" value={String(m.bookings)} href="/portal/appointments" breakdown={apptBreakdown} />
-        <MetricCard label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} />
+        <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} />
+        <MetricCard icon="calls" label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} />
+        <MetricCard icon="bookings" label="Appointments booked" value={String(m.bookings)} href="/portal/appointments" breakdown={apptBreakdown} />
+        <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

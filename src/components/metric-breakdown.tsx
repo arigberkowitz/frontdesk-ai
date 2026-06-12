@@ -5,19 +5,20 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { MetricIconChip, type MetricIcon } from "@/components/metric-accent";
 
 interface MetricBreakdownProps {
   label: string;
   value: string;
   hint?: string;
+  icon?: MetricIcon;
   breakdown: string[];
   href?: string;
   className?: string;
 }
 
-/** Client island for a metric that expands its breakdown on click. Receives only
- *  serializable strings — no icon — so it's safe to render from a server page. */
-export function MetricBreakdown({ label, value, hint, breakdown, href, className }: MetricBreakdownProps) {
+/** Client island for a metric that expands its breakdown on click. */
+export function MetricBreakdown({ label, value, hint, icon, breakdown, href, className }: MetricBreakdownProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -29,8 +30,8 @@ export function MetricBreakdown({ label, value, hint, breakdown, href, className
           className="block w-full cursor-pointer text-left"
           aria-expanded={open}
         >
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-muted-foreground">{label}</p>
+          <div className="flex min-h-8 items-center justify-between gap-2">
+            <MetricIconChip icon={icon} />
             <ChevronDown
               className={cn(
                 "size-4 shrink-0 text-muted-foreground transition-transform",
@@ -38,8 +39,11 @@ export function MetricBreakdown({ label, value, hint, breakdown, href, className
               )}
             />
           </div>
-          <p className="mt-2 font-heading text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
-          {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+          <p className={cn("font-heading text-3xl font-semibold tracking-tight tabular-nums", icon && "mt-3")}>
+            {value}
+          </p>
+          <p className="mt-1 text-sm font-medium text-muted-foreground">{label}</p>
+          {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
         </button>
         {open ? (
           <div className="mt-3 space-y-1 border-t pt-3 text-xs text-muted-foreground">

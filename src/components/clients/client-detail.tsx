@@ -121,14 +121,14 @@ export function ClientDetail(props: Props) {
 
       <TabsContent value="overview" className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard label="Revenue captured" value={formatCurrencyCents(metrics.estRevenueCents)} hint="Bookings × avg price" breakdown={bd.revenue} />
-          <MetricCard label="Calls" value={String(metrics.totalCalls)} hint="All time" breakdown={bd.calls} />
-          <MetricCard label="Bookings" value={String(metrics.bookings)} breakdown={bd.bookings} />
-          <MetricCard label="After-hours saves" value={String(metrics.afterHoursCalls)} breakdown={bd.afterHours} />
-          <MetricCard label="Containment" value={formatPercent(metrics.containmentRate)} hint="Handled without a human" breakdown={bd.containment} />
-          <MetricCard label="Answer rate" value={formatPercent(metrics.answerRate)} breakdown={bd.answerRate} />
-          <MetricCard label="Leads" value={String(metrics.leads)} breakdown={bd.leads} />
-          <MetricCard label="Sentiment" value={sentimentLabel(metrics.sentimentScore)} breakdown={bd.sentiment} />
+          <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(metrics.estRevenueCents)} hint="Bookings × avg price" breakdown={bd.revenue} />
+          <MetricCard icon="calls" label="Calls" value={String(metrics.totalCalls)} hint="All time" breakdown={bd.calls} />
+          <MetricCard icon="bookings" label="Bookings" value={String(metrics.bookings)} breakdown={bd.bookings} />
+          <MetricCard icon="afterHours" label="After-hours saves" value={String(metrics.afterHoursCalls)} breakdown={bd.afterHours} />
+          <MetricCard icon="containment" label="Containment" value={formatPercent(metrics.containmentRate)} hint="Handled without a human" breakdown={bd.containment} />
+          <MetricCard icon="answerRate" label="Answer rate" value={formatPercent(metrics.answerRate)} breakdown={bd.answerRate} />
+          <MetricCard icon="leads" label="Leads" value={String(metrics.leads)} breakdown={bd.leads} />
+          <MetricCard icon="sentiment" label="Sentiment" value={sentimentLabel(metrics.sentimentScore)} breakdown={bd.sentiment} />
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>

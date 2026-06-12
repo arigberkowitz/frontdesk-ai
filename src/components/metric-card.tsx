@@ -1,14 +1,15 @@
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { MetricBreakdown } from "@/components/metric-breakdown";
+import { MetricIconChip, type MetricIcon } from "@/components/metric-accent";
 
 interface MetricCardProps {
   label: string;
   value: string;
   hint?: string;
-  icon?: LucideIcon;
+  /** Leading accent icon-chip; binds to a fixed color in the registry. */
+  icon?: MetricIcon;
   /** When set, the card links to the underlying records. */
   href?: string;
   /** When set, clicking the card expands these fact lines (the breakdown). */
@@ -17,15 +18,14 @@ interface MetricCardProps {
 }
 
 /** Big, legible stat. Optionally links to the records, or expands a breakdown on click. */
-export function MetricCard({ label, value, hint, icon: Icon, href, breakdown, className }: MetricCardProps) {
-  // The expandable variant is a client island that takes only strings (no icon),
-  // so MetricCard itself stays a shared component and can render the icon safely.
+export function MetricCard({ label, value, hint, icon, href, breakdown, className }: MetricCardProps) {
   if (breakdown && breakdown.length > 0) {
     return (
       <MetricBreakdown
         label={label}
         value={value}
         hint={hint}
+        icon={icon}
         breakdown={breakdown}
         href={href}
         className={className}
@@ -35,12 +35,12 @@ export function MetricCard({ label, value, hint, icon: Icon, href, breakdown, cl
 
   const body = (
     <CardContent className="p-5">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        {Icon ? <Icon className="size-4 shrink-0 text-muted-foreground" /> : null}
-      </div>
-      <p className="mt-2 font-heading text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+      <MetricIconChip icon={icon} />
+      <p className={cn("font-heading text-3xl font-semibold tracking-tight tabular-nums", icon && "mt-3")}>
+        {value}
+      </p>
+      <p className="mt-1 text-sm font-medium text-muted-foreground">{label}</p>
+      {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
     </CardContent>
   );
 
