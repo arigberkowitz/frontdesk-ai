@@ -46,7 +46,10 @@ export function OnboardingWelcome({ aiReady }: { aiReady: boolean }) {
   return (
     <div className="mx-auto max-w-2xl space-y-8 py-6 text-center">
       <div className="space-y-3">
-        <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+        <div
+          className="mx-auto flex size-12 items-center justify-center rounded-2xl text-white"
+          style={{ background: "linear-gradient(135deg,#6366f1,#10b981)" }}
+        >
           <Phone className="size-6" />
         </div>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">Welcome to FrontDesk AI</h1>

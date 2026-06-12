@@ -27,11 +27,14 @@ export default async function PortalLayout({ children }: { children: React.React
         </div>
       ) : null}
       <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur sm:px-6">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <div
+          className="flex size-8 items-center justify-center rounded-lg text-white"
+          style={{ background: "linear-gradient(135deg,#6366f1,#10b981)" }}
+        >
           <Phone className="size-4" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold leading-tight">
+          <p className="truncate font-heading text-sm font-semibold leading-tight">
             {client?.name ?? "Your business"}
           </p>
           <p className="text-xs text-muted-foreground leading-tight">FrontDesk AI</p>

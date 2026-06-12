@@ -48,7 +48,10 @@ export function IntakeForm({
   return (
     <form action={action} className="w-full max-w-lg space-y-5">
       <div className="space-y-2 text-center">
-        <div className="mx-auto flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+        <div
+          className="mx-auto flex size-11 items-center justify-center rounded-2xl text-white"
+          style={{ background: "linear-gradient(135deg,#6366f1,#10b981)" }}
+        >
           <Phone className="size-5" />
         </div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight">

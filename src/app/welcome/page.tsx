@@ -16,7 +16,10 @@ export default async function WelcomePage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-6">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <div
+          className="flex size-8 items-center justify-center rounded-lg text-white"
+          style={{ background: "linear-gradient(135deg,#6366f1,#10b981)" }}
+        >
           <Phone className="size-4" />
         </div>
         <span className="font-heading font-semibold tracking-tight">FrontDesk AI</span>
