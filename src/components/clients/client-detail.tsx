@@ -45,6 +45,7 @@ interface Props {
   retellReady: boolean;
   voices: VoiceMeta[];
   billing: BillingInfo;
+  intakeUrl: string;
 }
 
 function sentimentLabel(score: number | null): string {
@@ -101,6 +102,7 @@ export function ClientDetail(props: Props) {
     retellReady,
     voices,
     billing,
+    intakeUrl,
   } = props;
 
   const bd = clientMetricBreakdowns(metrics);
@@ -216,7 +218,7 @@ export function ClientDetail(props: Props) {
         <AgentConfigTab client={client} retellReady={retellReady} voices={voices} />
       </TabsContent>
       <TabsContent value="settings">
-        <SettingsTab client={client} billing={billing} />
+        <SettingsTab client={client} billing={billing} intakeUrl={intakeUrl} />
       </TabsContent>
     </Tabs>
   );

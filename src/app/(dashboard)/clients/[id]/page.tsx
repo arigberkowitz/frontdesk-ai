@@ -9,7 +9,8 @@ import { listLeads } from "@/lib/data/leads";
 import { getClientMetrics } from "@/lib/data/metrics";
 import { listRetellVoices } from "@/lib/retell";
 import { isStripeTestMode } from "@/lib/stripe";
-import { integrations } from "@/lib/env";
+import { signIntakeToken } from "@/lib/intake-token";
+import { env, integrations } from "@/lib/env";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
@@ -139,6 +140,7 @@ export default async function ClientPage({
         retellReady={integrations.retell()}
         voices={voices}
         billing={billing}
+        intakeUrl={`${env.APP_URL}/intake/${signIntakeToken(client.id)}`}
       />
     </div>
   );

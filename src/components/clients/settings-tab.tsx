@@ -32,7 +32,24 @@ import { BillingCard, type BillingInfo } from "@/components/clients/billing-card
 import { CLIENT_STATUSES, INDUSTRIES, STATUS_LABELS, TIMEZONES } from "@/config/options";
 import type { Client } from "@/db/schema";
 
-export function SettingsTab({ client, billing }: { client: Client; billing: BillingInfo }) {
+export function SettingsTab({
+  client,
+  billing,
+  intakeUrl,
+}: {
+  client: Client;
+  billing: BillingInfo;
+  intakeUrl: string;
+}) {
+  async function copyIntakeLink() {
+    try {
+      await navigator.clipboard.writeText(intakeUrl);
+      toast.success("Intake link copied — send it to the business.");
+    } catch {
+      toast.error("Couldn't copy — select the link and copy it manually.");
+    }
+  }
+
   const [profile, profileAction, profilePending] = useActionState(
     updateClientProfileAction,
     initialActionState,
@@ -61,6 +78,29 @@ export function SettingsTab({ client, billing }: { client: Client; billing: Bill
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Client intake link</CardTitle>
+          <CardDescription>
+            Send this to the business to collect their website, hours, alert contacts, and any special
+            instructions — it drafts their AI from their site. The link expires in 30 days.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Input
+              readOnly
+              value={intakeUrl}
+              onFocus={(e) => e.currentTarget.select()}
+              className="font-mono text-xs"
+            />
+            <Button type="button" variant="outline" onClick={copyIntakeLink}>
+              Copy
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Business profile</CardTitle>
