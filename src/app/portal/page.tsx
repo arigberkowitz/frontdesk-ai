@@ -6,11 +6,11 @@ import { getClientMetrics } from "@/lib/data/metrics";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listAppointments } from "@/lib/data/appointments";
 import { listCalls } from "@/lib/data/calls";
+import { getFollowUpsForClient } from "@/lib/data/follow-ups";
 import { PageHeader } from "@/components/page-header";
 import { MetricCard } from "@/components/metric-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CallsChart } from "@/components/charts/calls-chart";
-import { OutcomesChart } from "@/components/charts/outcomes-chart";
+import { Card, CardContent } from "@/components/ui/card";
+import { CallActivity } from "@/components/portal/call-activity";
 import { formatCurrencyCents, formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -22,11 +22,12 @@ export default async function PortalOverviewPage({
 }) {
   const { onboarded } = await searchParams;
   const { clientId } = await resolvePortalClient();
-  const [client, m, appts, callsList] = await Promise.all([
+  const [client, m, appts, callsList, followUps] = await Promise.all([
     getClientByIdUnsafe(clientId),
     getClientMetrics(clientId),
     listAppointments(clientId),
     listCalls(clientId),
+    getFollowUpsForClient(clientId),
   ]);
   const tz = client?.timezone;
   const answered = Math.max(0, m.totalCalls - m.bookings - m.leads);
@@ -112,24 +113,13 @@ export default async function PortalOverviewPage({
         <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Calls and bookings — last 14 days</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CallsChart data={m.callsByDay} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>What happened on your calls</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <OutcomesChart data={m.outcomes} />
-          </CardContent>
-        </Card>
-      </div>
+      <CallActivity
+        trend={m.callsByDay}
+        outcomes={m.outcomes}
+        followUps={followUps}
+        clientId={clientId}
+        tz={tz}
+      />
     </div>
   );
 }

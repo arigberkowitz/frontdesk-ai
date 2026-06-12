@@ -4,6 +4,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -25,8 +26,17 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   );
 }
 
-/** Calls + bookings over the last 14 days. */
-export function CallsChart({ data }: { data: DayPoint[] }) {
+/** Calls + bookings over the last 14 days. When `onSelectDay` is set, the chart
+ *  is interactive: clicking a day highlights it and reports the date back. */
+export function CallsChart({
+  data,
+  selectedDate,
+  onSelectDay,
+}: {
+  data: DayPoint[];
+  selectedDate?: string | null;
+  onSelectDay?: (date: string) => void;
+}) {
   const hasData = data.some((d) => d.calls > 0 || d.bookings > 0);
 
   if (!hasData) {
@@ -37,15 +47,33 @@ export function CallsChart({ data }: { data: DayPoint[] }) {
     );
   }
 
+  const interactive = Boolean(onSelectDay);
+
   return (
     <div>
-      <div className="mb-2 flex items-center gap-4">
-        <LegendDot color={CHART_COLORS.calls} label="Calls" />
-        <LegendDot color={CHART_COLORS.bookings} label="Bookings" />
+      <div className="mb-2 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <LegendDot color={CHART_COLORS.calls} label="Calls" />
+          <LegendDot color={CHART_COLORS.bookings} label="Bookings" />
+        </div>
+        {interactive ? (
+          <span className="text-xs text-muted-foreground">Tap a day to see who called</span>
+        ) : null}
       </div>
       <div className="h-56 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+          <AreaChart
+            data={data}
+            margin={{ top: 8, right: 8, bottom: 0, left: -18 }}
+            className={interactive ? "cursor-pointer" : undefined}
+            onClick={
+              onSelectDay
+                ? (state: { activeLabel?: string | number }) => {
+                    if (state?.activeLabel != null) onSelectDay(String(state.activeLabel));
+                  }
+                : undefined
+            }
+          >
             <defs>
               <linearGradient id="calls-fill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={CHART_COLORS.calls} stopOpacity={0.22} />
@@ -71,6 +99,9 @@ export function CallsChart({ data }: { data: DayPoint[] }) {
               stroke={CHART_AXIS}
             />
             <Tooltip labelFormatter={(d) => fmtDay(String(d))} contentStyle={TOOLTIP_STYLE} />
+            {selectedDate ? (
+              <ReferenceLine x={selectedDate} stroke={CHART_COLORS.calls} strokeDasharray="4 3" />
+            ) : null}
             <Area
               type="monotone"
               dataKey="calls"
