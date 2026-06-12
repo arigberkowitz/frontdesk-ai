@@ -137,6 +137,9 @@ export async function getCurrentDbUser(): Promise<User> {
     ? await db.query.organizations.findFirst({ where: eq(organizations.domain, domain) })
     : undefined;
 
+  // Track whether *this* call freshly created a private (free-email) workspace, so
+  // we know it's safe to remove if we then lose the user-insert race below.
+  let createdFreeOrg = false;
   if (!org) {
     const name = deriveWorkspaceName(domain, email);
     if (shareByDomain) {
@@ -149,16 +152,31 @@ export async function getCurrentDbUser(): Promise<User> {
       org = await db.query.organizations.findFirst({ where: eq(organizations.domain, domain) });
     } else {
       org = (await db.insert(organizations).values({ name, domain: null }).returning())[0];
+      createdFreeOrg = true;
     }
   }
   if (!org) throw new Error("Failed to bootstrap organization.");
 
-  const created = (
+  // Insert the user, tolerating a first-login race: if two requests bootstrap the
+  // same Clerk user at once, the unique clerk_user_id index lets only one win.
+  // The loser would otherwise leave its just-created workspace orphaned with zero
+  // members — so delete that orphan and fall back to the winner's workspace.
+  let created: User | undefined = (
     await db
       .insert(users)
       .values({ orgId: org.id, clerkUserId: userId, email, role: "operator" })
+      .onConflictDoNothing({ target: users.clerkUserId })
       .returning()
   )[0];
+
+  if (!created) {
+    if (createdFreeOrg) {
+      await db.delete(organizations).where(eq(organizations.id, org.id));
+    }
+    created = await db.query.users.findFirst({
+      where: and(eq(users.clerkUserId, userId), isNull(users.deletedAt)),
+    });
+  }
   if (!created) throw new Error("Failed to create user record.");
   await ensureSuperAdminGoverns(created);
   return created;

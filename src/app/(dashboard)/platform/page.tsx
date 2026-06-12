@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/clients/status-badge";
-import { formatDateTime } from "@/lib/format";
+import { LocalDateTime } from "@/components/local-datetime";
 import type { ClientStatus } from "@/db/schema";
 
 export const metadata: Metadata = { title: "Platform" };
@@ -19,9 +19,7 @@ export default async function PlatformPage() {
     <div className="space-y-6">
       <PageHeader
         title="Platform"
-        description={`Every company on FrontDesk AI — ${workspaces.length} workspace${
-          workspaces.length === 1 ? "" : "s"
-        }, ${selfServe} self-serve.`}
+        description={`Every company that's signed up for FrontDesk AI — one workspace is created per signup, not per login. ${workspaces.length} total, ${selfServe} self-serve.`}
       />
 
       <div className="space-y-3">
@@ -39,7 +37,7 @@ export default async function PlatformPage() {
                   ) : null}
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  Joined {formatDateTime(w.createdAt)}
+                  Signed up <LocalDateTime iso={w.createdAt.toISOString()} />
                 </span>
               </div>
 

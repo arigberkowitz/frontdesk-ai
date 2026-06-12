@@ -27,13 +27,17 @@ export async function listAllWorkspaces(): Promise<PlatformWorkspace[]> {
       users: true,
     },
   });
-  return orgs.map((o) => ({
-    orgId: o.id,
-    name: o.name,
-    kind: o.kind,
-    domain: o.domain,
-    createdAt: o.createdAt,
-    members: o.users.length,
-    businesses: o.clients.map((c) => ({ id: c.id, name: c.name, status: c.status })),
-  }));
+  return orgs
+    // A workspace with no members is an orphan (e.g. a leftover from a first-login
+    // race) — it represents no real account, so never surface it here.
+    .filter((o) => o.users.length > 0)
+    .map((o) => ({
+      orgId: o.id,
+      name: o.name,
+      kind: o.kind,
+      domain: o.domain,
+      createdAt: o.createdAt,
+      members: o.users.length,
+      businesses: o.clients.map((c) => ({ id: c.id, name: c.name, status: c.status })),
+    }));
 }
