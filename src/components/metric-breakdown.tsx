@@ -38,7 +38,7 @@ export function MetricBreakdown({ label, value, hint, breakdown, href, className
               )}
             />
           </div>
-          <p className="mt-2 font-mono text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
+          <p className="mt-2 font-heading text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
           {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
         </button>
         {open ? (

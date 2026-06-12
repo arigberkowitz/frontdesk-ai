@@ -39,7 +39,7 @@ export function MetricCard({ label, value, hint, icon: Icon, href, breakdown, cl
         <p className="text-sm font-medium text-muted-foreground">{label}</p>
         {Icon ? <Icon className="size-4 shrink-0 text-muted-foreground" /> : null}
       </div>
-      <p className="mt-2 font-mono text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
+      <p className="mt-2 font-heading text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </CardContent>
   );

@@ -26,20 +26,26 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   Sparkles,
 };
 
-const linkClass = (active: boolean) =>
+const linkClass = (active: boolean, dark?: boolean) =>
   cn(
-    "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-    active
-      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-      : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
+    "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
+    dark
+      ? active
+        ? "bg-indigo-500/25 text-white"
+        : "text-zinc-400 hover:bg-white/5 hover:text-white"
+      : active
+        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+        : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
   );
 
 export function NavLinks({
   onNavigate,
   superAdmin,
+  dark,
 }: {
   onNavigate?: () => void;
   superAdmin?: boolean;
+  dark?: boolean;
 }) {
   const pathname = usePathname();
   return (
@@ -53,7 +59,7 @@ export function NavLinks({
             href={item.href}
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
-            className={linkClass(active)}
+            className={linkClass(active, dark)}
           >
             <Icon className="size-4 shrink-0" />
             {item.label}
@@ -65,7 +71,7 @@ export function NavLinks({
           href="/platform"
           onClick={onNavigate}
           aria-current={pathname.startsWith("/platform") ? "page" : undefined}
-          className={linkClass(pathname.startsWith("/platform"))}
+          className={linkClass(pathname.startsWith("/platform"), dark)}
         >
           <Globe className="size-4 shrink-0" />
           Platform
@@ -77,15 +83,18 @@ export function NavLinks({
 
 export function AppSidebar({ superAdmin }: { superAdmin?: boolean }) {
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar md:flex">
-      <div className="flex h-16 items-center gap-2 border-b px-5">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+    <aside className="hidden w-52 shrink-0 flex-col border-r border-white/5 bg-[#11131c] md:flex">
+      <div className="flex h-16 items-center gap-2.5 border-b border-white/5 px-4">
+        <div
+          className="flex size-7 items-center justify-center rounded-lg text-white"
+          style={{ background: "linear-gradient(135deg,#6366f1,#10b981)" }}
+        >
           <Phone className="size-4" />
         </div>
-        <span className="font-semibold tracking-tight">{APP_NAME}</span>
+        <span className="font-heading font-semibold tracking-tight text-white">{APP_NAME}</span>
       </div>
       <div className="flex-1 overflow-y-auto p-3">
-        <NavLinks superAdmin={superAdmin} />
+        <NavLinks superAdmin={superAdmin} dark />
       </div>
     </aside>
   );

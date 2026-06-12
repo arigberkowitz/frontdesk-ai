@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { currentUser } from "@clerk/nextjs/server";
 import { Building2, MessageSquare, Plus } from "lucide-react";
 import { requireOperator } from "@/lib/auth-guard";
 import { getPortfolioMetrics } from "@/lib/data/metrics";
-import { PageHeader } from "@/components/page-header";
+import { Greeting } from "@/components/greeting";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,8 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const user = await requireOperator();
-  const m = await getPortfolioMetrics(user.orgId);
+  const [m, cu] = await Promise.all([getPortfolioMetrics(user.orgId), currentUser()]);
+  const firstName = cu?.firstName ?? undefined;
 
   const money = formatCurrencyCents;
   const perClientOverhead = m.activeClients ? Math.round(m.overheadCents / m.activeClients) : 0;
@@ -64,12 +66,18 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" description="Your book of business at a glance.">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
+            <Greeting name={firstName} />
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">Your book of business at a glance.</p>
+        </div>
         <Button render={<Link href="/clients/new" />} nativeButton={false}>
           <Plus className="size-4" />
           New client
         </Button>
-      </PageHeader>
+      </div>
 
       {m.newLeads > 0 ? (
         <Card className="border-amber-500/40 bg-amber-500/5">
