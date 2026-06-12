@@ -30,8 +30,10 @@ export function PortalNav() {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "shrink-0 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors sm:px-3",
-              active ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+              "shrink-0 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors sm:px-3",
+              active
+                ? "bg-indigo-500/12 text-indigo-600 dark:text-indigo-300"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
             {item.label}

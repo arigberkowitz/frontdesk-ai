@@ -1,15 +1,16 @@
 "use client";
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { CHART_COLORS, TOOLTIP_STYLE } from "./theme";
 
-/** Friendly label + color for each call outcome. */
+/** Friendly label + color for each call outcome (shared palette). */
 const OUTCOME_META: Record<string, { label: string; color: string }> = {
-  booked: { label: "Booked an appointment", color: "#10b981" },
-  lead: { label: "Took a message", color: "#6366f1" },
-  faq_answered: { label: "Answered a question", color: "#0ea5e9" },
+  booked: { label: "Booked an appointment", color: CHART_COLORS.booked },
+  lead: { label: "Took a message", color: CHART_COLORS.message },
+  faq_answered: { label: "Answered a question", color: CHART_COLORS.answered },
   escalated: { label: "Transferred to a person", color: "#f59e0b" },
-  missed: { label: "Missed", color: "#94a3b8" },
-  unknown: { label: "Other", color: "#cbd5e1" },
+  missed: { label: "Missed", color: CHART_COLORS.missed },
+  unknown: { label: "Other", color: CHART_COLORS.other },
 };
 
 /** Donut of what happened on calls, with the total in the center and a counted legend. */
@@ -50,14 +51,7 @@ export function OutcomesChart({ data }: { data: { outcome: string; count: number
                 <Cell key={r.key} fill={r.color} />
               ))}
             </Pie>
-            <Tooltip
-              contentStyle={{
-                borderRadius: 10,
-                border: "1px solid var(--border)",
-                fontSize: 12,
-                boxShadow: "0 4px 12px rgb(0 0 0 / 0.08)",
-              }}
-            />
+            <Tooltip contentStyle={{ ...TOOLTIP_STYLE }} />
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
