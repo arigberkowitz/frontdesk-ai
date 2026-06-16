@@ -4,7 +4,7 @@ import { listKnowledge } from "@/lib/data/knowledge";
 import { PageHeader } from "@/components/page-header";
 import { KnowledgeTab } from "@/components/clients/knowledge-tab";
 
-export const metadata: Metadata = { title: "FAQ" };
+export const metadata: Metadata = { title: "Knowledge" };
 
 export default async function PortalKnowledgePage() {
   const { clientId } = await resolvePortalClient();
@@ -13,8 +13,8 @@ export default async function PortalKnowledgePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="FAQ"
-        description="The answers your AI gives callers. Add or edit anything — it updates your receptionist immediately."
+        title="Knowledge"
+        description="Everything your AI knows about your business. It only answers from what you add here — so the more you add, the more it can handle. Changes update your receptionist immediately."
       />
       <KnowledgeTab clientId={clientId} knowledge={knowledge} />
     </div>

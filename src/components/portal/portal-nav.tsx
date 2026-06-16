@@ -11,7 +11,7 @@ const ITEMS = [
   { label: "Leads", href: "/portal/leads" },
   { label: "Services", href: "/portal/services" },
   { label: "Hours", href: "/portal/hours" },
-  { label: "FAQ", href: "/portal/knowledge" },
+  { label: "Knowledge", href: "/portal/knowledge" },
   { label: "Your AI", href: "/portal/guidelines" },
   { label: "Settings", href: "/portal/settings" },
   { label: "Demo", href: "/portal/demo" },
