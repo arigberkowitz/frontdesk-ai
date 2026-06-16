@@ -22,6 +22,10 @@ export function PortalSettings({ client }: { client: Client }) {
     savePortalProfileAction,
     initialActionState,
   );
+  const [handoff, handoffAction, handoffPending] = useActionState(
+    savePortalProfileAction,
+    initialActionState,
+  );
   const [help, helpAction, helpPending] = useActionState(contactSupportAction, initialActionState);
   const helpFormRef = useRef<HTMLFormElement>(null);
 
@@ -33,6 +37,10 @@ export function PortalSettings({ client }: { client: Client }) {
     if (alerts.ok) toast.success("Alert settings saved.");
     else if (alerts.error) toast.error(alerts.error);
   }, [alerts]);
+  useEffect(() => {
+    if (handoff.ok) toast.success("Human-handoff settings saved.");
+    else if (handoff.error) toast.error(handoff.error);
+  }, [handoff]);
   useEffect(() => {
     if (help.ok) {
       toast.success("Message sent — we'll get back to you by email.");
@@ -106,6 +114,48 @@ export function PortalSettings({ client }: { client: Client }) {
             </Field>
             <div className="flex justify-end">
               <SubmitButton pending={alertsPending}>Save</SubmitButton>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Human touch</CardTitle>
+          <CardDescription>
+            Many callers still want a real person. Your AI can offer to connect them — and if no
+            one&apos;s free, it takes their name and number and promises a callback, so no one&apos;s
+            left talking to a wall.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={handoffAction} className="space-y-4">
+            <input type="hidden" name="clientId" value={client.id} />
+            <Field
+              label="Offer to connect callers to a real person"
+              hint="When on, your AI proactively offers a human for upset, sensitive, or complex calls — not only when asked. Transfers go to your alert phone above."
+            >
+              <NativeSelect
+                name="humanHandoffEnabled"
+                defaultValue={client.humanHandoffEnabled ? "on" : "off"}
+              >
+                <option value="on">On — offer a human when it helps</option>
+                <option value="off">Off — only transfer if the caller asks</option>
+              </NativeSelect>
+            </Field>
+            <Field
+              label="When is a real person reachable?"
+              hint="Optional. Your AI mentions this when offering a human, e.g. 'weekdays 9am–5pm'."
+              error={handoff.fieldErrors?.humanHoursNote}
+            >
+              <Input
+                name="humanHoursNote"
+                defaultValue={client.humanHoursNote ?? ""}
+                placeholder="Weekdays 9am–5pm"
+              />
+            </Field>
+            <div className="flex justify-end">
+              <SubmitButton pending={handoffPending}>Save</SubmitButton>
             </div>
           </form>
         </CardContent>

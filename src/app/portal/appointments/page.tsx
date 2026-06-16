@@ -3,6 +3,7 @@ import { CalendarCheck } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listAppointments } from "@/lib/data/appointments";
+import { remindersByAppointment } from "@/lib/data/reminders";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { AppointmentsView } from "@/components/appointments-view";
@@ -17,9 +18,10 @@ export default async function PortalAppointmentsPage({
   searchParams: Promise<{ calendar?: string }>;
 }) {
   const { clientId } = await resolvePortalClient();
-  const [client, appointments, sp] = await Promise.all([
+  const [client, appointments, reminderMap, sp] = await Promise.all([
     getClientByIdUnsafe(clientId),
     listAppointments(clientId),
+    remindersByAppointment(clientId),
     searchParams,
   ]);
   const items = appointments.map((a) => ({
@@ -32,6 +34,15 @@ export default async function PortalAppointmentsPage({
     status: a.status,
     serviceName: a.service?.name ?? null,
   }));
+  // Serialize reminder rows to the lightweight shape the client view needs.
+  const reminders: Record<string, { channel: string; status: string; at: string }[]> = {};
+  for (const [apptId, rows] of Object.entries(reminderMap)) {
+    reminders[apptId] = rows.map((r) => ({
+      channel: r.channel,
+      status: r.status,
+      at: (r.sentAt ?? r.createdAt).toISOString(),
+    }));
+  }
 
   return (
     <div className="space-y-6">
@@ -49,7 +60,12 @@ export default async function PortalAppointmentsPage({
           description="Appointments your AI books will show up here."
         />
       ) : (
-        <AppointmentsView appointments={items} callBasePath="/portal/calls" />
+        <AppointmentsView
+          appointments={items}
+          callBasePath="/portal/calls"
+          clientId={clientId}
+          reminders={reminders}
+        />
       )}
     </div>
   );

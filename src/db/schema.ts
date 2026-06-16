@@ -72,6 +72,8 @@ export const appointmentStatus = pgEnum("appointment_status", [
   "no_show",
 ]);
 export const leadStatus = pgEnum("lead_status", ["new", "contacted", "won", "lost"]);
+export const reminderChannel = pgEnum("reminder_channel", ["call", "sms"]);
+export const reminderStatus = pgEnum("reminder_status", ["queued", "sent", "failed"]);
 export const notificationChannel = pgEnum("notification_channel", ["email", "sms"]);
 export const notificationType = pgEnum("notification_type", [
   "booking",
@@ -156,6 +158,11 @@ export const clients = pgTable(
     // §12 recording/AI disclosure toggle (default-on) + optional custom line.
     recordingDisclosureEnabled: boolean("recording_disclosure_enabled").notNull().default(true),
     recordingDisclosureLine: text("recording_disclosure_line"),
+    // "Human touch": when on, the AI proactively offers to connect callers to a
+    // real person (and always promises a callback if no one's free). The note
+    // tells the AI when a human is actually reachable, e.g. "weekdays 9–5".
+    humanHandoffEnabled: boolean("human_handoff_enabled").notNull().default(true),
+    humanHoursNote: text("human_hours_note"),
     ...timestamps,
     ...softDelete,
   },
@@ -323,6 +330,31 @@ export const leads = pgTable(
   (t) => [index("leads_client_id_idx").on(t.clientId)],
 );
 
+/** Appointment reminder log: one row per call/text reminder a business sends a
+ *  customer about an upcoming appointment, so the portal can show exactly when
+ *  each customer was pinged (and whether it went through). */
+export const reminders = pgTable(
+  "reminders",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, {
+      onDelete: "set null",
+    }),
+    channel: reminderChannel("channel").notNull(),
+    status: reminderStatus("status").notNull().default("queued"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    error: text("error"),
+    ...timestamps,
+  },
+  (t) => [
+    index("reminders_client_id_idx").on(t.clientId),
+    index("reminders_appointment_id_idx").on(t.appointmentId),
+  ],
+);
+
 /** Outbound notification log (`recipient` instead of reserved word `to`). */
 export const notifications = pgTable(
   "notifications",
@@ -427,6 +459,7 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   calls: many(calls),
   appointments: many(appointments),
   leads: many(leads),
+  reminders: many(reminders),
   notifications: many(notifications),
   subscription: one(subscriptions),
   agentVersions: many(agentVersions),
@@ -456,10 +489,19 @@ export const callsRelations = relations(calls, ({ one, many }) => ({
   leads: many(leads),
 }));
 
-export const appointmentsRelations = relations(appointments, ({ one }) => ({
+export const appointmentsRelations = relations(appointments, ({ one, many }) => ({
   client: one(clients, { fields: [appointments.clientId], references: [clients.id] }),
   call: one(calls, { fields: [appointments.callId], references: [calls.id] }),
   service: one(services, { fields: [appointments.serviceId], references: [services.id] }),
+  reminders: many(reminders),
+}));
+
+export const remindersRelations = relations(reminders, ({ one }) => ({
+  client: one(clients, { fields: [reminders.clientId], references: [clients.id] }),
+  appointment: one(appointments, {
+    fields: [reminders.appointmentId],
+    references: [appointments.id],
+  }),
 }));
 
 export const leadsRelations = relations(leads, ({ one }) => ({
@@ -495,6 +537,8 @@ export type Appointment = typeof appointments.$inferSelect;
 export type NewAppointment = typeof appointments.$inferInsert;
 export type Lead = typeof leads.$inferSelect;
 export type NewLead = typeof leads.$inferInsert;
+export type Reminder = typeof reminders.$inferSelect;
+export type NewReminder = typeof reminders.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
 export type Subscription = typeof subscriptions.$inferSelect;

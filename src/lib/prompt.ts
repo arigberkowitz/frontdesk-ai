@@ -18,6 +18,10 @@ export interface PromptClient {
   guidance?: string | null;
   /** Company-authored rules for how the assistant should book. */
   bookingInstructions?: string | null;
+  /** "Human touch": proactively offer a real person, not just on request. */
+  humanHandoffEnabled?: boolean;
+  /** Freeform note on when a human is actually reachable, e.g. "weekdays 9–5". */
+  humanHoursNote?: string | null;
 }
 export interface PromptService {
   name: string;
@@ -96,6 +100,8 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
   const disclosure = resolveDisclosureLine(client);
   const guidance = client.guidance?.trim();
   const bookingInstructions = client.bookingInstructions?.trim();
+  const handoff = client.humanHandoffEnabled !== false; // default on
+  const humanHours = client.humanHoursNote?.trim();
 
   const rules = [
     disclosure ? `At the start of the call, naturally disclose: "${disclosure}"` : null,
@@ -106,9 +112,14 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     "Book using the booking tools, following the booking instructions below. Always confirm service, date/time, name, and phone before booking.",
     "If booking isn't possible or the caller isn't ready, use take_message to capture name, phone, and reason.",
     "If the caller asks for a person, says 'agent' or 'representative', presses 0, or wants a human, use transfer_to_human to connect them to the team.",
-    "If a transfer doesn't go through (no one's available), apologize briefly — \"Sorry, they're not free right now, but I can help you with whatever you need\" — and keep helping the caller yourself; never just hang up.",
+    handoff
+      ? `Don't wait to be asked: if the caller sounds upset, frustrated, confused, or has a sensitive or complex matter, proactively offer to connect them to a real person${
+          humanHours ? ` (a person is usually reachable ${humanHours})` : ""
+        } — "Would you like me to connect you with someone on the team?"`
+      : null,
+    "If a transfer doesn't go through (no one's available), apologize briefly — \"Sorry, they're not free right now, but I can take your name and number and have someone call you right back\" — capture the name and phone with take_message, and keep helping the caller yourself; never just hang up.",
     "Never promise outcomes. Never give medical, legal, or financial advice.",
-    "Always collect a callback number before ending if anything is unresolved.",
+    "Always collect a callback number before ending if anything is unresolved, and promise a real person will follow up.",
   ].filter(Boolean);
 
   const bookingBlock =

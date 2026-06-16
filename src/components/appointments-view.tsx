@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { AppointmentReminders, type ReminderLog } from "@/components/portal/appointment-reminders";
 
 export interface CalendarAppointment {
   id: string;
@@ -86,10 +87,16 @@ function icsHref(a: Item): string {
 export function AppointmentsView({
   appointments,
   callBasePath,
+  clientId,
+  reminders,
 }: {
   appointments: CalendarAppointment[];
   /** Base path for the source-call link, e.g. "/portal/calls" or "/clients/<id>/calls". */
   callBasePath?: string;
+  /** When set, enables per-appointment reminder controls (portal). */
+  clientId?: string;
+  /** Reminder history keyed by appointment id. */
+  reminders?: Record<string, ReminderLog[]>;
 }) {
   const items: Item[] = useMemo(
     () =>
@@ -320,6 +327,14 @@ export function AppointmentsView({
                   </Button>
                 ) : null}
               </div>
+              {clientId ? (
+                <AppointmentReminders
+                  clientId={clientId}
+                  appointmentId={selected.id}
+                  phone={selected.customerPhone}
+                  reminders={reminders?.[selected.id] ?? []}
+                />
+              ) : null}
             </>
           ) : null}
         </DialogContent>

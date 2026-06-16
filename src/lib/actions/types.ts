@@ -4,6 +4,8 @@ import type { z } from "zod";
 export type ActionState = {
   ok?: boolean;
   error?: string;
+  /** Optional success message for a toast (e.g. "Text reminder sent"). */
+  message?: string;
   fieldErrors?: Record<string, string[]>;
   /** Optional payload (e.g. created id, slot list) for the caller to use. */
   data?: unknown;

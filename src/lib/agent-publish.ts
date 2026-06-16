@@ -20,6 +20,8 @@ export function buildPromptForClient(client: ClientWithRelations): string {
       recordingDisclosureLine: client.recordingDisclosureLine,
       guidance: client.agentGuidance,
       bookingInstructions: client.bookingInstructions,
+      humanHandoffEnabled: client.humanHandoffEnabled,
+      humanHoursNote: client.humanHoursNote,
     },
     services: client.services,
     hours: client.businessHours,

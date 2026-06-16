@@ -50,6 +50,14 @@ export async function savePortalProfileAction(
     if (phone.length > 40) return { ok: false, fieldErrors: { alertPhone: ["That doesn't look right"] } };
     patch.escalationNumber = phone || null;
   }
+  if (formData.has("humanHandoffEnabled")) {
+    patch.humanHandoffEnabled = String(formData.get("humanHandoffEnabled")) === "on";
+  }
+  if (formData.has("humanHoursNote")) {
+    const note = String(formData.get("humanHoursNote") ?? "").trim();
+    if (note.length > 200) return { ok: false, fieldErrors: { humanHoursNote: ["Keep it under 200 characters"] } };
+    patch.humanHoursNote = note || null;
+  }
 
   if (Object.keys(patch).length === 0) return { ok: false, error: "Nothing to save." };
 
