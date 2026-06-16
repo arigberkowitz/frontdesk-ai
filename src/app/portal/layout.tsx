@@ -4,6 +4,8 @@ import { resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { PortalNav } from "@/components/portal/portal-nav";
 import { UserMenuButton } from "@/components/user-menu-button";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { CommandPalette } from "@/components/command-palette";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const { clientId, preview } = await resolvePortalClient();
@@ -41,6 +43,8 @@ export default async function PortalLayout({ children }: { children: React.React
         </div>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <PortalNav />
+          <CommandPalette portal />
+          <ThemeToggle />
           <UserMenuButton />
         </div>
       </header>

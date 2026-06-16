@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Menu, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserMenuButton } from "@/components/user-menu-button";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { CommandPalette } from "@/components/command-palette";
 import {
   Sheet,
   SheetContent,
@@ -14,7 +16,7 @@ import {
 import { NavLinks } from "@/components/app-sidebar";
 import { APP_NAME } from "@/config/app";
 
-export function AppTopbar() {
+export function AppTopbar({ clients }: { clients?: { id: string; name: string }[] }) {
   const [open, setOpen] = useState(false);
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur sm:px-6">
@@ -41,6 +43,8 @@ export function AppTopbar() {
 
       <div className="flex-1" />
 
+      <CommandPalette clients={clients} />
+      <ThemeToggle />
       <UserMenuButton />
     </header>
   );

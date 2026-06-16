@@ -3,6 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { MetricBreakdown } from "@/components/metric-breakdown";
 import { MetricIconChip, type MetricIcon } from "@/components/metric-accent";
+import { CountUp } from "@/components/count-up";
+import { Sparkline } from "@/components/charts/sparkline";
 
 interface MetricCardProps {
   label: string;
@@ -14,11 +16,14 @@ interface MetricCardProps {
   href?: string;
   /** When set, clicking the card expands these fact lines (the breakdown). */
   breakdown?: string[];
+  /** Optional 14-day trend series rendered as a sparkline under the number. */
+  spark?: number[];
+  sparkColor?: string;
   className?: string;
 }
 
 /** Big, legible stat. Optionally links to the records, or expands a breakdown on click. */
-export function MetricCard({ label, value, hint, icon, href, breakdown, className }: MetricCardProps) {
+export function MetricCard({ label, value, hint, icon, href, breakdown, spark, sparkColor, className }: MetricCardProps) {
   if (breakdown && breakdown.length > 0) {
     return (
       <MetricBreakdown
@@ -28,6 +33,8 @@ export function MetricCard({ label, value, hint, icon, href, breakdown, classNam
         icon={icon}
         breakdown={breakdown}
         href={href}
+        spark={spark}
+        sparkColor={sparkColor}
         className={className}
       />
     );
@@ -37,10 +44,13 @@ export function MetricCard({ label, value, hint, icon, href, breakdown, classNam
     <CardContent className="p-5">
       <MetricIconChip icon={icon} />
       <p className={cn("font-heading text-3xl font-semibold tracking-tight tabular-nums", icon && "mt-3")}>
-        {value}
+        <CountUp value={value} />
       </p>
       <p className="mt-1 text-sm font-medium text-muted-foreground">{label}</p>
       {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
+      {spark && spark.length > 1 ? (
+        <Sparkline data={spark} color={sparkColor} className="mt-3 h-6 w-full" />
+      ) : null}
     </CardContent>
   );
 

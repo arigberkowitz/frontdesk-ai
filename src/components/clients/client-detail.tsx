@@ -121,9 +121,9 @@ export function ClientDetail(props: Props) {
 
       <TabsContent value="overview" className="space-y-6">
         <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(metrics.estRevenueCents)} hint="Bookings × avg price" breakdown={bd.revenue} />
-          <MetricCard icon="calls" label="Calls" value={String(metrics.totalCalls)} hint="All time" breakdown={bd.calls} />
-          <MetricCard icon="bookings" label="Bookings" value={String(metrics.bookings)} breakdown={bd.bookings} />
+          <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(metrics.estRevenueCents)} hint="Bookings × avg price" breakdown={bd.revenue} spark={metrics.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
+          <MetricCard icon="calls" label="Calls" value={String(metrics.totalCalls)} hint="All time" breakdown={bd.calls} spark={metrics.callsByDay.map((d) => d.calls)} sparkColor="#0ea5e9" />
+          <MetricCard icon="bookings" label="Bookings" value={String(metrics.bookings)} breakdown={bd.bookings} spark={metrics.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
           <MetricCard icon="afterHours" label="After-hours saves" value={String(metrics.afterHoursCalls)} breakdown={bd.afterHours} />
           <MetricCard icon="containment" label="Containment" value={formatPercent(metrics.containmentRate)} hint="Handled without a human" breakdown={bd.containment} />
           <MetricCard icon="answerRate" label="Answer rate" value={formatPercent(metrics.answerRate)} breakdown={bd.answerRate} />

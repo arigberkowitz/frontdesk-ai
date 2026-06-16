@@ -6,6 +6,8 @@ import { ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { MetricIconChip, type MetricIcon } from "@/components/metric-accent";
+import { CountUp } from "@/components/count-up";
+import { Sparkline } from "@/components/charts/sparkline";
 
 interface MetricBreakdownProps {
   label: string;
@@ -14,11 +16,13 @@ interface MetricBreakdownProps {
   icon?: MetricIcon;
   breakdown: string[];
   href?: string;
+  spark?: number[];
+  sparkColor?: string;
   className?: string;
 }
 
 /** Client island for a metric that expands its breakdown on click. */
-export function MetricBreakdown({ label, value, hint, icon, breakdown, href, className }: MetricBreakdownProps) {
+export function MetricBreakdown({ label, value, hint, icon, breakdown, href, spark, sparkColor, className }: MetricBreakdownProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -40,10 +44,13 @@ export function MetricBreakdown({ label, value, hint, icon, breakdown, href, cla
             />
           </div>
           <p className={cn("font-heading text-3xl font-semibold tracking-tight tabular-nums", icon && "mt-3")}>
-            {value}
+            <CountUp value={value} />
           </p>
           <p className="mt-1 text-sm font-medium text-muted-foreground">{label}</p>
           {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
+          {spark && spark.length > 1 ? (
+            <Sparkline data={spark} color={sparkColor} className="mt-3 h-6 w-full" />
+          ) : null}
         </button>
         {open ? (
           <div className="mt-3 space-y-1 border-t pt-3 text-xs text-muted-foreground">

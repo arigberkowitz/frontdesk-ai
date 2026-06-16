@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_NAME, APP_DESCRIPTION } from "@/config/app";
 import "./globals.css";
@@ -46,11 +47,14 @@ export default function RootLayout({
     >
       <html
         lang="en"
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
       >
         <body className="min-h-full flex flex-col">
-          <TooltipProvider delay={150}>{children}</TooltipProvider>
-          <Toaster richColors closeButton />
+          <ThemeProvider>
+            <TooltipProvider delay={150}>{children}</TooltipProvider>
+            <Toaster richColors closeButton />
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>

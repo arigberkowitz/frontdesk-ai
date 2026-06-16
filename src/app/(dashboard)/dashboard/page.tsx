@@ -105,10 +105,10 @@ export default async function DashboardPage() {
       ) : null}
 
       <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard icon="revenue" label="Revenue captured" value={money(m.estRevenueMonthCents)} hint="Bookings × avg price, this month" href="/clients" breakdown={revenueBreakdown} />
+        <MetricCard icon="revenue" label="Revenue captured" value={money(m.estRevenueMonthCents)} hint="Bookings × avg price, this month" href="/clients" breakdown={revenueBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
         <MetricCard icon="clients" label="Active clients" value={String(m.activeClients)} hint="Live + trial" href="/clients" breakdown={activeBreakdown} />
-        <MetricCard icon="calls" label="Calls today" value={String(m.callsToday)} hint="Across all clients" href="/clients" breakdown={callsTodayBreakdown} />
-        <MetricCard icon="bookings" label="Bookings today" value={String(m.bookingsToday)} hint="Appointments captured" href="/clients" breakdown={bookingsTodayBreakdown} />
+        <MetricCard icon="calls" label="Calls today" value={String(m.callsToday)} hint="Across all clients" href="/clients" breakdown={callsTodayBreakdown} spark={m.callsByDay.map((d) => d.calls)} sparkColor="#0ea5e9" />
+        <MetricCard icon="bookings" label="Bookings today" value={String(m.bookingsToday)} hint="Appointments captured" href="/clients" breakdown={bookingsTodayBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
         <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursThisWeek)} hint="This week" breakdown={afterHoursBreakdown} />
         <MetricCard icon="mrr" label="MRR" value={money(m.mrrCents)} hint="Recurring revenue" href="/clients" breakdown={mrrBreakdown} />
         <MetricCard icon="margin" label="Est. margin" value={money(m.marginCents)} hint="Price − vendor cost, this month" breakdown={marginBreakdown} />
