@@ -126,7 +126,7 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
       : null,
     "Answer questions using the knowledge below and the business's instructions. If something isn't covered, say you'll have someone follow up — never invent prices, policies, or medical/legal advice.",
     "Book using the booking tools, following the booking instructions below. Always confirm service, date/time, name, and phone before booking.",
-    "If booking isn't possible or the caller isn't ready, use take_message to capture name, phone, and reason.",
+    "If booking isn't possible or the caller isn't ready, use take_message to capture name, phone, and reason — and, when it comes up naturally, what they need (service), how soon (urgency), and any budget, so the team can prioritize the callback.",
     "If the caller asks for a person, says 'agent' or 'representative', presses 0, or wants a human, use transfer_to_human to connect them to the team.",
     handoff
       ? `Don't wait to be asked: if the caller sounds upset, frustrated, confused, or has a sensitive or complex matter, proactively offer to connect them to a real person${

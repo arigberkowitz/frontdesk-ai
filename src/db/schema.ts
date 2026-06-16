@@ -326,6 +326,10 @@ export const leads = pgTable(
     phone: text("phone"),
     reason: text("reason"),
     message: text("message"),
+    // Qualification captured on the call, so a person can prioritize follow-up.
+    service: text("service"), // what they want
+    urgency: text("urgency"), // how soon (e.g. "this week", "ASAP")
+    budget: text("budget"), // budget signal, when offered
     status: leadStatus("status").notNull().default("new"),
     ...timestamps,
     ...softDelete,
@@ -346,6 +350,8 @@ export const reminders = pgTable(
     appointmentId: uuid("appointment_id").references(() => appointments.id, {
       onDelete: "set null",
     }),
+    // Set when the outreach is a follow-up to a captured lead (vs. an appointment).
+    leadId: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
     channel: reminderChannel("channel").notNull(),
     status: reminderStatus("status").notNull().default("queued"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
@@ -355,6 +361,7 @@ export const reminders = pgTable(
   (t) => [
     index("reminders_client_id_idx").on(t.clientId),
     index("reminders_appointment_id_idx").on(t.appointmentId),
+    index("reminders_lead_id_idx").on(t.leadId),
   ],
 );
 
@@ -505,6 +512,7 @@ export const remindersRelations = relations(reminders, ({ one }) => ({
     fields: [reminders.appointmentId],
     references: [appointments.id],
   }),
+  lead: one(leads, { fields: [reminders.leadId], references: [leads.id] }),
 }));
 
 export const leadsRelations = relations(leads, ({ one }) => ({

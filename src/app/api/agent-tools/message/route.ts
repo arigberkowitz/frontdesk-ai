@@ -21,6 +21,9 @@ export async function POST(req: Request): Promise<Response> {
     phone: String(args.phone ?? "").trim() || null,
     reason: String(args.reason ?? "").trim() || null,
     message: String(args.message ?? "").trim() || null,
+    service: String(args.service ?? "").trim() || null,
+    urgency: String(args.urgency ?? "").trim() || null,
+    budget: String(args.budget ?? "").trim() || null,
     status: "new",
   });
 

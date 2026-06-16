@@ -43,6 +43,13 @@
       "when": 1781590462132,
       "tag": "0005_client_languages",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781591158452,
+      "tag": "0006_lead_qualification_and_followup",
+      "breakpoints": true
     }
   ]
 }

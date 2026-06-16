@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { assertClientAccess } from "@/lib/auth-guard";
 import { assertClientInOrg, getClientByIdUnsafe } from "@/lib/data/clients";
 import { createReminder, getClientAppointment } from "@/lib/data/reminders";
+import { getClientLead } from "@/lib/data/leads";
 import { notifier } from "@/lib/notifier";
 import { integrations } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
@@ -75,5 +76,67 @@ export async function sendReminderAction(
           ? "Text reminder logged (demo — connect texting to send for real)."
           : "Text reminder sent."
         : "Call reminder logged (demo — connect calling to dial for real).",
+  };
+}
+
+/**
+ * One-click outbound follow-up to a captured lead — text or call — logged against
+ * the lead so the business can see it chased the lead and when. Same demo-safe
+ * behavior as appointment reminders.
+ */
+export async function sendLeadFollowupAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const leadId = String(formData.get("leadId") ?? "");
+  const channel = String(formData.get("channel") ?? "") === "call" ? "call" : "sms";
+
+  const user = await assertClientAccess(clientId);
+  await assertClientInOrg(user.orgId, clientId);
+
+  const lead = await getClientLead(clientId, leadId);
+  if (!lead) return { ok: false, error: "Lead not found." };
+
+  const phone = lead.phone?.trim();
+  if (!phone) {
+    return { ok: false, error: "No phone number on file for this lead." };
+  }
+
+  const client = await getClientByIdUnsafe(clientId);
+  const business = client?.name ?? "us";
+  const callbackNumber = client?.escalationNumber?.trim();
+  const body =
+    `Hi${lead.name ? ` ${lead.name}` : ""}, this is ${business} following up on your recent call — when's a good time to connect?` +
+    (callbackNumber ? ` You can reach us at ${callbackNumber}.` : "");
+
+  const result =
+    channel === "sms" ? await notifier.sendSms({ to: phone, body }) : { ok: false, skipped: true as const };
+
+  const demo = Boolean(result.skipped) || !integrations.twilio();
+  const failed = !result.ok && !result.skipped;
+
+  await createReminder(clientId, {
+    leadId,
+    channel,
+    status: failed ? "failed" : "sent",
+    sentAt: failed ? null : new Date(),
+    error: failed ? (result.error ?? "Send failed") : null,
+  });
+
+  revalidatePath("/portal/leads");
+
+  if (failed) {
+    logger.warn("lead.followup.failed", { clientId, leadId, channel, error: result.error });
+    return { ok: false, error: "Couldn't send the follow-up — please try again." };
+  }
+  return {
+    ok: true,
+    message:
+      channel === "sms"
+        ? demo
+          ? "Text follow-up logged (demo — connect texting to send for real)."
+          : "Text follow-up sent."
+        : "Call follow-up logged (demo — connect calling to dial for real).",
   };
 }

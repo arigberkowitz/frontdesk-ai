@@ -26,6 +26,17 @@ export async function remindersByAppointment(
   return map;
 }
 
+/** Reminders grouped by lead, newest first — for follow-up history on the Leads page. */
+export async function remindersByLead(clientId: string): Promise<Record<string, Reminder[]>> {
+  const rows = await listRemindersForClient(clientId);
+  const map: Record<string, Reminder[]> = {};
+  for (const r of rows) {
+    if (!r.leadId) continue;
+    (map[r.leadId] ??= []).push(r);
+  }
+  return map;
+}
+
 export async function createReminder(
   clientId: string,
   input: Omit<NewReminder, "clientId" | "id">,

@@ -140,7 +140,8 @@ export function buildAgentTools(appUrl: string, clientId: string, escalationNumb
       type: "custom" as const,
       name: AGENT_TOOL_NAMES.takeMessage,
       url: agentToolUrl(appUrl, "message", clientId),
-      description: "Capture a message/lead with name, phone, and reason when booking isn't possible.",
+      description:
+        "Capture a message/lead when booking isn't possible. Get name and phone, and when it comes up naturally also capture what they need (service), how soon (urgency), and any budget they mention — it helps the team prioritize the callback.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -148,6 +149,9 @@ export function buildAgentTools(appUrl: string, clientId: string, escalationNumb
           phone: { type: "string" },
           reason: { type: "string" },
           message: { type: "string" },
+          service: { type: "string", description: "What the caller wants/needs." },
+          urgency: { type: "string", description: "How soon they need it, e.g. 'ASAP', 'this week'." },
+          budget: { type: "string", description: "Any budget the caller mentioned." },
         },
         required: ["name", "phone"],
       },
