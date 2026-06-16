@@ -22,6 +22,20 @@ export interface PromptClient {
   humanHandoffEnabled?: boolean;
   /** Freeform note on when a human is actually reachable, e.g. "weekdays 9–5". */
   humanHoursNote?: string | null;
+  /** Spoken languages: 'en' | 'en-es' (bilingual) | 'es'. */
+  languages?: string | null;
+}
+
+/** The agent's language instruction for the prompt, by setting. */
+function languageRule(languages: string | null | undefined): string | null {
+  switch (languages) {
+    case "en-es":
+      return "You are fully bilingual in English and Spanish. Open in English, but the moment a caller speaks Spanish or asks for Spanish, switch and continue the entire call in natural, fluent Spanish — and switch back if they do. Always match the caller's language.";
+    case "es":
+      return "Habla con las personas que llaman en español de forma natural y fluida por defecto. Si la persona prefiere inglés, cambia al inglés. (Speak with callers in fluent, natural Spanish by default; switch to English if the caller prefers.)";
+    default:
+      return null; // English-only: no special instruction needed.
+  }
 }
 export interface PromptService {
   name: string;
@@ -102,8 +116,10 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
   const bookingInstructions = client.bookingInstructions?.trim();
   const handoff = client.humanHandoffEnabled !== false; // default on
   const humanHours = client.humanHoursNote?.trim();
+  const language = languageRule(client.languages);
 
   const rules = [
+    language,
     disclosure ? `At the start of the call, naturally disclose: "${disclosure}"` : null,
     guidance
       ? `Follow the "What ${client.name} wants you to say" section above EXACTLY — those instructions take priority over these rules wherever they conflict.`

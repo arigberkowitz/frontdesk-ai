@@ -22,6 +22,7 @@ export function buildPromptForClient(client: ClientWithRelations): string {
       bookingInstructions: client.bookingInstructions,
       humanHandoffEnabled: client.humanHandoffEnabled,
       humanHoursNote: client.humanHoursNote,
+      languages: client.languages,
     },
     services: client.services,
     hours: client.businessHours,

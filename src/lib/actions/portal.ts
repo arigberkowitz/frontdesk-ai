@@ -38,6 +38,10 @@ export async function savePortalProfileAction(
     const tz = String(formData.get("timezone") ?? "").trim();
     if (tz) patch.timezone = tz;
   }
+  if (formData.has("languages")) {
+    const lang = String(formData.get("languages") ?? "");
+    patch.languages = ["en", "en-es", "es"].includes(lang) ? lang : "en";
+  }
   if (formData.has("ownerEmail")) {
     const email = String(formData.get("ownerEmail") ?? "").trim();
     if (email && !EMAIL_RE.test(email)) {

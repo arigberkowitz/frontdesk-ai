@@ -1,0 +1,1 @@
+ALTER TABLE "clients" ADD COLUMN "languages" text DEFAULT 'en' NOT NULL;

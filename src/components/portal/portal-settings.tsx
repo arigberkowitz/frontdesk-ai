@@ -72,6 +72,16 @@ export function PortalSettings({ client }: { client: Client }) {
                 ))}
               </NativeSelect>
             </Field>
+            <Field
+              label="Languages your AI speaks"
+              hint="Bilingual mode answers in English and switches to fluent Spanish the moment a caller speaks it — no extra staff, no extra cost."
+            >
+              <NativeSelect name="languages" defaultValue={client.languages}>
+                <option value="en">English only</option>
+                <option value="en-es">English + Spanish (bilingual)</option>
+                <option value="es">Spanish first</option>
+              </NativeSelect>
+            </Field>
             <div className="flex justify-end">
               <SubmitButton pending={profilePending}>Save</SubmitButton>
             </div>

@@ -163,6 +163,9 @@ export const clients = pgTable(
     // tells the AI when a human is actually reachable, e.g. "weekdays 9–5".
     humanHandoffEnabled: boolean("human_handoff_enabled").notNull().default(true),
     humanHoursNote: text("human_hours_note"),
+    // Spoken languages the AI handles: 'en' | 'en-es' (bilingual) | 'es'.
+    // Drives the agent's language behavior (match the caller, switch on request).
+    languages: text("languages").notNull().default("en"),
     ...timestamps,
     ...softDelete,
   },
