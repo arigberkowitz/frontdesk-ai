@@ -29,7 +29,7 @@ export default async function PortalLeadsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Leads"
-        description="People your AI took a message from — with what they need, so you follow up on the hottest ones first."
+        description="People your AI took a message from, with what they need — follow up to win the customer."
       />
       {leads.length === 0 ? (
         <EmptyState
