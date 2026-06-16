@@ -11,9 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CallsChart } from "@/components/charts/calls-chart";
 import { OutcomesChart } from "@/components/charts/outcomes-chart";
-import { StatusBadge } from "@/components/clients/status-badge";
+import { ClientSummaryCard } from "@/components/clients/client-summary-card";
 import { formatCurrencyCents } from "@/lib/format";
-import type { ClientStatus } from "@/db/schema";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -153,32 +152,9 @@ export default async function DashboardPage() {
           <div className="space-y-3">
             <h2 className="text-sm font-medium text-muted-foreground">Clients</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {m.clients.map((c) => (
-              <Link key={c.id} href={`/clients/${c.id}`}>
-                <Card className="transition-colors hover:border-primary/40">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate font-medium">{c.name}</p>
-                      <StatusBadge status={c.status as ClientStatus} />
-                    </div>
-                    <div className="mt-3 flex gap-4 text-sm text-muted-foreground">
-                      <span>
-                        <span className="font-medium text-foreground tabular-nums">{c.callsToday}</span> today
-                      </span>
-                      <span>
-                        <span className="font-medium text-foreground tabular-nums">{c.totalCalls}</span> calls
-                      </span>
-                      <span>
-                        <span className="font-medium text-foreground tabular-nums">{c.bookings}</span> booked
-                      </span>
-                      {c.newLeads > 0 ? (
-                        <span className="font-medium text-amber-600 tabular-nums">{c.newLeads} new</span>
-                      ) : null}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+              {m.clients.map((c) => (
+                <ClientSummaryCard key={c.id} client={c} />
+              ))}
             </div>
           </div>
         </>

@@ -27,19 +27,41 @@ export default async function PortalLeadsPage() {
         />
       ) : (
         <ul className="divide-y rounded-xl border">
-          {leads.map((l) => (
-            <li key={l.id} className="flex items-center justify-between gap-3 p-4">
-              <div>
-                <p className="font-medium">{l.name ?? "Caller"}</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatPhone(l.phone)}
-                  {l.reason ? ` · ${l.reason}` : ""}
-                  {l.message ? ` — "${l.message}"` : ""}
-                </p>
-              </div>
-              <LeadStatusControl leadId={l.id} clientId={clientId} status={l.status} />
-            </li>
-          ))}
+          {leads.map((l) => {
+            const initial = (l.name ?? "Caller").trim().charAt(0).toUpperCase() || "?";
+            const tel = (l.phone ?? "").replace(/[^\d+]/g, "");
+            return (
+              <li key={l.id} className="flex items-start justify-between gap-3 p-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span
+                    className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-indigo-500/10 text-sm font-semibold text-indigo-600 dark:text-indigo-400"
+                    aria-hidden="true"
+                  >
+                    {initial}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-medium">{l.name ?? "Caller"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {tel ? (
+                        <a href={`tel:${tel}`} className="hover:text-foreground hover:underline">
+                          {formatPhone(l.phone)}
+                        </a>
+                      ) : (
+                        formatPhone(l.phone)
+                      )}
+                      {l.reason ? ` · ${l.reason}` : ""}
+                    </p>
+                    {l.message ? (
+                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                        &ldquo;{l.message}&rdquo;
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <LeadStatusControl leadId={l.id} clientId={clientId} status={l.status} />
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

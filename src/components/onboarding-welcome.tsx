@@ -11,9 +11,24 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/form/field";
 
 const STEPS = [
-  { icon: Phone, title: "Answers every call", body: "24/7, on the first ring — nights, weekends, lunch rushes." },
-  { icon: CalendarCheck, title: "Books appointments", body: "Checks your hours and schedules customers right on the call." },
-  { icon: MessageSquare, title: "Never loses a lead", body: "Takes a message with name, number, and reason — and alerts you." },
+  {
+    icon: Phone,
+    chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+    title: "Answers every call",
+    body: "24/7, on the first ring — nights, weekends, lunch rushes.",
+  },
+  {
+    icon: CalendarCheck,
+    chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    title: "Books appointments",
+    body: "Checks your hours and schedules customers right on the call.",
+  },
+  {
+    icon: MessageSquare,
+    chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+    title: "Never loses a lead",
+    body: "Takes a message with name, number, and reason — and alerts you.",
+  },
 ];
 
 function SubmitButton({ idle, busy }: { idle: string; busy: string }) {
@@ -61,9 +76,11 @@ export function OnboardingWelcome({ aiReady }: { aiReady: boolean }) {
 
       <div className="grid gap-3 text-left sm:grid-cols-3">
         {STEPS.map((s) => (
-          <div key={s.title} className="rounded-xl border p-4">
-            <s.icon className="size-5 text-primary" />
-            <p className="mt-2 text-sm font-medium">{s.title}</p>
+          <div key={s.title} className="rounded-xl border bg-card p-4">
+            <span className={`flex size-9 items-center justify-center rounded-lg ${s.chip}`}>
+              <s.icon className="size-4" />
+            </span>
+            <p className="mt-3 text-sm font-medium">{s.title}</p>
             <p className="mt-1 text-xs text-muted-foreground">{s.body}</p>
           </div>
         ))}

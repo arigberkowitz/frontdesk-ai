@@ -12,16 +12,18 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { formatDateTime, formatDuration, formatPhone } from "@/lib/format";
 import { CALL_OUTCOME_LABELS } from "@/config/options";
+import { CHART_COLORS } from "@/components/charts/theme";
 import type { Call, CallOutcome } from "@/db/schema";
 
-const OUTCOME_VARIANT: Record<CallOutcome, "default" | "secondary" | "outline" | "destructive"> = {
-  booked: "default",
-  lead: "secondary",
-  faq_answered: "outline",
-  escalated: "destructive",
-  spam: "outline",
-  missed: "destructive",
-  other: "outline",
+// Same palette as the outcomes donut, so an outcome reads identically everywhere.
+const OUTCOME_COLOR: Record<CallOutcome, string> = {
+  booked: CHART_COLORS.booked,
+  lead: CHART_COLORS.message,
+  faq_answered: CHART_COLORS.answered,
+  escalated: CHART_COLORS.escalated,
+  spam: CHART_COLORS.other,
+  missed: CHART_COLORS.missed,
+  other: CHART_COLORS.other,
 };
 
 export function CallsTable({
@@ -76,7 +78,14 @@ export function CallsTable({
               </TableCell>
               <TableCell>
                 {c.outcome ? (
-                  <Badge variant={OUTCOME_VARIANT[c.outcome]}>{CALL_OUTCOME_LABELS[c.outcome]}</Badge>
+                  <Badge variant="outline" className="gap-1.5">
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ background: OUTCOME_COLOR[c.outcome] }}
+                      aria-hidden="true"
+                    />
+                    {CALL_OUTCOME_LABELS[c.outcome]}
+                  </Badge>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
