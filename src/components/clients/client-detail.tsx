@@ -120,7 +120,7 @@ export function ClientDetail(props: Props) {
       </div>
 
       <TabsContent value="overview" className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(metrics.estRevenueCents)} hint="Bookings × avg price" breakdown={bd.revenue} />
           <MetricCard icon="calls" label="Calls" value={String(metrics.totalCalls)} hint="All time" breakdown={bd.calls} />
           <MetricCard icon="bookings" label="Bookings" value={String(metrics.bookings)} breakdown={bd.bookings} />

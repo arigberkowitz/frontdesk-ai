@@ -22,7 +22,7 @@ export function MetricBreakdown({ label, value, hint, icon, breakdown, href, cla
   const [open, setOpen] = useState(false);
 
   return (
-    <Card className={cn("overflow-hidden", className)}>
+    <Card className={cn("fd-lift overflow-hidden", className)}>
       <CardContent className="p-5">
         <button
           type="button"

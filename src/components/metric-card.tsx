@@ -48,7 +48,7 @@ export function MetricCard({ label, value, hint, icon, href, breakdown, classNam
     return (
       <Card
         className={cn(
-          "overflow-hidden transition-colors hover:border-primary/40 hover:bg-muted/40",
+          "fd-lift overflow-hidden hover:border-primary/40 hover:bg-muted/40",
           "focus-within:ring-2 focus-within:ring-ring",
           className,
         )}

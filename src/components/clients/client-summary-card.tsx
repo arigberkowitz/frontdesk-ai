@@ -19,7 +19,7 @@ export function ClientSummaryCard({ client }: { client: PortfolioClientCard }) {
   const initial = client.name.trim().charAt(0).toUpperCase() || "?";
   return (
     <Link href={`/clients/${client.id}`} className="group block">
-      <Card className="h-full transition-all hover:border-primary/40 hover:shadow-sm">
+      <Card className="fd-lift h-full hover:border-primary/40">
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
             <span

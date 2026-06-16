@@ -104,7 +104,7 @@ export default async function DashboardPage() {
         </Card>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard icon="revenue" label="Revenue captured" value={money(m.estRevenueMonthCents)} hint="Bookings × avg price, this month" href="/clients" breakdown={revenueBreakdown} />
         <MetricCard icon="clients" label="Active clients" value={String(m.activeClients)} hint="Live + trial" href="/clients" breakdown={activeBreakdown} />
         <MetricCard icon="calls" label="Calls today" value={String(m.callsToday)} hint="Across all clients" href="/clients" breakdown={callsTodayBreakdown} />
@@ -151,7 +151,7 @@ export default async function DashboardPage() {
           </div>
           <div className="space-y-3">
             <h2 className="text-sm font-medium text-muted-foreground">Clients</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="fd-stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {m.clients.map((c) => (
                 <ClientSummaryCard key={c.id} client={c} />
               ))}

@@ -128,3 +128,60 @@
     @apply font-sans;
   }
 }
+
+/* ----------------------------------------------------------------------------
+ * Motion — free, CSS-only. A gentle staggered fade-up as content loads, and a
+ * subtle lift on interactive cards. `backwards` fill keeps the entrance from
+ * clobbering the hover transform. All disabled under prefers-reduced-motion.
+ * ------------------------------------------------------------------------- */
+@keyframes fd-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fd-fade-up {
+  animation: fd-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* Stagger direct children (e.g. a grid of cards) as they enter. */
+.fd-stagger > * {
+  animation: fd-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.fd-stagger > *:nth-child(2) { animation-delay: 60ms; }
+.fd-stagger > *:nth-child(3) { animation-delay: 120ms; }
+.fd-stagger > *:nth-child(4) { animation-delay: 180ms; }
+.fd-stagger > *:nth-child(5) { animation-delay: 240ms; }
+.fd-stagger > *:nth-child(6) { animation-delay: 300ms; }
+.fd-stagger > *:nth-child(7) { animation-delay: 360ms; }
+.fd-stagger > *:nth-child(8) { animation-delay: 420ms; }
+
+/* Subtle hover lift for interactive cards. */
+.fd-lift {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+.fd-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-fade-up,
+  .fd-stagger > * {
+    animation: none;
+  }
+  .fd-lift {
+    transition: none;
+  }
+  .fd-lift:hover {
+    transform: none;
+  }
+}
