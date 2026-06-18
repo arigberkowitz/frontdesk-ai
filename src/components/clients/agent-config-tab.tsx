@@ -41,8 +41,17 @@ export function AgentConfigTab({
     else if (cfg.error) toast.error(cfg.error);
   }, [cfg]);
   useEffect(() => {
-    if (prov.ok) toast.success("Agent provisioned");
-    else if (prov.error) toast.error(prov.error);
+    if (prov.ok) {
+      const data = prov.data as { phoneNumber?: string | null; phoneError?: string | null } | undefined;
+      if (data?.phoneNumber) {
+        toast.success(`Provisioned — live on ${formatPhone(data.phoneNumber)}.`);
+      } else {
+        toast.success("Agent provisioned — test it in the browser below.");
+        if (data?.phoneError) toast.info(data.phoneError);
+      }
+    } else if (prov.error) {
+      toast.error(prov.error);
+    }
   }, [prov]);
   useEffect(() => {
     if (pub.ok) toast.success("Published a new version");
@@ -94,7 +103,7 @@ export function AgentConfigTab({
             </form>
             <form action={pubAction}>
               <input type="hidden" name="clientId" value={client.id} />
-              <SubmitButton pending={pubPending} variant="outline">
+              <SubmitButton pending={pubPending} variant="outline" disabled={!hasAgent}>
                 <Send className="size-4" />
                 Publish prompt
               </SubmitButton>

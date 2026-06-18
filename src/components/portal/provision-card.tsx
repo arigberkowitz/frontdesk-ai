@@ -32,12 +32,13 @@ export function ProvisionCard({
 
   useEffect(() => {
     if (state.ok) {
-      const num = (state.data as { phoneNumber?: string | null } | undefined)?.phoneNumber;
-      toast.success(
-        num
-          ? `Your AI is live on ${formatPhone(num)}.`
-          : "Your AI is ready — try a test call below.",
-      );
+      const data = state.data as { phoneNumber?: string | null; phoneError?: string | null } | undefined;
+      if (data?.phoneNumber) {
+        toast.success(`Your AI is live on ${formatPhone(data.phoneNumber)}.`);
+      } else {
+        toast.success("Your AI is ready — try a test call below.");
+        if (data?.phoneError) toast.info(data.phoneError);
+      }
     } else if (state.error) {
       toast.error(state.error);
     }

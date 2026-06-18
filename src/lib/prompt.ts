@@ -24,6 +24,9 @@ export interface PromptClient {
   humanHoursNote?: string | null;
   /** Spoken languages: 'en' | 'en-es' (bilingual) | 'es'. */
   languages?: string | null;
+  /** Whether a calendar is connected so the agent can actually book. When false,
+   *  the agent must not promise booking — it takes a message to schedule instead. */
+  bookingEnabled?: boolean;
 }
 
 /** The agent's language instruction for the prompt, by setting. */
@@ -117,6 +120,7 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
   const handoff = client.humanHandoffEnabled !== false; // default on
   const humanHours = client.humanHoursNote?.trim();
   const language = languageRule(client.languages);
+  const canBook = client.bookingEnabled !== false; // default on (preserves prior behavior)
 
   const rules = [
     language,
@@ -125,8 +129,12 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
       ? `Follow the "What ${client.name} wants you to say" section above EXACTLY — those instructions take priority over these rules wherever they conflict.`
       : null,
     "Answer questions using the knowledge below and the business's instructions. If something isn't covered, say you'll have someone follow up — never invent prices, policies, or medical/legal advice.",
-    "Book using the booking tools, following the booking instructions below. Always confirm service, date/time, name, and phone before booking.",
-    "If booking isn't possible or the caller isn't ready, use take_message to capture name, phone, and reason — and, when it comes up naturally, what they need (service), how soon (urgency), and any budget, so the team can prioritize the callback.",
+    canBook
+      ? "Book using the booking tools, following the booking instructions below. Always confirm service, date/time, name, and phone before booking."
+      : "You CANNOT book appointments directly — there's no live calendar. Never offer to book or claim something is scheduled. Instead, take a message with their name, phone, and what they'd like to schedule, and tell them the team will call back to set a time.",
+    canBook
+      ? "If booking isn't possible or the caller isn't ready, use take_message to capture name, phone, and reason — and, when it comes up naturally, what they need (service), how soon (urgency), and any budget, so the team can prioritize the callback."
+      : "Use take_message to capture name, phone, and reason — and, when it comes up naturally, what they need (service), how soon (urgency), and any budget, so the team can prioritize the callback.",
     "If the caller asks for a person, says 'agent' or 'representative', presses 0, or wants a human, use transfer_to_human to connect them to the team.",
     handoff
       ? `Don't wait to be asked: if the caller sounds upset, frustrated, confused, or has a sensitive or complex matter, proactively offer to connect them to a real person${
@@ -138,9 +146,19 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     "Always collect a callback number before ending if anything is unresolved, and promise a real person will follow up.",
   ].filter(Boolean);
 
-  const bookingBlock =
-    bookingInstructions ||
-    "Use check_availability to find open times, then book_appointment. Confirm the service, date/time, name, and phone before booking, and read the appointment back to the caller.";
+  const bookingBlock = !canBook
+    ? "There is no connected calendar, so you cannot book. If a caller wants an appointment, take a message (name, phone, service, and preferred times) and tell them someone will call back to schedule. Do not use the booking tools."
+    : bookingInstructions ||
+      "Use check_availability to find open times, then book_appointment. Confirm the service, date/time, name, and phone before booking, and read the appointment back to the caller.";
+
+  const capabilities = [
+    "- Answer questions from the knowledge base below.",
+    canBook
+      ? "- Book appointments using the booking tools (check_availability, then book_appointment)."
+      : "- Take a message to schedule (no live calendar) — capture name, phone, and preferred times; the team calls back to confirm.",
+    "- Take a message (take_message) capturing name + phone + reason.",
+    "- Transfer to a human (transfer_to_human) on request or for sensitive matters.",
+  ].join("\n");
 
   return `You are ${agentName}, the friendly AI receptionist for ${client.name}, a ${industry}business${location}.
 
@@ -155,10 +173,7 @@ ${guidance}
     : ""
 }
 # What you can do
-- Answer questions from the knowledge base below.
-- Book appointments using the booking tools (check_availability, then book_appointment).
-- Take a message (take_message) capturing name + phone + reason when booking isn't possible.
-- Transfer to a human (transfer_to_human) on request or for sensitive matters.
+${capabilities}
 
 # Hours (timezone: ${client.timezone})
 ${hoursBlock(hours)}

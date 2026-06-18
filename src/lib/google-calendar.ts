@@ -8,7 +8,8 @@ import { env, integrations } from "./env";
  * (encrypted) and exchange it for a short-lived access token per request.
  */
 
-export const GOOGLE_REDIRECT_URI = "http://localhost:3300/api/calendar/google/callback";
+// Must point at the public app URL in production (baked into the OAuth round-trip).
+export const GOOGLE_REDIRECT_URI = `${env.APP_URL.replace(/\/$/, "")}/api/calendar/google/callback`;
 const SCOPES = ["openid", "email", "https://www.googleapis.com/auth/calendar"].join(" ");
 
 export function googleConfigured(): boolean {

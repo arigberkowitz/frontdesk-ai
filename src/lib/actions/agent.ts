@@ -128,7 +128,7 @@ async function runProvision(
 
     revalidatePath(`/clients/${clientId}`);
     revalidatePath("/portal", "layout");
-    return { ok: true, data: { phoneNumber: result.phoneNumber } };
+    return { ok: true, data: { phoneNumber: result.phoneNumber, phoneError: result.phoneError } };
   } catch (err) {
     // Log the real cause server-side; never surface raw vendor/DB errors to users.
     logger.error("agent.provision.failed", {

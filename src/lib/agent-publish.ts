@@ -1,6 +1,7 @@
 import "server-only";
 import { revalidatePath } from "next/cache";
 import { getClient, type ClientWithRelations } from "@/lib/data/clients";
+import { getBookingProviderForClient } from "@/lib/booking";
 import { buildGeneralPrompt, DEFAULT_AGENT_NAME, defaultGreeting } from "@/lib/prompt";
 import { getRetellClient } from "@/lib/retell";
 import { integrations } from "@/lib/env";
@@ -23,6 +24,8 @@ export function buildPromptForClient(client: ClientWithRelations): string {
       humanHandoffEnabled: client.humanHandoffEnabled,
       humanHoursNote: client.humanHoursNote,
       languages: client.languages,
+      // The agent only promises booking when a calendar is actually connected.
+      bookingEnabled: getBookingProviderForClient(client).isConfigured(),
     },
     services: client.services,
     hours: client.businessHours,

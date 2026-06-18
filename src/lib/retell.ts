@@ -204,6 +204,8 @@ export interface ProvisionAgentResult {
   /** null when a number couldn't be provisioned (e.g. no card on file) — the LLM +
    *  agent are still saved so the browser test call keeps working. */
   phoneNumber: string | null;
+  /** Friendly reason a number wasn't provisioned (shown to the operator), else null. */
+  phoneError?: string | null;
 }
 
 /** Create or update the Retell LLM + agent + phone number for a client (§9.1). */
@@ -257,6 +259,7 @@ export async function provisionAgentForClient(
   //    any failure must NOT orphan the LLM + agent we just created/updated, so we
   //    swallow it and return a null number (the browser test call still works).
   let phoneNumber = input.existingPhoneNumber ?? null;
+  let phoneError: string | null = null;
   try {
     if (phoneNumber) {
       await client.phoneNumber.update(phoneNumber, {
@@ -273,14 +276,16 @@ export async function provisionAgentForClient(
       phoneNumber = pn.phone_number;
     }
   } catch (err) {
-    logger.warn("retell.phone.provision_failed", {
-      clientId: input.clientId,
-      error: err instanceof Error ? err.message : String(err),
-    });
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn("retell.phone.provision_failed", { clientId: input.clientId, error: msg });
     phoneNumber = null;
+    // Most common cause is no payment method on the Retell account (402).
+    phoneError = /402|payment|card|billing/i.test(msg)
+      ? "Add a payment method in Retell to get a phone number — the AI works for browser test calls until then."
+      : "Couldn't get a phone number from Retell just now — the AI still works for browser test calls.";
   }
 
-  return { llmId, agentId, phoneNumber };
+  return { llmId, agentId, phoneNumber, phoneError };
 }
 
 /** Update just the voice on a provisioned agent (the per-business voice picker). */

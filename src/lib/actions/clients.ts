@@ -156,6 +156,16 @@ export async function setClientStatusAction(
     };
   }
 
+  // Don't let a client go live with no way to notify the owner — otherwise every
+  // booking and message is captured silently and the pilot quietly fails.
+  if ((status === "live" || status === "trial") && !client.ownerEmail && !client.escalationNumber) {
+    return {
+      ok: false,
+      error:
+        "Add an alert email or phone in this client's Settings first, so the owner is notified of every booking and message.",
+    };
+  }
+
   await clientsData.setClientStatus(user.orgId, clientId, status);
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/clients");
