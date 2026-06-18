@@ -46,12 +46,15 @@ export async function GET(
   } else if (type === "leads") {
     const rows = await listLeads(id);
     csv = toCsv(
-      ["Created", "Name", "Phone", "Reason", "Message", "Status"],
+      ["Created", "Name", "Phone", "Reason", "Wants", "Timing", "Budget", "Message", "Status"],
       rows.map((l) => [
         l.createdAt.toISOString(),
         l.name,
         l.phone,
         l.reason,
+        l.service,
+        l.urgency,
+        l.budget,
         l.message,
         l.status,
       ]),

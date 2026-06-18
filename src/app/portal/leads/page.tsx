@@ -3,8 +3,10 @@ import { Inbox } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
 import { listLeads } from "@/lib/data/leads";
 import { remindersByLead } from "@/lib/data/reminders";
+import { Download } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { Button } from "@/components/ui/button";
 import { LeadStatusControl } from "@/components/clients/lead-status-control";
 import { LeadFollowup } from "@/components/portal/lead-followup";
 import { formatPhone } from "@/lib/format";
@@ -38,7 +40,22 @@ export default async function PortalLeadsPage() {
           description="Messages your AI captures will show up here."
         />
       ) : (
-        <ul className="divide-y rounded-xl border">
+        <>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {leads.length} {leads.length === 1 ? "lead" : "leads"}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            nativeButton={false}
+            render={<a href="/portal/leads/export" download="leads.csv" />}
+          >
+            <Download className="size-4" />
+            Export CSV
+          </Button>
+        </div>
+        <ul className="mt-3 divide-y rounded-xl border">
           {leads.map((l) => {
             const initial = (l.name ?? "Caller").trim().charAt(0).toUpperCase() || "?";
             const tel = (l.phone ?? "").replace(/[^\d+]/g, "");
@@ -105,6 +122,7 @@ export default async function PortalLeadsPage() {
             );
           })}
         </ul>
+        </>
       )}
     </div>
   );
