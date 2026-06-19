@@ -10,6 +10,8 @@ const OUTCOME_META: Record<string, { label: string; color: string }> = {
   faq_answered: { label: "Answered a question", color: CHART_COLORS.answered },
   escalated: { label: "Transferred to a person", color: CHART_COLORS.escalated },
   missed: { label: "Missed", color: CHART_COLORS.missed },
+  spam: { label: "Spam / robocall", color: CHART_COLORS.missed },
+  other: { label: "Other", color: CHART_COLORS.other },
   unknown: { label: "Other", color: CHART_COLORS.other },
 };
 

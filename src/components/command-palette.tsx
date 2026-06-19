@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Building2,
   CalendarCheck,
+  Clock,
   HelpCircle,
   Inbox,
   LayoutDashboard,
@@ -36,9 +37,11 @@ const PORTAL_ITEMS: CmdItem[] = [
   { label: "Appointments", href: "/portal/appointments", icon: CalendarCheck, group: "Go to" },
   { label: "Leads", href: "/portal/leads", icon: Inbox, group: "Go to" },
   { label: "Services", href: "/portal/services", icon: Wrench, group: "Go to" },
+  { label: "Hours", href: "/portal/hours", icon: Clock, group: "Go to" },
   { label: "Knowledge", href: "/portal/knowledge", icon: HelpCircle, group: "Go to" },
   { label: "Your AI", href: "/portal/guidelines", icon: Sparkles, group: "Go to" },
   { label: "Settings", href: "/portal/settings", icon: Settings, group: "Go to" },
+  { label: "Demo", href: "/portal/demo", icon: Sparkles, group: "Go to" },
 ];
 
 /** ⌘K quick-jump to any page, client, or action. */
