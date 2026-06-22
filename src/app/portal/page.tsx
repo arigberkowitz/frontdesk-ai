@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MessageSquare, Sparkles } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
-import { getClientMetrics } from "@/lib/data/metrics";
+import { getClientMetrics, getClientRoi, getClientWeeklyRecap } from "@/lib/data/metrics";
+import { getClientSetupStatus } from "@/lib/data/setup";
+import { getClientActivity } from "@/lib/data/activity";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listAppointments } from "@/lib/data/appointments";
 import { listCalls } from "@/lib/data/calls";
@@ -11,6 +13,10 @@ import { PageHeader } from "@/components/page-header";
 import { MetricCard } from "@/components/metric-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { CallActivity } from "@/components/portal/call-activity";
+import { RoiPanel } from "@/components/portal/roi-panel";
+import { SetupChecklist } from "@/components/portal/setup-checklist";
+import { WeeklyRecap } from "@/components/portal/weekly-recap";
+import { ActivityFeed } from "@/components/portal/activity-feed";
 import { formatCurrencyCents, formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -22,12 +28,16 @@ export default async function PortalOverviewPage({
 }) {
   const { onboarded } = await searchParams;
   const { clientId } = await resolvePortalClient();
-  const [client, m, appts, callsList, followUps] = await Promise.all([
+  const [client, m, appts, callsList, followUps, roi, setup, recap, activity] = await Promise.all([
     getClientByIdUnsafe(clientId),
     getClientMetrics(clientId),
     listAppointments(clientId),
     listCalls(clientId),
     getFollowUpsForClient(clientId),
+    getClientRoi(clientId),
+    getClientSetupStatus(clientId),
+    getClientWeeklyRecap(clientId),
+    getClientActivity(clientId),
   ]);
   const tz = client?.timezone;
   const answered = Math.max(0, m.totalCalls - m.bookings - m.leads);
@@ -106,12 +116,18 @@ export default async function PortalOverviewPage({
         </Card>
       ) : null}
 
+      <SetupChecklist status={setup} />
+
+      <RoiPanel roi={roi} />
+
       <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
         <MetricCard icon="calls" label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} spark={m.callsByDay.map((d) => d.calls)} sparkColor="#0ea5e9" />
         <MetricCard icon="bookings" label="Appointments booked" value={String(m.bookings)} href="/portal/appointments" breakdown={apptBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
         <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} />
       </div>
+
+      <WeeklyRecap recap={recap} />
 
       <CallActivity
         trend={m.callsByDay}
@@ -120,6 +136,8 @@ export default async function PortalOverviewPage({
         clientId={clientId}
         tz={tz}
       />
+
+      <ActivityFeed items={activity} />
     </div>
   );
 }

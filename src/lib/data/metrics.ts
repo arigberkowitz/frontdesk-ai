@@ -202,6 +202,82 @@ export async function getClientPeriodSummary(
   };
 }
 
+export interface ClientRoi {
+  windowDays: number;
+  /** Estimated booked value over the window (bookings × avg service price), cents. */
+  valueCents: number;
+  /** The client's active/trial plan price, cents — null if not on a paid plan. */
+  planCents: number | null;
+  calls: number;
+  bookings: number;
+  afterHours: number;
+  messages: number;
+  /** value ÷ plan, only when both are positive — for the "Nx what you pay" line. */
+  multiple: number | null;
+}
+
+/** "What your AI did vs. what you pay" — the portal ROI panel inputs (last 30 days). */
+export async function getClientRoi(clientId: string): Promise<ClientRoi> {
+  const summary = await getClientPeriodSummary(clientId, 30);
+  const [sub] = await db
+    .select({ cents: subscriptions.monthlyPriceCents })
+    .from(subscriptions)
+    .where(
+      and(
+        eq(subscriptions.clientId, clientId),
+        isNull(subscriptions.deletedAt),
+        sql`${subscriptions.status} in ('active','trialing')`,
+      ),
+    )
+    .limit(1);
+  const planCents = sub?.cents ?? null;
+  const valueCents = summary.estRevenueCents;
+  const multiple = planCents && planCents > 0 && valueCents > 0 ? valueCents / planCents : null;
+  return {
+    windowDays: 30,
+    valueCents,
+    planCents,
+    calls: summary.calls,
+    bookings: summary.bookings,
+    afterHours: summary.afterHours,
+    messages: summary.leads,
+    multiple,
+  };
+}
+
+export interface WeeklyRecap {
+  calls: number;
+  bookings: number;
+  valueCents: number;
+  afterHours: number;
+  callsDelta: number;
+  bookingsDelta: number;
+  valueDeltaCents: number;
+  afterHoursDelta: number;
+}
+
+/** This week (last 7 days) vs. the 7 days before it — for the portal "this week" recap. */
+export async function getClientWeeklyRecap(clientId: string): Promise<WeeklyRecap> {
+  const [week, twoWeeks] = await Promise.all([
+    getClientPeriodSummary(clientId, 7),
+    getClientPeriodSummary(clientId, 14),
+  ]);
+  const priorCalls = twoWeeks.calls - week.calls;
+  const priorBookings = twoWeeks.bookings - week.bookings;
+  const priorAfterHours = twoWeeks.afterHours - week.afterHours;
+  const priorValue = twoWeeks.estRevenueCents - week.estRevenueCents;
+  return {
+    calls: week.calls,
+    bookings: week.bookings,
+    valueCents: week.estRevenueCents,
+    afterHours: week.afterHours,
+    callsDelta: week.calls - priorCalls,
+    bookingsDelta: week.bookings - priorBookings,
+    valueDeltaCents: week.estRevenueCents - priorValue,
+    afterHoursDelta: week.afterHours - priorAfterHours,
+  };
+}
+
 export interface PortfolioClientCard {
   id: string;
   name: string;
