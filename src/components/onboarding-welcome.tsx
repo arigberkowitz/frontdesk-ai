@@ -9,6 +9,7 @@ import { initialActionState } from "@/lib/actions/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/form/field";
+import { DemoCall } from "@/components/demo-call";
 
 const STEPS = [
   {
@@ -72,6 +73,11 @@ export function OnboardingWelcome({ aiReady }: { aiReady: boolean }) {
           Your AI receptionist answers every call, books appointments, and takes messages — around the
           clock. Let&apos;s get yours set up. It only takes a couple of minutes.
         </p>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-sm font-medium">Here&apos;s your AI receptionist in action</p>
+        <DemoCall />
       </div>
 
       <div className="grid gap-3 text-left sm:grid-cols-3">

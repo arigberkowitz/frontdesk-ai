@@ -14,7 +14,6 @@ const ITEMS = [
   { label: "Knowledge", href: "/portal/knowledge" },
   { label: "Your AI", href: "/portal/guidelines" },
   { label: "Settings", href: "/portal/settings" },
-  { label: "Demo", href: "/portal/demo" },
 ];
 
 export function PortalNav() {
