@@ -150,7 +150,7 @@ export default async function DashboardPage() {
             </Card>
           </div>
           <div className="space-y-3">
-            <h2 className="text-sm font-medium text-muted-foreground">Clients</h2>
+            <h2 className="fd-section-label">Clients</h2>
             <div className="fd-stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {m.clients.map((c) => (
                 <ClientSummaryCard key={c.id} client={c} />
