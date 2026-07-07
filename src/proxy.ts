@@ -10,6 +10,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
  * (`x-retell-signature`), Stripe webhooks, and agent tool callbacks.
  */
 const isPublicRoute = createRouteMatcher([
+  "/", // public marketing landing (page.tsx routes signed-in users to their app)
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/intake(.*)",
