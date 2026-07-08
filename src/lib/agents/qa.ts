@@ -3,8 +3,9 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { and, eq, gte, inArray, isNull, isNotNull, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { agentRuns, calls, callGrades, clients, type Client } from "@/db/schema";
+import { agentRuns, calls, callGrades, clients, users, type Client } from "@/db/schema";
 import { CRITIC_MODEL, getAnthropic, toolInput } from "./anthropic";
+import { notifyOperatorComplianceRisk } from "@/lib/notify";
 import { logger } from "@/lib/logger";
 
 /**
@@ -143,6 +144,7 @@ export async function qaReviewClient(client: Client, sinceHours = 24): Promise<Q
 
   let gradedCount = 0;
   let flaggedCount = 0;
+  let complianceCount = 0;
   try {
     for (const call of candidates) {
       const grade = await gradeCall(anthropic, client, {
@@ -168,6 +170,24 @@ export async function qaReviewClient(client: Client, sinceHours = 24): Promise<Q
         .onConflictDoNothing({ target: callGrades.callId });
       gradedCount += 1;
       if (needsReview) flaggedCount += 1;
+      if (grade.complianceRisk) complianceCount += 1;
+    }
+
+    // Compliance risk is the one finding that shouldn't wait for a dashboard
+    // visit — email the operator directly.
+    if (complianceCount > 0) {
+      const operator = await db.query.users.findFirst({
+        where: and(eq(users.orgId, client.orgId), eq(users.role, "operator"), isNull(users.deletedAt)),
+        orderBy: (u, { asc }) => [asc(u.createdAt)],
+      });
+      if (operator?.email) {
+        await notifyOperatorComplianceRisk(client, operator.email, complianceCount).catch((err) =>
+          logger.warn("agents.qa.notify_failed", {
+            clientId: client.id,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
     }
 
     if (run) {

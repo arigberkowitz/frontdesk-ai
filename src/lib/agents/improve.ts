@@ -13,6 +13,7 @@ import {
   type Client,
 } from "@/db/schema";
 import { CRITIC_MODEL, DRAFT_MODEL, getAnthropic, toolInput } from "./anthropic";
+import { notifyOwnerLearnings } from "@/lib/notify";
 import { logger } from "@/lib/logger";
 
 /**
@@ -336,6 +337,16 @@ export async function improveClient(client: Client, sinceHours = 24): Promise<Im
           rationale: s.rationale.trim(),
           evidence: { callIds: s.callIds, excerpt: s.excerpt?.slice(0, 300) },
         })),
+      );
+      // Close the loop: tell the owner there's something to approve.
+      await notifyOwnerLearnings(
+        client,
+        fresh.map((s) => (s.type === "knowledge" ? (s.question ?? "") : (s.guidance ?? ""))).filter(Boolean),
+      ).catch((err) =>
+        logger.warn("agents.improve.notify_failed", {
+          clientId: client.id,
+          error: err instanceof Error ? err.message : String(err),
+        }),
       );
     }
 
