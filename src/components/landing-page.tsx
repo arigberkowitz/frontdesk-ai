@@ -55,10 +55,10 @@ export function LandingPage() {
           <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">
             <Sparkles className="size-3.5" /> AI receptionist for local business
           </span>
-          <h1 className="mt-4 font-heading text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
+          <h1 className="mt-4 font-heading text-5xl font-semibold leading-[1.02] tracking-[-0.025em] sm:text-7xl">
             Never miss
             <br />
-            another call.
+            <em className="font-medium">another call.</em>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
             Your AI receptionist answers every call, books appointments straight to your calendar,
@@ -73,6 +73,13 @@ export function LandingPage() {
               See how it works
             </Button>
           </div>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t pt-5 text-xs text-muted-foreground sm:text-sm">
+            <span>Picks up on the first ring</span>
+            <span aria-hidden className="hidden text-border sm:inline">·</span>
+            <span>Books on the call</span>
+            <span aria-hidden className="hidden text-border sm:inline">·</span>
+            <span>English y Español</span>
+          </div>
         </section>
 
         <section className="mx-auto max-w-lg px-4 pb-16 sm:px-6">
@@ -81,9 +88,9 @@ export function LandingPage() {
 
         <section className="border-t bg-card/40">
           <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {VALUE.map((v) => (
-                <div key={v.title} className="rounded-xl border bg-card p-5">
+                <div key={v.title} className="fd-lift rounded-xl border bg-card p-5">
                   <span className={`flex size-9 items-center justify-center rounded-lg ${v.chip}`}>
                     <v.icon className="size-4" />
                   </span>
@@ -104,14 +111,21 @@ export function LandingPage() {
               Three steps from signup to a phone that answers itself.
             </p>
           </div>
-          <div className="mt-10 grid gap-6 sm:grid-cols-3">
-            {STEPS.map((s) => (
-              <div key={s.n} className="rounded-xl border bg-card p-6">
-                <span className="flex size-9 items-center justify-center rounded-lg bg-indigo-500/10 font-heading text-lg font-semibold text-indigo-600 dark:text-indigo-400">
+          <div className="fd-stagger mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-3">
+            {STEPS.map((s, i) => (
+              <div
+                key={s.n}
+                className={`border-t-2 pt-4 ${i === 0 ? "border-indigo-500" : "border-border"}`}
+              >
+                <span
+                  className={`font-heading text-3xl font-medium leading-none ${
+                    i === 0 ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground"
+                  }`}
+                >
                   {s.n}
                 </span>
                 <p className="mt-3 font-medium">{s.title}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{s.body}</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
               </div>
             ))}
           </div>
@@ -133,7 +147,7 @@ export function LandingPage() {
                 return (
                   <div
                     key={plan.key}
-                    className={`rounded-xl border bg-card p-6 ${featured ? "ring-2 ring-primary" : ""}`}
+                    className={`rounded-xl border bg-card p-6 ${featured ? "shadow-lg ring-2 ring-indigo-500" : ""}`}
                   >
                     {featured ? (
                       <span className="inline-block rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-primary-foreground">
