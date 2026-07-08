@@ -12,6 +12,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   CalendarCheck,
   ShieldCheck,
   Sparkles,
+  TrendingUp,
 };
 
 const linkClass = (active: boolean, dark?: boolean) =>
