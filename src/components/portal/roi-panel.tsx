@@ -4,33 +4,14 @@ import { CountUp } from "@/components/count-up";
 import { formatCurrencyCents } from "@/lib/format";
 import type { ClientRoi } from "@/lib/data/metrics";
 
-function Stat({ n, label }: { n: number; label: string }) {
-  return (
-    <div className="rounded-md bg-muted/50 px-3.5 py-3">
-      <p className="font-heading text-xl font-semibold leading-none tabular-nums">
-        <CountUp value={String(n)} />
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
 /** "What your AI did this month" — value captured vs. plan cost, with a plain-English
- *  takeaway. Degrades to an activity-led message when there are no bookings yet. */
+ *  takeaway. Degrades to an activity-led message when there are no bookings yet. The
+ *  supporting stat breakdown lives in the metric cards just below, so it isn't repeated here. */
 export function RoiPanel({ roi }: { roi: ClientRoi }) {
-  const { valueCents, planCents, multiple, calls, bookings, afterHours, messages } = roi;
+  const { valueCents, planCents, multiple, calls, afterHours } = roi;
   const hasValue = valueCents > 0;
   // Only claim a multiple when the value is clearly above the plan cost.
   const showMultiple = multiple != null && multiple >= 1.5;
-
-  const stats = (
-    <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-      <Stat n={calls} label="calls answered" />
-      <Stat n={bookings} label="appointments booked" />
-      <Stat n={afterHours} label="after-hours saves" />
-      <Stat n={messages} label="messages captured" />
-    </div>
-  );
 
   return (
     <Card>
@@ -73,11 +54,8 @@ export function RoiPanel({ roi }: { roi: ClientRoi }) {
           </>
         )}
 
-        {stats}
-
         <p className="mt-4 text-xs text-muted-foreground">
           &ldquo;Booked&rdquo; = appointments your AI scheduled × your average service price.
-          After-hours saves are calls it caught while you were closed.
         </p>
       </CardContent>
     </Card>

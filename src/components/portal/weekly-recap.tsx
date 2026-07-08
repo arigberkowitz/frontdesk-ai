@@ -41,7 +41,7 @@ function Cell({ value, label, delta, money }: { value: string; label: string; de
 export function WeeklyRecap({ recap }: { recap: Recap }) {
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-5 sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <CalendarDays className="size-4" />

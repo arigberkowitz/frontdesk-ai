@@ -15,7 +15,7 @@ const TURNS: { who: "ai" | "caller"; text: string }[] = [
 ];
 
 const OUTCOMES = [
-  { icon: CalendarCheck, label: "Appointment booked", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
+  { icon: CalendarCheck, label: "Appointment booked", className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
   { icon: MessageSquare, label: "Confirmation texted", className: "bg-muted text-muted-foreground" },
   { icon: UserCheck, label: "Contact saved", className: "bg-muted text-muted-foreground" },
 ];

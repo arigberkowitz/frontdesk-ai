@@ -52,7 +52,7 @@ export function LandingPage() {
 
       <main className="flex-1">
         <section className="mx-auto max-w-3xl px-4 pb-6 pt-16 text-center sm:px-6">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-300">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">
             <Sparkles className="size-3.5" /> AI receptionist for local business
           </span>
           <h1 className="mt-4 font-heading text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
