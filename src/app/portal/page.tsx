@@ -19,6 +19,7 @@ import { SetupChecklist } from "@/components/portal/setup-checklist";
 import { WeeklyRecap } from "@/components/portal/weekly-recap";
 import { ActivityFeed } from "@/components/portal/activity-feed";
 import { AiLearnings } from "@/components/portal/ai-learnings";
+import { CopilotChat } from "@/components/portal/copilot-chat";
 import { formatCurrencyCents, formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -132,6 +133,8 @@ export default async function PortalOverviewPage({
         <MetricCard icon="bookings" label="Appointments booked" value={String(m.bookings)} href="/portal/appointments" breakdown={apptBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
         <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} className="sm:col-span-2 lg:col-span-1" />
       </div>
+
+      <CopilotChat />
 
       <WeeklyRecap recap={recap} />
 
