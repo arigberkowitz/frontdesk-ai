@@ -91,6 +91,19 @@ export const subscriptionStatus = pgEnum("subscription_status", [
   "paused",
   "incomplete",
 ]);
+export const agentRunKind = pgEnum("agent_run_kind", [
+  "nightly_improve",
+  "qa_review",
+  "post_call",
+]);
+export const agentRunStatus = pgEnum("agent_run_status", ["running", "succeeded", "failed"]);
+export const suggestionType = pgEnum("suggestion_type", ["knowledge", "guidance"]);
+export const suggestionStatus = pgEnum("suggestion_status", [
+  "proposed",
+  "applied",
+  "dismissed",
+]);
+export const gradeStatus = pgEnum("grade_status", ["open", "reviewed"]);
 export const webhookSource = pgEnum("webhook_source", ["retell", "stripe", "cal"]);
 export const webhookStatus = pgEnum("webhook_status", [
   "received",
@@ -451,6 +464,119 @@ export const webhookEvents = pgTable(
   ],
 );
 
+/* ------------------------------ agentic layer ---------------------------- */
+
+/** One record per agent execution (nightly improve, QA batch, per-call extract).
+ *  The observe→decide→act loop's audit trail. */
+export const agentRuns = pgTable(
+  "agent_runs",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    kind: agentRunKind("kind").notNull(),
+    status: agentRunStatus("status").notNull().default("running"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    /** Counters + notes: calls reviewed, suggestions drafted, critic rejections, etc. */
+    stats: jsonb("stats"),
+    error: text("error"),
+    ...timestamps,
+  },
+  (t) => [index("agent_runs_client_kind_idx").on(t.clientId, t.kind)],
+);
+
+/** A drafted improvement awaiting human approval — "Your AI learned 3 things this
+ *  week." Nothing ships to a live phone line without a person clicking approve. */
+export const agentSuggestions = pgTable(
+  "agent_suggestions",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    runId: uuid("run_id").references(() => agentRuns.id, { onDelete: "set null" }),
+    type: suggestionType("type").notNull(),
+    /** knowledge: proposed Q/A pair. */
+    question: text("question"),
+    answer: text("answer"),
+    /** guidance: a line to append to the agent's behavioral guidance. */
+    guidance: text("guidance"),
+    /** Why the agent believes this helps, in owner-readable language. */
+    rationale: text("rationale").notNull(),
+    /** { callIds: string[], excerpt?: string } — the transcript moments that triggered it. */
+    evidence: jsonb("evidence"),
+    status: suggestionStatus("status").notNull().default("proposed"),
+    reviewedBy: uuid("reviewed_by").references((): AnyPgColumn => users.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    appliedAt: timestamp("applied_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index("agent_suggestions_client_status_idx").on(t.clientId, t.status)],
+);
+
+/** Structured post-call extraction: intent, entities, spam, and a ready-to-send
+ *  follow-up draft. Turns each call into an action. */
+export const callInsights = pgTable(
+  "call_insights",
+  {
+    id: pk(),
+    callId: uuid("call_id")
+      .notNull()
+      .references(() => calls.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    intent: text("intent"),
+    /** { service?, requestedDate?, budget?, name?, phone? } */
+    entities: jsonb("entities"),
+    isSpam: boolean("is_spam").notNull().default(false),
+    followUpChannel: text("follow_up_channel"),
+    followUpSubject: text("follow_up_subject"),
+    followUpDraft: text("follow_up_draft"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("call_insights_call_id_idx").on(t.callId),
+    index("call_insights_client_id_idx").on(t.clientId),
+  ],
+);
+
+/** QA supervisor output: per-call grade + flags feeding the operator review
+ *  queue and the nightly improvement loop. */
+export const callGrades = pgTable(
+  "call_grades",
+  {
+    id: pk(),
+    callId: uuid("call_id")
+      .notNull()
+      .references(() => calls.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    runId: uuid("run_id").references(() => agentRuns.id, { onDelete: "set null" }),
+    /** 1 (bad) – 5 (great). */
+    score: integer("score").notNull(),
+    /** e.g. ["missed_booking", "wrong_hours", "caller_frustrated", "compliance_risk"] */
+    flags: jsonb("flags"),
+    complianceRisk: boolean("compliance_risk").notNull().default(false),
+    coachingNote: text("coaching_note"),
+    status: gradeStatus("status").notNull().default("open"),
+    reviewedBy: uuid("reviewed_by").references((): AnyPgColumn => users.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("call_grades_call_id_idx").on(t.callId),
+    index("call_grades_client_status_idx").on(t.clientId, t.status),
+  ],
+);
+
 /* --------------------------------- relations ----------------------------- */
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   clients: many(clients),
@@ -529,6 +655,30 @@ export const agentVersionsRelations = relations(agentVersions, ({ one }) => ({
   publisher: one(users, { fields: [agentVersions.publishedBy], references: [users.id] }),
 }));
 
+export const agentRunsRelations = relations(agentRuns, ({ one, many }) => ({
+  client: one(clients, { fields: [agentRuns.clientId], references: [clients.id] }),
+  suggestions: many(agentSuggestions),
+  grades: many(callGrades),
+}));
+
+export const agentSuggestionsRelations = relations(agentSuggestions, ({ one }) => ({
+  client: one(clients, { fields: [agentSuggestions.clientId], references: [clients.id] }),
+  run: one(agentRuns, { fields: [agentSuggestions.runId], references: [agentRuns.id] }),
+  reviewer: one(users, { fields: [agentSuggestions.reviewedBy], references: [users.id] }),
+}));
+
+export const callInsightsRelations = relations(callInsights, ({ one }) => ({
+  call: one(calls, { fields: [callInsights.callId], references: [calls.id] }),
+  client: one(clients, { fields: [callInsights.clientId], references: [clients.id] }),
+}));
+
+export const callGradesRelations = relations(callGrades, ({ one }) => ({
+  call: one(calls, { fields: [callGrades.callId], references: [calls.id] }),
+  client: one(clients, { fields: [callGrades.clientId], references: [clients.id] }),
+  run: one(agentRuns, { fields: [callGrades.runId], references: [agentRuns.id] }),
+  reviewer: one(users, { fields: [callGrades.reviewedBy], references: [users.id] }),
+}));
+
 /* ----------------------------- inferred types ---------------------------- */
 export type Organization = typeof organizations.$inferSelect;
 export type NewOrganization = typeof organizations.$inferInsert;
@@ -559,6 +709,16 @@ export type NewAgentVersion = typeof agentVersions.$inferInsert;
 export type WebhookEvent = typeof webhookEvents.$inferSelect;
 export type NewWebhookEvent = typeof webhookEvents.$inferInsert;
 
+export type AgentRun = typeof agentRuns.$inferSelect;
+export type NewAgentRun = typeof agentRuns.$inferInsert;
+export type AgentSuggestion = typeof agentSuggestions.$inferSelect;
+export type NewAgentSuggestion = typeof agentSuggestions.$inferInsert;
+export type CallInsight = typeof callInsights.$inferSelect;
+export type NewCallInsight = typeof callInsights.$inferInsert;
+export type CallGrade = typeof callGrades.$inferSelect;
+export type NewCallGrade = typeof callGrades.$inferInsert;
+
 export type ClientStatus = (typeof clientStatus.enumValues)[number];
 export type CallOutcome = (typeof callOutcome.enumValues)[number];
 export type UserRole = (typeof userRole.enumValues)[number];
+export type SuggestionStatus = (typeof suggestionStatus.enumValues)[number];

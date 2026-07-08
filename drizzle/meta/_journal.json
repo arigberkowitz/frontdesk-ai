@@ -50,6 +50,13 @@
       "when": 1781591158452,
       "tag": "0006_lead_qualification_and_followup",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783489114489,
+      "tag": "0007_agentic_layer",
+      "breakpoints": true
     }
   ]
 }

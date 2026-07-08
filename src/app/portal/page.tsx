@@ -5,6 +5,7 @@ import { resolvePortalClient } from "@/lib/auth-guard";
 import { getClientMetrics, getClientRoi, getClientWeeklyRecap } from "@/lib/data/metrics";
 import { getClientSetupStatus } from "@/lib/data/setup";
 import { getClientActivity } from "@/lib/data/activity";
+import { listOpenSuggestions } from "@/lib/data/suggestions";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listAppointments } from "@/lib/data/appointments";
 import { listCalls } from "@/lib/data/calls";
@@ -17,6 +18,7 @@ import { RoiPanel } from "@/components/portal/roi-panel";
 import { SetupChecklist } from "@/components/portal/setup-checklist";
 import { WeeklyRecap } from "@/components/portal/weekly-recap";
 import { ActivityFeed } from "@/components/portal/activity-feed";
+import { AiLearnings } from "@/components/portal/ai-learnings";
 import { formatCurrencyCents, formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -28,17 +30,19 @@ export default async function PortalOverviewPage({
 }) {
   const { onboarded } = await searchParams;
   const { clientId } = await resolvePortalClient();
-  const [client, m, appts, callsList, followUps, roi, setup, recap, activity] = await Promise.all([
-    getClientByIdUnsafe(clientId),
-    getClientMetrics(clientId),
-    listAppointments(clientId),
-    listCalls(clientId),
-    getFollowUpsForClient(clientId),
-    getClientRoi(clientId),
-    getClientSetupStatus(clientId),
-    getClientWeeklyRecap(clientId),
-    getClientActivity(clientId),
-  ]);
+  const [client, m, appts, callsList, followUps, roi, setup, recap, activity, learnings] =
+    await Promise.all([
+      getClientByIdUnsafe(clientId),
+      getClientMetrics(clientId),
+      listAppointments(clientId),
+      listCalls(clientId),
+      getFollowUpsForClient(clientId),
+      getClientRoi(clientId),
+      getClientSetupStatus(clientId),
+      getClientWeeklyRecap(clientId),
+      getClientActivity(clientId),
+      listOpenSuggestions(clientId),
+    ]);
   const tz = client?.timezone;
   const answered = Math.max(0, m.totalCalls - m.bookings - m.leads);
   const afterHours = callsList.filter((c) => c.isAfterHours && c.startAt);
@@ -117,6 +121,8 @@ export default async function PortalOverviewPage({
       ) : null}
 
       <SetupChecklist status={setup} />
+
+      <AiLearnings clientId={clientId} suggestions={learnings} />
 
       <RoiPanel roi={roi} />
 
