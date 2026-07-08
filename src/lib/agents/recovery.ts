@@ -1,0 +1,273 @@
+import "server-only";
+import type Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
+import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
+import { db } from "@/db";
+import {
+  agentRuns,
+  appointments,
+  clients,
+  leads,
+  reminders,
+  type Client,
+  type Lead,
+} from "@/db/schema";
+import { getInsightForCall } from "@/lib/data/insights";
+import { createReminder } from "@/lib/data/reminders";
+import { CRITIC_MODEL, getAnthropic, toolInput } from "./anthropic";
+import { notifier } from "@/lib/notifier";
+import { logger } from "@/lib/logger";
+
+/**
+ * Agent #5 — outbound recovery. Goal: recover missed revenue. A daily loop
+ * finds unbooked leads going cold and recent no-shows, decides who to contact,
+ * sends a tailored SMS, and logs every touch. The manual Text button becomes a
+ * standing campaign.
+ *
+ * Guardrails (a live business's reputation rides on these):
+ *  - max 2 recovery touches per lead, ≥3 days apart; won/lost leads never contacted
+ *  - no-shows get exactly one nudge, within 14 days of the missed appointment
+ *  - sends only during the client's local daytime (9:00–19:00)
+ *  - per-client daily cap; demo-safe (no Twilio → logged, not sent)
+ *  - reply handling stays human: owners mark won/lost, which stops the loop
+ */
+
+const MAX_TOUCHES_PER_LEAD = 2;
+const MIN_DAYS_BETWEEN_TOUCHES = 3;
+const LEAD_MAX_AGE_DAYS = 30;
+const NOSHOW_MAX_AGE_DAYS = 14;
+const MAX_SENDS_PER_CLIENT = 10;
+
+function localHour(tz: string | null): number {
+  try {
+    return Number(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: tz ?? "America/Los_Angeles",
+        hour: "numeric",
+        hour12: false,
+      }).format(new Date()),
+    );
+  } catch {
+    return 12;
+  }
+}
+
+const SMS_TOOL: Anthropic.Tool = {
+  name: "save_recovery_sms",
+  description: "Save the recovery SMS to send this person.",
+  input_schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      body: {
+        type: "string",
+        description:
+          "One SMS (≤300 chars) from the business: warm, specific to what they wanted, with a clear next step. Never invent prices, times, or discounts.",
+      },
+    },
+    required: ["body"],
+  },
+};
+
+const smsSchema = z.object({ body: z.string().min(1).max(400) });
+
+async function draftSms(
+  anthropic: Anthropic | null,
+  client: Client,
+  context: string,
+  fallback: string,
+): Promise<string> {
+  if (!anthropic) return fallback;
+  try {
+    const res = await anthropic.messages.create({
+      model: CRITIC_MODEL,
+      max_tokens: 300,
+      system:
+        "You write one recovery SMS for a local business chasing a lost booking. Warm, brief, human — a busy owner texting back, not a marketing blast. Use only facts provided.",
+      messages: [{ role: "user", content: context }],
+      tools: [SMS_TOOL],
+      tool_choice: { type: "tool", name: SMS_TOOL.name },
+    });
+    const parsed = smsSchema.safeParse(toolInput(res));
+    return parsed.success ? parsed.data.body.trim() : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+interface Touch {
+  kind: "lead" | "no_show";
+  to: string;
+  body: string;
+  leadId?: string;
+  appointmentId?: string;
+}
+
+async function recoverableLeads(client: Client): Promise<Lead[]> {
+  const cutoff = new Date(Date.now() - LEAD_MAX_AGE_DAYS * 86400_000);
+  const candidates = await db.query.leads.findMany({
+    where: and(
+      eq(leads.clientId, client.id),
+      inArray(leads.status, ["new", "contacted"]),
+      gte(leads.createdAt, cutoff),
+      isNull(leads.deletedAt),
+    ),
+    orderBy: [desc(leads.createdAt)],
+    limit: 50,
+  });
+
+  const out: Lead[] = [];
+  for (const lead of candidates) {
+    if (!lead.phone?.trim()) continue;
+    const touches = await db.query.reminders.findMany({
+      where: and(eq(reminders.clientId, client.id), eq(reminders.leadId, lead.id)),
+      orderBy: [desc(reminders.createdAt)],
+    });
+    if (touches.length >= MAX_TOUCHES_PER_LEAD) continue;
+    const lastTouch = touches[0]?.createdAt ?? lead.createdAt;
+    const idleDays = (Date.now() - lastTouch.getTime()) / 86400_000;
+    if (idleDays < MIN_DAYS_BETWEEN_TOUCHES) continue;
+    out.push(lead);
+  }
+  return out;
+}
+
+export interface RecoveryResult {
+  clientId: string;
+  clientName: string;
+  sent: number;
+  skipped?: string;
+}
+
+/** Run recovery for one client. */
+export async function recoverClient(client: Client): Promise<RecoveryResult> {
+  const base: RecoveryResult = { clientId: client.id, clientName: client.name, sent: 0 };
+
+  const hour = localHour(client.timezone);
+  if (hour < 9 || hour >= 19) return { ...base, skipped: "outside_daytime" };
+
+  const anthropic = getAnthropic();
+  const business = client.name;
+  const callback = client.escalationNumber?.trim();
+  const signature = callback ? ` You can reach us at ${callback}.` : "";
+
+  const touches: Touch[] = [];
+
+  // Cold unbooked leads.
+  for (const lead of await recoverableLeads(client)) {
+    const insight = lead.callId ? await getInsightForCall(client.id, lead.callId) : null;
+    const fallback =
+      `Hi${lead.name ? ` ${lead.name}` : ""}, it's ${business} — following up on your call about ${lead.service || lead.reason || "your request"}. Still happy to help; want to get you booked in?` +
+      signature;
+    const body =
+      insight?.followUpDraft?.trim() ||
+      (await draftSms(
+        anthropic,
+        client,
+        `Business: ${business}\nLead: ${lead.name ?? "a caller"}\nWanted: ${lead.service ?? lead.reason ?? "unknown"}\nTheir message: ${lead.message ?? "(none)"}\nTiming: ${lead.urgency ?? "unknown"}${signature ? `\nCallback number: ${callback}` : ""}`,
+        fallback,
+      ));
+    touches.push({ kind: "lead", to: lead.phone!.trim(), body, leadId: lead.id });
+    if (touches.length >= MAX_SENDS_PER_CLIENT) break;
+  }
+
+  // Recent no-shows (one nudge each).
+  if (touches.length < MAX_SENDS_PER_CLIENT) {
+    const cutoff = new Date(Date.now() - NOSHOW_MAX_AGE_DAYS * 86400_000);
+    const noShows = await db.query.appointments.findMany({
+      where: and(
+        eq(appointments.clientId, client.id),
+        eq(appointments.status, "no_show"),
+        gte(appointments.startAt, cutoff),
+        isNull(appointments.deletedAt),
+      ),
+      limit: 25,
+    });
+    for (const appt of noShows) {
+      if (!appt.customerPhone?.trim()) continue;
+      const nudged = await db.query.reminders.findFirst({
+        where: and(
+          eq(reminders.clientId, client.id),
+          eq(reminders.appointmentId, appt.id),
+          gte(reminders.createdAt, appt.startAt),
+        ),
+      });
+      if (nudged) continue;
+      touches.push({
+        kind: "no_show",
+        to: appt.customerPhone.trim(),
+        body:
+          `Hi${appt.customerName ? ` ${appt.customerName}` : ""}, we missed you at ${business}! No worries — want to pick a new time?` +
+          signature,
+        appointmentId: appt.id,
+      });
+      if (touches.length >= MAX_SENDS_PER_CLIENT) break;
+    }
+  }
+
+  if (touches.length === 0) return { ...base, skipped: "nothing_to_recover" };
+
+  const [run] = await db
+    .insert(agentRuns)
+    .values({ clientId: client.id, kind: "outbound_recovery" })
+    .returning();
+
+  let sent = 0;
+  try {
+    for (const t of touches) {
+      const result = await notifier.sendSms({ to: t.to, body: t.body });
+      const failed = !result.ok && !result.skipped;
+      await createReminder(client.id, {
+        leadId: t.leadId ?? null,
+        appointmentId: t.appointmentId ?? null,
+        channel: "sms",
+        status: failed ? "failed" : "sent",
+        sentAt: failed ? null : new Date(),
+        error: failed ? (result.error ?? "Send failed") : null,
+      });
+      if (!failed) {
+        sent += 1;
+        if (t.leadId) {
+          await db
+            .update(leads)
+            .set({ status: "contacted" })
+            .where(and(eq(leads.id, t.leadId), eq(leads.clientId, client.id), eq(leads.status, "new")));
+        }
+      }
+    }
+    if (run) {
+      await db
+        .update(agentRuns)
+        .set({
+          status: "succeeded",
+          finishedAt: new Date(),
+          stats: { attempted: touches.length, sent },
+        })
+        .where(eq(agentRuns.id, run.id));
+    }
+    return { ...base, sent };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (run) {
+      await db
+        .update(agentRuns)
+        .set({ status: "failed", finishedAt: new Date(), error: message })
+        .where(eq(agentRuns.id, run.id));
+    }
+    logger.error("agents.recovery.failed", { clientId: client.id, error: message });
+    return { ...base, sent, skipped: `error: ${message}` };
+  }
+}
+
+/** Daily entry point: run recovery for every live client. (Trial clients are
+ *  excluded — no outbound to real customers before the business goes live.) */
+export async function runOutboundRecovery(): Promise<RecoveryResult[]> {
+  const active = await db.query.clients.findMany({
+    where: and(eq(clients.status, "live"), isNull(clients.deletedAt)),
+  });
+  const results: RecoveryResult[] = [];
+  for (const client of active) {
+    results.push(await recoverClient(client));
+  }
+  return results;
+}

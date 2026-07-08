@@ -95,6 +95,7 @@ export const agentRunKind = pgEnum("agent_run_kind", [
   "nightly_improve",
   "qa_review",
   "post_call",
+  "outbound_recovery",
 ]);
 export const agentRunStatus = pgEnum("agent_run_status", ["running", "succeeded", "failed"]);
 export const suggestionType = pgEnum("suggestion_type", ["knowledge", "guidance"]);
