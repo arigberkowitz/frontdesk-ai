@@ -1,5 +1,6 @@
 import { requireAgencyOperator, isSuperAdmin } from "@/lib/auth-guard";
 import { listClients } from "@/lib/data/clients";
+import { countOpenGrades } from "@/lib/agents/qa";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppTopbar } from "@/components/app-topbar";
 
@@ -15,11 +16,15 @@ export default async function DashboardLayout({
 }) {
   const user = await requireAgencyOperator();
   const superAdmin = isSuperAdmin(user);
-  const clients = (await listClients(user.orgId)).map((c) => ({ id: c.id, name: c.name }));
+  const [clientRows, reviewCount] = await Promise.all([
+    listClients(user.orgId),
+    countOpenGrades(user.orgId),
+  ]);
+  const clients = clientRows.map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <div className="flex min-h-screen w-full">
-      <AppSidebar superAdmin={superAdmin} />
+      <AppSidebar superAdmin={superAdmin} reviewCount={reviewCount} />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppTopbar clients={clients} />
         <main className="flex-1 p-4 sm:p-6 lg:p-8">

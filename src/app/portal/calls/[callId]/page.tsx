@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarCheck, Clock, Smile, Sparkles, User } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
 import { getCallForClient } from "@/lib/data/calls";
+import { getInsightForCall } from "@/lib/data/insights";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,8 @@ export default async function PortalCallPage({
   const { clientId } = await resolvePortalClient();
   const call = await getCallForClient(clientId, callId);
   if (!call) notFound();
+  const insight = await getInsightForCall(clientId, callId);
+  const entities = (insight?.entities ?? {}) as Record<string, string>;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -125,6 +128,16 @@ export default async function PortalCallPage({
                 <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                   <Clock className="size-3.5" />
                   {formatDuration(call.durationSec)}
+                </span>
+              ) : null}
+              {entities.service ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                  Wanted: {entities.service}
+                </span>
+              ) : null}
+              {entities.requestedDate ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                  When: {entities.requestedDate}
                 </span>
               ) : null}
             </div>

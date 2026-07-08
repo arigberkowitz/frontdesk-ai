@@ -4,6 +4,9 @@ import { currentUser } from "@clerk/nextjs/server";
 import { Building2, MessageSquare, Plus } from "lucide-react";
 import { requireOperator } from "@/lib/auth-guard";
 import { getPortfolioMetrics } from "@/lib/data/metrics";
+import { getAgentActivity } from "@/lib/data/agent-runs";
+import { countOpenGrades } from "@/lib/agents/qa";
+import { AgentActivityPanel } from "@/components/agent-activity";
 import { Greeting } from "@/components/greeting";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
@@ -18,7 +21,12 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const user = await requireOperator();
-  const [m, cu] = await Promise.all([getPortfolioMetrics(user.orgId), currentUser()]);
+  const [m, cu, agentActivity, openReviews] = await Promise.all([
+    getPortfolioMetrics(user.orgId),
+    currentUser(),
+    getAgentActivity(user.orgId),
+    countOpenGrades(user.orgId),
+  ]);
   const firstName = cu?.firstName ?? undefined;
 
   const money = formatCurrencyCents;
@@ -109,6 +117,8 @@ export default async function DashboardPage() {
         <MetricCard icon="calls" label="Calls today" value={String(m.callsToday)} hint="Across all clients" href="/clients" breakdown={callsTodayBreakdown} spark={m.callsByDay.map((d) => d.calls)} sparkColor="#0ea5e9" />
         <MetricCard icon="bookings" label="Bookings today" value={String(m.bookingsToday)} hint="Appointments captured" href="/clients" breakdown={bookingsTodayBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
       </div>
+
+      <AgentActivityPanel activity={agentActivity} openReviews={openReviews} />
 
       <div className="space-y-3">
         <h2 className="fd-section-label">Business health</h2>

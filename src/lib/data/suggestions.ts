@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { agentSuggestions, type AgentSuggestion } from "@/db/schema";
 
@@ -9,6 +9,21 @@ export async function listOpenSuggestions(clientId: string): Promise<AgentSugges
   return db.query.agentSuggestions.findMany({
     where: and(eq(agentSuggestions.clientId, clientId), eq(agentSuggestions.status, "proposed")),
     orderBy: [desc(agentSuggestions.createdAt)],
+  });
+}
+
+/** Recently reviewed (applied or dismissed) suggestions — the learning archive. */
+export async function listReviewedSuggestions(
+  clientId: string,
+  limit = 20,
+): Promise<AgentSuggestion[]> {
+  return db.query.agentSuggestions.findMany({
+    where: and(
+      eq(agentSuggestions.clientId, clientId),
+      inArray(agentSuggestions.status, ["applied", "dismissed"]),
+    ),
+    orderBy: [desc(agentSuggestions.reviewedAt), desc(agentSuggestions.createdAt)],
+    limit,
   });
 }
 

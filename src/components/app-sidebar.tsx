@@ -46,10 +46,13 @@ export function NavLinks({
   onNavigate,
   superAdmin,
   dark,
+  reviewCount = 0,
 }: {
   onNavigate?: () => void;
   superAdmin?: boolean;
   dark?: boolean;
+  /** Open QA findings — shown as a badge on the Review item. */
+  reviewCount?: number;
 }) {
   const pathname = usePathname();
   return (
@@ -67,6 +70,11 @@ export function NavLinks({
           >
             <Icon className="size-4 shrink-0" />
             {item.label}
+            {item.href === "/review" && reviewCount > 0 ? (
+              <span className="ml-auto rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+                {reviewCount > 99 ? "99+" : reviewCount}
+              </span>
+            ) : null}
           </Link>
         );
       })}
@@ -85,7 +93,13 @@ export function NavLinks({
   );
 }
 
-export function AppSidebar({ superAdmin }: { superAdmin?: boolean }) {
+export function AppSidebar({
+  superAdmin,
+  reviewCount,
+}: {
+  superAdmin?: boolean;
+  reviewCount?: number;
+}) {
   return (
     <aside className="hidden w-52 shrink-0 flex-col border-r border-white/5 bg-[#11131c] md:flex">
       <div className="flex h-16 items-center gap-2.5 border-b border-white/5 px-4">
@@ -98,7 +112,7 @@ export function AppSidebar({ superAdmin }: { superAdmin?: boolean }) {
         <span className="font-heading font-semibold tracking-tight text-white">{APP_NAME}</span>
       </div>
       <div className="flex-1 overflow-y-auto p-3">
-        <NavLinks superAdmin={superAdmin} dark />
+        <NavLinks superAdmin={superAdmin} dark reviewCount={reviewCount} />
       </div>
     </aside>
   );

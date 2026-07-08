@@ -29,6 +29,17 @@ export async function listOpenGradesForOrg(orgId: string): Promise<ReviewQueueIt
   return rows;
 }
 
+/** Grade for one call (client-scoped). */
+export async function getGradeForCall(
+  clientId: string,
+  callId: string,
+): Promise<CallGrade | null> {
+  const row = await db.query.callGrades.findFirst({
+    where: and(eq(callGrades.clientId, clientId), eq(callGrades.callId, callId)),
+  });
+  return row ?? null;
+}
+
 /** Mark a grade reviewed, verifying the grade's client belongs to the org. */
 export async function markGradeReviewed(
   orgId: string,
