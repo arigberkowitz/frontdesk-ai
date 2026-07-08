@@ -6,6 +6,10 @@
       "schedule": "0 14 * * *"
     },
     {
+      "path": "/api/cron/qa-review",
+      "schedule": "30 8 * * *"
+    },
+    {
       "path": "/api/cron/nightly-improve",
       "schedule": "0 9 * * *"
     }

@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Phone,
   Settings,
+  ShieldCheck,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -23,6 +24,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   Settings,
   Phone,
   CalendarCheck,
+  ShieldCheck,
   Sparkles,
 };
 

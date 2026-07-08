@@ -26,6 +26,7 @@ export type NavIcon =
   | "Settings"
   | "Phone"
   | "CalendarCheck"
+  | "ShieldCheck"
   | "Sparkles";
 
 export interface NavItem {
@@ -38,6 +39,7 @@ export interface NavItem {
 export const OPERATOR_NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
   { label: "Clients", href: "/clients", icon: "Building2" },
+  { label: "Review", href: "/review", icon: "ShieldCheck" },
   { label: "Demo", href: "/demo", icon: "Sparkles" },
   { label: "Settings", href: "/settings", icon: "Settings" },
 ];
