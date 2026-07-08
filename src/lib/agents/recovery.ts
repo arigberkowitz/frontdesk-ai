@@ -259,11 +259,16 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
   }
 }
 
-/** Daily entry point: run recovery for every live client. (Trial clients are
- *  excluded — no outbound to real customers before the business goes live.) */
+/** Daily entry point: run recovery for every live client that OPTED IN via
+ *  portal settings. (Trial clients and non-consenting clients are excluded —
+ *  outbound to real customers is opt-in only.) */
 export async function runOutboundRecovery(): Promise<RecoveryResult[]> {
   const active = await db.query.clients.findMany({
-    where: and(eq(clients.status, "live"), isNull(clients.deletedAt)),
+    where: and(
+      eq(clients.status, "live"),
+      eq(clients.outboundRecoveryEnabled, true),
+      isNull(clients.deletedAt),
+    ),
   });
   const results: RecoveryResult[] = [];
   for (const client of active) {

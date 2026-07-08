@@ -1,0 +1,1 @@
+ALTER TABLE "clients" ADD COLUMN "outbound_recovery_enabled" boolean DEFAULT false NOT NULL;

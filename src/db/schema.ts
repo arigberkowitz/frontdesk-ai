@@ -180,6 +180,9 @@ export const clients = pgTable(
     // Spoken languages the AI handles: 'en' | 'en-es' (bilingual) | 'es'.
     // Drives the agent's language behavior (match the caller, switch on request).
     languages: text("languages").notNull().default("en"),
+    // Agent #5 opt-in: the recovery loop may text this client's cold leads and
+    // no-shows. Off by default — outbound to real customers is opt-in only.
+    outboundRecoveryEnabled: boolean("outbound_recovery_enabled").notNull().default(false),
     ...timestamps,
     ...softDelete,
   },

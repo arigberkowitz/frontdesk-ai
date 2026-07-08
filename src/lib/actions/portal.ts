@@ -62,6 +62,9 @@ export async function savePortalProfileAction(
     if (note.length > 200) return { ok: false, fieldErrors: { humanHoursNote: ["Keep it under 200 characters"] } };
     patch.humanHoursNote = note || null;
   }
+  if (formData.has("outboundRecoveryEnabled")) {
+    patch.outboundRecoveryEnabled = String(formData.get("outboundRecoveryEnabled")) === "on";
+  }
 
   if (Object.keys(patch).length === 0) return { ok: false, error: "Nothing to save." };
 

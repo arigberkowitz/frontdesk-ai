@@ -26,6 +26,10 @@ export function PortalSettings({ client }: { client: Client }) {
     savePortalProfileAction,
     initialActionState,
   );
+  const [recovery, recoveryAction, recoveryPending] = useActionState(
+    savePortalProfileAction,
+    initialActionState,
+  );
   const [help, helpAction, helpPending] = useActionState(contactSupportAction, initialActionState);
   const helpFormRef = useRef<HTMLFormElement>(null);
 
@@ -41,6 +45,10 @@ export function PortalSettings({ client }: { client: Client }) {
     if (handoff.ok) toast.success("Human-handoff settings saved.");
     else if (handoff.error) toast.error(handoff.error);
   }, [handoff]);
+  useEffect(() => {
+    if (recovery.ok) toast.success("Recovery settings saved.");
+    else if (recovery.error) toast.error(recovery.error);
+  }, [recovery]);
   useEffect(() => {
     if (help.ok) {
       toast.success("Message sent — we'll get back to you by email.");
@@ -166,6 +174,36 @@ export function PortalSettings({ client }: { client: Client }) {
             </Field>
             <div className="flex justify-end">
               <SubmitButton pending={handoffPending}>Save</SubmitButton>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recovery texts</CardTitle>
+          <CardDescription>
+            When on, your AI follows up by text with leads that never booked and customers who
+            missed appointments — at most two gentle nudges, during your daytime hours only.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={recoveryAction} className="space-y-4">
+            <input type="hidden" name="clientId" value={client.id} />
+            <Field
+              label="Automatically chase missed revenue"
+              hint="You can see every text it sends on your Leads page. Marking a lead won or lost stops the follow-ups."
+            >
+              <NativeSelect
+                name="outboundRecoveryEnabled"
+                defaultValue={client.outboundRecoveryEnabled ? "on" : "off"}
+              >
+                <option value="off">Off — I&apos;ll follow up myself</option>
+                <option value="on">On — recover cold leads and no-shows for me</option>
+              </NativeSelect>
+            </Field>
+            <div className="flex justify-end">
+              <SubmitButton pending={recoveryPending}>Save</SubmitButton>
             </div>
           </form>
         </CardContent>
