@@ -58,20 +58,30 @@ export function LeadFollowup({
   leadId,
   phone,
   history,
+  draft,
 }: {
   clientId: string;
   leadId: string;
   phone: string | null;
   history: FollowupLog[];
+  /** AI-drafted SMS from the post-call agent; one tap on Text sends exactly this. */
+  draft?: string | null;
 }) {
   const hasPhone = Boolean(phone && phone.trim());
   const last = history[0];
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-2">
+      {draft ? (
+        <p className="rounded-lg bg-indigo-500/5 px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-medium text-indigo-600 dark:text-indigo-400">Drafted for you: </span>
+          &ldquo;{draft}&rdquo;
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-medium text-muted-foreground">Follow up:</span>
       <FollowupButton clientId={clientId} leadId={leadId} channel="sms" disabled={!hasPhone}>
         <MessageSquare className="size-3.5" />
-        Text
+        {draft ? "Send text" : "Text"}
       </FollowupButton>
       <FollowupButton clientId={clientId} leadId={leadId} channel="call" disabled={!hasPhone}>
         <Phone className="size-3.5" />
@@ -84,6 +94,7 @@ export function LeadFollowup({
       ) : !hasPhone ? (
         <span className="text-xs text-muted-foreground">· no number on file</span>
       ) : null}
+      </div>
     </div>
   );
 }

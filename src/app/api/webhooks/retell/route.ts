@@ -1,6 +1,8 @@
+import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { appointments, leads, type CallOutcome, type NewCall } from "@/db/schema";
+import { extractCallInsights } from "@/lib/agents/extract";
 import { verifyRetellSignature } from "@/lib/retell";
 import { getClientByRetellAgentId } from "@/lib/data/clients";
 import { upsertCallByRetellId } from "@/lib/data/calls";
@@ -126,6 +128,13 @@ export async function POST(req: Request): Promise<Response> {
     if ((event === "call_ended" || event === "call_analyzed") && row) {
       const outcome = await classifyOutcome(row.id, custom);
       await upsertCallByRetellId({ ...values, outcome });
+    }
+
+    // Agent #2 — post-call extraction (intent, entities, spam, follow-up draft).
+    // Runs after the response is sent so Retell never waits on the model.
+    if (event === "call_analyzed" && row && values.transcript) {
+      const callDbId = row.id;
+      after(() => extractCallInsights(callDbId));
     }
 
     await markWebhookProcessed("retell", externalId, "processed");

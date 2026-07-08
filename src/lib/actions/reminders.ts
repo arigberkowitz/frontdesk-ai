@@ -5,6 +5,7 @@ import { assertClientAccess } from "@/lib/auth-guard";
 import { assertClientInOrg, getClientByIdUnsafe } from "@/lib/data/clients";
 import { createReminder, getClientAppointment } from "@/lib/data/reminders";
 import { getClientLead } from "@/lib/data/leads";
+import { getInsightForCall } from "@/lib/data/insights";
 import { notifier } from "@/lib/notifier";
 import { integrations } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
@@ -106,9 +107,14 @@ export async function sendLeadFollowupAction(
   const client = await getClientByIdUnsafe(clientId);
   const business = client?.name ?? "us";
   const callbackNumber = client?.escalationNumber?.trim();
+
+  // Prefer the post-call agent's tailored draft (what the UI previews); fall
+  // back to the generic follow-up line when no insight exists for this call.
+  const insight = lead.callId ? await getInsightForCall(clientId, lead.callId) : null;
   const body =
+    insight?.followUpDraft?.trim() ||
     `Hi${lead.name ? ` ${lead.name}` : ""}, this is ${business} following up on your recent call — when's a good time to connect?` +
-    (callbackNumber ? ` You can reach us at ${callbackNumber}.` : "");
+      (callbackNumber ? ` You can reach us at ${callbackNumber}.` : "");
 
   const result =
     channel === "sms" ? await notifier.sendSms({ to: phone, body }) : { ok: false, skipped: true as const };

@@ -3,6 +3,7 @@ import { Inbox } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
 import { listLeads } from "@/lib/data/leads";
 import { remindersByLead } from "@/lib/data/reminders";
+import { insightsByCall } from "@/lib/data/insights";
 import { Download } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -26,6 +27,10 @@ function Qual({ label, value, className }: { label: string; value: string | null
 export default async function PortalLeadsPage() {
   const { clientId } = await resolvePortalClient();
   const [leads, reminderMap] = await Promise.all([listLeads(clientId), remindersByLead(clientId)]);
+  const insightMap = await insightsByCall(
+    clientId,
+    leads.map((l) => l.callId).filter((id): id is string => Boolean(id)),
+  );
 
   return (
     <div className="space-y-6">
@@ -116,7 +121,13 @@ export default async function PortalLeadsPage() {
                   <LeadStatusControl leadId={l.id} clientId={clientId} status={l.status} />
                 </div>
                 <div className="mt-3 border-t pt-3 sm:pl-12">
-                  <LeadFollowup clientId={clientId} leadId={l.id} phone={l.phone} history={history} />
+                  <LeadFollowup
+                    clientId={clientId}
+                    leadId={l.id}
+                    phone={l.phone}
+                    history={history}
+                    draft={l.callId ? insightMap[l.callId]?.followUpDraft : null}
+                  />
                 </div>
               </li>
             );
