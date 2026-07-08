@@ -1,5 +1,7 @@
 import "server-only";
-import { updateClient } from "@/lib/data/clients";
+import { getClientByIdUnsafe, updateClient } from "@/lib/data/clients";
+import { draftVoiceIdentity, verifyProfile } from "@/lib/agents/onboard-verify";
+import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { createService } from "@/lib/data/services";
 import { setWeekHours, type DayHoursInput } from "@/lib/data/hours";
 import { createKnowledge } from "@/lib/data/knowledge";
@@ -54,9 +56,13 @@ async function applyProfile(
 }
 
 /**
- * Scrape a website, structure it with Claude, and populate the client's
- * services / hours / FAQ. Best-effort: a bad site or a missing Anthropic key is
- * swallowed (logged) so the rest of onboarding still succeeds.
+ * Agent #4 — autonomous onboarding. Crawl the site, structure it with Claude,
+ * fact-check the draft against the source (verify pass strips anything the site
+ * doesn't support), populate services / hours / FAQ, and draft a tone-matched
+ * greeting + guidance so the receptionist arrives opinionated, not generic.
+ * Best-effort: a bad site or a missing Anthropic key is swallowed (logged) so
+ * the rest of onboarding still succeeds. Nothing goes live until the owner
+ * reviews and activates.
  */
 export async function applyWebsiteToClient(
   orgId: string,
@@ -66,15 +72,36 @@ export async function applyWebsiteToClient(
 ): Promise<void> {
   try {
     const scraped = await scrapeWebsite(websiteUrl);
-    const profile = await structureBusinessProfile(name, scraped.combinedText);
-    if (profile) {
-      await applyProfile(orgId, clientId, profile);
-      logger.info("onboard.structured", {
-        clientId,
-        services: profile.services.length,
-        faq: profile.faq.length,
-      });
+    const draft = await structureBusinessProfile(name, scraped.combinedText);
+    if (!draft) return;
+
+    const { profile, verified } = await verifyProfile(draft, scraped.combinedText);
+    await applyProfile(orgId, clientId, profile);
+
+    // Voice identity: only fill fields the owner hasn't already set.
+    const client = await getClientByIdUnsafe(clientId);
+    if (client && (!client.greeting?.trim() || !client.agentGuidance?.trim())) {
+      const voice = await draftVoiceIdentity(
+        name,
+        client.agentName?.trim() || DEFAULT_AGENT_NAME,
+        profile,
+      );
+      if (voice) {
+        await updateClient(orgId, clientId, {
+          ...(client.greeting?.trim() ? {} : { greeting: voice.greeting }),
+          ...(client.agentGuidance?.trim() || !voice.guidance
+            ? {}
+            : { agentGuidance: voice.guidance }),
+        });
+      }
     }
+
+    logger.info("onboard.structured", {
+      clientId,
+      verified,
+      services: profile.services.length,
+      faq: profile.faq.length,
+    });
   } catch (err) {
     logger.error("onboard.failed", {
       clientId,

@@ -25,7 +25,7 @@ const WEEKDAYS = [
   "Saturday",
 ] as const;
 
-const PROFILE_TOOL: Anthropic.Tool = {
+export const PROFILE_TOOL: Anthropic.Tool = {
   name: "save_business_profile",
   description:
     "Save the structured profile extracted from the business's website. Use ONLY information present in the text; never invent prices, hours, or services.",
@@ -116,6 +116,9 @@ const profileSchema = z.object({
 });
 
 export type StructuredProfile = z.infer<typeof profileSchema>;
+
+/** Zod guard shared with the onboarding verify agent. */
+export { profileSchema };
 
 export function dayNameToIndex(day: string): number {
   const i = WEEKDAYS.findIndex((d) => d.toLowerCase() === day.trim().toLowerCase());
