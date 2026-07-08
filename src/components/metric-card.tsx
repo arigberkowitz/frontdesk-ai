@@ -6,6 +6,18 @@ import { MetricIconChip, type MetricIcon } from "@/components/metric-accent";
 import { CountUp } from "@/components/count-up";
 import { Sparkline } from "@/components/charts/sparkline";
 
+export type MetricSize = "hero" | "default" | "sm";
+
+/** Two deliberate steps of visual weight: one lead stat, quieter supporting stats. */
+export const METRIC_SIZES: Record<
+  MetricSize,
+  { pad: string; num: string; spark: string }
+> = {
+  hero: { pad: "p-6", num: "text-4xl sm:text-[2.75rem]", spark: "mt-4 h-10" },
+  default: { pad: "p-5", num: "text-3xl", spark: "mt-3 h-6" },
+  sm: { pad: "p-4", num: "text-2xl", spark: "mt-2 h-5" },
+};
+
 interface MetricCardProps {
   label: string;
   value: string;
@@ -19,11 +31,13 @@ interface MetricCardProps {
   /** Optional 14-day trend series rendered as a sparkline under the number. */
   spark?: number[];
   sparkColor?: string;
+  /** hero = lead stat (bigger number, taller spark); sm = quiet supporting stat. */
+  size?: MetricSize;
   className?: string;
 }
 
 /** Big, legible stat. Optionally links to the records, or expands a breakdown on click. */
-export function MetricCard({ label, value, hint, icon, href, breakdown, spark, sparkColor, className }: MetricCardProps) {
+export function MetricCard({ label, value, hint, icon, href, breakdown, spark, sparkColor, size = "default", className }: MetricCardProps) {
   if (breakdown && breakdown.length > 0) {
     return (
       <MetricBreakdown
@@ -35,21 +49,23 @@ export function MetricCard({ label, value, hint, icon, href, breakdown, spark, s
         href={href}
         spark={spark}
         sparkColor={sparkColor}
+        size={size}
         className={className}
       />
     );
   }
 
+  const s = METRIC_SIZES[size];
   const body = (
-    <CardContent className="p-5">
+    <CardContent className={s.pad}>
       <MetricIconChip icon={icon} />
-      <p className={cn("font-heading text-3xl font-semibold tracking-tight tabular-nums", icon && "mt-3")}>
+      <p className={cn("font-heading font-semibold tracking-tight tabular-nums", s.num, icon && "mt-3")}>
         <CountUp value={value} />
       </p>
       <p className="mt-1 text-sm font-medium text-muted-foreground">{label}</p>
       {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
       {spark && spark.length > 1 ? (
-        <Sparkline data={spark} color={sparkColor} className="mt-3 h-6 w-full" />
+        <Sparkline data={spark} color={sparkColor} className={cn("w-full", s.spark)} />
       ) : null}
     </CardContent>
   );
