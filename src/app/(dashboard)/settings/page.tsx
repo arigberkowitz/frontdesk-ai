@@ -79,6 +79,14 @@ function connections(): Connection[] {
       docs: "https://docs.claude.com/en/api/getting-started",
     },
     {
+      name: "Error monitoring — Sentry",
+      ok: Boolean(process.env.SENTRY_DSN),
+      description:
+        "Surfaces webhook and agent-run failures the moment they happen, instead of leaving them buried in function logs.",
+      env: ["SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN"],
+      docs: "https://docs.sentry.io/platforms/javascript/guides/nextjs/",
+    },
+    {
       name: "Scheduled agents — Cron",
       ok: Boolean(env.CRON_SECRET),
       description:
