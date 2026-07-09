@@ -1,6 +1,4 @@
 import "server-only";
-import type Anthropic from "@anthropic-ai/sdk";
-import { z } from "zod";
 import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -12,23 +10,27 @@ import {
   type Client,
   type Lead,
 } from "@/db/schema";
-import { getInsightForCall } from "@/lib/data/insights";
 import { createReminder } from "@/lib/data/reminders";
-import { CRITIC_MODEL, getAnthropic, toolInput } from "./anthropic";
 import { notifier } from "@/lib/notifier";
 import { logger } from "@/lib/logger";
 
 /**
  * Agent #5 — outbound recovery. Goal: recover missed revenue. A daily loop
  * finds unbooked leads going cold and recent no-shows, decides who to contact,
- * sends a tailored SMS, and logs every touch. The manual Text button becomes a
+ * sends a follow-up SMS, and logs every touch. The manual Text button becomes a
  * standing campaign.
  *
  * Guardrails (a live business's reputation rides on these):
+ *  - OPT-IN per client (portal settings); off by default
  *  - max 2 recovery touches per lead, ≥3 days apart; won/lost leads never contacted
  *  - no-shows get exactly one nudge, within 14 days of the missed appointment
  *  - sends only during the client's local daytime (9:00–19:00)
  *  - per-client daily cap; demo-safe (no Twilio → logged, not sent)
+ *  - UNATTENDED SENDS ARE TEMPLATED, never LLM text. Call transcripts are
+ *    attacker-controlled input; an LLM draft derived from them must pass a
+ *    human eye (the portal "Send text" button) before it leaves on the
+ *    business's number. Personalization here comes only from short, sanitized
+ *    structured fields.
  *  - reply handling stays human: owners mark won/lost, which stops the loop
  */
 
@@ -52,47 +54,10 @@ function localHour(tz: string | null): number {
   }
 }
 
-const SMS_TOOL: Anthropic.Tool = {
-  name: "save_recovery_sms",
-  description: "Save the recovery SMS to send this person.",
-  input_schema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      body: {
-        type: "string",
-        description:
-          "One SMS (≤300 chars) from the business: warm, specific to what they wanted, with a clear next step. Never invent prices, times, or discounts.",
-      },
-    },
-    required: ["body"],
-  },
-};
-
-const smsSchema = z.object({ body: z.string().min(1).max(400) });
-
-async function draftSms(
-  anthropic: Anthropic | null,
-  client: Client,
-  context: string,
-  fallback: string,
-): Promise<string> {
-  if (!anthropic) return fallback;
-  try {
-    const res = await anthropic.messages.create({
-      model: CRITIC_MODEL,
-      max_tokens: 300,
-      system:
-        "You write one recovery SMS for a local business chasing a lost booking. Warm, brief, human — a busy owner texting back, not a marketing blast. Use only facts provided.",
-      messages: [{ role: "user", content: context }],
-      tools: [SMS_TOOL],
-      tool_choice: { type: "tool", name: SMS_TOOL.name },
-    });
-    const parsed = smsSchema.safeParse(toolInput(res));
-    return parsed.success ? parsed.data.body.trim() : fallback;
-  } catch {
-    return fallback;
-  }
+/** Structured fields are stored from calls, so treat them as untrusted too:
+ *  collapse whitespace and cap length before they enter a template. */
+function sanitizeField(value: string | null | undefined, max = 60): string {
+  return (value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 
 interface Touch {
@@ -146,27 +111,19 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
   const hour = localHour(client.timezone);
   if (hour < 9 || hour >= 19) return { ...base, skipped: "outside_daytime" };
 
-  const anthropic = getAnthropic();
   const business = client.name;
   const callback = client.escalationNumber?.trim();
   const signature = callback ? ` You can reach us at ${callback}.` : "";
 
   const touches: Touch[] = [];
 
-  // Cold unbooked leads.
+  // Cold unbooked leads — templated body, personalized only by short sanitized fields.
   for (const lead of await recoverableLeads(client)) {
-    const insight = lead.callId ? await getInsightForCall(client.id, lead.callId) : null;
-    const fallback =
-      `Hi${lead.name ? ` ${lead.name}` : ""}, it's ${business} — following up on your call about ${lead.service || lead.reason || "your request"}. Still happy to help; want to get you booked in?` +
-      signature;
+    const name = sanitizeField(lead.name, 40);
+    const about = sanitizeField(lead.service || lead.reason, 60) || "your request";
     const body =
-      insight?.followUpDraft?.trim() ||
-      (await draftSms(
-        anthropic,
-        client,
-        `Business: ${business}\nLead: ${lead.name ?? "a caller"}\nWanted: ${lead.service ?? lead.reason ?? "unknown"}\nTheir message: ${lead.message ?? "(none)"}\nTiming: ${lead.urgency ?? "unknown"}${signature ? `\nCallback number: ${callback}` : ""}`,
-        fallback,
-      ));
+      `Hi${name ? ` ${name}` : ""}, it's ${business} — following up on your call about ${about}. Still happy to help; want to get you booked in?` +
+      signature;
     touches.push({ kind: "lead", to: lead.phone!.trim(), body, leadId: lead.id });
     if (touches.length >= MAX_SENDS_PER_CLIENT) break;
   }
@@ -193,11 +150,12 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
         ),
       });
       if (nudged) continue;
+      const customer = sanitizeField(appt.customerName, 40);
       touches.push({
         kind: "no_show",
         to: appt.customerPhone.trim(),
         body:
-          `Hi${appt.customerName ? ` ${appt.customerName}` : ""}, we missed you at ${business}! No worries — want to pick a new time?` +
+          `Hi${customer ? ` ${customer}` : ""}, we missed you at ${business}! No worries — want to pick a new time?` +
           signature,
         appointmentId: appt.id,
       });
@@ -262,7 +220,8 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
 /** Daily entry point: run recovery for every live client that OPTED IN via
  *  portal settings. (Trial clients and non-consenting clients are excluded —
  *  outbound to real customers is opt-in only.) */
-export async function runOutboundRecovery(): Promise<RecoveryResult[]> {
+export async function runOutboundRecovery(budgetMs = 240_000): Promise<RecoveryResult[]> {
+  const deadline = Date.now() + budgetMs;
   const active = await db.query.clients.findMany({
     where: and(
       eq(clients.status, "live"),
@@ -272,6 +231,10 @@ export async function runOutboundRecovery(): Promise<RecoveryResult[]> {
   });
   const results: RecoveryResult[] = [];
   for (const client of active) {
+    if (Date.now() > deadline) {
+      results.push({ clientId: client.id, clientName: client.name, sent: 0, skipped: "time_budget" });
+      continue;
+    }
     results.push(await recoverClient(client));
   }
   return results;

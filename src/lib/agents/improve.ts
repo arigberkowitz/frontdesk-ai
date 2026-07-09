@@ -376,13 +376,29 @@ export async function improveClient(client: Client, sinceHours = 24): Promise<Im
   }
 }
 
-/** Nightly entry point: run the loop for every live/trial client. */
-export async function runNightlyImprovement(sinceHours = 24): Promise<ImproveResult[]> {
+/** Nightly entry point: run the loop for every live/trial client. Stops before
+ *  the function deadline rather than timing out mid-client. */
+export async function runNightlyImprovement(
+  sinceHours = 24,
+  budgetMs = 240_000,
+): Promise<ImproveResult[]> {
+  const deadline = Date.now() + budgetMs;
   const active = await db.query.clients.findMany({
     where: and(inArray(clients.status, ["live", "trial"]), isNull(clients.deletedAt)),
   });
   const results: ImproveResult[] = [];
   for (const client of active) {
+    if (Date.now() > deadline) {
+      results.push({
+        clientId: client.id,
+        clientName: client.name,
+        callsReviewed: 0,
+        drafted: 0,
+        kept: 0,
+        skipped: "time_budget",
+      });
+      continue;
+    }
     results.push(await improveClient(client, sinceHours));
   }
   return results;

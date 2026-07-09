@@ -114,6 +114,7 @@ export async function contactSupportAction(
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
   const user = await assertClientAccess(clientId);
+  await assertClientInOrg(user.orgId, clientId);
 
   const subject = String(formData.get("subject") ?? "").trim();
   const message = String(formData.get("message") ?? "").trim();

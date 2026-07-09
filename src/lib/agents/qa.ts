@@ -117,10 +117,12 @@ export async function qaReviewClient(client: Client, sinceHours = 24): Promise<Q
   if (!anthropic) return { ...base, skipped: "anthropic_unconfigured" };
 
   const since = new Date(Date.now() - sinceHours * 3600 * 1000);
+  // Bounded to the same window as the candidate calls — this list would
+  // otherwise grow without limit as history accumulates.
   const graded = await db
     .select({ callId: callGrades.callId })
     .from(callGrades)
-    .where(eq(callGrades.clientId, client.id));
+    .where(and(eq(callGrades.clientId, client.id), gte(callGrades.createdAt, since)));
   const gradedIds = graded.map((g) => g.callId);
 
   const rows = await db.query.calls.findMany({
@@ -214,13 +216,20 @@ export async function qaReviewClient(client: Client, sinceHours = 24): Promise<Q
   }
 }
 
-/** Batch entry point: grade every live/trial client's recent calls. */
-export async function runQaReview(sinceHours = 24): Promise<QaResult[]> {
+/** Batch entry point: grade every live/trial client's recent calls. Stops
+ *  before the function deadline so a big batch degrades to "some clients
+ *  skipped tonight" instead of a silent timeout mid-client. */
+export async function runQaReview(sinceHours = 24, budgetMs = 240_000): Promise<QaResult[]> {
+  const deadline = Date.now() + budgetMs;
   const active = await db.query.clients.findMany({
     where: and(inArray(clients.status, ["live", "trial"]), isNull(clients.deletedAt)),
   });
   const results: QaResult[] = [];
   for (const client of active) {
+    if (Date.now() > deadline) {
+      results.push({ clientId: client.id, clientName: client.name, graded: 0, flagged: 0, skipped: "time_budget" });
+      continue;
+    }
     results.push(await qaReviewClient(client, sinceHours));
   }
   return results;
