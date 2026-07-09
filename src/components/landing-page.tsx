@@ -217,6 +217,12 @@ export function LandingPage() {
             © {new Date().getFullYear()} FrontDesk AI
           </span>
           <span className="flex gap-4">
+            <Link href="/terms" className="hover:text-foreground">
+              Terms
+            </Link>
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
             <Link href="/sign-in" className="hover:text-foreground">
               Sign in
             </Link>

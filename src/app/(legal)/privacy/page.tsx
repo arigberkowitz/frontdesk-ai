@@ -1,0 +1,134 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Privacy Policy" };
+
+const UPDATED = "July 8, 2026";
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <h2 className="font-heading text-xl font-semibold tracking-tight">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * Privacy policy. NOTE FOR THE OPERATOR: starting draft, not legal advice —
+ * lawyer review before selling; replace bracketed placeholders.
+ */
+export default function PrivacyPage() {
+  return (
+    <article className="space-y-10">
+      <div className="space-y-2">
+        <h1 className="font-heading text-3xl font-semibold tracking-tight">Privacy Policy</h1>
+        <p className="text-sm text-muted-foreground">Last updated {UPDATED}</p>
+      </div>
+
+      <div className="space-y-10 text-[15px] leading-relaxed text-muted-foreground [&_strong]:text-foreground">
+        <Section title="1. Scope">
+          <p>
+            This policy explains how FrontDesk AI ([FrontDesk AI, LLC] — &ldquo;we&rdquo;,
+            &ldquo;us&rdquo;) handles personal information when businesses use our AI phone
+            receptionist (the &ldquo;Service&rdquo;) and when people call a business that uses it.
+            It covers two groups: <strong>customers</strong> (the businesses with accounts) and{" "}
+            <strong>callers</strong> (people who phone those businesses).
+          </p>
+        </Section>
+
+        <Section title="2. Information we collect">
+          <p>
+            <strong>From customers:</strong> account details (name, email), business information
+            (services, hours, address, phone numbers, website content you ask us to import),
+            calendar connections you authorize, and billing details (handled by Stripe — we never
+            store full card numbers).
+          </p>
+          <p>
+            <strong>From callers:</strong> when someone calls a business using the Service, we
+            process the phone number, <strong>the audio of the call (which may be recorded)</strong>
+            , a transcript, and details the caller shares during the conversation — such as their
+            name, callback number, the service they want, preferred times, and messages they leave.
+            The business the caller dialed controls this data; we process it on that
+            business&rsquo;s behalf.
+          </p>
+        </Section>
+
+        <Section title="3. How we use it">
+          <p>
+            We use this information to operate the Service: answering and routing calls, booking
+            appointments, capturing messages, notifying the business, and billing. We also use AI
+            to process call content — generating transcripts and summaries, classifying what the
+            caller wanted, grading how well the AI receptionist performed, and drafting suggested
+            improvements and follow-up messages <strong>that a human at the business reviews and
+            approves</strong>. We do not sell personal information, and we do not use call content
+            to advertise to callers.
+          </p>
+        </Section>
+
+        <Section title="4. Call recording">
+          <p>
+            Calls handled by the Service may be recorded and transcribed. The Service plays a
+            disclosure at the start of calls where the business has enabled it; recording-consent
+            laws vary by jurisdiction, and the business you called is responsible for its
+            disclosure settings. If you are a caller and want a recording deleted, contact the
+            business you called — or contact us and we will refer your request to them.
+          </p>
+        </Section>
+
+        <Section title="5. Service providers (subprocessors)">
+          <p>
+            We rely on a small set of providers to run the Service, and share only what each needs:
+            voice and telephony (Retell AI), AI language processing (Anthropic), text messaging
+            (Twilio), email (Resend), payments (Stripe), authentication (Clerk), database and
+            hosting (Neon, Vercel), and calendar scheduling (Google Calendar or Cal.com, when the
+            business connects them). Each is bound by its own data protection commitments.
+          </p>
+        </Section>
+
+        <Section title="6. Retention">
+          <p>
+            We keep call recordings, transcripts, and business data while the business&rsquo;s
+            account is active and for a reasonable period afterwards, after which they are deleted
+            or de-identified. Businesses can delete individual records (leads, knowledge, and so
+            on) from their dashboard at any time; deleted records are removed from active systems
+            promptly and from backups on a rolling basis.
+          </p>
+        </Section>
+
+        <Section title="7. Security">
+          <p>
+            Data is encrypted in transit, access is limited by role and tenant (a business can only
+            ever see its own data), calendar credentials are stored encrypted, and webhooks are
+            signature-verified. No system is perfectly secure; if a breach affects your personal
+            information we will notify affected parties as required by law.
+          </p>
+        </Section>
+
+        <Section title="8. Your rights">
+          <p>
+            Depending on where you live (for example under the CCPA or GDPR), you may have rights
+            to access, correct, delete, or export personal information, and to object to certain
+            processing. Customers can exercise these directly in the product or by contacting us.
+            Callers should contact the business they called (the data controller); we support
+            businesses in fulfilling these requests. We do not knowingly collect information from
+            children under 13.
+          </p>
+        </Section>
+
+        <Section title="9. Changes and contact">
+          <p>
+            We will post any changes to this policy here and notify customers of material changes
+            by email or in-product. Questions or requests:{" "}
+            <a
+              href="mailto:[support@frontdesk.ai]"
+              className="text-foreground underline underline-offset-2"
+            >
+              [support@frontdesk.ai]
+            </a>
+            .
+          </p>
+        </Section>
+      </div>
+    </article>
+  );
+}

@@ -73,9 +73,18 @@ function connections(): Connection[] {
     {
       name: "AI — Anthropic",
       ok: integrations.anthropic(),
-      description: "Drafts an agent from a business's website during onboarding.",
+      description:
+        "Powers onboarding drafts and the whole agent layer: nightly improvement, QA grading, post-call extraction, and the portal copilot.",
       env: ["ANTHROPIC_API_KEY"],
       docs: "https://docs.claude.com/en/api/getting-started",
+    },
+    {
+      name: "Scheduled agents — Cron",
+      ok: Boolean(env.CRON_SECRET),
+      description:
+        "Authorizes the nightly QA, self-improvement, recovery, and digest jobs. Without it every scheduled agent is disabled.",
+      env: ["CRON_SECRET"],
+      docs: "https://vercel.com/docs/cron-jobs",
     },
     {
       name: "Billing — Stripe",
