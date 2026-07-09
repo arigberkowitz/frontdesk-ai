@@ -8,6 +8,7 @@ import { getAgentActivity } from "@/lib/data/agent-runs";
 import { countOpenGrades } from "@/lib/agents/qa";
 import { AgentActivityPanel } from "@/components/agent-activity";
 import { Greeting } from "@/components/greeting";
+import { PageHeader } from "@/components/page-header";
 import { MetricCard } from "@/components/metric-card";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -75,23 +76,20 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
-            <Greeting name={firstName} />
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Your book of business at a glance.</p>
-        </div>
+      <PageHeader
+        title={<Greeting name={firstName} />}
+        description="Your book of business at a glance."
+      >
         <Button render={<Link href="/clients/new" />} nativeButton={false}>
           <Plus className="size-4" />
           New client
         </Button>
-      </div>
+      </PageHeader>
 
       {m.newLeads > 0 ? (
         <Card className="border-amber-500/40 bg-amber-500/5">
           <CardContent className="flex items-start gap-3 p-4">
-            <MessageSquare className="mt-0.5 size-5 shrink-0 text-amber-600" />
+            <MessageSquare className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
             <div className="text-sm">
               <p className="font-medium">
                 {m.newLeads} new message{m.newLeads === 1 ? "" : "s"} waiting for follow-up

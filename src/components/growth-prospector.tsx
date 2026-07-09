@@ -73,7 +73,7 @@ export function GrowthProspector() {
                     ) : null}
                     <div className="mt-3 rounded-lg bg-muted/60 p-3">
                       <p className="text-xs font-medium">{r.outreachSubject}</p>
-                      <p className="mt-1.5 whitespace-pre-wrap text-sm text-muted-foreground">
+                      <p className="mt-1.5 break-words whitespace-pre-wrap text-sm text-muted-foreground">
                         {r.outreachBody}
                       </p>
                     </div>

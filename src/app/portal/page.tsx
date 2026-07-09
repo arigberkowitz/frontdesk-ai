@@ -86,7 +86,7 @@ export default async function PortalOverviewPage({
       {m.newLeads > 0 ? (
         <Card className="border-amber-500/40 bg-amber-500/5">
           <CardContent className="flex items-start gap-3 p-4 text-sm">
-            <MessageSquare className="mt-0.5 size-5 shrink-0 text-amber-600" />
+            <MessageSquare className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
             <div>
               <p className="font-medium">
                 {m.newLeads} new message{m.newLeads === 1 ? "" : "s"} for you
@@ -123,10 +123,6 @@ export default async function PortalOverviewPage({
 
       <SetupChecklist status={setup} />
 
-      <AiLearnings clientId={clientId} suggestions={learnings} />
-
-      <RoiPanel roi={roi} />
-
       <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
         <MetricCard icon="calls" label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} spark={m.callsByDay.map((d) => d.calls)} sparkColor="#0ea5e9" />
@@ -134,7 +130,9 @@ export default async function PortalOverviewPage({
         <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} className="sm:col-span-2 lg:col-span-1" />
       </div>
 
-      <CopilotChat />
+      <AiLearnings clientId={clientId} suggestions={learnings} />
+
+      <RoiPanel roi={roi} />
 
       <WeeklyRecap recap={recap} />
 
@@ -145,6 +143,8 @@ export default async function PortalOverviewPage({
         clientId={clientId}
         tz={tz}
       />
+
+      <CopilotChat />
 
       <ActivityFeed items={activity} />
     </div>

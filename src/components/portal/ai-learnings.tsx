@@ -37,7 +37,7 @@ export function AiLearnings({
             <GraduationCap className="size-4" />
           </span>
           <div>
-            <p className="font-heading text-xl font-semibold tracking-tight">
+            <p className="font-heading text-lg font-semibold tracking-tight">
               Your AI learned {suggestions.length} thing{suggestions.length === 1 ? "" : "s"}
             </p>
             <p className="text-sm text-muted-foreground">

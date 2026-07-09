@@ -156,7 +156,7 @@ export default async function CallPage({
                 {entityChips.map((c) => (
                   <span
                     key={c}
-                    className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                    className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:text-indigo-400"
                   >
                     {c}
                   </span>
@@ -180,7 +180,7 @@ export default async function CallPage({
           {call.appointments.map((a) => (
             <Card key={a.id}>
               <CardContent className="flex items-center gap-3 p-4">
-                <CalendarCheck className="size-5 text-emerald-600" />
+                <CalendarCheck className="size-5 text-emerald-600 dark:text-emerald-400" />
                 <div>
                   <p className="font-medium">Booked: {a.customerName ?? "Caller"}</p>
                   <p className="text-sm text-muted-foreground">
@@ -193,7 +193,7 @@ export default async function CallPage({
           {call.leads.map((l) => (
             <Card key={l.id}>
               <CardContent className="flex items-center gap-3 p-4">
-                <Inbox className="size-5 text-blue-600" />
+                <Inbox className="size-5 text-indigo-600 dark:text-indigo-400" />
                 <div>
                   <p className="font-medium">Lead: {l.name ?? "Caller"}</p>
                   <p className="text-sm text-muted-foreground">{formatPhone(l.phone)}</p>

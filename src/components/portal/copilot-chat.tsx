@@ -18,7 +18,8 @@ const STARTERS = [
   "Add a FAQ: we have free parking behind the building.",
 ];
 
-/** Agent #6 — chat over the business's own data (calls, leads, bookings, FAQ). */
+/** Agent #6 — chat over the business's own data (calls, leads, bookings, FAQ).
+ *  Sits at the bottom of the overview: an invitation, not a roadblock. */
 export function CopilotChat() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -54,7 +55,7 @@ export function CopilotChat() {
             <Sparkles className="size-4" />
           </span>
           <div>
-            <p className="font-heading text-xl font-semibold tracking-tight">Ask your front desk</p>
+            <p className="font-heading text-lg font-semibold tracking-tight">Ask your front desk</p>
             <p className="text-sm text-muted-foreground">
               It knows your calls, leads, and bookings — and can teach your AI new answers.
             </p>
@@ -68,7 +69,7 @@ export function CopilotChat() {
                 key={s}
                 type="button"
                 onClick={() => send(s)}
-                className="rounded-full border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded-full border px-3 py-1.5 text-xs text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {s}
               </button>
@@ -83,7 +84,7 @@ export function CopilotChat() {
               >
                 <div
                   className={cn(
-                    "max-w-[85%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm",
+                    "max-w-[85%] break-words whitespace-pre-wrap rounded-xl px-3 py-2 text-sm",
                     m.role === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-foreground",
@@ -113,6 +114,7 @@ export function CopilotChat() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            aria-label="Ask your front desk"
             placeholder="Ask about your calls, leads, bookings…"
             className="h-10 flex-1 rounded-lg border bg-background px-3 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring"
             disabled={pending}

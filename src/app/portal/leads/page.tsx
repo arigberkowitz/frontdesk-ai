@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Leads" };
 function Qual({ label, value, className }: { label: string; value: string | null; className: string }) {
   if (!value) return null;
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${className}`}>
+    <span className={`break-words rounded-full px-2 py-0.5 text-xs font-medium ${className}`}>
       {label}: {value}
     </span>
   );
@@ -102,17 +102,17 @@ export default async function PortalLeadsPage() {
                           <Qual
                             label="Wants"
                             value={l.service}
-                            className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-300"
+                            className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
                           />
                           <Qual
                             label="Timing"
                             value={l.urgency}
-                            className="bg-amber-500/10 text-amber-600 dark:text-amber-300"
+                            className="bg-amber-500/10 text-amber-600 dark:text-amber-400"
                           />
                           <Qual
                             label="Budget"
                             value={l.budget}
-                            className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                            className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                           />
                         </div>
                       ) : null}
