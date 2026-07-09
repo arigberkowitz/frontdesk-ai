@@ -3,7 +3,7 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { Building2, MessageSquare, Plus } from "lucide-react";
 import { requireOperator } from "@/lib/auth-guard";
-import { getPortfolioMetrics } from "@/lib/data/metrics";
+import { getOrgCallQuality, getPortfolioMetrics } from "@/lib/data/metrics";
 import { getAgentActivity } from "@/lib/data/agent-runs";
 import { countOpenGrades } from "@/lib/agents/qa";
 import { AgentActivityPanel } from "@/components/agent-activity";
@@ -21,12 +21,14 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const user = await requireOperator();
-  const [m, cu, agentActivity, openReviews] = await Promise.all([
+  const [m, cu, agentActivity, openReviews, quality] = await Promise.all([
     getPortfolioMetrics(user.orgId),
     currentUser(),
     getAgentActivity(user.orgId),
     countOpenGrades(user.orgId),
+    getOrgCallQuality(user.orgId),
   ]);
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
   const firstName = cu?.firstName ?? undefined;
 
   const money = formatCurrencyCents;
@@ -119,6 +121,50 @@ export default async function DashboardPage() {
       </div>
 
       <AgentActivityPanel activity={agentActivity} openReviews={openReviews} />
+
+      {quality.totalCalls > 0 ? (
+        <div className="space-y-3">
+          <h2 className="fd-section-label">Call quality — last 30 days</h2>
+          <div className="fd-stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCard
+              icon="answerRate"
+              label="Answer rate"
+              value={pct(quality.answerRate)}
+              hint={`${quality.totalCalls} calls`}
+              size="sm"
+            />
+            <MetricCard
+              icon="containment"
+              label="Containment"
+              value={pct(quality.containmentRate)}
+              hint="Handled without a human"
+              size="sm"
+            />
+            <MetricCard
+              icon="sentiment"
+              label="Positive callers"
+              value={quality.knownSentiments > 0 ? pct(quality.positiveShare) : "—"}
+              hint={
+                quality.knownSentiments > 0
+                  ? `Of ${quality.knownSentiments} rated calls`
+                  : "No sentiment data yet"
+              }
+              size="sm"
+            />
+            <MetricCard
+              icon="qa"
+              label="Avg QA score"
+              value={quality.avgQaScore != null ? `${quality.avgQaScore.toFixed(1)}/5` : "—"}
+              hint={
+                quality.gradedCalls > 0
+                  ? `${quality.gradedCalls} calls graded overnight`
+                  : "QA agent hasn't graded calls yet"
+              }
+              size="sm"
+            />
+          </div>
+        </div>
+      ) : null}
 
       <div className="space-y-3">
         <h2 className="fd-section-label">Business health</h2>

@@ -1,7 +1,15 @@
 import "server-only";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { appointments, calls, clients, leads, services, subscriptions } from "@/db/schema";
+import {
+  appointments,
+  callGrades,
+  calls,
+  clients,
+  leads,
+  services,
+  subscriptions,
+} from "@/db/schema";
 import { COST_ASSUMPTIONS } from "@/config/plans";
 
 /**
@@ -467,5 +475,78 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     mrrByClient: mrrRows.map((r) => ({ name: r.name, cents: r.cents ?? 0 })),
     callsByDay: fillDays(byDayRows, 14, "UTC"),
     outcomes: outcomeRows,
+  };
+}
+
+/* ------------------------------ call quality ----------------------------- */
+
+export interface CallQualityMetrics {
+  totalCalls: number;
+  answerRate: number; // 0–1
+  containmentRate: number; // 0–1, calls resolved without human escalation
+  positiveShare: number; // 0–1 of calls with a known sentiment
+  knownSentiments: number;
+  avgQaScore: number | null; // 1–5, null until the QA agent has graded calls
+  gradedCalls: number;
+}
+
+/** Org-wide call quality over the last 30 days (dashboard "Call quality" row). */
+export async function getOrgCallQuality(orgId: string): Promise<CallQualityMetrics> {
+  const empty: CallQualityMetrics = {
+    totalCalls: 0,
+    answerRate: 1,
+    containmentRate: 1,
+    positiveShare: 0,
+    knownSentiments: 0,
+    avgQaScore: null,
+    gradedCalls: 0,
+  };
+
+  const idRows = await db
+    .select({ id: clients.id })
+    .from(clients)
+    .where(and(eq(clients.orgId, orgId), isNull(clients.deletedAt)));
+  const ids = idRows.map((r) => r.id);
+  if (!ids.length) return empty;
+
+  const [agg] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      missed: sql<number>`count(*) filter (where ${calls.outcome} = 'missed')::int`,
+      escalated: sql<number>`count(*) filter (where ${calls.outcome} = 'escalated')::int`,
+      positive: sql<number>`count(*) filter (where ${calls.sentiment} = 'positive')::int`,
+      known: sql<number>`count(*) filter (where ${calls.sentiment} in ('positive','neutral','negative'))::int`,
+    })
+    .from(calls)
+    .where(
+      and(
+        inArray(calls.clientId, ids),
+        isNull(calls.deletedAt),
+        sql`${calls.startAt} >= now() - interval '30 days'`,
+      ),
+    );
+
+  const [qa] = await db
+    .select({
+      avg: sql<number | null>`avg(${callGrades.score})`,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(callGrades)
+    .where(
+      and(
+        inArray(callGrades.clientId, ids),
+        sql`${callGrades.createdAt} >= now() - interval '30 days'`,
+      ),
+    );
+
+  const total = agg?.total ?? 0;
+  return {
+    totalCalls: total,
+    answerRate: total > 0 ? (total - (agg?.missed ?? 0)) / total : 1,
+    containmentRate: total > 0 ? (total - (agg?.escalated ?? 0)) / total : 1,
+    positiveShare: (agg?.known ?? 0) > 0 ? (agg?.positive ?? 0) / (agg?.known ?? 1) : 0,
+    knownSentiments: agg?.known ?? 0,
+    avgQaScore: qa?.avg != null ? Number(qa.avg) : null,
+    gradedCalls: qa?.n ?? 0,
   };
 }

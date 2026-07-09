@@ -1,6 +1,7 @@
 import {
   Building2,
   CalendarCheck,
+  ClipboardCheck,
   DollarSign,
   Moon,
   Percent,
@@ -29,6 +30,7 @@ const REGISTRY = {
   containment: { Icon: ShieldCheck, chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" },
   answerRate: { Icon: Percent, chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400" },
   sentiment: { Icon: Smile, chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },
+  qa: { Icon: ClipboardCheck, chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
 } satisfies Record<string, { Icon: LucideIcon; chip: string }>;
 
 export type MetricIcon = keyof typeof REGISTRY;
