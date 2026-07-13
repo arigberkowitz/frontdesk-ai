@@ -27,9 +27,33 @@ const STEPS = [
   { n: "3", title: "You see everything", body: "Bookings hit your calendar; leads, recordings, and summaries land in one dashboard." },
 ];
 
+/** Structured data so search engines understand the product + pricing. */
+function jsonLd() {
+  const plans = planList();
+  return {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "FrontDesk AI",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    description:
+      "AI phone receptionist for local service businesses — answers every call, books appointments, and captures leads 24/7 in English and Spanish.",
+    offers: plans.map((p) => ({
+      "@type": "Offer",
+      name: p.name,
+      price: (p.monthlyPriceCents / 100).toFixed(0),
+      priceCurrency: "USD",
+    })),
+  };
+}
+
 export function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd()) }}
+      />
       <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-5xl items-center gap-3 px-4 sm:px-6">
           <div

@@ -25,9 +25,26 @@ const fraunces = Fraunces({
   axes: ["opsz"],
 });
 
+const SITE_URL = process.env.APP_URL || "https://frontdesk-ai-alpha.vercel.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: { default: `${APP_NAME} — ${APP_DESCRIPTION}`, template: `%s · ${APP_NAME}` },
   description: APP_DESCRIPTION,
+  openGraph: {
+    title: `${APP_NAME} — Never miss another call`,
+    description: APP_DESCRIPTION,
+    url: SITE_URL,
+    siteName: APP_NAME,
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${APP_NAME} — Never miss another call`,
+    description: APP_DESCRIPTION,
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({

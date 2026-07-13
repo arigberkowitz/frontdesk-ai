@@ -7,6 +7,7 @@ import { listCalls } from "@/lib/data/calls";
 import { listAppointments } from "@/lib/data/appointments";
 import { listLeads } from "@/lib/data/leads";
 import { getClientMetrics } from "@/lib/data/metrics";
+import { listAgentVersions } from "@/lib/data/agent-versions";
 import { listRetellVoices } from "@/lib/retell";
 import { isStripeTestMode } from "@/lib/stripe";
 import { signIntakeToken } from "@/lib/intake-token";
@@ -20,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/clients/status-badge";
 import { ClientDetail } from "@/components/clients/client-detail";
+import { PromptChangelog } from "@/components/clients/prompt-changelog";
 
 export default async function ClientPage({
   params,
@@ -34,11 +36,12 @@ export default async function ClientPage({
   const client = await getClient(user.orgId, id);
   if (!client) notFound();
 
-  const [calls, appointments, leads, metrics] = await Promise.all([
+  const [calls, appointments, leads, metrics, versions] = await Promise.all([
     listCalls(id),
     listAppointments(id),
     listLeads(id),
     getClientMetrics(id),
+    listAgentVersions(id),
   ]);
 
   // Best-effort: load the live Retell voice library for the picker. Never block
@@ -142,6 +145,7 @@ export default async function ClientPage({
         billing={billing}
         intakeUrl={`${env.APP_URL}/intake/${signIntakeToken(client.id)}`}
       />
+      <PromptChangelog versions={versions} />
     </div>
   );
 }
