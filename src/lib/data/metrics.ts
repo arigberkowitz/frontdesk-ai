@@ -526,18 +526,25 @@ export async function getOrgCallQuality(orgId: string): Promise<CallQualityMetri
       ),
     );
 
-  const [qa] = await db
-    .select({
-      avg: sql<number | null>`avg(${callGrades.score})`,
-      n: sql<number>`count(*)::int`,
-    })
-    .from(callGrades)
-    .where(
-      and(
-        inArray(callGrades.clientId, ids),
-        sql`${callGrades.createdAt} >= now() - interval '30 days'`,
-      ),
-    );
+  // Fail-soft: call_grades arrives with the agent-layer migration; a lagging
+  // migration should cost the QA stat, not the dashboard.
+  let qa: { avg: number | null; n: number } | undefined;
+  try {
+    [qa] = await db
+      .select({
+        avg: sql<number | null>`avg(${callGrades.score})`,
+        n: sql<number>`count(*)::int`,
+      })
+      .from(callGrades)
+      .where(
+        and(
+          inArray(callGrades.clientId, ids),
+          sql`${callGrades.createdAt} >= now() - interval '30 days'`,
+        ),
+      );
+  } catch {
+    qa = undefined;
+  }
 
   const total = agg?.total ?? 0;
   return {

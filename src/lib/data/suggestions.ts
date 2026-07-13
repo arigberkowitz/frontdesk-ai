@@ -6,10 +6,16 @@ import { agentSuggestions, type AgentSuggestion } from "@/db/schema";
 /** Agent-suggestion data access. Callers verify client→org ownership first. */
 
 export async function listOpenSuggestions(clientId: string): Promise<AgentSuggestion[]> {
-  return db.query.agentSuggestions.findMany({
-    where: and(eq(agentSuggestions.clientId, clientId), eq(agentSuggestions.status, "proposed")),
-    orderBy: [desc(agentSuggestions.createdAt)],
-  });
+  // Fail-soft: renders on the portal overview — a lagging agent-layer
+  // migration should hide the panel, not crash the page.
+  try {
+    return await db.query.agentSuggestions.findMany({
+      where: and(eq(agentSuggestions.clientId, clientId), eq(agentSuggestions.status, "proposed")),
+      orderBy: [desc(agentSuggestions.createdAt)],
+    });
+  } catch {
+    return [];
+  }
 }
 
 /** Recently reviewed (applied or dismissed) suggestions — the learning archive. */
@@ -17,14 +23,18 @@ export async function listReviewedSuggestions(
   clientId: string,
   limit = 20,
 ): Promise<AgentSuggestion[]> {
-  return db.query.agentSuggestions.findMany({
-    where: and(
-      eq(agentSuggestions.clientId, clientId),
-      inArray(agentSuggestions.status, ["applied", "dismissed"]),
-    ),
-    orderBy: [desc(agentSuggestions.reviewedAt), desc(agentSuggestions.createdAt)],
-    limit,
-  });
+  try {
+    return await db.query.agentSuggestions.findMany({
+      where: and(
+        eq(agentSuggestions.clientId, clientId),
+        inArray(agentSuggestions.status, ["applied", "dismissed"]),
+      ),
+      orderBy: [desc(agentSuggestions.reviewedAt), desc(agentSuggestions.createdAt)],
+      limit,
+    });
+  } catch {
+    return [];
+  }
 }
 
 export async function getSuggestion(

@@ -2,6 +2,7 @@ import "server-only";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { agentRuns, clients } from "@/db/schema";
+import { logger } from "@/lib/logger";
 
 /** Agent-run activity for the operator's "while you were out" report. */
 
@@ -24,31 +25,45 @@ export interface AgentActivity {
   failures: number;
 }
 
+const EMPTY_ACTIVITY: AgentActivity = {
+  runs: [],
+  qaGraded: 0,
+  qaFlagged: 0,
+  improveKept: 0,
+  callsReviewed: 0,
+  recoverySent: 0,
+  failures: 0,
+};
+
 export async function getAgentActivity(orgId: string, sinceHours = 48): Promise<AgentActivity> {
   const since = new Date(Date.now() - sinceHours * 3600 * 1000);
-  const rows = await db
-    .select({
-      id: agentRuns.id,
-      kind: agentRuns.kind,
-      status: agentRuns.status,
-      stats: agentRuns.stats,
-      clientName: clients.name,
-      startedAt: agentRuns.startedAt,
-    })
-    .from(agentRuns)
-    .innerJoin(clients, eq(agentRuns.clientId, clients.id))
-    .where(and(eq(clients.orgId, orgId), gte(agentRuns.startedAt, since)))
-    .orderBy(desc(agentRuns.startedAt))
-    .limit(100);
+  let rows;
+  try {
+    rows = await db
+      .select({
+        id: agentRuns.id,
+        kind: agentRuns.kind,
+        status: agentRuns.status,
+        stats: agentRuns.stats,
+        clientName: clients.name,
+        startedAt: agentRuns.startedAt,
+      })
+      .from(agentRuns)
+      .innerJoin(clients, eq(agentRuns.clientId, clients.id))
+      .where(and(eq(clients.orgId, orgId), gte(agentRuns.startedAt, since)))
+      .orderBy(desc(agentRuns.startedAt))
+      .limit(100);
+  } catch (err) {
+    // Fail-soft: a lagging migration hides the panel instead of crashing the dashboard.
+    logger.warn("agent_runs.activity_failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return EMPTY_ACTIVITY;
+  }
 
   const activity: AgentActivity = {
+    ...EMPTY_ACTIVITY,
     runs: rows.map((r) => ({ ...r, stats: (r.stats as Record<string, number> | null) ?? null })),
-    qaGraded: 0,
-    qaFlagged: 0,
-    improveKept: 0,
-    callsReviewed: 0,
-    recoverySent: 0,
-    failures: 0,
   };
 
   for (const r of activity.runs) {

@@ -235,12 +235,21 @@ export async function runQaReview(sinceHours = 24, budgetMs = 240_000): Promise<
   return results;
 }
 
-/** Open review-queue count for an org (sidebar badge / dashboards). */
+/** Open review-queue count for an org (sidebar badge / dashboards). Fail-soft:
+ *  this runs in the dashboard layout, so a lagging migration must degrade to a
+ *  missing badge, never a crashed operator shell. */
 export async function countOpenGrades(orgId: string): Promise<number> {
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(callGrades)
-    .innerJoin(clients, eq(callGrades.clientId, clients.id))
-    .where(and(eq(clients.orgId, orgId), eq(callGrades.status, "open")));
-  return row?.n ?? 0;
+  try {
+    const [row] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(callGrades)
+      .innerJoin(clients, eq(callGrades.clientId, clients.id))
+      .where(and(eq(clients.orgId, orgId), eq(callGrades.status, "open")));
+    return row?.n ?? 0;
+  } catch (err) {
+    logger.warn("agents.qa.count_failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return 0;
+  }
 }
