@@ -60,7 +60,7 @@ export function LandingPage() {
             <br />
             <em className="font-medium">another call.</em>
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
+          <p className="mx-auto mt-5 max-w-xl text-balance text-base text-muted-foreground sm:text-lg">
             Your AI receptionist answers every call, books appointments straight to your calendar,
             and captures every lead — 24/7, in English and Spanish, for a fraction of a hire.
           </p>
@@ -83,6 +83,7 @@ export function LandingPage() {
         </section>
 
         <section className="mx-auto max-w-lg px-4 pb-16 sm:px-6">
+          <p className="fd-section-label mb-3 text-center">Hear it answer</p>
           <DemoCall />
         </section>
 
@@ -104,7 +105,8 @@ export function LandingPage() {
 
         <section id="how" className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
           <div className="text-center">
-            <h2 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
+            <p className="fd-section-label">How it works</p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
               Live in a day, not a quarter
             </h2>
             <p className="mt-2 text-muted-foreground">
@@ -134,7 +136,8 @@ export function LandingPage() {
         <section id="pricing" className="border-t bg-card/40">
           <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
             <div className="text-center">
-              <h2 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
+              <p className="fd-section-label">Pricing</p>
+              <h2 className="mt-2 font-heading text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
                 Simple, flat pricing
               </h2>
               <p className="mt-2 text-muted-foreground">
@@ -189,18 +192,20 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
-          <h2 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-            Stop sending customers to voicemail.
-          </h2>
-          <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
-            Set up your AI receptionist today — most businesses are live the same afternoon.
-          </p>
-          <div className="mt-6 flex justify-center">
-            <Button size="lg" nativeButton={false} render={<Link href="/sign-up" />}>
-              <ArrowRight className="size-4" />
-              Get started free
-            </Button>
+        <section className="mx-auto max-w-4xl px-4 py-20 sm:px-6">
+          <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/[0.04] px-6 py-14 text-center sm:px-12">
+            <h2 className="font-heading text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+              Stop sending customers <em className="font-medium">to voicemail.</em>
+            </h2>
+            <p className="mx-auto mt-3 max-w-lg text-balance text-muted-foreground">
+              Set up your AI receptionist today — most businesses are live the same afternoon.
+            </p>
+            <div className="mt-7 flex justify-center">
+              <Button size="lg" nativeButton={false} render={<Link href="/sign-up" />}>
+                <ArrowRight className="size-4" />
+                Get started free
+              </Button>
+            </div>
           </div>
         </section>
       </main>

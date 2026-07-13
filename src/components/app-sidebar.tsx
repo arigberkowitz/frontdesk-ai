@@ -32,15 +32,26 @@ const ICONS: Record<NavIcon, LucideIcon> = {
 
 const linkClass = (active: boolean, dark?: boolean) =>
   cn(
-    "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
+    "relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
     dark
       ? active
-        ? "bg-indigo-500/25 text-white"
+        ? "bg-indigo-500/20 text-white"
         : "text-zinc-400 hover:bg-white/5 hover:text-white"
       : active
         ? "bg-sidebar-accent text-sidebar-accent-foreground"
         : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
   );
+
+/** Slim brand tick marking the active item — quieter than a filled background alone. */
+const ActiveTick = ({ dark }: { dark?: boolean }) => (
+  <span
+    aria-hidden
+    className={cn(
+      "absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full",
+      dark ? "bg-indigo-400" : "bg-indigo-500",
+    )}
+  />
+);
 
 export function NavLinks({
   onNavigate,
@@ -68,6 +79,7 @@ export function NavLinks({
             aria-current={active ? "page" : undefined}
             className={linkClass(active, dark)}
           >
+            {active ? <ActiveTick dark={dark} /> : null}
             <Icon className="size-4 shrink-0" />
             {item.label}
             {item.href === "/review" && reviewCount > 0 ? (
@@ -85,6 +97,7 @@ export function NavLinks({
           aria-current={pathname.startsWith("/platform") ? "page" : undefined}
           className={linkClass(pathname.startsWith("/platform"), dark)}
         >
+          {pathname.startsWith("/platform") ? <ActiveTick dark={dark} /> : null}
           <Globe className="size-4 shrink-0" />
           Platform
         </Link>
