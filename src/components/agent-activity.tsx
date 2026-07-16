@@ -33,6 +33,11 @@ export function AgentActivityPanel({
       text: `Recovery texted ${activity.recoverySent} cold lead${activity.recoverySent === 1 ? "" : "s"} / no-show${activity.recoverySent === 1 ? "" : "s"}`,
     });
   }
+  if (activity.copilotChats > 0) {
+    lines.push({
+      text: `Portal copilot answered ${activity.copilotChats} question${activity.copilotChats === 1 ? "" : "s"} for your clients`,
+    });
+  }
   if (activity.failures > 0) {
     lines.push({ text: `${activity.failures} run${activity.failures === 1 ? "" : "s"} failed — check logs` });
   }

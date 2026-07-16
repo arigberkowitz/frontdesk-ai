@@ -71,6 +71,13 @@
       "when": 1783491954736,
       "tag": "0009_recovery_opt_in",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784170927221,
+      "tag": "0010_copilot_chat_kind",
+      "breakpoints": true
     }
   ]
 }

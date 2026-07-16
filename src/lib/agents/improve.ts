@@ -13,6 +13,7 @@ import {
   type Client,
 } from "@/db/schema";
 import { CRITIC_MODEL, DRAFT_MODEL, getAnthropic, toolInput } from "./anthropic";
+import { clientsAlreadyRun, mapLimit, outOfBudget } from "./util";
 import { notifyOwnerLearnings } from "@/lib/notify";
 import { logger } from "@/lib/logger";
 
@@ -376,8 +377,9 @@ export async function improveClient(client: Client, sinceHours = 24): Promise<Im
   }
 }
 
-/** Nightly entry point: run the loop for every live/trial client. Stops before
- *  the function deadline rather than timing out mid-client. */
+/** Nightly entry point: run the loop for every live/trial client.
+ *  Concurrent (bounded), budget-aware, and resumable: clients already served
+ *  in the last 20h are skipped, so truncated runs converge on retry. */
 export async function runNightlyImprovement(
   sinceHours = 24,
   budgetMs = 240_000,
@@ -386,20 +388,17 @@ export async function runNightlyImprovement(
   const active = await db.query.clients.findMany({
     where: and(inArray(clients.status, ["live", "trial"]), isNull(clients.deletedAt)),
   });
-  const results: ImproveResult[] = [];
-  for (const client of active) {
-    if (Date.now() > deadline) {
-      results.push({
-        clientId: client.id,
-        clientName: client.name,
-        callsReviewed: 0,
-        drafted: 0,
-        kept: 0,
-        skipped: "time_budget",
-      });
-      continue;
-    }
-    results.push(await improveClient(client, sinceHours));
-  }
-  return results;
+  const done = await clientsAlreadyRun(active.map((c) => c.id), "nightly_improve");
+  return mapLimit(active, 3, async (client) => {
+    const base: ImproveResult = {
+      clientId: client.id,
+      clientName: client.name,
+      callsReviewed: 0,
+      drafted: 0,
+      kept: 0,
+    };
+    if (done.has(client.id)) return { ...base, skipped: "already_ran" };
+    if (outOfBudget(deadline)) return { ...base, skipped: "time_budget" };
+    return improveClient(client, sinceHours);
+  });
 }

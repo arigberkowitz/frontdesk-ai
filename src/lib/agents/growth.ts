@@ -3,6 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { scrapeWebsite, normalizeUrl } from "@/lib/scrape";
 import { DRAFT_MODEL, getAnthropic, toolInput } from "./anthropic";
+import { mapLimit } from "./util";
 import { logger } from "@/lib/logger";
 
 /**
@@ -104,9 +105,8 @@ export async function prospectWebsites(rawUrls: string[]): Promise<ProspectRepor
   if (!anthropic) {
     return urls.map((url) => ({ url, ok: false, error: "Anthropic key not configured." }));
   }
-  const out: ProspectReport[] = [];
-  for (const url of urls) {
-    out.push(await assessProspect(anthropic, url));
-  }
+  // Prospects are independent — assess them concurrently so five sites take
+  // roughly as long as the slowest one, not the sum.
+  const out = await mapLimit(urls, 3, (url) => assessProspect(anthropic, url));
   return out.sort((a, b) => (b.fitScore ?? 0) - (a.fitScore ?? 0));
 }

@@ -96,6 +96,8 @@ export const agentRunKind = pgEnum("agent_run_kind", [
   "qa_review",
   "post_call",
   "outbound_recovery",
+  // One row per portal-copilot exchange: durable rate limiting + usage analytics.
+  "copilot_chat",
 ]);
 export const agentRunStatus = pgEnum("agent_run_status", ["running", "succeeded", "failed"]);
 export const suggestionType = pgEnum("suggestion_type", ["knowledge", "guidance"]);

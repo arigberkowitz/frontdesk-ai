@@ -5,6 +5,7 @@ import { and, eq, gte, inArray, isNull, isNotNull, notInArray, sql } from "drizz
 import { db } from "@/db";
 import { agentRuns, calls, callGrades, clients, users, type Client } from "@/db/schema";
 import { CRITIC_MODEL, getAnthropic, toolInput } from "./anthropic";
+import { clientsAlreadyRun, mapLimit, outOfBudget } from "./util";
 import { notifyOperatorComplianceRisk } from "@/lib/notify";
 import { logger } from "@/lib/logger";
 
@@ -148,13 +149,15 @@ export async function qaReviewClient(client: Client, sinceHours = 24): Promise<Q
   let flaggedCount = 0;
   let complianceCount = 0;
   try {
-    for (const call of candidates) {
+    // Calls within a client grade independently — 4 in flight cuts a 25-call
+    // night from ~minutes to ~seconds of wall clock.
+    const outcomes = await mapLimit(candidates, 4, async (call) => {
       const grade = await gradeCall(anthropic, client, {
         id: call.id,
         transcript: call.transcript ?? "",
         outcome: call.outcome,
       });
-      if (!grade) continue;
+      if (!grade) return null;
       const needsReview = grade.score <= 2 || grade.complianceRisk || grade.flags.length > 0;
       await db
         .insert(callGrades)
@@ -170,9 +173,13 @@ export async function qaReviewClient(client: Client, sinceHours = 24): Promise<Q
           status: needsReview ? "open" : "reviewed",
         })
         .onConflictDoNothing({ target: callGrades.callId });
+      return { needsReview, compliance: grade.complianceRisk };
+    });
+    for (const o of outcomes) {
+      if (!o) continue;
       gradedCount += 1;
-      if (needsReview) flaggedCount += 1;
-      if (grade.complianceRisk) complianceCount += 1;
+      if (o.needsReview) flaggedCount += 1;
+      if (o.compliance) complianceCount += 1;
     }
 
     // Compliance risk is the one finding that shouldn't wait for a dashboard
@@ -216,23 +223,21 @@ export async function qaReviewClient(client: Client, sinceHours = 24): Promise<Q
   }
 }
 
-/** Batch entry point: grade every live/trial client's recent calls. Stops
- *  before the function deadline so a big batch degrades to "some clients
- *  skipped tonight" instead of a silent timeout mid-client. */
+/** Batch entry point: grade every live/trial client's recent calls.
+ *  Concurrent (bounded), budget-aware, resumable — truncated runs pick up
+ *  where they left off on the next trigger. */
 export async function runQaReview(sinceHours = 24, budgetMs = 240_000): Promise<QaResult[]> {
   const deadline = Date.now() + budgetMs;
   const active = await db.query.clients.findMany({
     where: and(inArray(clients.status, ["live", "trial"]), isNull(clients.deletedAt)),
   });
-  const results: QaResult[] = [];
-  for (const client of active) {
-    if (Date.now() > deadline) {
-      results.push({ clientId: client.id, clientName: client.name, graded: 0, flagged: 0, skipped: "time_budget" });
-      continue;
-    }
-    results.push(await qaReviewClient(client, sinceHours));
-  }
-  return results;
+  const done = await clientsAlreadyRun(active.map((c) => c.id), "qa_review");
+  return mapLimit(active, 3, async (client) => {
+    const base: QaResult = { clientId: client.id, clientName: client.name, graded: 0, flagged: 0 };
+    if (done.has(client.id)) return { ...base, skipped: "already_ran" };
+    if (outOfBudget(deadline)) return { ...base, skipped: "time_budget" };
+    return qaReviewClient(client, sinceHours);
+  });
 }
 
 /** Open review-queue count for an org (sidebar badge / dashboards). Fail-soft:

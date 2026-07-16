@@ -1,6 +1,9 @@
 "use server";
 
 import { z } from "zod";
+import { and, eq, gte, sql } from "drizzle-orm";
+import { db } from "@/db";
+import { agentRuns } from "@/db/schema";
 import { resolvePortalClient } from "@/lib/auth-guard";
 import { runCopilot, type CopilotMessage } from "@/lib/agents/copilot";
 
@@ -19,26 +22,56 @@ export interface CopilotState {
 }
 
 /**
- * Best-effort per-client throttle (module scope — per serverless instance, so
- * a cost brake rather than a hard guarantee). Each exchange runs up to
- * MAX_TURNS model calls, so unthrottled spam gets expensive fast.
+ * Durable per-client throttle, backed by agent_runs (kind "copilot_chat", one
+ * row per exchange). Each exchange runs up to MAX_TURNS model calls, so
+ * unthrottled spam gets expensive fast. Postgres makes the limit hold across
+ * serverless instances — no Redis needed — and the rows double as usage
+ * analytics. Fail-open on a lagging migration (in-memory fallback below).
  */
-const lastCallAt = new Map<string, number>();
-const dailyCount = new Map<string, { day: string; n: number }>();
 const MIN_GAP_MS = 3000;
 const MAX_PER_DAY = 60;
+const memLastCall = new Map<string, number>();
 
-function throttled(clientId: string): string | null {
+async function throttled(clientId: string): Promise<string | null> {
+  // Cheap same-instance gap check first (saves a query on double-clicks).
   const now = Date.now();
-  const last = lastCallAt.get(clientId) ?? 0;
-  if (now - last < MIN_GAP_MS) return "One question at a time — give me a second.";
-  const day = new Date().toISOString().slice(0, 10);
-  const entry = dailyCount.get(clientId);
-  const n = entry?.day === day ? entry.n : 0;
-  if (n >= MAX_PER_DAY) return "You've hit today's assistant limit — try again tomorrow.";
-  lastCallAt.set(clientId, now);
-  dailyCount.set(clientId, { day, n: n + 1 });
-  return null;
+  if (now - (memLastCall.get(clientId) ?? 0) < MIN_GAP_MS) {
+    return "One question at a time — give me a second.";
+  }
+  memLastCall.set(clientId, now);
+
+  try {
+    const dayAgo = new Date(now - 24 * 3600 * 1000);
+    const [row] = await db
+      .select({
+        n: sql<number>`count(*)::int`,
+        last: sql<Date | null>`max(${agentRuns.startedAt})`,
+      })
+      .from(agentRuns)
+      .where(
+        and(
+          eq(agentRuns.clientId, clientId),
+          eq(agentRuns.kind, "copilot_chat"),
+          gte(agentRuns.startedAt, dayAgo),
+        ),
+      );
+    if ((row?.n ?? 0) >= MAX_PER_DAY) {
+      return "You've hit today's assistant limit — try again tomorrow.";
+    }
+    if (row?.last && now - new Date(row.last).getTime() < MIN_GAP_MS) {
+      return "One question at a time — give me a second.";
+    }
+    await db.insert(agentRuns).values({
+      clientId,
+      kind: "copilot_chat",
+      status: "succeeded",
+      finishedAt: new Date(),
+    });
+    return null;
+  } catch {
+    // Migration lag: fall back to the in-memory gap check alone.
+    return null;
+  }
 }
 
 /** One copilot exchange. Tenancy: the clientId comes from the session, never the form. */
@@ -51,7 +84,7 @@ export async function copilotAction(
   const question = String(formData.get("question") ?? "").trim().slice(0, 1000);
   if (!question) return { reply: null, error: "Ask something first." };
 
-  const limit = throttled(clientId);
+  const limit = await throttled(clientId);
   if (limit) return { reply: null, error: limit };
 
   let history: CopilotMessage[] = [];

@@ -11,6 +11,7 @@ import {
   type Lead,
 } from "@/db/schema";
 import { createReminder } from "@/lib/data/reminders";
+import { clientsAlreadyRun, mapLimit, outOfBudget } from "./util";
 import { notifier } from "@/lib/notifier";
 import { logger } from "@/lib/logger";
 
@@ -80,21 +81,31 @@ async function recoverableLeads(client: Client): Promise<Lead[]> {
     orderBy: [desc(leads.createdAt)],
     limit: 50,
   });
+  const withPhone = candidates.filter((l) => l.phone?.trim());
+  if (withPhone.length === 0) return [];
 
-  const out: Lead[] = [];
-  for (const lead of candidates) {
-    if (!lead.phone?.trim()) continue;
-    const touches = await db.query.reminders.findMany({
-      where: and(eq(reminders.clientId, client.id), eq(reminders.leadId, lead.id)),
-      orderBy: [desc(reminders.createdAt)],
-    });
-    if (touches.length >= MAX_TOUCHES_PER_LEAD) continue;
-    const lastTouch = touches[0]?.createdAt ?? lead.createdAt;
-    const idleDays = (Date.now() - lastTouch.getTime()) / 86400_000;
-    if (idleDays < MIN_DAYS_BETWEEN_TOUCHES) continue;
-    out.push(lead);
+  // One query for all candidates' touch history (was one query per lead).
+  const touches = await db.query.reminders.findMany({
+    where: and(
+      eq(reminders.clientId, client.id),
+      inArray(reminders.leadId, withPhone.map((l) => l.id)),
+    ),
+    orderBy: [desc(reminders.createdAt)],
+  });
+  const byLead = new Map<string, { count: number; last: Date }>();
+  for (const t of touches) {
+    if (!t.leadId) continue;
+    const cur = byLead.get(t.leadId);
+    if (cur) cur.count += 1;
+    else byLead.set(t.leadId, { count: 1, last: t.createdAt });
   }
-  return out;
+
+  return withPhone.filter((lead) => {
+    const history = byLead.get(lead.id);
+    if ((history?.count ?? 0) >= MAX_TOUCHES_PER_LEAD) return false;
+    const lastTouch = history?.last ?? lead.createdAt;
+    return (Date.now() - lastTouch.getTime()) / 86400_000 >= MIN_DAYS_BETWEEN_TOUCHES;
+  });
 }
 
 export interface RecoveryResult {
@@ -229,13 +240,11 @@ export async function runOutboundRecovery(budgetMs = 240_000): Promise<RecoveryR
       isNull(clients.deletedAt),
     ),
   });
-  const results: RecoveryResult[] = [];
-  for (const client of active) {
-    if (Date.now() > deadline) {
-      results.push({ clientId: client.id, clientName: client.name, sent: 0, skipped: "time_budget" });
-      continue;
-    }
-    results.push(await recoverClient(client));
-  }
-  return results;
+  const done = await clientsAlreadyRun(active.map((c) => c.id), "outbound_recovery");
+  return mapLimit(active, 3, async (client) => {
+    const base: RecoveryResult = { clientId: client.id, clientName: client.name, sent: 0 };
+    if (done.has(client.id)) return { ...base, skipped: "already_ran" };
+    if (outOfBudget(deadline)) return { ...base, skipped: "time_budget" };
+    return recoverClient(client);
+  });
 }

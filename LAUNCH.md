@@ -83,9 +83,14 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
 ## Notes / known limits
 
 - DB schema syncs with `npm run db:push` (NOT `db:migrate` — the migration
-  journal predates the push workflow and is out of sync).
-- Copilot rate limiting is per-serverless-instance (cost brake, not a hard
-  cap). Durable limiting needs Upstash Redis if abuse ever shows up.
-- Cron loops are sequential with a 4-min budget — fine to ~dozens of clients.
-- `maxDuration: 300` on agent crons requires Vercel Pro; on Hobby they cap
-  lower (the time-budget guard degrades gracefully).
+  journal predates the push workflow and is out of sync). Run it after any
+  schema change, including the `copilot_chat` enum value (migration 0010).
+- Copilot rate limiting is durable (Postgres-backed via `agent_runs`,
+  60/day + 3s gap per client) and falls back to in-memory if the enum
+  migration hasn't landed yet.
+- Cron loops run 3 clients concurrently (QA grades 4 calls concurrently
+  within a client), respect a time budget, and are RESUMABLE: clients served
+  in the last 20h are skipped, so short function budgets (Vercel Hobby's 60s)
+  converge if the cron fires again — trigger manually with the curl above.
+- `maxDuration: 300` needs Vercel Pro for a single-shot nightly run at scale;
+  on Hobby the resumability makes it converge across triggers instead.

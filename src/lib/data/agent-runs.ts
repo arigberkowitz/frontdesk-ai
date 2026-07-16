@@ -22,6 +22,7 @@ export interface AgentActivity {
   improveKept: number;
   callsReviewed: number;
   recoverySent: number;
+  copilotChats: number;
   failures: number;
 }
 
@@ -32,6 +33,7 @@ const EMPTY_ACTIVITY: AgentActivity = {
   improveKept: 0,
   callsReviewed: 0,
   recoverySent: 0,
+  copilotChats: 0,
   failures: 0,
 };
 
@@ -77,7 +79,12 @@ export async function getAgentActivity(orgId: string, sinceHours = 48): Promise<
       activity.callsReviewed += s.callsReviewed ?? 0;
     } else if (r.kind === "outbound_recovery") {
       activity.recoverySent += s.sent ?? 0;
+    } else if (r.kind === "copilot_chat") {
+      activity.copilotChats += 1;
     }
   }
+  // Copilot exchanges are throttle/analytics rows, not batch runs — keep them
+  // out of the "runs" list the panel derives its headline lines from.
+  activity.runs = activity.runs.filter((r) => r.kind !== "copilot_chat");
   return activity;
 }
