@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { savePortalProfileAction, contactSupportAction } from "@/lib/actions/portal";
+import { setEditCodeAction } from "@/lib/actions/edit-lock";
 import { initialActionState } from "@/lib/actions/types";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +14,7 @@ import { SubmitButton } from "@/components/form/submit-button";
 import { TIMEZONES } from "@/config/options";
 import type { Client } from "@/db/schema";
 
-export function PortalSettings({ client }: { client: Client }) {
+export function PortalSettings({ client, isAdmin = true }: { client: Client; isAdmin?: boolean }) {
   const [profile, profileAction, profilePending] = useActionState(
     savePortalProfileAction,
     initialActionState,
@@ -28,6 +29,10 @@ export function PortalSettings({ client }: { client: Client }) {
   );
   const [recovery, recoveryAction, recoveryPending] = useActionState(
     savePortalProfileAction,
+    initialActionState,
+  );
+  const [editCode, editCodeAction, editCodePending] = useActionState(
+    setEditCodeAction,
     initialActionState,
   );
   const [help, helpAction, helpPending] = useActionState(contactSupportAction, initialActionState);
@@ -49,6 +54,10 @@ export function PortalSettings({ client }: { client: Client }) {
     if (recovery.ok) toast.success("Recovery settings saved.");
     else if (recovery.error) toast.error(recovery.error);
   }, [recovery]);
+  useEffect(() => {
+    if (editCode.ok) toast.success(editCode.message ?? "Saved.");
+    else if (editCode.error) toast.error(editCode.error);
+  }, [editCode]);
   useEffect(() => {
     if (help.ok) {
       toast.success("Message sent — we'll get back to you by email.");
@@ -178,6 +187,39 @@ export function PortalSettings({ client }: { client: Client }) {
           </form>
         </CardContent>
       </Card>
+
+      {isAdmin ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Team edit code</CardTitle>
+            <CardDescription>
+              Staff you invite can see calls, leads, and bookings, but changes to your AI
+              (knowledge, services, hours, greeting) stay locked. Set a code of your choice and
+              share it with staff you trust — entering it unlocks editing for 12 hours.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form action={editCodeAction} className="space-y-4">
+              <input type="hidden" name="clientId" value={client.id} />
+              <Field
+                label="Edit code"
+                hint="4–40 characters. Save empty to turn staff editing off entirely."
+                error={editCode.fieldErrors?.code}
+              >
+                <Input
+                  name="code"
+                  type="text"
+                  placeholder={client.editCodeHash ? "••••••  (set — enter a new one to change)" : "e.g. front-desk-2026"}
+                  autoComplete="off"
+                />
+              </Field>
+              <div className="flex justify-end">
+                <SubmitButton pending={editCodePending}>Save code</SubmitButton>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

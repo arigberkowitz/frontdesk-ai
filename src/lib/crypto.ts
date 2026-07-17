@@ -1,5 +1,12 @@
 import "server-only";
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import { env } from "./env";
 
 /**
@@ -33,4 +40,46 @@ export function decryptSecret(payload: string): string {
     decipher.update(Buffer.from(dataB64, "base64")),
     decipher.final(),
   ]).toString("utf8");
+}
+
+/* ----------------------------- portal edit code --------------------------
+ * The admin picks a code; staff enter it to unlock AI-configuration editing.
+ * We store only a keyed hash (never the code), and the unlock state is a
+ * signed, expiring token in a cookie — nothing to store server-side.
+ * ------------------------------------------------------------------------ */
+
+export function hashEditCode(clientId: string, code: string): string {
+  return createHmac("sha256", key()).update(`${clientId}:${code.trim()}`).digest("base64url");
+}
+
+export function verifyEditCode(clientId: string, code: string, storedHash: string): boolean {
+  const candidate = Buffer.from(hashEditCode(clientId, code));
+  const stored = Buffer.from(storedHash);
+  return candidate.length === stored.length && timingSafeEqual(candidate, stored);
+}
+
+const UNLOCK_TTL_MS = 12 * 60 * 60 * 1000; // a shift, not forever
+
+export function signUnlockToken(clientId: string, userId: string): string {
+  const exp = Date.now() + UNLOCK_TTL_MS;
+  const payload = `${clientId}.${userId}.${exp}`;
+  const sig = createHmac("sha256", key()).update(payload).digest("base64url");
+  return `${payload}.${sig}`;
+}
+
+export function verifyUnlockToken(
+  token: string | undefined,
+  clientId: string,
+  userId: string,
+): boolean {
+  if (!token) return false;
+  const parts = token.split(".");
+  if (parts.length !== 4) return false;
+  const [cid, uid, expStr, sig] = parts;
+  if (cid !== clientId || uid !== userId) return false;
+  if (Number(expStr) < Date.now()) return false;
+  const expected = createHmac("sha256", key()).update(`${cid}.${uid}.${expStr}`).digest("base64url");
+  const a = Buffer.from(expected);
+  const b = Buffer.from(sig);
+  return a.length === b.length && timingSafeEqual(a, b);
 }

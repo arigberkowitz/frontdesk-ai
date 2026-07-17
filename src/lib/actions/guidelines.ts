@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { assertClientAccess } from "@/lib/auth-guard";
+import { assertClientEditor } from "@/lib/auth-guard";
 import { guidelinesSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg, updateClient } from "@/lib/data/clients";
 import { applyClientEdit } from "@/lib/agent-publish";
@@ -24,7 +24,7 @@ export async function saveGuidelinesAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
 
   // Collect only the field(s) this card actually submitted.
   const raw: Record<string, FormDataEntryValue> = {};
@@ -59,7 +59,7 @@ export async function setVoiceAction(_prev: ActionState, formData: FormData): Pr
   const gender = String(formData.get("gender") ?? "") as VoiceGender;
   if (gender !== "female" && gender !== "male") return { ok: false, error: "Pick a voice." };
 
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   await assertClientInOrg(user.orgId, clientId);
 
   const voiceId = voiceIdForGender(gender);
@@ -90,7 +90,7 @@ export async function setVoiceByIdAction(
   const voiceId = String(formData.get("voiceId") ?? "").trim();
   if (!voiceId || voiceId.length > 120) return { ok: false, error: "Pick a voice." };
 
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   await assertClientInOrg(user.orgId, clientId);
 
   const client = await updateClient(user.orgId, clientId, { voiceId });

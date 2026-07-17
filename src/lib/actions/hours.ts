@@ -1,6 +1,6 @@
 "use server";
 
-import { assertClientAccess } from "@/lib/auth-guard";
+import { assertClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { setWeekHours, type DayHoursInput } from "@/lib/data/hours";
 import { applyClientEdit } from "@/lib/agent-publish";
@@ -11,7 +11,7 @@ export async function saveHoursAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   await assertClientInOrg(user.orgId, clientId);
 
   const days: DayHoursInput[] = [];

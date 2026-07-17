@@ -40,7 +40,10 @@ const softDelete = {
 };
 
 /* ------------------------------------ enums ------------------------------ */
-export const userRole = pgEnum("user_role", ["operator", "client_viewer"]);
+// client_admin = the business owner/manager: full portal control including the
+// AI's configuration. client_viewer = staff: works calls/leads/appointments but
+// can only change the AI after unlocking with the admin's edit code.
+export const userRole = pgEnum("user_role", ["operator", "client_admin", "client_viewer"]);
 export const clientStatus = pgEnum("client_status", [
   "draft",
   "trial",
@@ -185,6 +188,9 @@ export const clients = pgTable(
     // Agent #5 opt-in: the recovery loop may text this client's cold leads and
     // no-shows. Off by default — outbound to real customers is opt-in only.
     outboundRecoveryEnabled: boolean("outbound_recovery_enabled").notNull().default(false),
+    // Hash of the admin-chosen edit code. When set, staff (client_viewer) can
+    // unlock AI-configuration editing by entering it. Null = staff can't edit.
+    editCodeHash: text("edit_code_hash"),
     ...timestamps,
     ...softDelete,
   },

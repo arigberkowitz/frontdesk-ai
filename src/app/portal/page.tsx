@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MessageSquare, Sparkles } from "lucide-react";
-import { resolvePortalClient } from "@/lib/auth-guard";
+import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientMetrics, getClientRoi, getClientWeeklyRecap } from "@/lib/data/metrics";
 import { getClientSetupStatus } from "@/lib/data/setup";
 import { getClientActivity } from "@/lib/data/activity";
@@ -130,7 +130,11 @@ export default async function PortalOverviewPage({
         <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} className="sm:col-span-2 lg:col-span-1" />
       </div>
 
-      <AiLearnings clientId={clientId} suggestions={learnings} />
+      <AiLearnings
+        clientId={clientId}
+        suggestions={learnings}
+        canEdit={(await getPortalEditAccess(clientId)).canEdit}
+      />
 
       <RoiPanel roi={roi} />
 

@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { resolvePortalClient } from "@/lib/auth-guard";
+import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { PageHeader } from "@/components/page-header";
+import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { PortalSettings } from "@/components/portal/portal-settings";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function PortalSettingsPage() {
   const { clientId } = await resolvePortalClient();
+  const editAccess = await getPortalEditAccess(clientId);
   const client = await getClientByIdUnsafe(clientId);
   if (!client) notFound();
 
@@ -18,7 +20,10 @@ export default async function PortalSettingsPage() {
         title="Settings"
         description="Your business details, where we send alerts, and how to reach us for help."
       />
-      <PortalSettings client={client} />
+      {!editAccess.canEdit ? (
+        <EditLockBanner clientId={clientId} hasCode={editAccess.hasCode} />
+      ) : null}
+      <PortalSettings client={client} isAdmin={editAccess.isAdmin} />
     </div>
   );
 }

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getCurrentDbUser, resolvePortalClient } from "@/lib/auth-guard";
+import { getCurrentDbUser, getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listRetellVoices } from "@/lib/retell";
 import { integrations } from "@/lib/env";
 import { PageHeader } from "@/components/page-header";
+import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GuidelinesForm } from "@/components/portal/guidelines-form";
 import { VoicePicker } from "@/components/portal/voice-picker";
@@ -22,6 +23,7 @@ export const metadata: Metadata = { title: "Your AI" };
 
 export default async function PortalGuidelinesPage() {
   const { clientId } = await resolvePortalClient();
+  const editAccess = await getPortalEditAccess(clientId);
   const [client, me] = await Promise.all([getClientByIdUnsafe(clientId), getCurrentDbUser()]);
   if (!client) notFound();
 
@@ -60,6 +62,9 @@ export default async function PortalGuidelinesPage() {
         title="Your AI"
         description="Set what your receptionist says and how it books — then hear it. Changes go live right away."
       />
+      {!editAccess.canEdit ? (
+        <EditLockBanner clientId={clientId} hasCode={editAccess.hasCode} />
+      ) : null}
 
       {canManage ? (
         <ProvisionCard

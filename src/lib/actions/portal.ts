@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { users, type NewClient } from "@/db/schema";
-import { assertClientAccess } from "@/lib/auth-guard";
+import { assertClientAccess, assertClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg, getClientByIdUnsafe, updateClient } from "@/lib/data/clients";
 import { applyClientEdit } from "@/lib/agent-publish";
 import { notifier } from "@/lib/notifier";
@@ -23,7 +23,7 @@ export async function savePortalProfileAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   await assertClientInOrg(user.orgId, clientId);
 
   const patch: Partial<NewClient> = {};

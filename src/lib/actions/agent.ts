@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { assertClientAccess, requireOperator } from "@/lib/auth-guard";
+import { assertClientEditor, requireOperator } from "@/lib/auth-guard";
 import { agentConfigSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg, getClient, updateClient } from "@/lib/data/clients";
 import { createAgentVersion } from "@/lib/data/agent-versions";
@@ -162,7 +162,7 @@ export async function provisionAgentPortalAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   if (user.role !== "operator") {
     return { ok: false, error: "Only the business owner can activate the receptionist." };
   }

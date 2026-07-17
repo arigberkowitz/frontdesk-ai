@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { GraduationCap } from "lucide-react";
-import { resolvePortalClient } from "@/lib/auth-guard";
+import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { listKnowledge } from "@/lib/data/knowledge";
 import { listReviewedSuggestions } from "@/lib/data/suggestions";
 import { PageHeader } from "@/components/page-header";
+import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { KnowledgeTab } from "@/components/clients/knowledge-tab";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/format";
@@ -12,6 +13,7 @@ export const metadata: Metadata = { title: "Knowledge" };
 
 export default async function PortalKnowledgePage() {
   const { clientId } = await resolvePortalClient();
+  const editAccess = await getPortalEditAccess(clientId);
   const [knowledge, learned] = await Promise.all([
     listKnowledge(clientId),
     listReviewedSuggestions(clientId),
@@ -23,6 +25,9 @@ export default async function PortalKnowledgePage() {
         title="Knowledge"
         description="Everything your AI knows about your business. It only answers from what you add here — so the more you add, the more it can handle. Changes update your receptionist immediately."
       />
+      {!editAccess.canEdit ? (
+        <EditLockBanner clientId={clientId} hasCode={editAccess.hasCode} />
+      ) : null}
       <KnowledgeTab clientId={clientId} knowledge={knowledge} />
 
       {learned.length > 0 ? (

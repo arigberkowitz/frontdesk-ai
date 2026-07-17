@@ -108,6 +108,15 @@ export async function getCurrentDbUser(): Promise<User> {
       where: and(eq(clients.id, meta.clientId), isNull(clients.deletedAt)),
     });
     if (client) {
+      // The FIRST portal user for a business is its admin (the owner); later
+      // invites are staff, who edit only after unlocking with the admin's code.
+      const existingAdmin = await db.query.users.findFirst({
+        where: and(
+          eq(users.clientId, client.id),
+          eq(users.role, "client_admin"),
+          isNull(users.deletedAt),
+        ),
+      });
       const viewer = (
         await db
           .insert(users)
@@ -115,7 +124,7 @@ export async function getCurrentDbUser(): Promise<User> {
             orgId: client.orgId,
             clerkUserId: userId,
             email,
-            role: "client_viewer",
+            role: existingAdmin ? "client_viewer" : "client_admin",
             clientId: client.id,
           })
           .returning()
@@ -302,4 +311,65 @@ export async function assertClientAccess(clientId: string): Promise<User> {
     throw new Error("Forbidden: cross-tenant access denied.");
   }
   return user;
+}
+
+/* ------------------------- portal edit permissions ------------------------ */
+
+const editUnlockCookie = (clientId: string) => `fdai_edit_${clientId}`;
+
+export interface PortalEditAccess {
+  canEdit: boolean;
+  isAdmin: boolean;
+  /** Whether the admin has set an edit code at all (drives the staff banner copy). */
+  hasCode: boolean;
+}
+
+/** What the current portal user may do with this client's AI configuration. */
+export async function getPortalEditAccess(clientId: string): Promise<PortalEditAccess> {
+  const user = await assertClientAccess(clientId);
+  if (user.role === "operator" || user.role === "client_admin") {
+    return { canEdit: true, isAdmin: true, hasCode: true };
+  }
+  const client = await db.query.clients.findFirst({
+    where: and(eq(clients.id, clientId), isNull(clients.deletedAt)),
+    columns: { editCodeHash: true },
+  });
+  const hasCode = Boolean(client?.editCodeHash);
+  if (!hasCode) return { canEdit: false, isAdmin: false, hasCode: false };
+  const { verifyUnlockToken } = await import("./crypto");
+  const jar = await cookies();
+  const unlocked = verifyUnlockToken(jar.get(editUnlockCookie(clientId))?.value, clientId, user.id);
+  return { canEdit: unlocked, isAdmin: false, hasCode: true };
+}
+
+/**
+ * Editing guard for anything that shapes the live AI (knowledge, services,
+ * hours, greeting, guidance, settings, suggestion approvals). Operators and
+ * client admins pass; staff pass only with a valid unlock cookie.
+ */
+export async function assertClientEditor(clientId: string): Promise<User> {
+  const user = await assertClientAccess(clientId);
+  if (user.role === "operator" || user.role === "client_admin") return user;
+  const access = await getPortalEditAccess(clientId);
+  if (!access.canEdit) {
+    throw new Error(
+      access.hasCode
+        ? "Editing is locked — enter your business's edit code to unlock."
+        : "Editing is limited to your admin.",
+    );
+  }
+  return user;
+}
+
+/** Set the unlock cookie after a correct code entry (12h, per client+user). */
+export async function grantEditUnlock(clientId: string, userId: string): Promise<void> {
+  const { signUnlockToken } = await import("./crypto");
+  const jar = await cookies();
+  jar.set(editUnlockCookie(clientId), signUnlockToken(clientId, userId), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 12 * 60 * 60,
+    path: "/",
+  });
 }

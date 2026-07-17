@@ -15,9 +15,12 @@ import type { AgentSuggestion } from "@/db/schema";
 export function AiLearnings({
   clientId,
   suggestions,
+  canEdit = true,
 }: {
   clientId: string;
   suggestions: AgentSuggestion[];
+  /** Staff without the edit code see the learnings but can't approve them. */
+  canEdit?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   if (suggestions.length === 0) return null;
@@ -73,25 +76,31 @@ export function AiLearnings({
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                      size="sm"
-                      disabled={pending}
-                      onClick={() => act(approveSuggestionAction, s.id)}
-                    >
-                      <Check className="size-3.5" />
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={pending}
-                      onClick={() => act(dismissSuggestionAction, s.id)}
-                    >
-                      <X className="size-3.5" />
-                      Dismiss
-                    </Button>
-                  </div>
+                  {canEdit ? (
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => act(approveSuggestionAction, s.id)}
+                      >
+                        <Check className="size-3.5" />
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={pending}
+                        onClick={() => act(dismissSuggestionAction, s.id)}
+                      >
+                        <X className="size-3.5" />
+                        Dismiss
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      awaiting your admin
+                    </span>
+                  )}
                 </div>
               </li>
             );

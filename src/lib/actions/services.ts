@@ -1,6 +1,6 @@
 "use server";
 
-import { assertClientAccess } from "@/lib/auth-guard";
+import { assertClientEditor } from "@/lib/auth-guard";
 import { serviceSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg } from "@/lib/data/clients";
 import * as servicesData from "@/lib/data/services";
@@ -22,7 +22,7 @@ export async function createServiceAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   const parsed = parseService(formData);
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
 
@@ -44,7 +44,7 @@ export async function updateServiceAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   const serviceId = String(formData.get("serviceId") ?? "");
   const parsed = parseService(formData);
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
@@ -64,7 +64,7 @@ export async function updateServiceAction(
 
 export async function deleteServiceAction(formData: FormData): Promise<void> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   const serviceId = String(formData.get("serviceId") ?? "");
   await assertClientInOrg(user.orgId, clientId);
   await servicesData.deleteService(clientId, serviceId);

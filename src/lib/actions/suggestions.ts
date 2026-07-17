@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { assertClientAccess } from "@/lib/auth-guard";
+import { assertClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg, getClientByIdUnsafe } from "@/lib/data/clients";
 import { getSuggestion, markSuggestion } from "@/lib/data/suggestions";
 import { createKnowledge } from "@/lib/data/knowledge";
@@ -19,7 +19,7 @@ import { eq } from "drizzle-orm";
 export async function approveSuggestionAction(formData: FormData): Promise<void> {
   const clientId = String(formData.get("clientId") ?? "");
   const suggestionId = String(formData.get("suggestionId") ?? "");
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   await assertClientInOrg(user.orgId, clientId);
 
   const suggestion = await getSuggestion(clientId, suggestionId);
@@ -47,7 +47,7 @@ export async function approveSuggestionAction(formData: FormData): Promise<void>
 export async function dismissSuggestionAction(formData: FormData): Promise<void> {
   const clientId = String(formData.get("clientId") ?? "");
   const suggestionId = String(formData.get("suggestionId") ?? "");
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   await assertClientInOrg(user.orgId, clientId);
   await markSuggestion(clientId, suggestionId, "dismissed", user.id);
   revalidatePath("/portal");

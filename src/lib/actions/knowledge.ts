@@ -1,6 +1,6 @@
 "use server";
 
-import { assertClientAccess } from "@/lib/auth-guard";
+import { assertClientEditor } from "@/lib/auth-guard";
 import { knowledgeSchema } from "@/lib/validation";
 import { assertClientInOrg } from "@/lib/data/clients";
 import * as knowledgeData from "@/lib/data/knowledge";
@@ -12,7 +12,7 @@ export async function createKnowledgeAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   const parsed = knowledgeSchema.safeParse({
     question: formData.get("question"),
     answer: formData.get("answer"),
@@ -37,7 +37,7 @@ export async function updateKnowledgeAction(
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
   const itemId = String(formData.get("itemId") ?? "");
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   const parsed = knowledgeSchema.safeParse({
     question: formData.get("question"),
     answer: formData.get("answer"),
@@ -57,7 +57,7 @@ export async function updateKnowledgeAction(
 
 export async function deleteKnowledgeAction(formData: FormData): Promise<void> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientAccess(clientId);
+  const user = await assertClientEditor(clientId);
   const itemId = String(formData.get("itemId") ?? "");
   await assertClientInOrg(user.orgId, clientId);
   await knowledgeData.deleteKnowledge(clientId, itemId);
