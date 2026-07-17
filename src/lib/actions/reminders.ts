@@ -6,6 +6,7 @@ import { assertClientInOrg, getClientByIdUnsafe } from "@/lib/data/clients";
 import { createReminder, getClientAppointment } from "@/lib/data/reminders";
 import { getClientLead } from "@/lib/data/leads";
 import { getInsightForCall } from "@/lib/data/insights";
+import { isOptedOut } from "@/lib/data/sms-optouts";
 import { notifier } from "@/lib/notifier";
 import { integrations } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
@@ -35,6 +36,9 @@ export async function sendReminderAction(
   const phone = appt.customerPhone?.trim();
   if (!phone) {
     return { ok: false, error: "No phone number on file for this customer — add one to send a reminder." };
+  }
+  if (channel === "sms" && (await isOptedOut(phone))) {
+    return { ok: false, error: "This number has opted out of texts (replied STOP) — call them instead." };
   }
 
   const client = await getClientByIdUnsafe(clientId);
@@ -102,6 +106,9 @@ export async function sendLeadFollowupAction(
   const phone = lead.phone?.trim();
   if (!phone) {
     return { ok: false, error: "No phone number on file for this lead." };
+  }
+  if (channel === "sms" && (await isOptedOut(phone))) {
+    return { ok: false, error: "This number has opted out of texts (replied STOP) — call them instead." };
   }
 
   const client = await getClientByIdUnsafe(clientId);

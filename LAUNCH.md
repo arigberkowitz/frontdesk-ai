@@ -52,7 +52,11 @@ is at `/settings` (every row should read "Connected").
    deliver reliably without it): Twilio Console → Messaging → Regulatory
    Compliance → register brand + campaign. Takes days–weeks; start now even
    if you flip the env vars later.
-3. Until then, SMS features log as "demo" sends — email alerts already work.
+3. Configure the number's inbound webhook: Twilio Console → your number →
+   Messaging → "A message comes in" → POST
+   `https://<domain>/api/webhooks/twilio`. This powers STOP/HELP compliance
+   and "lead texted back" handling (pauses recovery, emails the owner).
+4. Until then, SMS features log as "demo" sends — email alerts already work.
 
 ### Stripe (billing) — do this LAST
 Not needed for customer #1: run a free pilot or invoice manually

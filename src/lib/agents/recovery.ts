@@ -11,6 +11,7 @@ import {
   type Lead,
 } from "@/db/schema";
 import { createReminder } from "@/lib/data/reminders";
+import { isOptedOut } from "@/lib/data/sms-optouts";
 import { clientsAlreadyRun, mapLimit, outOfBudget } from "./util";
 import { notifier } from "@/lib/notifier";
 import { logger } from "@/lib/logger";
@@ -77,6 +78,8 @@ async function recoverableLeads(client: Client): Promise<Lead[]> {
       inArray(leads.status, ["new", "contacted"]),
       gte(leads.createdAt, cutoff),
       isNull(leads.deletedAt),
+      // A reply hands the conversation to the owner — automation stands down.
+      isNull(leads.lastReplyAt),
     ),
     orderBy: [desc(leads.createdAt)],
     limit: 50,
@@ -184,6 +187,8 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
   let sent = 0;
   try {
     for (const t of touches) {
+      // Hard compliance gate: STOP means never again, no matter the path.
+      if (await isOptedOut(t.to)) continue;
       const result = await notifier.sendSms({ to: t.to, body: t.body });
       const failed = !result.ok && !result.skipped;
       await createReminder(client.id, {

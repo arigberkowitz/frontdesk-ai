@@ -107,7 +107,7 @@ export const suggestionStatus = pgEnum("suggestion_status", [
   "dismissed",
 ]);
 export const gradeStatus = pgEnum("grade_status", ["open", "reviewed"]);
-export const webhookSource = pgEnum("webhook_source", ["retell", "stripe", "cal"]);
+export const webhookSource = pgEnum("webhook_source", ["retell", "stripe", "cal", "twilio"]);
 export const webhookStatus = pgEnum("webhook_status", [
   "received",
   "processed",
@@ -350,10 +350,26 @@ export const leads = pgTable(
     urgency: text("urgency"), // how soon (e.g. "this week", "ASAP")
     budget: text("budget"), // budget signal, when offered
     status: leadStatus("status").notNull().default("new"),
+    // Set when the person texts back — the human conversation has started, so
+    // automated recovery stands down and the owner takes over.
+    lastReplyAt: timestamp("last_reply_at", { withTimezone: true }),
     ...timestamps,
     ...softDelete,
   },
   (t) => [index("leads_client_id_idx").on(t.clientId)],
+);
+
+/** SMS opt-outs (STOP), keyed by phone — GLOBAL, because all outbound SMS
+ *  shares one Twilio number. Once a number opts out, nothing texts it again. */
+export const smsOptOuts = pgTable(
+  "sms_opt_outs",
+  {
+    id: pk(),
+    phone: text("phone").notNull(),
+    keyword: text("keyword"),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("sms_opt_outs_phone_idx").on(t.phone)],
 );
 
 /** Appointment reminder log: one row per call/text reminder a business sends a
@@ -723,6 +739,7 @@ export type CallInsight = typeof callInsights.$inferSelect;
 export type NewCallInsight = typeof callInsights.$inferInsert;
 export type CallGrade = typeof callGrades.$inferSelect;
 export type NewCallGrade = typeof callGrades.$inferInsert;
+export type SmsOptOut = typeof smsOptOuts.$inferSelect;
 
 export type ClientStatus = (typeof clientStatus.enumValues)[number];
 export type CallOutcome = (typeof callOutcome.enumValues)[number];
