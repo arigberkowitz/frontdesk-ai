@@ -1,5 +1,6 @@
 import { History } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { PanelHeader } from "@/components/panel-header";
 import { formatDateTime } from "@/lib/format";
 import type { AgentVersion, User } from "@/db/schema";
 
@@ -16,17 +17,11 @@ export function PromptChangelog({ versions }: { versions: VersionWithPublisher[]
   return (
     <Card>
       <CardContent className="p-5 sm:p-6">
-        <div className="flex items-center gap-3">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-            <History className="size-4" />
-          </span>
-          <div>
-            <p className="font-heading text-lg font-semibold tracking-tight">Prompt versions</p>
-            <p className="text-sm text-muted-foreground">
-              Every publish, snapshotted — how this receptionist has evolved.
-            </p>
-          </div>
-        </div>
+        <PanelHeader
+          icon={History}
+          title="Prompt versions"
+          description="Every publish, snapshotted — how this receptionist has evolved."
+        />
         <ul className="mt-3">
           {versions.slice(0, 10).map((v) => (
             <li key={v.id} className="border-t py-3 first:border-t-0">

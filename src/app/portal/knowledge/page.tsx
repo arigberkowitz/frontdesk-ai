@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/page-header";
 import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { KnowledgeTab } from "@/components/clients/knowledge-tab";
 import { Card, CardContent } from "@/components/ui/card";
+import { PanelHeader } from "@/components/panel-header";
 import { formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Knowledge" };
@@ -33,19 +34,11 @@ export default async function PortalKnowledgePage() {
       {learned.length > 0 ? (
         <Card>
           <CardContent className="p-5 sm:p-6">
-            <div className="flex items-center gap-3">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                <GraduationCap className="size-4" />
-              </span>
-              <div>
-                <p className="font-heading text-lg font-semibold tracking-tight">
-                  Learned from real calls
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Improvements the AI proposed after listening to its own calls.
-                </p>
-              </div>
-            </div>
+            <PanelHeader
+              icon={GraduationCap}
+              title="Learned from real calls"
+              description="Improvements the AI proposed after listening to its own calls."
+            />
             <ul className="mt-3">
               {learned.map((s) => (
                 <li

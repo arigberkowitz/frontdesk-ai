@@ -134,6 +134,10 @@
   html {
     @apply font-sans;
   }
+  /* Brand-tinted text selection — a small tell that someone cared. */
+  ::selection {
+    background: oklch(0.586 0.204 277 / 25%);
+  }
 }
 
 /* Small uppercase section label — quiet, editorial section dividers. */

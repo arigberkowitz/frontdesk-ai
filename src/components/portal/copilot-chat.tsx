@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { ArrowUp, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PanelHeader } from "@/components/panel-header";
 import { copilotAction } from "@/lib/actions/copilot";
 import { cn } from "@/lib/utils";
 
@@ -50,17 +51,11 @@ export function CopilotChat() {
   return (
     <Card>
       <CardContent className="p-5 sm:p-6">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-            <Sparkles className="size-4" />
-          </span>
-          <div>
-            <p className="font-heading text-lg font-semibold tracking-tight">Ask your front desk</p>
-            <p className="text-sm text-muted-foreground">
-              It knows your calls, leads, and bookings — and can teach your AI new answers.
-            </p>
-          </div>
-        </div>
+        <PanelHeader
+          icon={Sparkles}
+          title="Ask your front desk"
+          description="It knows your calls, leads, and bookings — and can teach your AI new answers."
+        />
 
         {messages.length === 0 ? (
           <div className="mt-4 flex flex-wrap gap-2">

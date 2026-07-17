@@ -28,7 +28,7 @@ export default async function DashboardLayout({
       <div className="flex min-w-0 flex-1 flex-col">
         <AppTopbar clients={clients} />
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto w-full max-w-6xl">{children}</div>
+          <div className="fd-fade-up mx-auto w-full max-w-6xl">{children}</div>
         </main>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Bot } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { PanelHeader } from "@/components/panel-header";
 import type { AgentActivity } from "@/lib/data/agent-runs";
 
 /**
@@ -48,23 +49,21 @@ export function AgentActivityPanel({
   return (
     <Card>
       <CardContent className="p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-              <Bot className="size-4" />
-            </span>
-            <p className="font-heading text-lg font-semibold tracking-tight">While you were out</p>
-          </div>
-          {openReviews > 0 ? (
-            <Link
-              href="/review"
-              className="flex items-center gap-1 text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-            >
-              {openReviews} awaiting review
-              <ArrowRight className="size-3.5" />
-            </Link>
-          ) : null}
-        </div>
+        <PanelHeader
+          icon={Bot}
+          title="While you were out"
+          action={
+            openReviews > 0 ? (
+              <Link
+                href="/review"
+                className="flex items-center gap-1 text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+              >
+                {openReviews} awaiting review
+                <ArrowRight className="size-3.5" />
+              </Link>
+            ) : undefined
+          }
+        />
         <ul className="mt-3 space-y-1.5">
           {lines.map((l) => (
             <li key={l.text} className="flex items-baseline gap-2 text-sm text-muted-foreground">

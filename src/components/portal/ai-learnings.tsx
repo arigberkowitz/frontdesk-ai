@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { Check, GraduationCap, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PanelHeader } from "@/components/panel-header";
 import { approveSuggestionAction, dismissSuggestionAction } from "@/lib/actions/suggestions";
 import type { AgentSuggestion } from "@/db/schema";
 
@@ -35,19 +36,11 @@ export function AiLearnings({
   return (
     <Card className="border-indigo-500/30">
       <CardContent className="p-5 sm:p-6">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-            <GraduationCap className="size-4" />
-          </span>
-          <div>
-            <p className="font-heading text-lg font-semibold tracking-tight">
-              Your AI learned {suggestions.length} thing{suggestions.length === 1 ? "" : "s"}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              From real calls it handled. Approve to teach it — nothing changes until you do.
-            </p>
-          </div>
-        </div>
+        <PanelHeader
+          icon={GraduationCap}
+          title={`Your AI learned ${suggestions.length} thing${suggestions.length === 1 ? "" : "s"}`}
+          description="From real calls it handled. Approve to teach it — nothing changes until you do."
+        />
 
         <ul className="mt-4">
           {suggestions.map((s) => {
