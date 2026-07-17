@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { savePortalProfileAction, contactSupportAction } from "@/lib/actions/portal";
 import { setEditCodeAction } from "@/lib/actions/edit-lock";
+import { inviteStaffAction } from "@/lib/actions/team";
 import { initialActionState } from "@/lib/actions/types";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +36,11 @@ export function PortalSettings({ client, isAdmin = true }: { client: Client; isA
     setEditCodeAction,
     initialActionState,
   );
+  const [invite, inviteAction, invitePending] = useActionState(
+    inviteStaffAction,
+    initialActionState,
+  );
+  const inviteFormRef = useRef<HTMLFormElement>(null);
   const [help, helpAction, helpPending] = useActionState(contactSupportAction, initialActionState);
   const helpFormRef = useRef<HTMLFormElement>(null);
 
@@ -58,6 +64,14 @@ export function PortalSettings({ client, isAdmin = true }: { client: Client; isA
     if (editCode.ok) toast.success(editCode.message ?? "Saved.");
     else if (editCode.error) toast.error(editCode.error);
   }, [editCode]);
+  useEffect(() => {
+    if (invite.ok) {
+      toast.success(invite.message ?? "Invite sent.");
+      inviteFormRef.current?.reset();
+    } else if (invite.error) {
+      toast.error(invite.error);
+    }
+  }, [invite]);
   useEffect(() => {
     if (help.ok) {
       toast.success("Message sent — we'll get back to you by email.");
@@ -187,6 +201,31 @@ export function PortalSettings({ client, isAdmin = true }: { client: Client; isA
           </form>
         </CardContent>
       </Card>
+
+      {isAdmin ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Invite your team</CardTitle>
+            <CardDescription>
+              Each person gets their own sign-in. Staff see calls, leads, and bookings and can
+              follow up — changes to your AI stay locked unless you share the edit code below.
+              Sharing one computer? Invite a single staff account (e.g. frontdesk@yourbusiness.com)
+              and keep it signed in — it stays locked until you enter the code.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form ref={inviteFormRef} action={inviteAction} className="space-y-4">
+              <input type="hidden" name="clientId" value={client.id} />
+              <Field label="Staff email" error={invite.fieldErrors?.email}>
+                <Input name="email" type="email" placeholder="frontdesk@yourbusiness.com" />
+              </Field>
+              <div className="flex justify-end">
+                <SubmitButton pending={invitePending}>Send invite</SubmitButton>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {isAdmin ? (
         <Card>
