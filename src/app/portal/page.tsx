@@ -20,6 +20,8 @@ import { WeeklyRecap } from "@/components/portal/weekly-recap";
 import { ActivityFeed } from "@/components/portal/activity-feed";
 import { AiLearnings } from "@/components/portal/ai-learnings";
 import { CopilotChat } from "@/components/portal/copilot-chat";
+import { LiveAlerts } from "@/components/portal/live-alerts";
+import { Milestones } from "@/components/portal/milestones";
 import { formatCurrencyCents, formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -81,7 +83,9 @@ export default async function PortalOverviewPage({
       <PageHeader
         title="Your AI receptionist"
         description="Here's what it caught for you. Tap any number for the details."
-      />
+      >
+        <LiveAlerts />
+      </PageHeader>
 
       {m.newLeads > 0 ? (
         <Card className="border-amber-500/40 bg-amber-500/5">
@@ -135,6 +139,8 @@ export default async function PortalOverviewPage({
         suggestions={learnings}
         canEdit={(await getPortalEditAccess(clientId)).canEdit}
       />
+
+      <Milestones totalCalls={m.totalCalls} estRevenueCents={m.estRevenueCents} />
 
       <RoiPanel roi={roi} />
 
