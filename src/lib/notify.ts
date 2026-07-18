@@ -79,14 +79,19 @@ export async function notifyOwnerLead(client: Client, lead: Lead): Promise<void>
   const phone = formatPhone(lead.phone);
   const sms = client.smsAlertsEnabled ? client.escalationNumber?.trim() : undefined;
   const email = client.ownerEmail?.trim();
+  // The AI captures urgency on the call ("ASAP", "emergency", "today") — lead
+  // with urgent language gets an unmissable prefix so it never sits till morning.
+  const urgent = /asap|urgent|emergenc|right away|immediately|today|leak|flood|burst/i.test(
+    `${lead.urgency ?? ""} ${lead.reason ?? ""}`,
+  );
 
   if (sms) {
-    const body = `📨 New message for ${client.name}: ${who} (${phone})${lead.reason ? ` — ${lead.reason}` : ""}`;
+    const body = `${urgent ? "🚨 EMERGENCY — " : "📨 "}New message for ${client.name}: ${who} (${phone})${lead.reason ? ` — ${lead.reason}` : ""}`;
     const r = await notifier.sendSms({ to: sms, body });
     await logNotification(client.id, "lead", "sms", sms, { body, leadId: lead.id }, r);
   }
   if (email) {
-    const subject = `New message — ${who}`;
+    const subject = urgent ? `🚨 URGENT — ${who} needs a call back` : `New message — ${who}`;
     const r = await notifier.sendEmail({
       to: email,
       subject,
