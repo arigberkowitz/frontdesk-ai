@@ -153,6 +153,18 @@ export function PortalSettings({ client, isAdmin = true }: { client: Client; isA
                 placeholder="+1 415 555 0100"
               />
             </Field>
+            <Field
+              label="Text-message alerts"
+              hint="Texts the number above the moment your AI books an appointment or takes a message. Email alerts always send."
+            >
+              <NativeSelect
+                name="smsAlertsEnabled"
+                defaultValue={client.smsAlertsEnabled ? "on" : "off"}
+              >
+                <option value="on">On — text me every booking and message</option>
+                <option value="off">Off — email only</option>
+              </NativeSelect>
+            </Field>
             <div className="flex justify-end">
               <SubmitButton pending={alertsPending}>Save</SubmitButton>
             </div>

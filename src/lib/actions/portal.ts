@@ -65,6 +65,9 @@ export async function savePortalProfileAction(
   if (formData.has("outboundRecoveryEnabled")) {
     patch.outboundRecoveryEnabled = String(formData.get("outboundRecoveryEnabled")) === "on";
   }
+  if (formData.has("smsAlertsEnabled")) {
+    patch.smsAlertsEnabled = String(formData.get("smsAlertsEnabled")) === "on";
+  }
 
   if (Object.keys(patch).length === 0) return { ok: false, error: "Nothing to save." };
 

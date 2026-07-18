@@ -1,0 +1,1 @@
+ALTER TABLE "clients" ADD COLUMN "sms_alerts_enabled" boolean DEFAULT true NOT NULL;

@@ -191,6 +191,9 @@ export const clients = pgTable(
     // Hash of the admin-chosen edit code. When set, staff (client_viewer) can
     // unlock AI-configuration editing by entering it. Null = staff can't edit.
     editCodeHash: text("edit_code_hash"),
+    // Text-message alerts to the owner's alert phone on bookings/leads.
+    // On by default; the owner can switch them off in portal Settings.
+    smsAlertsEnabled: boolean("sms_alerts_enabled").notNull().default(true),
     ...timestamps,
     ...softDelete,
   },

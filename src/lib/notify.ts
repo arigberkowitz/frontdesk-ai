@@ -49,7 +49,7 @@ export async function notifyOwnerBooking(client: Client, appt: Appointment): Pro
   const who = appt.customerName ?? "a caller";
   const when = formatDateTime(appt.startAt, client.timezone);
   const phone = formatPhone(appt.customerPhone);
-  const sms = client.escalationNumber?.trim();
+  const sms = client.smsAlertsEnabled ? client.escalationNumber?.trim() : undefined;
   const email = client.ownerEmail?.trim();
 
   if (sms) {
@@ -77,7 +77,7 @@ export async function notifyOwnerBooking(client: Client, appt: Appointment): Pro
 export async function notifyOwnerLead(client: Client, lead: Lead): Promise<void> {
   const who = lead.name ?? "a caller";
   const phone = formatPhone(lead.phone);
-  const sms = client.escalationNumber?.trim();
+  const sms = client.smsAlertsEnabled ? client.escalationNumber?.trim() : undefined;
   const email = client.ownerEmail?.trim();
 
   if (sms) {
