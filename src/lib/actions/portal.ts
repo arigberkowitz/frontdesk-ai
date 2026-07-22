@@ -71,6 +71,23 @@ export async function savePortalProfileAction(
 
   if (Object.keys(patch).length === 0) return { ok: false, error: "Nothing to save." };
 
+  // Renaming the business must not leave a stale name inside the spoken
+  // greeting ("thanks for calling Your Business…"). If the saved greeting
+  // mentions the old name — or the starter placeholder — rewrite it.
+  if (patch.name) {
+    const existing = await getClientByIdUnsafe(clientId);
+    if (existing?.greeting) {
+      let greeting = existing.greeting;
+      if (existing.name !== patch.name && greeting.includes(existing.name)) {
+        greeting = greeting.replaceAll(existing.name, patch.name);
+      }
+      if (greeting.includes("Your business")) {
+        greeting = greeting.replaceAll("Your business", patch.name);
+      }
+      if (greeting !== existing.greeting) patch.greeting = greeting;
+    }
+  }
+
   await updateClient(user.orgId, clientId, patch);
   // Business name lives in the agent prompt, so keep the live agent in sync.
   await applyClientEdit(user, clientId);
