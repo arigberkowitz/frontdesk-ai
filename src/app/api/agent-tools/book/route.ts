@@ -3,6 +3,7 @@ import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { getCallByRetellId } from "@/lib/data/calls";
 import { createAppointment, hasOverlappingAppointment } from "@/lib/data/appointments";
 import { getBookingProviderForClient } from "@/lib/booking";
+import { parseInClientTimezone } from "@/lib/hours-util";
 import { notifyOwnerBooking } from "@/lib/notify";
 import { logger } from "@/lib/logger";
 
@@ -16,8 +17,8 @@ export async function POST(req: Request): Promise<Response> {
   const client = await getClientByIdUnsafe(auth.clientId);
   if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
 
-  const startAt = new Date(String(args.datetime ?? ""));
-  if (Number.isNaN(startAt.getTime())) {
+  const startAt = parseInClientTimezone(String(args.datetime ?? ""), client.timezone);
+  if (!startAt) {
     return Response.json({ error: "I didn't catch a valid date and time." });
   }
   if (startAt.getTime() <= Date.now()) {
@@ -68,6 +69,13 @@ export async function POST(req: Request): Promise<Response> {
     logger.error("agent-tools.book.provider_failed", {
       clientId: client.id,
       error: err instanceof Error ? err.message : String(err),
+    });
+    // The real calendar refused (slot taken, outside hours, auth issue). Never
+    // tell the caller "booked" when nothing landed on the actual calendar.
+    return Response.json({
+      success: false,
+      error:
+        "That time isn't available on the calendar after all. Apologize and offer the caller a different time.",
     });
   }
 

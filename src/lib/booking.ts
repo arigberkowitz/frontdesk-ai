@@ -252,9 +252,10 @@ export interface ClientCalendarConnection {
 }
 
 /**
- * Resolve the booking provider for a specific business: its own connected calendar
- * when present, otherwise the shared default (so clients keep booking into the demo
- * Cal.com until they connect their own).
+ * Resolve the booking provider for a specific business: its OWN connected
+ * calendar, or nothing. No silent fallback to the shared/demo Cal.com — a real
+ * business that never connected a calendar must degrade to message-taking, not
+ * book invisible appointments on the platform's demo calendar.
  */
 export function getBookingProviderForClient(client: ClientCalendarConnection): BookingProvider {
   const provider = client.calendarProvider ?? null;
@@ -271,7 +272,7 @@ export function getBookingProviderForClient(client: ClientCalendarConnection): B
       calendarId: client.calendarId ?? "primary",
     });
   }
-  return getDefaultBookingProvider();
+  return new NullBookingProvider();
 }
 
 export function isBookingConfigured(): boolean {

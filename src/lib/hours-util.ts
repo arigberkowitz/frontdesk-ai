@@ -58,3 +58,31 @@ export function isAfterHours(at: Date, timezone: string, hours: DayHours[]): boo
   if (open == null || close == null) return false;
   return minutes < open || minutes >= close;
 }
+
+/**
+ * Parse a tool-supplied datetime in the CLIENT's timezone. Strings with an
+ * explicit offset ("...Z", "+05:00") are trusted; naive strings
+ * ("2026-07-23T14:00:00") are interpreted as wall-clock time in `timezone` —
+ * not server/UTC time, which silently books the wrong hour.
+ */
+export function parseInClientTimezone(raw: string, timezone: string): Date | null {
+  const s = raw.trim();
+  if (!s) return null;
+  if (/(z|[+-]\d{2}:?\d{2})$/i.test(s)) {
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const asUtc = new Date(`${s}Z`);
+  if (Number.isNaN(asUtc.getTime())) return null;
+  try {
+    const m = new Intl.DateTimeFormat("en-US", { timeZone: timezone, timeZoneName: "longOffset" })
+      .format(asUtc)
+      .match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+    if (!m) return asUtc;
+    const sign = m[1] === "-" ? -1 : 1;
+    const offsetMin = sign * (Number(m[2]) * 60 + Number(m[3] ?? 0));
+    return new Date(asUtc.getTime() - offsetMin * 60_000);
+  } catch {
+    return asUtc;
+  }
+}

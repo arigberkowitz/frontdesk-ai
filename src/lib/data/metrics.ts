@@ -27,6 +27,8 @@ export interface ClientMetrics {
   totalCalls: number;
   afterHoursCalls: number;
   bookings: number;
+  /** Appointments whose time has passed — the only ones counted as revenue. */
+  completedBookings: number;
   leads: number;
   newLeads: number;
   escalated: number;
@@ -87,9 +89,18 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
     .from(calls)
     .where(scope);
 
-  const [{ bookings }] = await db
-    .select({ bookings: sql<number>`count(*)::int` })
+  // Revenue audit semantics: money is recognized ONLY after the appointment
+  // has actually happened (startAt <= now), valued at the ACTUAL booked
+  // service's price — a $1,000 service adds $1,000, not an average. Future
+  // bookings show in the bookings count but add $0 until they occur.
+  const [{ bookings, completedBookings, earnedRevenue }] = await db
+    .select({
+      bookings: sql<number>`count(*)::int`,
+      completedBookings: sql<number>`count(*) filter (where ${appointments.startAt} <= now())::int`,
+      earnedRevenue: sql<number>`coalesce(sum(${services.priceCents}) filter (where ${appointments.startAt} <= now()), 0)::int`,
+    })
     .from(appointments)
+    .leftJoin(services, eq(appointments.serviceId, services.id))
     .where(
       and(
         eq(appointments.clientId, clientId),
@@ -148,7 +159,8 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
     containmentRate: total > 0 ? (total - (agg?.escalated ?? 0)) / total : 1,
     sentimentScore,
     avgServicePriceCents,
-    estRevenueCents: bookings * (avgServicePriceCents ?? 0),
+    estRevenueCents: earnedRevenue,
+    completedBookings,
     callsByDay: fillDays(byDayRows, 14, timeZone),
     outcomes,
   };
@@ -185,6 +197,7 @@ export async function getClientPeriodSummary(
         eq(appointments.clientId, clientId),
         isNull(appointments.deletedAt),
         sql`${appointments.createdAt} >= ${since}`,
+        sql`${appointments.startAt} <= now()`,
         sql`${appointments.status} not in ('cancelled','no_show')`,
       ),
     );
