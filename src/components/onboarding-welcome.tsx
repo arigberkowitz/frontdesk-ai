@@ -49,10 +49,14 @@ function WebsiteForm() {
       <Field label="Business name" error={state.fieldErrors?.name}>
         <Input name="name" placeholder="Bright Smile Dental" required />
       </Field>
-      <Field label="Website" error={state.fieldErrors?.websiteUrl}>
-        <Input name="websiteUrl" type="url" placeholder="https://yourbusiness.com" required />
+      <Field
+        label="Website (optional)"
+        hint="Have one? We'll draft your services, hours, and FAQ from it. No website? Leave it blank — you'll add those in a few quick forms."
+        error={state.fieldErrors?.websiteUrl}
+      >
+        <Input name="websiteUrl" type="url" placeholder="https://yourbusiness.com" />
       </Field>
-      <SubmitButton idle="Draft my receptionist from my website" busy="Reading your website…" />
+      <SubmitButton idle="Set up my receptionist" busy="Setting up…" />
     </form>
   );
 }

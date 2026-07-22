@@ -11,13 +11,24 @@ import { type ActionState, fieldErrorsOf } from "./types";
 
 const onboardSchema = z.object({
   name: z.string().trim().min(1, "Business name is required").max(120),
-  websiteUrl: z.string().trim().url("Enter a valid URL (including https://)"),
+  // No website is a first-class path (plenty of local businesses have none) —
+  // they set up services/hours/FAQ by hand in the portal instead.
+  websiteUrl: z
+    .string()
+    .trim()
+    .url("Enter a valid URL (including https://)")
+    .or(z.literal(""))
+    .transform((v) => v || null),
 });
 
-/** Create a draft client, then draft its services/hours/FAQ from the website. */
-async function runWebsiteOnboard(orgId: string, name: string, websiteUrl: string): Promise<string> {
+/** Create a draft client; when a website is given, draft services/hours/FAQ from it. */
+async function runWebsiteOnboard(
+  orgId: string,
+  name: string,
+  websiteUrl: string | null,
+): Promise<string> {
   const client = await createClient(orgId, { name, websiteUrl, timezone: DEFAULT_TIMEZONE });
-  await applyWebsiteToClient(orgId, client.id, name, websiteUrl);
+  if (websiteUrl) await applyWebsiteToClient(orgId, client.id, name, websiteUrl);
   return client.id;
 }
 
