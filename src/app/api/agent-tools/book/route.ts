@@ -1,7 +1,7 @@
 import { authenticateAgentTool, readToolArgs } from "@/lib/agent-tools-auth";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { getCallByRetellId } from "@/lib/data/calls";
-import { createAppointment } from "@/lib/data/appointments";
+import { createAppointment, hasOverlappingAppointment } from "@/lib/data/appointments";
 import { getBookingProviderForClient } from "@/lib/booking";
 import { notifyOwnerBooking } from "@/lib/notify";
 import { logger } from "@/lib/logger";
@@ -68,6 +68,17 @@ export async function POST(req: Request): Promise<Response> {
     logger.error("agent-tools.book.provider_failed", {
       clientId: client.id,
       error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // Double-booking guard: one appointment per slot until per-provider
+  // ("who do you want to see?") scheduling exists. The agent gets a clear
+  // signal to offer a different time instead.
+  if (await hasOverlappingAppointment(client.id, startAt, endAt)) {
+    return Response.json({
+      success: false,
+      error:
+        "That time slot is already booked. Apologize briefly and offer the caller a different time.",
     });
   }
 
