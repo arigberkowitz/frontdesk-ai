@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, type ReactNode } from "react";
+import { useActionState, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { Check, MessageSquare, Phone, X } from "lucide-react";
+import { BellRing, Check, MessageSquare, Phone, X } from "lucide-react";
 import { toast } from "sonner";
 import { sendReminderAction } from "@/lib/actions/reminders";
 import { initialActionState } from "@/lib/actions/types";
@@ -85,6 +85,9 @@ export function AppointmentReminders({
   reminders: ReminderLog[];
 }) {
   const hasPhone = Boolean(phone && phone.trim());
+  // Two-step: first click opens the explicit "right now" choices, so nothing
+  // ever sends from a single ambiguous click.
+  const [choosing, setChoosing] = useState(false);
 
   return (
     <div className="space-y-3 border-t pt-4">
@@ -94,16 +97,26 @@ export function AppointmentReminders({
           Your AI sends the reminder and notes the time here.
         </p>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <ReminderButton clientId={clientId} appointmentId={appointmentId} channel="sms" disabled={!hasPhone}>
-          <MessageSquare className="size-4" />
-          Text reminder
-        </ReminderButton>
-        <ReminderButton clientId={clientId} appointmentId={appointmentId} channel="call" disabled={!hasPhone}>
-          <Phone className="size-4" />
-          Call reminder
-        </ReminderButton>
-      </div>
+      {!choosing ? (
+        <Button variant="outline" size="sm" disabled={!hasPhone} onClick={() => setChoosing(true)}>
+          <BellRing className="size-4" />
+          Send a reminder…
+        </Button>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <ReminderButton clientId={clientId} appointmentId={appointmentId} channel="sms" disabled={!hasPhone}>
+            <MessageSquare className="size-4" />
+            Text right now
+          </ReminderButton>
+          <ReminderButton clientId={clientId} appointmentId={appointmentId} channel="call" disabled={!hasPhone}>
+            <Phone className="size-4" />
+            Call right now
+          </ReminderButton>
+          <Button variant="ghost" size="sm" onClick={() => setChoosing(false)}>
+            Cancel
+          </Button>
+        </div>
+      )}
       {!hasPhone ? (
         <p className="text-xs text-muted-foreground">No phone number on file for this customer.</p>
       ) : null}
