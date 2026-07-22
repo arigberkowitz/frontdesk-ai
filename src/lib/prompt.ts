@@ -124,6 +124,8 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
 
   const rules = [
     language,
+    // Voice-call pacing: stacked questions overwhelm callers. One at a time.
+    "Ask for ONE piece of information at a time and wait for the answer — never bundle questions (\"your name?\" … then \"best number to reach you?\" … then \"when works for you?\"). Briefly acknowledge or confirm each answer (especially phone numbers, read them back) before asking the next.",
     disclosure ? `At the start of the call, naturally disclose: "${disclosure}"` : null,
     guidance
       ? `Follow the "What ${client.name} wants you to say" section above EXACTLY — those instructions take priority over these rules wherever they conflict.`
