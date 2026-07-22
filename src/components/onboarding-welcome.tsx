@@ -42,10 +42,25 @@ function SubmitButton({ idle, busy }: { idle: string; busy: string }) {
 }
 
 /** Draft the whole receptionist from the company's own website. */
+/** Browser-detected IANA timezone, read at submit time (empty during SSR is fine —
+ *  the server action falls back to the platform default). */
+function TimezoneField() {
+  return (
+    <input
+      type="hidden"
+      name="timezone"
+      ref={(el) => {
+        if (el) el.value = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+      }}
+    />
+  );
+}
+
 function WebsiteForm() {
   const [state, action] = useActionState(onboardFromWebsitePortalAction, initialActionState);
   return (
     <form action={action} className="space-y-3 text-left">
+      <TimezoneField />
       <Field label="Business name" error={state.fieldErrors?.name}>
         <Input name="name" placeholder="Bright Smile Dental" required />
       </Field>

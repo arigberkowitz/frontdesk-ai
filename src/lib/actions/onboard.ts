@@ -21,13 +21,26 @@ const onboardSchema = z.object({
     .transform((v) => v || null),
 });
 
+/** Validate a browser-supplied IANA timezone; anything dodgy → platform default. */
+function safeTimezone(raw: unknown): string {
+  const tz = String(raw ?? "").trim();
+  if (!tz || tz.length > 60) return DEFAULT_TIMEZONE;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return tz;
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
+}
+
 /** Create a draft client; when a website is given, draft services/hours/FAQ from it. */
 async function runWebsiteOnboard(
   orgId: string,
   name: string,
   websiteUrl: string | null,
+  timezone: string,
 ): Promise<string> {
-  const client = await createClient(orgId, { name, websiteUrl, timezone: DEFAULT_TIMEZONE });
+  const client = await createClient(orgId, { name, websiteUrl, timezone });
   if (websiteUrl) await applyWebsiteToClient(orgId, client.id, name, websiteUrl);
   return client.id;
 }
@@ -47,7 +60,12 @@ export async function onboardFromWebsiteAction(
   });
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
 
-  const clientId = await runWebsiteOnboard(user.orgId, parsed.data.name, parsed.data.websiteUrl);
+  const clientId = await runWebsiteOnboard(
+    user.orgId,
+    parsed.data.name,
+    parsed.data.websiteUrl,
+    safeTimezone(formData.get("timezone")),
+  );
   revalidatePath("/clients");
   redirect(`/clients/${clientId}?onboarded=1`);
 }
@@ -67,7 +85,12 @@ export async function onboardFromWebsitePortalAction(
   });
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
 
-  await runWebsiteOnboard(user.orgId, parsed.data.name, parsed.data.websiteUrl);
+  await runWebsiteOnboard(
+    user.orgId,
+    parsed.data.name,
+    parsed.data.websiteUrl,
+    safeTimezone(formData.get("timezone")),
+  );
   revalidatePath("/portal", "layout");
   redirect("/portal?onboarded=1");
 }
