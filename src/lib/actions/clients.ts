@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { clerkClient } from "@clerk/nextjs/server";
-import { requireOperator } from "@/lib/auth-guard";
+import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "@/lib/auth-guard";
 import { clientCreateSchema, clientProfileSchema, emptyToNull } from "@/lib/validation";
 import * as clientsData from "@/lib/data/clients";
 import * as servicesData from "@/lib/data/services";
@@ -64,15 +64,29 @@ const STARTER_BOOKING =
  * editable example services, hours, FAQ, and guardrails, then drop them into it to
  * swap in their real details.
  */
-export async function createStarterClientAction(_formData: FormData): Promise<void> {
-  const user = await requireOperator();
+export async function createStarterClientAction(formData: FormData): Promise<void> {
+  const user = await requireBusinessCreator();
+  // Keep the name they gave at signup — losing it and making them retype it in
+  // Settings was a real usability bug.
+  const name = String(formData.get("name") ?? "").trim().slice(0, 120) || "Your business";
+  const tz = String(formData.get("timezone") ?? "").trim();
+  let timezone = "America/New_York";
+  try {
+    if (tz) {
+      new Intl.DateTimeFormat("en-US", { timeZone: tz });
+      timezone = tz;
+    }
+  } catch {
+    /* keep default */
+  }
   const client = await clientsData.createClient(user.orgId, {
-    name: "Your business",
+    name,
     websiteUrl: null,
     industry: null,
     address: null,
-    timezone: "America/New_York",
+    timezone,
   });
+  await attachCreatorToClient(user, client.id);
 
   await Promise.all([
     ...STARTER_SERVICES.map((s) => servicesData.createService(client.id, { ...s, isActive: true })),

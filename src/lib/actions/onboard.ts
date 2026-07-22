@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireOperator } from "@/lib/auth-guard";
+import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "@/lib/auth-guard";
 import { createClient } from "@/lib/data/clients";
 import { applyWebsiteToClient } from "@/lib/onboarding-apply";
 import { DEFAULT_TIMEZONE } from "@/config/app";
@@ -78,19 +78,20 @@ export async function onboardFromWebsitePortalAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const user = await requireOperator();
+  const user = await requireBusinessCreator();
   const parsed = onboardSchema.safeParse({
     name: formData.get("name"),
     websiteUrl: formData.get("websiteUrl"),
   });
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
 
-  await runWebsiteOnboard(
+  const clientId = await runWebsiteOnboard(
     user.orgId,
     parsed.data.name,
     parsed.data.websiteUrl,
     safeTimezone(formData.get("timezone")),
   );
+  await attachCreatorToClient(user, clientId);
   revalidatePath("/portal", "layout");
   redirect("/portal?onboarded=1");
 }

@@ -10,8 +10,13 @@ export const metadata = { title: "Get started" };
 /** First-run setup for a self-serve business owner whose workspace has no business yet. */
 export default async function WelcomePage() {
   const user = await getCurrentDbUser();
-  const clients = await listClients(user.orgId);
-  if (clients.length > 0) redirect("/portal");
+  // Already attached to a business → nothing to set up here.
+  if (user.clientId) redirect("/portal");
+  if (user.role === "operator") {
+    // Legacy self-serve operator workspaces: done once a business exists.
+    const clients = await listClients(user.orgId);
+    if (clients.length > 0) redirect("/portal");
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

@@ -132,7 +132,15 @@ export function OnboardingWelcome({ aiReady }: { aiReady: boolean }) {
           </div>
 
           <div className="flex flex-col items-center gap-2">
-            <form action={createStarterClientAction}>
+            <form action={createStarterClientAction} className="flex flex-col items-center gap-2">
+              <TimezoneField />
+              <Input
+                name="name"
+                placeholder="Your business name"
+                required
+                className="w-64"
+                aria-label="Business name"
+              />
               <SubmitButton idle="Start from a template instead" busy="Setting it up…" />
             </form>
             <p className="max-w-md text-xs text-muted-foreground">

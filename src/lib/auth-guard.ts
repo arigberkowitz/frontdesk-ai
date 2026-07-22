@@ -133,12 +133,35 @@ export async function getCurrentDbUser(): Promise<User> {
     }
   }
 
-  // Otherwise this is a self-serve signup. Each company gets its OWN isolated
-  // workspace, keyed by email domain so teammates with the same company email
-  // (e.g. two @acme.com employees) land in the SAME workspace. Free / consumer
-  // domains are never grouped — each such signup gets its own workspace.
-  // Only group by domain when we have a verified email; otherwise isolate (treat
-  // it like a free-email signup that gets its own workspace).
+  // Self-serve signup → they become a CLIENT of the house agency, not their own
+  // isolated workspace: the user lands in the platform's agency org as a
+  // client_admin with no business yet (the /welcome flow creates it), so every
+  // signup shows up on the operator's dashboard. Tenant isolation still holds —
+  // portal users only ever see their own client's data.
+  const houseOrg = await db.query.organizations.findFirst({
+    where: eq(organizations.kind, "agency"),
+    orderBy: (o, { asc }) => [asc(o.createdAt)],
+  });
+  if (houseOrg) {
+    const member = (
+      await db
+        .insert(users)
+        .values({ orgId: houseOrg.id, clerkUserId: userId, email, role: "client_admin" })
+        .onConflictDoNothing({ target: users.clerkUserId })
+        .returning()
+    )[0];
+    const resolved =
+      member ??
+      (await db.query.users.findFirst({
+        where: and(eq(users.clerkUserId, userId), isNull(users.deletedAt)),
+      }));
+    if (!resolved) throw new Error("Failed to create user record.");
+    return resolved;
+  }
+
+  // Fresh-install fallback (no agency org exists yet): the first signup
+  // bootstraps their own workspace — this is how the platform owner's own
+  // account came to be.
   const domain = (verifiedEmail?.split("@")[1] ?? "").toLowerCase();
   const shareByDomain = domain.length > 0 && !FREE_EMAIL_DOMAINS.has(domain);
 
@@ -296,8 +319,26 @@ export async function resolvePortalClient(): Promise<{ clientId: string; preview
     if (!client) redirect("/dashboard");
     return { clientId: previewId, preview: true };
   }
-  if (!user.clientId) throw new Error("No client is assigned to this portal account.");
+  // A signup that hasn't created their business yet → guided setup.
+  if (!user.clientId) redirect("/welcome");
   return { clientId: user.clientId, preview: false };
+}
+
+/**
+ * Who may create a business in the /welcome flow: operators (any client) or a
+ * fresh signup (client_admin not yet attached to a business).
+ */
+export async function requireBusinessCreator(): Promise<User> {
+  const user = await getCurrentDbUser();
+  if (user.role === "operator") return user;
+  if (user.role === "client_admin" && !user.clientId) return user;
+  redirect("/portal");
+}
+
+/** After a signup creates their business, bind their account to it. */
+export async function attachCreatorToClient(user: User, clientId: string): Promise<void> {
+  if (user.role === "operator") return;
+  await db.update(users).set({ clientId }).where(eq(users.id, user.id));
 }
 
 /**
