@@ -98,6 +98,15 @@ async function runProvision(
       .map((s) => s.trim())
       .filter(Boolean);
 
+    // Guardrail: webhook + tool URLs get baked into the Retell agent at
+    // provision time. A localhost/non-https APP_URL would create an agent that
+    // answers calls but can never reach our webhook or tools — fail loudly.
+    if (!env.APP_URL.startsWith("https://") || env.APP_URL.includes("localhost")) {
+      throw new Error(
+        `APP_URL must be a public https URL before provisioning (got "${env.APP_URL}"). Set APP_URL in your environment.`,
+      );
+    }
+
     const result = await provisionAgentForClient({
       clientId: client.id,
       agentName,

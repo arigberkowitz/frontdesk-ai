@@ -3,8 +3,8 @@ import { revalidatePath } from "next/cache";
 import { getClient, type ClientWithRelations } from "@/lib/data/clients";
 import { getBookingProviderForClient } from "@/lib/booking";
 import { buildGeneralPrompt, DEFAULT_AGENT_NAME, defaultGreeting } from "@/lib/prompt";
-import { getRetellClient } from "@/lib/retell";
-import { integrations } from "@/lib/env";
+import { buildAgentTools, getRetellClient } from "@/lib/retell";
+import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
 /** Rebuild the Retell general prompt from a client's current data (§B5). */
@@ -45,6 +45,10 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
     begin_message:
       client.greeting?.trim() ||
       defaultGreeting({ name: client.name }, client.agentName?.trim() || DEFAULT_AGENT_NAME),
+    // Rebuild tools too: an escalation-number change swaps between the native
+    // warm-transfer tool and the message-taking fallback — without this, the
+    // live agent keeps the old transfer behavior until a full re-provision.
+    general_tools: buildAgentTools(env.APP_URL, clientId, client.escalationNumber),
   });
   return true;
 }
