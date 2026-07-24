@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/db";
 import { notifications, type Appointment, type Client, type Lead } from "@/db/schema";
 import { notifier, type SendResult } from "./notifier";
+import { getAlertRecipients } from "./data/alert-contacts";
 import { formatDateTime, formatPhone } from "./format";
 import { env } from "./env";
 import { logger } from "./logger";
@@ -49,15 +50,15 @@ export async function notifyOwnerBooking(client: Client, appt: Appointment): Pro
   const who = appt.customerName ?? "a caller";
   const when = formatDateTime(appt.startAt, client.timezone);
   const phone = formatPhone(appt.customerPhone);
-  const sms = client.smsAlertsEnabled ? client.escalationNumber?.trim() : undefined;
-  const email = client.ownerEmail?.trim();
+  const { emails, phones } = await getAlertRecipients(client);
+  const smsTargets = client.smsAlertsEnabled ? phones : [];
 
-  if (sms) {
+  for (const sms of smsTargets) {
     const body = `📅 New booking for ${client.name}: ${who} on ${when}. Callback: ${phone}`;
     const r = await notifier.sendSms({ to: sms, body });
     await logNotification(client.id, "booking", "sms", sms, { body, appointmentId: appt.id }, r);
   }
-  if (email) {
+  for (const email of emails) {
     const subject = `New booking — ${who}`;
     const r = await notifier.sendEmail({
       to: email,
@@ -71,26 +72,27 @@ export async function notifyOwnerBooking(client: Client, appt: Appointment): Pro
     });
     await logNotification(client.id, "booking", "email", email, { subject, appointmentId: appt.id }, r);
   }
-  if (!sms && !email) logger.info("notify.booking.no_owner_contact", { clientId: client.id });
+  if (!smsTargets.length && !emails.length)
+    logger.info("notify.booking.no_owner_contact", { clientId: client.id });
 }
 
 export async function notifyOwnerLead(client: Client, lead: Lead): Promise<void> {
   const who = lead.name ?? "a caller";
   const phone = formatPhone(lead.phone);
-  const sms = client.smsAlertsEnabled ? client.escalationNumber?.trim() : undefined;
-  const email = client.ownerEmail?.trim();
+  const { emails, phones } = await getAlertRecipients(client);
+  const smsTargets = client.smsAlertsEnabled ? phones : [];
   // The AI captures urgency on the call ("ASAP", "emergency", "today") — lead
   // with urgent language gets an unmissable prefix so it never sits till morning.
   const urgent = /asap|urgent|emergenc|right away|immediately|today|leak|flood|burst/i.test(
     `${lead.urgency ?? ""} ${lead.reason ?? ""}`,
   );
 
-  if (sms) {
+  for (const sms of smsTargets) {
     const body = `${urgent ? "🚨 EMERGENCY — " : "📨 "}New message for ${client.name}: ${who} (${phone})${lead.reason ? ` — ${lead.reason}` : ""}`;
     const r = await notifier.sendSms({ to: sms, body });
     await logNotification(client.id, "lead", "sms", sms, { body, leadId: lead.id }, r);
   }
-  if (email) {
+  for (const email of emails) {
     const subject = urgent ? `🚨 URGENT — ${who} needs a call back` : `New message — ${who}`;
     const r = await notifier.sendEmail({
       to: email,
@@ -108,7 +110,8 @@ export async function notifyOwnerLead(client: Client, lead: Lead): Promise<void>
     });
     await logNotification(client.id, "lead", "email", email, { subject, leadId: lead.id }, r);
   }
-  if (!sms && !email) logger.info("notify.lead.no_owner_contact", { clientId: client.id });
+  if (!smsTargets.length && !emails.length)
+    logger.info("notify.lead.no_owner_contact", { clientId: client.id });
 }
 
 /** Agent #1 → owner: "Your AI learned N things — approve to teach it." */

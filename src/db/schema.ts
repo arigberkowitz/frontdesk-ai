@@ -368,6 +368,28 @@ export const leads = pgTable(
   (t) => [index("leads_client_id_idx").on(t.clientId)],
 );
 
+/** Alert routing roster: who at the business receives booking/lead/emergency
+ *  alerts. The on-duty toggle lets shops route alerts to whoever is actually
+ *  holding the phone tonight; with no on-duty contacts, alerts fall back to
+ *  the business's owner email / alert phone. */
+export const alertContacts = pgTable(
+  "alert_contacts",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    email: text("email"),
+    phone: text("phone"),
+    onDuty: boolean("on_duty").notNull().default(true),
+    ...timestamps,
+  },
+  (t) => [index("alert_contacts_client_id_idx").on(t.clientId)],
+);
+
+export type AlertContact = typeof alertContacts.$inferSelect;
+
 /** SMS opt-outs (STOP), keyed by phone — GLOBAL, because all outbound SMS
  *  shares one Twilio number. Once a number opts out, nothing texts it again. */
 export const smsOptOuts = pgTable(
