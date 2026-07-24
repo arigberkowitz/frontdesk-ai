@@ -6,6 +6,7 @@ import { listReviewedSuggestions } from "@/lib/data/suggestions";
 import { PageHeader } from "@/components/page-header";
 import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { KnowledgeTab } from "@/components/clients/knowledge-tab";
+import { DocIngest } from "@/components/portal/doc-ingest";
 import { Card, CardContent } from "@/components/ui/card";
 import { PanelHeader } from "@/components/panel-header";
 import { formatDateTime } from "@/lib/format";
@@ -30,6 +31,8 @@ export default async function PortalKnowledgePage() {
         <EditLockBanner clientId={clientId} hasCode={editAccess.hasCode} />
       ) : null}
       <KnowledgeTab clientId={clientId} knowledge={knowledge} />
+
+      {editAccess.canEdit ? <DocIngest clientId={clientId} /> : null}
 
       {learned.length > 0 ? (
         <Card>
