@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { ArrowUp, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PanelHeader } from "@/components/panel-header";
 import { copilotAction } from "@/lib/actions/copilot";
 import { cn } from "@/lib/utils";
@@ -106,12 +107,12 @@ export function CopilotChat() {
             send(input);
           }}
         >
-          <input
+          <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             aria-label="Ask your front desk"
             placeholder="Ask about your calls, leads, bookings…"
-            className="h-10 flex-1 rounded-lg border bg-background px-3 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring"
+            className="flex-1"
             disabled={pending}
           />
           <Button type="submit" size="icon" disabled={pending || !input.trim()} aria-label="Send">

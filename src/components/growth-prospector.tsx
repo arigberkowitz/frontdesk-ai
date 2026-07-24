@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { prospectAction, type GrowthState } from "@/lib/actions/growth";
 import { cn } from "@/lib/utils";
 
@@ -28,12 +29,11 @@ export function GrowthProspector() {
             <label htmlFor="urls" className="fd-section-label">
               Prospect websites — one per line, up to five
             </label>
-            <textarea
+            <Textarea
               id="urls"
               name="urls"
               rows={4}
               placeholder={"joesplumbingsf.com\nbrightsmiledental.com"}
-              className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring"
               disabled={pending}
             />
             <div className="flex items-center gap-3">

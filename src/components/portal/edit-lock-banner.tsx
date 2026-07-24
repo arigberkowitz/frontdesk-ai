@@ -6,6 +6,7 @@ import { Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { unlockEditingAction } from "@/lib/actions/edit-lock";
 import { initialActionState } from "@/lib/actions/types";
 
@@ -42,12 +43,12 @@ export function EditLockBanner({ clientId, hasCode }: { clientId: string; hasCod
         {hasCode ? (
           <form action={action} className="flex items-center gap-2">
             <input type="hidden" name="clientId" value={clientId} />
-            <input
+            <Input
               name="code"
               type="password"
               placeholder="Edit code"
               aria-label="Edit code"
-              className="h-9 w-32 rounded-lg border bg-background px-3 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring"
+              className="w-32"
               disabled={pending}
             />
             <Button type="submit" size="sm" variant="outline" disabled={pending}>

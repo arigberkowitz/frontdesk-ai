@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/form/field";
+import { NativeSelect } from "@/components/form/native-select";
 import { connectCalcomAction, disconnectCalendarAction } from "@/lib/actions/calendar";
 import { initialActionState } from "@/lib/actions/types";
 
@@ -94,17 +95,16 @@ export function CalendarConnect({
           </div>
         </div>
 
-        <select
+        <NativeSelect
           value={choice}
           onChange={(e) => setChoice(e.target.value)}
           aria-label="Calendar type"
-          className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none transition-shadow focus:ring-2 focus:ring-ring"
         >
           <option value="">Which calendar does your business use?</option>
           <option value="google">Google Calendar</option>
           <option value="calcom">Cal.com</option>
           <option value="other">Outlook / Microsoft 365 / Apple / other</option>
-        </select>
+        </NativeSelect>
 
         {choice === "google" ? (
           <Button

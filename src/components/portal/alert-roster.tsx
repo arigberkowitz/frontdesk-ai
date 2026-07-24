@@ -1,7 +1,9 @@
-import { BellRing, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Field } from "@/components/form/field";
+import { SubmitButton } from "@/components/form/submit-button";
 import {
   addAlertContactAction,
   allOnDutyAction,
@@ -25,10 +27,7 @@ export function AlertRoster({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <BellRing className="size-4 text-indigo-600 dark:text-indigo-400" />
-          Who gets alerts
-        </CardTitle>
+        <CardTitle>Who gets alerts</CardTitle>
         <CardDescription>
           Bookings, messages, and 🚨 emergencies go to everyone marked on duty — so the person
           actually holding the phone tonight gets the text. No one on duty? Alerts fall back to the
@@ -83,14 +82,22 @@ export function AlertRoster({
           </p>
         )}
 
-        <form action={addAlertContactAction} className="flex flex-wrap items-end gap-2">
+        <form action={addAlertContactAction} className="space-y-4">
           <input type="hidden" name="clientId" value={clientId} />
-          <Input name="name" placeholder="Name" required aria-label="Name" className="w-36" />
-          <Input name="email" type="email" placeholder="Email (optional)" aria-label="Email" className="w-52" />
-          <Input name="phone" placeholder="Phone (optional)" aria-label="Phone" className="w-40" />
-          <Button type="submit" variant="outline" size="sm">
-            Add person
-          </Button>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Name">
+              <Input name="name" placeholder="Sam the tech" required />
+            </Field>
+            <Field label="Email (optional)">
+              <Input name="email" type="email" placeholder="sam@yourbusiness.com" />
+            </Field>
+            <Field label="Phone (optional)">
+              <Input name="phone" placeholder="+1 415 555 0100" />
+            </Field>
+          </div>
+          <div className="flex justify-end">
+            <SubmitButton>Add person</SubmitButton>
+          </div>
         </form>
       </CardContent>
     </Card>
