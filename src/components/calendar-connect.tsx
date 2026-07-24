@@ -84,7 +84,7 @@ export function CalendarConnect({
     <Card>
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
             <CalendarPlus className="size-4" />
           </div>
           <div className="text-sm">
