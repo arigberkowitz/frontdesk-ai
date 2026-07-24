@@ -16,7 +16,7 @@ export function EmptyState({ icon: Icon, title, description, children }: EmptySt
           <Icon className="size-6 text-muted-foreground" />
         </div>
       ) : null}
-      <h3 className="text-base font-medium">{title}</h3>
+      <h3 className="font-heading text-base font-medium">{title}</h3>
       {description ? (
         <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
       ) : null}

@@ -33,7 +33,7 @@ export function IntakeForm({
   if (state.ok) {
     return (
       <div className="mx-auto max-w-md space-y-3 text-center">
-        <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
           <CheckCircle2 className="size-6" />
         </div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight">You&apos;re all set!</h1>

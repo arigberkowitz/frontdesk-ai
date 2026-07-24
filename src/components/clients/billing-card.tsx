@@ -50,13 +50,13 @@ export function BillingCard({ clientId, billing }: { clientId: string; billing: 
       </CardHeader>
       <CardContent className="space-y-4">
         {!billing.stripeReady ? (
-          <p className="text-sm text-amber-600">
+          <p className="text-sm text-amber-600 dark:text-amber-400">
             Add <code>STRIPE_SECRET_KEY</code> to your environment to enable billing.
           </p>
         ) : active && sub ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
-              <CheckCircle2 className="size-4 text-emerald-600" />
+              <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
               <span>
                 <strong>{planName}</strong> — {sub.status}
                 {sub.monthlyPriceCents ? ` · ${formatCurrencyCents(sub.monthlyPriceCents)}/mo` : ""}

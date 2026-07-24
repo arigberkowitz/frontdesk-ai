@@ -130,7 +130,7 @@ export function AppointmentsView({
 
   const tab = (active: boolean) =>
     cn(
-      "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+      "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
       active ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
     );
 
@@ -154,7 +154,7 @@ export function AppointmentsView({
               type="button"
               onClick={() => setMonth((m) => addMonths(m, -1))}
               aria-label="Previous month"
-              className="inline-flex size-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted"
+              className="inline-flex size-8 items-center justify-center rounded-md border text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ChevronLeft className="size-4" />
             </button>
@@ -165,7 +165,7 @@ export function AppointmentsView({
               type="button"
               onClick={() => setMonth((m) => addMonths(m, 1))}
               aria-label="Next month"
-              className="inline-flex size-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted"
+              className="inline-flex size-8 items-center justify-center rounded-md border text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ChevronRight className="size-4" />
             </button>
@@ -216,7 +216,7 @@ export function AppointmentsView({
                         key={a.id}
                         onClick={() => setSelected(a)}
                         title={`${a.customerName ?? "Caller"}${a.serviceName ? ` · ${a.serviceName}` : ""} · ${format(a.date, "h:mm a")}`}
-                        className="block w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-left text-[11px] leading-tight text-foreground transition-colors hover:bg-primary/20"
+                        className="block w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-left text-[11px] leading-tight text-foreground outline-none transition-colors hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <span className="font-medium tabular-nums">{format(a.date, "h:mm")}</span>{" "}
                         {a.customerName ?? "Caller"}
@@ -240,7 +240,7 @@ export function AppointmentsView({
               <button
                 type="button"
                 onClick={() => setSelected(a)}
-                className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-muted/40"
+                className="flex w-full items-center justify-between gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
               >
                 <div>
                   <p className="font-medium">{a.customerName ?? "Caller"}</p>

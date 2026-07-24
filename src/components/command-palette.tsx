@@ -98,7 +98,7 @@ export function CommandPalette({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         aria-label="Search (Command K)"
       >
         <Search className="size-4" />
@@ -133,7 +133,7 @@ export function CommandPalette({
                   <button
                     type="button"
                     onClick={() => go(item.href)}
-                    className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                    className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <item.icon className="size-4 shrink-0 text-muted-foreground" />
                     <span className="flex-1 truncate">{item.label}</span>

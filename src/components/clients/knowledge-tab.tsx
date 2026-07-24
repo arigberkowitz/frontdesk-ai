@@ -186,7 +186,7 @@ function KnowledgeGuide({ onPick }: { onPick: (question: string) => void }) {
                     key={q}
                     type="button"
                     onClick={() => onPick(q)}
-                    className="rounded-full border bg-background px-2.5 py-1 text-xs transition-colors hover:border-primary/50 hover:bg-muted"
+                    className="rounded-full border bg-background px-2.5 py-1 text-xs outline-none transition-colors hover:border-primary/50 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     + {q}
                   </button>

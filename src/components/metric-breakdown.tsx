@@ -34,7 +34,7 @@ export function MetricBreakdown({ label, value, hint, icon, breakdown, href, spa
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="block w-full cursor-pointer text-left"
+          className="block w-full cursor-pointer rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-expanded={open}
         >
           <div className="flex min-h-8 items-center justify-between gap-2">

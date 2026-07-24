@@ -57,7 +57,7 @@ export function ProvisionCard({
       <CardContent className="space-y-4">
         {hasAgent ? (
           <div className="flex items-start gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
-            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
             <div>
               {phoneNumber ? (
                 <p className="flex items-center gap-1.5">
@@ -77,7 +77,7 @@ export function ProvisionCard({
         {hasAgent ? <TestCallButton clientId={clientId} agentName={agentName} /> : null}
 
         {!retellReady ? (
-          <p className="text-sm text-amber-600">
+          <p className="text-sm text-amber-600 dark:text-amber-400">
             Activation isn&apos;t available yet — the voice service isn&apos;t connected. Please reach
             out to support (see Settings) and we&apos;ll switch it on.
           </p>

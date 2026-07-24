@@ -90,7 +90,7 @@ export function TestCallButton({
               "flex size-9 shrink-0 items-center justify-center rounded-full transition-colors",
               agentTalking
                 ? "animate-pulse bg-primary text-primary-foreground"
-                : "bg-emerald-500/15 text-emerald-600",
+                : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
             )}
           >
             <Mic className="size-4" />

@@ -89,7 +89,7 @@ export function AgentConfigTab({
             />
           ) : null}
           {!retellReady ? (
-            <p className="text-xs text-amber-600">
+            <p className="text-xs text-amber-600 dark:text-amber-400">
               Add <code>RETELL_API_KEY</code> to your environment to enable provisioning.
             </p>
           ) : null}

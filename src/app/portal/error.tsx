@@ -11,7 +11,7 @@ export default function PortalError({ reset }: { error: Error & { digest?: strin
         <TriangleAlert className="size-6" />
       </div>
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold">Something went wrong</h2>
+        <h2 className="font-heading text-lg font-semibold tracking-tight">Something went wrong</h2>
         <p className="max-w-sm text-sm text-muted-foreground">
           We couldn&apos;t load this page just now. Please try again in a moment.
         </p>

@@ -49,7 +49,7 @@ export function CallAudioPlayer({ src }: { src: string }) {
         type="button"
         onClick={toggle}
         aria-label={playing ? "Pause recording" : "Play recording"}
-        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white transition-colors hover:bg-indigo-700"
+        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white outline-none transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {playing ? <Pause className="size-5" /> : <Play className="size-5" />}
       </button>
@@ -58,7 +58,7 @@ export function CallAudioPlayer({ src }: { src: string }) {
           type="button"
           onClick={seek}
           aria-label="Seek"
-          className="block h-1.5 w-full cursor-pointer rounded-full bg-muted"
+          className="block h-1.5 w-full cursor-pointer rounded-full bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <span className="block h-full rounded-full bg-indigo-600" style={{ width: `${pct}%` }} />
         </button>

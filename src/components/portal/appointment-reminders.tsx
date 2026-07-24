@@ -65,7 +65,7 @@ function HistoryRow({ r }: { r: ReminderLog }) {
         </span>
       ) : (
         <span className="flex items-center gap-1">
-          <Check className="size-3.5 text-emerald-600" /> {verb} {when}
+          <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" /> {verb} {when}
         </span>
       )}
     </li>

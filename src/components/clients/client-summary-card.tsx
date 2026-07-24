@@ -36,7 +36,7 @@ export function ClientSummaryCard({ client }: { client: PortfolioClientCard }) {
               </div>
             </div>
             {client.newLeads > 0 ? (
-              <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600">
+              <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
                 {client.newLeads} new
               </span>
             ) : (

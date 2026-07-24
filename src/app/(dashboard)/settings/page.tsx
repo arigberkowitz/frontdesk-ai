@@ -109,7 +109,7 @@ function ConnectionRow({ c }: { c: Connection }) {
     <li className="flex flex-col gap-2 py-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex items-start gap-3">
         {c.ok ? (
-          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
         ) : (
           <CircleDashed className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
         )}
