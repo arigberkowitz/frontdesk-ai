@@ -1,7 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
+import { cancelAppointmentAction } from "@/lib/actions/appointments";
+import { initialActionState } from "@/lib/actions/types";
 import {
   addMonths,
   eachDayOfInterval,
@@ -16,6 +19,7 @@ import {
 import {
   CalendarDays,
   CalendarPlus,
+  CalendarX,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -84,6 +88,58 @@ function icsHref(a: Item): string {
   return `data:text/calendar;charset=utf-8,${encodeURIComponent(lines.join("\r\n"))}`;
 }
 
+/** Two-step cancel: first click arms, second confirms — no accidental cancellations. */
+function CancelAppointmentButton({
+  clientId,
+  appointmentId,
+  onCancelled,
+}: {
+  clientId: string;
+  appointmentId: string;
+  onCancelled: () => void;
+}) {
+  const [armed, setArmed] = useState(false);
+  // Toast + close from the transition itself — an effect calling setState here
+  // would trip react-hooks/set-state-in-effect.
+  const [, action, pending] = useActionState(
+    async (prev: typeof initialActionState, formData: FormData) => {
+      const next = await cancelAppointmentAction(prev, formData);
+      if (next.ok) {
+        if (next.message) toast.success(next.message);
+        onCancelled();
+      } else if (next.error) {
+        toast.error(next.error);
+      }
+      return next;
+    },
+    initialActionState,
+  );
+
+  return (
+    <form action={action}>
+      <input type="hidden" name="clientId" value={clientId} />
+      <input type="hidden" name="appointmentId" value={appointmentId} />
+      {armed ? (
+        <Button type="submit" variant="destructive" size="sm" disabled={pending}>
+          <CalendarX className="size-4" />
+          {pending ? "Cancelling…" : "Yes, cancel it"}
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+          onClick={() => setArmed(true)}
+        >
+          <CalendarX className="size-4" />
+          Cancel appointment
+        </Button>
+      )}
+    </form>
+  );
+}
+
 export function AppointmentsView({
   appointments,
   callBasePath,
@@ -112,6 +168,8 @@ export function AppointmentsView({
 
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [selected, setSelected] = useState<Item | null>(null);
+  // Snapshot once on mount — render-time Date.now() violates react-hooks/purity.
+  const [now] = useState(() => Date.now());
   const [month, setMonth] = useState(() => startOfMonth(items[0]?.date ?? new Date(0)));
 
   const byDay = useMemo(() => {
@@ -325,6 +383,16 @@ export function AppointmentsView({
                     <Phone className="size-4" />
                     View call
                   </Button>
+                ) : null}
+                {clientId &&
+                (selected.status === "booked" || selected.status === "confirmed") &&
+                selected.date.getTime() > now ? (
+                  <CancelAppointmentButton
+                    key={selected.id}
+                    clientId={clientId}
+                    appointmentId={selected.id}
+                    onCancelled={() => setSelected(null)}
+                  />
                 ) : null}
               </div>
               {clientId ? (

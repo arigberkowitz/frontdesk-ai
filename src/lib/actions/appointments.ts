@@ -4,7 +4,13 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { assertClientAccess } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
-import { createAppointment, hasOverlappingAppointment } from "@/lib/data/appointments";
+import {
+  cancelAppointment,
+  createAppointment,
+  hasOverlappingAppointment,
+} from "@/lib/data/appointments";
+import { getBookingProviderForClient } from "@/lib/booking";
+import { logger } from "@/lib/logger";
 import { isProviderFree, listProviders } from "@/lib/data/providers";
 import { parseInClientTimezone } from "@/lib/hours-util";
 import { vocabFor } from "@/lib/vocab";
@@ -96,4 +102,49 @@ export async function createManualAppointmentAction(
   revalidatePath("/portal");
   revalidatePath(`/clients/${clientId}`);
   return { ok: true, message: `${v.appointment[0].toUpperCase()}${v.appointment.slice(1)} added.` };
+}
+
+/**
+ * Manual cancellation from the portal or operator dashboard. Frees the slot
+ * (cancelled appointments stop counting against capacity) and, when the
+ * booking lives on an external calendar too, cancels it there best-effort.
+ */
+export async function cancelAppointmentAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  await assertClientAccess(clientId);
+  const appointmentId = String(formData.get("appointmentId") ?? "");
+  if (!appointmentId) return { ok: false, error: "Missing appointment." };
+
+  const client = await getClientByIdUnsafe(clientId);
+  if (!client) return { ok: false, error: "Business not found." };
+  const v = vocabFor(client.industry);
+
+  const cancelled = await cancelAppointment(clientId, appointmentId);
+  if (!cancelled) return { ok: false, error: `That ${v.appointment} no longer exists.` };
+
+  if (cancelled.externalBookingId) {
+    try {
+      const provider = getBookingProviderForClient(client);
+      if (provider.isConfigured()) {
+        await provider.cancelBooking(cancelled.externalBookingId, "Cancelled from FrontDesk AI");
+      }
+    } catch (err) {
+      logger.error("appointments.cancel.provider_failed", {
+        clientId,
+        appointmentId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  revalidatePath("/portal/appointments");
+  revalidatePath("/portal");
+  revalidatePath(`/clients/${clientId}`);
+  return {
+    ok: true,
+    message: `${v.appointment[0].toUpperCase()}${v.appointment.slice(1)} cancelled — the slot is open again.`,
+  };
 }

@@ -150,6 +150,7 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     canBook
       ? "If booking isn't possible or the caller isn't ready, use take_message to capture name, phone, and reason — and, when it comes up naturally, what they need (service), how soon (urgency), and any budget, so the team can prioritize the callback."
       : "Use take_message to capture name, phone, and reason — and, when it comes up naturally, what they need (service), how soon (urgency), and any budget, so the team can prioritize the callback.",
+    "If the caller wants to cancel an appointment: use cancel_appointment (it finds the booking by their phone number — ask for the number it was booked under if it wasn't found). Read the appointment back and get a clear yes before cancelling, then confirm it's done and offer to rebook them for another time.",
     "If the caller asks for a person, says 'agent' or 'representative', presses 0, or wants a human, use transfer_to_human to connect them to the team.",
     handoff
       ? `Don't wait to be asked: if the caller sounds upset, frustrated, confused, or has a sensitive or complex matter, proactively offer to connect them to a real person${
@@ -171,6 +172,7 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     canBook
       ? "- Book appointments using the booking tools (check_availability, then book_appointment)."
       : "- Take a message to schedule (no live calendar) — capture name, phone, and preferred times; the team calls back to confirm.",
+    "- Cancel an existing appointment (cancel_appointment) — confirm which one and get a clear yes first.",
     "- Take a message (take_message) capturing name + phone + reason.",
     "- Transfer to a human (transfer_to_human) on request or for sensitive matters.",
   ].join("\n");

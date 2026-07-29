@@ -3,6 +3,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { alertContacts, businessHours, calls, clients, knowledgeItems, services } from "@/db/schema";
 import { getBookingProviderForClient } from "@/lib/booking";
+import { formatPhone } from "@/lib/format";
 
 export interface SetupStep {
   key: string;
@@ -54,6 +55,7 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
 
   const calendar = client ? getBookingProviderForClient(client).isConfigured() : false;
   const flags = client?.setupFlags ?? {};
+  const aiNumber = client?.retellPhoneNumber ? formatPhone(client.retellPhoneNumber) : null;
 
   const steps: SetupStep[] = [
     { key: "services", label: "Add your services", href: "/portal/services", done: (svc?.n ?? 0) > 0 },
@@ -90,26 +92,32 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
       hint: "Who we text or email when a lead or emergency comes in.",
     },
     {
+      key: "live",
+      label: "Activate your receptionist",
+      href: "/portal/guidelines",
+      done: Boolean(client?.retellAgentId),
+      hint: "Go live — this is when your business gets its own AI phone number.",
+    },
+    {
       key: "forwarding",
       label: "Forward your business line",
       href: "/portal/settings",
       done: Boolean(flags.forwardingDone),
       manual: true,
-      hint: "From your business phone, dial *72 + your AI number (most carriers; AT&T/T-Mobile: **21*number#). ~2 minutes, undo with *73.",
-    },
-    {
-      key: "live",
-      label: "Activate your receptionist",
-      href: "/portal/guidelines",
-      done: Boolean(client?.retellAgentId),
-      hint: "Go live and start taking calls.",
+      // Every business gets its own dedicated AI number at activation — show
+      // the real one here the moment it exists instead of "your AI number".
+      hint: aiNumber
+        ? `From your business phone, dial *72 ${aiNumber} (most carriers; AT&T/T-Mobile: **21*${aiNumber.replace(/[^\d+]/g, "")}#). ~2 minutes, undo with *73.`
+        : "Your dedicated AI number arrives once billing is set up — until then, try it with a test call in your browser (Your AI page).",
     },
     {
       key: "testcall",
       label: "Make a test call — hear it answer",
       href: "/portal/calls",
       done: (callCount?.n ?? 0) > 0,
-      hint: "Call your AI number. This checks itself off when your first call appears.",
+      hint: aiNumber
+        ? `Call your AI at ${aiNumber}. This checks itself off when your first call appears.`
+        : "No number yet? Use “Test call in browser” on the Your AI page. This checks itself off when your first call appears.",
     },
   ];
 

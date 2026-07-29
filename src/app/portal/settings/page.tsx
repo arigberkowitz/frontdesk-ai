@@ -4,6 +4,7 @@ import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listAlertContacts } from "@/lib/data/alert-contacts";
 import { getClientSetupStatus } from "@/lib/data/setup";
+import { AiNumberCard } from "@/components/portal/ai-number-card";
 import { AlertRoster } from "@/components/portal/alert-roster";
 import { PageHeader } from "@/components/page-header";
 import { EditLockBanner } from "@/components/portal/edit-lock-banner";
@@ -35,6 +36,7 @@ export default async function PortalSettingsPage() {
         status={client.status}
         isAdmin={editAccess.isAdmin}
       />
+      <AiNumberCard phoneNumber={client.retellPhoneNumber} />
       <PortalSettings client={client} isAdmin={editAccess.isAdmin} />
       <AlertRoster clientId={clientId} contacts={alertContacts} />
       <SetupChecklist

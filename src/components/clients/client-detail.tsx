@@ -194,6 +194,7 @@ export function ClientDetail(props: Props) {
               serviceName: a.service?.name ?? null,
             }))}
             callBasePath={`/clients/${client.id}/calls`}
+            clientId={client.id}
           />
         )}
       </TabsContent>

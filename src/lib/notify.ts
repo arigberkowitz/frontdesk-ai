@@ -76,6 +76,47 @@ export async function notifyOwnerBooking(client: Client, appt: Appointment): Pro
     logger.info("notify.booking.no_owner_contact", { clientId: client.id });
 }
 
+/** Owner alert when an appointment is cancelled (by phone or from the portal). */
+export async function notifyOwnerCancellation(
+  client: Client,
+  appt: Appointment,
+  source: "phone" | "portal",
+): Promise<void> {
+  // Portal cancellations are the owner's own doing — no alert needed.
+  if (source === "portal") return;
+  const who = appt.customerName ?? "A caller";
+  const when = formatDateTime(appt.startAt, client.timezone);
+  const phone = formatPhone(appt.customerPhone);
+  const { emails, phones } = await getAlertRecipients(client);
+  const smsTargets = client.smsAlertsEnabled ? phones : [];
+
+  for (const sms of smsTargets) {
+    const body = `🚫 Cancellation for ${client.name}: ${who} cancelled ${when} by phone. Callback: ${phone}`;
+    const r = await notifier.sendSms({ to: sms, body });
+    await logNotification(client.id, "system", "sms", sms, { body, appointmentId: appt.id }, r);
+  }
+  for (const email of emails) {
+    const subject = `Cancellation — ${who}`;
+    const r = await notifier.sendEmail({
+      to: email,
+      subject,
+      html: ownerEmailHtml({
+        title: "🚫 Appointment cancelled",
+        business: client.name,
+        lines: [
+          `<strong>${esc(who)}</strong> cancelled <strong>${esc(when)}</strong> over the phone.`,
+          `Callback: ${phone}`,
+          `The slot is open again — your AI can rebook it.`,
+        ],
+      }),
+      text: `Cancellation for ${client.name}: ${who} cancelled ${when} by phone. Callback: ${phone}`,
+    });
+    await logNotification(client.id, "system", "email", email, { subject, appointmentId: appt.id }, r);
+  }
+  if (!smsTargets.length && !emails.length)
+    logger.info("notify.cancellation.no_owner_contact", { clientId: client.id });
+}
+
 export async function notifyOwnerLead(client: Client, lead: Lead): Promise<void> {
   const who = lead.name ?? "a caller";
   const phone = formatPhone(lead.phone);

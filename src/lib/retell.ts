@@ -25,6 +25,7 @@ export const SILENCE_REMINDER_MS = 15_000; // "Are you still there?" at ~15s
 export const AGENT_TOOL_NAMES = {
   checkAvailability: "check_availability",
   bookAppointment: "book_appointment",
+  cancelAppointment: "cancel_appointment",
   takeMessage: "take_message",
   transferToHuman: "transfer_to_human",
 } as const;
@@ -139,6 +140,30 @@ export function buildAgentTools(appUrl: string, clientId: string, escalationNumb
           },
         },
         required: ["service", "datetime", "name", "phone"],
+      },
+    },
+    {
+      type: "custom" as const,
+      name: AGENT_TOOL_NAMES.cancelAppointment,
+      url: agentToolUrl(appUrl, "cancel", clientId),
+      description:
+        "Cancel the caller's existing appointment. Confirm which appointment and get a clear yes before calling this. Looks the booking up by phone number (defaults to the caller's number).",
+      speak_during_execution: true,
+      parameters: {
+        type: "object" as const,
+        properties: {
+          phone: {
+            type: "string",
+            description:
+              "The phone number the appointment was booked under. Omit to use the number the caller is calling from.",
+          },
+          datetime: {
+            type: "string",
+            description:
+              "ISO 8601 start date-time of the appointment to cancel — only needed when the caller has more than one upcoming appointment.",
+          },
+        },
+        required: [],
       },
     },
     {

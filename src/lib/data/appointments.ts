@@ -1,7 +1,8 @@
 import "server-only";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { appointments, type NewAppointment } from "@/db/schema";
+import { appointments, type Appointment, type NewAppointment } from "@/db/schema";
+import { normalizePhone } from "./sms-optouts";
 
 export async function listAppointments(clientId: string) {
   return db.query.appointments.findMany({
@@ -62,4 +63,50 @@ export async function createAppointment(
   const [row] = await db.insert(appointments).values({ ...input, clientId }).returning();
   if (!row) throw new Error("Failed to create appointment");
   return row;
+}
+
+/**
+ * Upcoming active appointments whose customer phone matches the given number
+ * (compared on digits, tolerating +1/formatting differences). Powers the
+ * cancel-by-phone flow.
+ */
+export async function findUpcomingAppointmentsByPhone(
+  clientId: string,
+  phone: string,
+): Promise<(Appointment & { service: { name: string } | null })[]> {
+  const wanted = normalizePhone(phone);
+  if (!wanted) return [];
+  const upcoming = await db.query.appointments.findMany({
+    where: and(
+      eq(appointments.clientId, clientId),
+      isNull(appointments.deletedAt),
+      sql`${appointments.status} not in ('cancelled', 'no_show')`,
+      sql`${appointments.startAt} > now()`,
+    ),
+    orderBy: [appointments.startAt],
+    with: { service: { columns: { name: true } } },
+    limit: 200,
+  });
+  return upcoming.filter(
+    (a) => a.customerPhone && normalizePhone(a.customerPhone) === wanted,
+  );
+}
+
+/** Mark an appointment cancelled (tenant-scoped). Returns the row, or null if not found. */
+export async function cancelAppointment(
+  clientId: string,
+  appointmentId: string,
+): Promise<Appointment | null> {
+  const [row] = await db
+    .update(appointments)
+    .set({ status: "cancelled" })
+    .where(
+      and(
+        eq(appointments.id, appointmentId),
+        eq(appointments.clientId, clientId),
+        isNull(appointments.deletedAt),
+      ),
+    )
+    .returning();
+  return row ?? null;
 }

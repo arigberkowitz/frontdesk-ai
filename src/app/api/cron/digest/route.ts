@@ -1,4 +1,4 @@
-import { sendDigests, type DigestPeriod } from "@/lib/digest";
+import { sendDigests, sendWeeklyReports, type DigestPeriod } from "@/lib/digest";
 import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -21,5 +21,7 @@ export async function GET(req: Request): Promise<Response> {
 
   const period: DigestPeriod = url.searchParams.get("period") === "weekly" ? "weekly" : "daily";
   const result = await sendDigests(period);
-  return Response.json({ ok: true, period, ...result });
+  // Weekly runs also send the owner report email — the retention machine.
+  const report = period === "weekly" ? await sendWeeklyReports() : null;
+  return Response.json({ ok: true, period, ...result, report });
 }
