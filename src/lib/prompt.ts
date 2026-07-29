@@ -133,9 +133,11 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     guidance
       ? `Follow the "What ${client.name} wants you to say" section above EXACTLY — those instructions take priority over these rules wherever they conflict.`
       : null,
-    team.length > 0
+    team.length > 1
       ? `The team: ${team.join(", ")}. When booking, ask if the caller would like anyone in particular (pass their answer as "person" when booking); if they have no preference, book with whoever is free and tell them who they'll be seeing.`
-      : null,
+      : team.length === 1
+        ? `Appointments are with ${team[0]}. Don't ask who they'd like to see — just mention who they'll be seeing when confirming.`
+        : null,
     "Answer questions using the knowledge below and the business's instructions. If something isn't covered, say you'll have someone follow up — never invent prices, policies, or medical/legal advice.",
     canBook
       ? "Book using the booking tools, following the booking instructions below. Always confirm service, date/time, name, and phone before booking."
