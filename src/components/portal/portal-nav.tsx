@@ -9,6 +9,7 @@ const ITEMS = [
   { label: "Calls", href: "/portal/calls" },
   { label: "Appointments", href: "/portal/appointments" },
   { label: "Leads", href: "/portal/leads" },
+  { label: "Team", href: "/portal/team" },
   { label: "Services", href: "/portal/services" },
   { label: "Hours", href: "/portal/hours" },
   { label: "Knowledge", href: "/portal/knowledge" },

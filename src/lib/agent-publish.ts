@@ -30,6 +30,9 @@ export function buildPromptForClient(client: ClientWithRelations): string {
     services: client.services,
     hours: client.businessHours,
     knowledge: client.knowledgeItems,
+    staffNames: client.staffModeEnabled
+      ? client.providers.filter((p) => p.isActive).map((p) => p.name)
+      : [],
   });
 }
 

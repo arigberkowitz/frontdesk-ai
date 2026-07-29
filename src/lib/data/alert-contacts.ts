@@ -56,8 +56,23 @@ export async function getAlertRecipients(client: Client): Promise<AlertRecipient
   } catch {
     onDuty = [];
   }
-  const emails = onDuty.map((c) => c.email?.trim()).filter((e): e is string => Boolean(e));
-  const phones = onDuty.map((c) => c.phone?.trim()).filter((p): p is string => Boolean(p));
+  // Staff mode: whoever is on the clock right now also gets the alert.
+  let onClock: { email: string | null; phone: string | null }[] = [];
+  if (client.staffModeEnabled) {
+    try {
+      const { listProviders } = await import("./providers");
+      onClock = (await listProviders(client.id)).filter((p) => p.onClock && p.isActive);
+    } catch {
+      onClock = [];
+    }
+  }
+  const all = [...onDuty, ...onClock];
+  const emails = [
+    ...new Set(all.map((c) => c.email?.trim()).filter((e): e is string => Boolean(e))),
+  ];
+  const phones = [
+    ...new Set(all.map((c) => c.phone?.trim()).filter((p): p is string => Boolean(p))),
+  ];
   return {
     emails: emails.length ? emails : client.ownerEmail?.trim() ? [client.ownerEmail.trim()] : [],
     phones: phones.length

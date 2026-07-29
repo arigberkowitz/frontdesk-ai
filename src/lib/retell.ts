@@ -132,6 +132,11 @@ export function buildAgentTools(appUrl: string, clientId: string, escalationNumb
           datetime: { type: "string", description: "ISO 8601 start date-time." },
           name: { type: "string" },
           phone: { type: "string" },
+          person: {
+            type: "string",
+            description:
+              "Optional: the staff member the caller asked for by name. Omit if they have no preference.",
+          },
         },
         required: ["service", "datetime", "name", "phone"],
       },

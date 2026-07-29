@@ -23,6 +23,10 @@ export async function getClient(orgId: string, clientId: string) {
         where: (s, { isNull: n }) => n(s.deletedAt),
         orderBy: (s, { asc }) => [asc(s.name)],
       },
+      providers: {
+        where: (p, { isNull: n }) => n(p.deletedAt),
+        orderBy: (p, { asc }) => [asc(p.name)],
+      },
       businessHours: { orderBy: (h, { asc }) => [asc(h.dayOfWeek)] },
       knowledgeItems: {
         where: (k, { isNull: n }) => n(k.deletedAt),

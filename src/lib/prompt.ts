@@ -65,6 +65,8 @@ export interface BuildPromptInput {
   services: PromptService[];
   hours: PromptHours[];
   knowledge: PromptKnowledge[];
+  /** Staff mode: active team member names the caller can ask for. */
+  staffNames?: string[];
 }
 
 export const DEFAULT_AGENT_NAME = "Riley";
@@ -111,7 +113,8 @@ export function resolveDisclosureLine(client: PromptClient): string | null {
 }
 
 export function buildGeneralPrompt(input: BuildPromptInput): string {
-  const { client, agentName, services, hours, knowledge } = input;
+  const { client, agentName, services, hours, knowledge, staffNames } = input;
+  const team = (staffNames ?? []).filter((n) => n.trim());
   const location = client.address?.trim() ? ` in ${client.address.trim()}` : "";
   const industry = client.industry?.trim() ? `${client.industry.trim()} ` : "";
   const disclosure = resolveDisclosureLine(client);
@@ -129,6 +132,9 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     disclosure ? `At the start of the call, naturally disclose: "${disclosure}"` : null,
     guidance
       ? `Follow the "What ${client.name} wants you to say" section above EXACTLY — those instructions take priority over these rules wherever they conflict.`
+      : null,
+    team.length > 0
+      ? `The team: ${team.join(", ")}. When booking, ask if the caller would like anyone in particular (pass their answer as "person" when booking); if they have no preference, book with whoever is free and tell them who they'll be seeing.`
       : null,
     "Answer questions using the knowledge below and the business's instructions. If something isn't covered, say you'll have someone follow up — never invent prices, policies, or medical/legal advice.",
     canBook

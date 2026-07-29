@@ -161,6 +161,8 @@ export const clients = pgTable(
     // Set when the owner clicks "I'm done" and the AI readiness check passes.
     // Hides the overview setup checklist; it stays reachable under Settings.
     setupCompletedAt: timestamp("setup_completed_at", { withTimezone: true }),
+    // Staff mode: named team members, per-person booking + views. Off = solo.
+    staffModeEnabled: boolean("staff_mode_enabled").notNull().default(false),
     retellAgentId: text("retell_agent_id"),
     retellLlmId: text("retell_llm_id"),
     retellPhoneNumber: text("retell_phone_number"),
@@ -338,6 +340,10 @@ export const appointments = pgTable(
     customerName: text("customer_name"),
     customerPhone: text("customer_phone"),
     serviceId: uuid("service_id").references(() => services.id, { onDelete: "set null" }),
+    // Staff mode: which team member this appointment is with.
+    providerId: uuid("provider_id").references((): AnyPgColumn => providers.id, {
+      onDelete: "set null",
+    }),
     startAt: timestamp("start_at", { withTimezone: true }).notNull(),
     endAt: timestamp("end_at", { withTimezone: true }),
     status: appointmentStatus("status").notNull().default("booked"),
@@ -646,6 +652,32 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   users: many(users),
 }));
 
+/** Staff mode: a named team member who takes appointments and shifts. */
+export const providers = pgTable(
+  "providers",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    // Matches a portal user's login email → that user sees "my day" for this provider.
+    email: text("email"),
+    phone: text("phone"),
+    // On the clock right now: gets alerts, is bookable "today".
+    onClock: boolean("on_clock").notNull().default(false),
+    isActive: boolean("is_active").notNull().default(true),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => [index("providers_client_id_idx").on(t.clientId)],
+);
+
+export const providersRelations = relations(providers, ({ one, many }) => ({
+  client: one(clients, { fields: [providers.clientId], references: [clients.id] }),
+  appointments: many(appointments),
+}));
+
 export const clientsRelations = relations(clients, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [clients.orgId],
@@ -653,6 +685,7 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   }),
   viewers: many(users),
   knowledgeItems: many(knowledgeItems),
+  providers: many(providers),
   services: many(services),
   businessHours: many(businessHours),
   calls: many(calls),
@@ -692,6 +725,7 @@ export const appointmentsRelations = relations(appointments, ({ one, many }) => 
   client: one(clients, { fields: [appointments.clientId], references: [clients.id] }),
   call: one(calls, { fields: [appointments.callId], references: [calls.id] }),
   service: one(services, { fields: [appointments.serviceId], references: [services.id] }),
+  provider: one(providers, { fields: [appointments.providerId], references: [providers.id] }),
   reminders: many(reminders),
 }));
 
@@ -752,6 +786,7 @@ export type NewUser = typeof users.$inferInsert;
 export type KnowledgeItem = typeof knowledgeItems.$inferSelect;
 export type NewKnowledgeItem = typeof knowledgeItems.$inferInsert;
 export type Service = typeof services.$inferSelect;
+export type Provider = typeof providers.$inferSelect;
 export type NewService = typeof services.$inferInsert;
 export type BusinessHour = typeof businessHours.$inferSelect;
 export type NewBusinessHour = typeof businessHours.$inferInsert;

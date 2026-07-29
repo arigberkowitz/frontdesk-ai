@@ -2,6 +2,7 @@ import { authenticateAgentTool, readToolArgs } from "@/lib/agent-tools-auth";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { getCallByRetellId } from "@/lib/data/calls";
 import { createAppointment, hasOverlappingAppointment } from "@/lib/data/appointments";
+import { findFreeProvider } from "@/lib/data/providers";
 import { getBookingProviderForClient } from "@/lib/booking";
 import { parseInClientTimezone } from "@/lib/hours-util";
 import { notifyOwnerBooking } from "@/lib/notify";
@@ -79,10 +80,25 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
-  // Double-booking guard, capacity-aware: a service with N providers can hold
-  // N overlapping bookings; a solo service (default) blocks any overlap. The
-  // agent gets a clear signal to offer a different time instead.
-  if (await hasOverlappingAppointment(client.id, startAt, endAt, service)) {
+  // Double-booking guard. Staff mode: assign a free team member (honoring a
+  // requested person); each person holds one appointment at a time. Otherwise:
+  // capacity-aware per service (N providers = N overlapping slots; default 1).
+  let providerId: string | null = null;
+  let providerName: string | null = null;
+  if (client.staffModeEnabled) {
+    const preferred = String(args.person ?? "").trim() || null;
+    const free = await findFreeProvider(client.id, startAt, endAt, preferred);
+    if (!free) {
+      return Response.json({
+        success: false,
+        error: preferred
+          ? `${preferred} isn't available at that time. Offer a different time, or ask if someone else on the team is okay.`
+          : "The whole team is booked at that time. Apologize briefly and offer a different time.",
+      });
+    }
+    providerId = free.id;
+    providerName = free.name;
+  } else if (await hasOverlappingAppointment(client.id, startAt, endAt, service)) {
     return Response.json({
       success: false,
       error:
@@ -96,6 +112,7 @@ export async function POST(req: Request): Promise<Response> {
     customerName: customerName || null,
     customerPhone: customerPhone || null,
     serviceId: service.id ?? null,
+    providerId,
     startAt,
     endAt,
     status: "booked",
@@ -107,6 +124,6 @@ export async function POST(req: Request): Promise<Response> {
   return Response.json({
     success: true,
     confirmation_id: appt.id,
-    message: `Booked ${service.name} for ${customerName || "you"}. We'll see you then!`,
+    message: `Booked ${service.name}${providerName ? ` with ${providerName}` : ""} for ${customerName || "you"}. We'll see you then!`,
   });
 }
