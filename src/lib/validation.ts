@@ -35,6 +35,8 @@ export const serviceSchema = z.object({
   durationMin: z.coerce.number().int().min(5).max(480).default(30),
   // Entered in dollars; converted to cents by the action.
   priceDollars: z.coerce.number().min(0).max(100000).optional(),
+  // How many staff can perform this service at once (1 = no overlapping slots).
+  providerCount: z.coerce.number().int().min(1).max(50).default(1),
   description: optionalString,
   isActive: z.coerce.boolean().default(true),
 });

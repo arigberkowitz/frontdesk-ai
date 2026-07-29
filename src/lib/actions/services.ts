@@ -12,6 +12,7 @@ function parseService(formData: FormData) {
     name: formData.get("name"),
     durationMin: formData.get("durationMin"),
     priceDollars: formData.get("priceDollars") || undefined,
+    providerCount: formData.get("providerCount") || 1,
     description: formData.get("description"),
     isActive: formData.get("isActive") !== null,
   });
@@ -32,6 +33,7 @@ export async function createServiceAction(
     name: d.name,
     durationMin: d.durationMin,
     priceCents: d.priceDollars != null ? Math.round(d.priceDollars * 100) : null,
+    providerCount: d.providerCount,
     description: emptyToNull(d.description),
     isActive: d.isActive,
   });
@@ -55,6 +57,7 @@ export async function updateServiceAction(
     name: d.name,
     durationMin: d.durationMin,
     priceCents: d.priceDollars != null ? Math.round(d.priceDollars * 100) : null,
+    providerCount: d.providerCount,
     description: emptyToNull(d.description),
     isActive: d.isActive,
   });

@@ -79,10 +79,10 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
-  // Double-booking guard: one appointment per slot until per-provider
-  // ("who do you want to see?") scheduling exists. The agent gets a clear
-  // signal to offer a different time instead.
-  if (await hasOverlappingAppointment(client.id, startAt, endAt)) {
+  // Double-booking guard, capacity-aware: a service with N providers can hold
+  // N overlapping bookings; a solo service (default) blocks any overlap. The
+  // agent gets a clear signal to offer a different time instead.
+  if (await hasOverlappingAppointment(client.id, startAt, endAt, service)) {
     return Response.json({
       success: false,
       error:

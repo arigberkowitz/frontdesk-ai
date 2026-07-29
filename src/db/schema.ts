@@ -261,6 +261,9 @@ export const services = pgTable(
     name: text("name").notNull(),
     durationMin: integer("duration_min").notNull().default(30),
     priceCents: integer("price_cents"),
+    // How many staff can perform this service at the same time. 1 = solo (no
+    // overlapping bookings for this service); 3 = up to three simultaneous.
+    providerCount: integer("provider_count").notNull().default(1),
     description: text("description"),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps,

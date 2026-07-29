@@ -71,6 +71,19 @@ function ServiceForm({
           />
         </Field>
       </div>
+      <Field
+        label="People who can do this at the same time"
+        hint="1 = no overlapping bookings for this service. If two barbers cut hair, set 2 — the AI can then book two haircuts in the same slot."
+        error={state.fieldErrors?.providerCount}
+      >
+        <Input
+          name="providerCount"
+          type="number"
+          min={1}
+          max={50}
+          defaultValue={service?.providerCount ?? 1}
+        />
+      </Field>
       <Field label="Description">
         <Textarea name="description" rows={2} defaultValue={service?.description ?? ""} />
       </Field>

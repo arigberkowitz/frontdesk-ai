@@ -11,14 +11,23 @@ export async function listAppointments(clientId: string) {
   });
 }
 
-/** True when an active (non-cancelled) appointment overlaps [startAt, endAt).
- *  Until per-provider scheduling exists, ANY overlap is a double-booking. */
+/**
+ * Double-booking guard, capacity-aware. A new booking for a service conflicts
+ * when the SAME service already has as many overlapping active appointments as
+ * it has people providing it (services.providerCount, default 1 = solo). With
+ * capacity 1 we also block overlaps with OTHER services — a solo operator
+ * can't be in two rooms at once. With capacity > 1 (a team), other services
+ * are assumed to have their own staff and don't block.
+ */
 export async function hasOverlappingAppointment(
   clientId: string,
   startAt: Date,
   endAt: Date,
+  service?: { id: string; providerCount?: number | null } | null,
 ): Promise<boolean> {
-  const clash = await db.query.appointments.findFirst({
+  const capacity = Math.max(1, service?.providerCount ?? 1);
+
+  const overlapping = await db.query.appointments.findMany({
     where: and(
       eq(appointments.clientId, clientId),
       isNull(appointments.deletedAt),
@@ -27,8 +36,19 @@ export async function hasOverlappingAppointment(
       sql`${appointments.startAt} < ${endAt}`,
       sql`coalesce(${appointments.endAt}, ${appointments.startAt} + interval '30 minutes') > ${startAt}`,
     ),
+    columns: { serviceId: true },
   });
-  return Boolean(clash);
+  if (overlapping.length === 0) return false;
+
+  const sameService = service
+    ? overlapping.filter((a) => a.serviceId === service.id).length
+    : overlapping.length;
+  if (sameService >= capacity) return true;
+
+  // Solo capacity keeps the old strict rule: any overlap at all is a clash.
+  if (capacity <= 1) return overlapping.length > 0;
+
+  return false;
 }
 
 export async function createAppointment(
