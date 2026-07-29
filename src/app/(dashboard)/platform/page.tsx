@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/clients/status-badge";
+import { AdoptWorkspace } from "@/components/platform/adopt-workspace";
 import { LocalDateTime } from "@/components/local-datetime";
 import type { ClientStatus } from "@/db/schema";
 
@@ -37,9 +38,12 @@ export default async function PlatformPage() {
                     <span className="text-xs text-muted-foreground">@{w.domain}</span>
                   ) : null}
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  Signed up <LocalDateTime iso={w.createdAt.toISOString()} />
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">
+                    Signed up <LocalDateTime iso={w.createdAt.toISOString()} />
+                  </span>
+                  {w.kind !== "agency" ? <AdoptWorkspace orgId={w.orgId} name={w.name} /> : null}
+                </div>
               </div>
 
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
