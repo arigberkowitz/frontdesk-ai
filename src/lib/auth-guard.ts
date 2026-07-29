@@ -138,11 +138,13 @@ export async function getCurrentDbUser(): Promise<User> {
   // client_admin with no business yet (the /welcome flow creates it), so every
   // signup shows up on the operator's dashboard. Tenant isolation still holds —
   // portal users only ever see their own client's data.
+  // The operator can switch this off (Settings → Signups), in which case new
+  // signups fall through to the isolated-workspace path below.
   const houseOrg = await db.query.organizations.findFirst({
     where: eq(organizations.kind, "agency"),
     orderBy: (o, { asc }) => [asc(o.createdAt)],
   });
-  if (houseOrg) {
+  if (houseOrg && houseOrg.autoAttachSignups) {
     const member = (
       await db
         .insert(users)

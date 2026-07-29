@@ -134,6 +134,10 @@ export const organizations = pgTable(
     // @acme.com employees share it. Null = a personal / free-email workspace,
     // which is never grouped by domain.
     domain: text("domain"),
+    // Agency-only: when true (default), every self-serve signup is attached to
+    // this agency as a client_admin so the operator oversees every account.
+    // When false, new signups bootstrap their own isolated workspace instead.
+    autoAttachSignups: boolean("auto_attach_signups").notNull().default(true),
     ...timestamps,
   },
   (t) => [uniqueIndex("organizations_domain_idx").on(t.domain)],

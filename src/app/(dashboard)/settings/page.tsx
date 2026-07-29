@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 import { CheckCircle2, CircleDashed, ExternalLink } from "lucide-react";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { organizations } from "@/db/schema";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SignupsCard } from "@/components/settings/signups-card";
+import { requireOperator } from "@/lib/auth-guard";
 import { env, integrations } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -150,15 +155,23 @@ function ConnectionRow({ c }: { c: Connection }) {
   );
 }
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
   const items = connections();
   const required = items.filter((c) => c.required);
   const optional = items.filter((c) => !c.required);
   const liveCount = optional.filter((c) => c.ok).length;
 
+  const user = await requireOperator();
+  const org = await db.query.organizations.findFirst({
+    where: eq(organizations.id, user.orgId),
+    columns: { kind: true, autoAttachSignups: true },
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader title="Settings" description="Integrations and workspace configuration." />
+
+      {org?.kind === "agency" ? <SignupsCard enabled={org.autoAttachSignups} /> : null}
 
       <Card>
         <CardHeader>
