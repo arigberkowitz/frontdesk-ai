@@ -165,6 +165,11 @@ export const clients = pgTable(
     staffModeEnabled: boolean("staff_mode_enabled").notNull().default(false),
     // Setup profile: 'solo' | 'team' | 'big' — shapes which tabs/features lead.
     companySize: text("company_size").notNull().default("solo"),
+    // Manual checklist state: { calendarSkipped?: boolean; forwardingDone?: boolean }
+    setupFlags: jsonb("setup_flags")
+      .$type<{ calendarSkipped?: boolean; forwardingDone?: boolean }>()
+      .notNull()
+      .default({}),
     retellAgentId: text("retell_agent_id"),
     retellLlmId: text("retell_llm_id"),
     retellPhoneNumber: text("retell_phone_number"),

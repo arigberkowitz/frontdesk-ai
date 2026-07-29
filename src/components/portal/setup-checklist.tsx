@@ -6,7 +6,7 @@ import { ArrowRight, Check, CheckCircle2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { finishSetupAction, reopenSetupAction } from "@/lib/actions/setup";
+import { finishSetupAction, reopenSetupAction, setSetupFlagAction } from "@/lib/actions/setup";
 import { initialActionState } from "@/lib/actions/types";
 import { formatDateTime } from "@/lib/format";
 
@@ -16,6 +16,35 @@ interface SetupStepView {
   href: string;
   done: boolean;
   hint?: string;
+  skippable?: boolean;
+  manual?: boolean;
+}
+
+/** "Skip for now" (calendar) / "I've done this" (forwarding) inline resolver. */
+function FlagButton({
+  clientId,
+  flag,
+  label,
+}: {
+  clientId: string;
+  flag: "calendarSkipped" | "forwardingDone";
+  label: string;
+}) {
+  const [state, action, pending] = useActionState(setSetupFlagAction, initialActionState);
+  useEffect(() => {
+    if (state.ok) toast.success(state.message ?? "Saved.");
+    else if (state.error) toast.error(state.error);
+  }, [state]);
+  return (
+    <form action={action} className="shrink-0">
+      <input type="hidden" name="clientId" value={clientId} />
+      <input type="hidden" name="flag" value={flag} />
+      <input type="hidden" name="value" value="true" />
+      <Button type="submit" size="sm" variant="outline" disabled={pending}>
+        {pending ? "Saving…" : label}
+      </Button>
+    </form>
+  );
 }
 
 export interface SetupStatusView {
@@ -124,19 +153,27 @@ export function SetupChecklist({
                   </Link>
                 </div>
               ) : (
-                <Link
-                  href={step.href}
-                  className="group flex items-center gap-3 py-3 transition-colors hover:text-foreground"
-                >
-                  <span className="size-[22px] shrink-0 rounded-full border-[1.5px] border-muted-foreground/40" />
-                  <span className="flex-1">
-                    <span className="block text-sm font-medium">{step.label}</span>
-                    {step.hint ? (
-                      <span className="block text-xs text-muted-foreground">{step.hint}</span>
-                    ) : null}
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-foreground" />
-                </Link>
+                <div className="flex items-center gap-3 py-3">
+                  <Link
+                    href={step.href}
+                    className="group flex min-w-0 flex-1 items-center gap-3 transition-colors hover:text-foreground"
+                  >
+                    <span className="size-[22px] shrink-0 rounded-full border-[1.5px] border-muted-foreground/40" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium">{step.label}</span>
+                      {step.hint ? (
+                        <span className="block text-xs text-muted-foreground">{step.hint}</span>
+                      ) : null}
+                    </span>
+                    <ArrowRight className="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-foreground" />
+                  </Link>
+                  {canEdit && step.skippable ? (
+                    <FlagButton clientId={clientId} flag="calendarSkipped" label="Skip for now" />
+                  ) : null}
+                  {canEdit && step.manual ? (
+                    <FlagButton clientId={clientId} flag="forwardingDone" label="I've done this" />
+                  ) : null}
+                </div>
               )}
             </li>
           ))}

@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { alertContacts, businessHours, clients, knowledgeItems, services } from "@/db/schema";
+import { alertContacts, businessHours, calls, clients, knowledgeItems, services } from "@/db/schema";
 import { getBookingProviderForClient } from "@/lib/booking";
 
 export interface SetupStep {
@@ -10,6 +10,10 @@ export interface SetupStep {
   href: string;
   done: boolean;
   hint?: string;
+  /** Can be resolved with "skip for now" (calendar). */
+  skippable?: boolean;
+  /** Resolved by the owner confirming they did it outside the app (forwarding). */
+  manual?: boolean;
 }
 
 export interface SetupStatus {
@@ -43,8 +47,13 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
     .select({ n: sql<number>`count(*)::int` })
     .from(alertContacts)
     .where(eq(alertContacts.clientId, clientId));
+  const [callCount] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(calls)
+    .where(eq(calls.clientId, clientId));
 
   const calendar = client ? getBookingProviderForClient(client).isConfigured() : false;
+  const flags = client?.setupFlags ?? {};
 
   const steps: SetupStep[] = [
     { key: "services", label: "Add your services", href: "/portal/services", done: (svc?.n ?? 0) > 0 },
@@ -66,8 +75,12 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
       key: "calendar",
       label: "Connect your calendar",
       href: "/portal/appointments",
-      done: calendar,
-      hint: "So the AI can book appointments.",
+      done: calendar || Boolean(flags.calendarSkipped),
+      skippable: true,
+      hint:
+        !calendar && flags.calendarSkipped
+          ? "Skipped — your AI takes messages instead of booking. Connect anytime."
+          : "So the AI can book appointments — or skip for now and it takes messages.",
     },
     {
       key: "alerts",
@@ -77,11 +90,26 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
       hint: "Who we text or email when a lead or emergency comes in.",
     },
     {
+      key: "forwarding",
+      label: "Forward your business line",
+      href: "/portal/settings",
+      done: Boolean(flags.forwardingDone),
+      manual: true,
+      hint: "From your business phone, dial *72 + your AI number (most carriers; AT&T/T-Mobile: **21*number#). ~2 minutes, undo with *73.",
+    },
+    {
       key: "live",
       label: "Activate your receptionist",
       href: "/portal/guidelines",
       done: Boolean(client?.retellAgentId),
       hint: "Go live and start taking calls.",
+    },
+    {
+      key: "testcall",
+      label: "Make a test call — hear it answer",
+      href: "/portal/calls",
+      done: (callCount?.n ?? 0) > 0,
+      hint: "Call your AI number. This checks itself off when your first call appears.",
     },
   ];
 

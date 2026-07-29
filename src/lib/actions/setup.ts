@@ -52,6 +52,42 @@ export async function finishSetupAction(
   };
 }
 
+/** Manual checklist flags: skip calendar / confirm phone forwarding. */
+export async function setSetupFlagAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const flag = String(formData.get("flag") ?? "");
+  const value = String(formData.get("value") ?? "") === "true";
+  const user = await assertClientEditor(clientId);
+  await assertClientInOrg(user.orgId, clientId);
+  if (flag !== "calendarSkipped" && flag !== "forwardingDone") {
+    return { ok: false, error: "Unknown setting." };
+  }
+
+  const client = await db.query.clients.findFirst({
+    where: eq(clients.id, clientId),
+    columns: { setupFlags: true },
+  });
+  await db
+    .update(clients)
+    .set({ setupFlags: { ...(client?.setupFlags ?? {}), [flag]: value } })
+    .where(eq(clients.id, clientId));
+  revalidatePath("/portal", "layout");
+  return {
+    ok: true,
+    message:
+      flag === "calendarSkipped"
+        ? value
+          ? "Skipped for now — your AI takes messages instead of booking. Connect a calendar anytime to unlock live booking."
+          : "Calendar step reopened."
+        : value
+          ? "Forwarding confirmed — calls to your business line now reach your AI."
+          : "Forwarding step reopened.",
+  };
+}
+
 /** Reopen the checklist on the overview (from Settings → Setup). */
 export async function reopenSetupAction(
   _prev: ActionState,
