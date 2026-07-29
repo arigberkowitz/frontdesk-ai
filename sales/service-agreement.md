@@ -1,6 +1,6 @@
 # FrontDesk AI — Service Agreement
 
-**Between:** [Your legal name / company], ("we")
+**Between:** Ari Berkowitz d/b/a FrontDesk AI, ("we")
 **And:** ______________________________ ("you"), operating ______________________________ at ______________________________.
 
 **Date:** ____________
@@ -39,7 +39,7 @@ history before you go.
 - Any change the AI proposes to its own knowledge reaches you first; nothing
   changes on your phone line without your approval.
 - Every call recorded, transcribed, and visible to you.
-- If something breaks, email [support email] — we respond within one business
+- If something breaks, email arigberkowitz@gmail.com — we respond within one business
   day, usually much faster.
 
 ## What we need from you
@@ -67,14 +67,14 @@ You agree not to use the service for cold texting or spam.
 
 **Your data.** Your call data belongs to you. We process it through the vendors
 that run the service (voice, AI, texting, email) and never sell it. Full detail:
-[your-domain]/privacy.
+https://frontdesk-ai-alpha.vercel.app/privacy.
 
 **If things go wrong.** Our total liability is capped at what you paid us in
 the last 12 months. We're not liable for the value of a missed call or booking
 — telephone networks and third-party services fail in ways nobody can fully
 control, which is also why you keep a forwarding number.
 
-**Governing law:** [State].
+**Governing law:** California.
 
 ## Signatures
 
@@ -82,5 +82,5 @@ We: ______________________________  Date: ____________
 
 You: ______________________________  Date: ____________
 
-*Questions before signing? Call or email — [support email]. We'd rather answer
+*Questions before signing? Call or email — arigberkowitz@gmail.com. We'd rather answer
 them now than surprise you later.*

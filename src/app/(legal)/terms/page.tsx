@@ -30,7 +30,7 @@ export default function TermsPage() {
         <Section title="1. Who we are and what these terms cover">
           <p>
             FrontDesk AI (&ldquo;FrontDesk&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;), operated by
-            [FrontDesk AI, LLC], provides an AI-powered phone receptionist service that answers
+            Ari Berkowitz d/b/a FrontDesk AI, provides an AI-powered phone receptionist service that answers
             calls, books appointments, and captures messages for businesses (the
             &ldquo;Service&rdquo;). These terms are a binding agreement between us and the business
             that creates an account (&ldquo;you&rdquo;). By creating an account or using the
@@ -129,16 +129,16 @@ export default function TermsPage() {
 
         <Section title="10. General">
           <p>
-            These terms are governed by the laws of [the State of Florida], excluding conflict of
+            These terms are governed by the laws of the State of California, excluding conflict of
             law rules. We may update these terms; material changes will be notified by email or
             in-product at least 14 days before taking effect, and continued use after that
             constitutes acceptance. If any provision is unenforceable, the rest remains in effect.
             Questions:{" "}
             <a
-              href="mailto:[support@frontdesk.ai]"
+              href="mailto:arigberkowitz@gmail.com"
               className="text-foreground underline underline-offset-2"
             >
-              [support@frontdesk.ai]
+              arigberkowitz@gmail.com
             </a>
             .
           </p>

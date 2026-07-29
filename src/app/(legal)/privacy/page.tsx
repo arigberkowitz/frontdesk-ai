@@ -28,7 +28,7 @@ export default function PrivacyPage() {
       <div className="space-y-10 text-[15px] leading-relaxed text-muted-foreground [&_strong]:text-foreground">
         <Section title="1. Scope">
           <p>
-            This policy explains how FrontDesk AI ([FrontDesk AI, LLC] — &ldquo;we&rdquo;,
+            This policy explains how FrontDesk AI (Ari Berkowitz d/b/a FrontDesk AI — &ldquo;we&rdquo;,
             &ldquo;us&rdquo;) handles personal information when businesses use our AI phone
             receptionist (the &ldquo;Service&rdquo;) and when people call a business that uses it.
             It covers two groups: <strong>customers</strong> (the businesses with accounts) and{" "}
@@ -120,10 +120,10 @@ export default function PrivacyPage() {
             We will post any changes to this policy here and notify customers of material changes
             by email or in-product. Questions or requests:{" "}
             <a
-              href="mailto:[support@frontdesk.ai]"
+              href="mailto:arigberkowitz@gmail.com"
               className="text-foreground underline underline-offset-2"
             >
-              [support@frontdesk.ai]
+              arigberkowitz@gmail.com
             </a>
             .
           </p>
