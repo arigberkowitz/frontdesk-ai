@@ -1,5 +1,6 @@
 import { DAYS } from "@/config/options";
 import { formatCurrencyCents } from "./format";
+import { hasCustomVocab, vocabFor } from "./vocab";
 
 /**
  * Builds the Retell LLM `general_prompt` from a client's profile, services,
@@ -124,9 +125,13 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
   const humanHours = client.humanHoursNote?.trim();
   const language = languageRule(client.languages);
   const canBook = client.bookingEnabled !== false; // default on (preserves prior behavior)
+  const vocab = vocabFor(client.industry);
 
   const rules = [
     language,
+    hasCustomVocab(vocab)
+      ? `Refer to callers as "${vocab.customers}" and bookings as "${vocab.appointments}" where natural.`
+      : null,
     // Voice-call pacing: stacked questions overwhelm callers. One at a time.
     "Ask for ONE piece of information at a time and wait for the answer — never bundle questions (\"your name?\" … then \"best number to reach you?\" … then \"when works for you?\"). Briefly acknowledge or confirm each answer (especially phone numbers, read them back) before asking the next.",
     disclosure ? `At the start of the call, naturally disclose: "${disclosure}"` : null,

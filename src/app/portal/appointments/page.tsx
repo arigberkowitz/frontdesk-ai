@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/empty-state";
 import { AppointmentsView } from "@/components/appointments-view";
 import { CalendarConnect } from "@/components/calendar-connect";
 import { CalendarStatusToast } from "@/components/calendar-status-toast";
+import { capVocab, vocabFor } from "@/lib/vocab";
 
 export const metadata: Metadata = { title: "Appointments" };
 
@@ -24,6 +25,7 @@ export default async function PortalAppointmentsPage({
     remindersByAppointment(clientId),
     searchParams,
   ]);
+  const v = vocabFor(client?.industry);
   const items = appointments.map((a) => ({
     id: a.id,
     callId: a.callId,
@@ -47,7 +49,7 @@ export default async function PortalAppointmentsPage({
   return (
     <div className="space-y-6">
       <CalendarStatusToast status={sp.calendar} returnTo="/portal/appointments" />
-      <PageHeader title="Appointments" description="Booked by your AI receptionist." />
+      <PageHeader title={capVocab(v.appointments)} description="Booked by your AI receptionist." />
       <CalendarConnect
         clientId={clientId}
         provider={client?.calendarProvider ?? null}
@@ -56,8 +58,8 @@ export default async function PortalAppointmentsPage({
       {items.length === 0 ? (
         <EmptyState
           icon={CalendarCheck}
-          title="No appointments yet"
-          description="Appointments your AI books will show up here."
+          title={`No ${v.appointments} yet`}
+          description={`${capVocab(v.appointments)} your AI books will show up here.`}
         />
       ) : (
         <AppointmentsView

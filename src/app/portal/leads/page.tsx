@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inbox } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
+import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listLeads } from "@/lib/data/leads";
 import { remindersByLead } from "@/lib/data/reminders";
 import { insightsByCall } from "@/lib/data/insights";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { LeadStatusControl } from "@/components/clients/lead-status-control";
 import { LeadFollowup } from "@/components/portal/lead-followup";
 import { formatPhone } from "@/lib/format";
+import { vocabFor } from "@/lib/vocab";
 
 export const metadata: Metadata = { title: "Leads" };
 
@@ -26,7 +28,12 @@ function Qual({ label, value, className }: { label: string; value: string | null
 
 export default async function PortalLeadsPage() {
   const { clientId } = await resolvePortalClient();
-  const [leads, reminderMap] = await Promise.all([listLeads(clientId), remindersByLead(clientId)]);
+  const [client, leads, reminderMap] = await Promise.all([
+    getClientByIdUnsafe(clientId),
+    listLeads(clientId),
+    remindersByLead(clientId),
+  ]);
+  const v = vocabFor(client?.industry);
   const insightMap = await insightsByCall(
     clientId,
     leads.map((l) => l.callId).filter((id): id is string => Boolean(id)),
@@ -36,7 +43,7 @@ export default async function PortalLeadsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Leads"
-        description="People your AI took a message from, with what they need — follow up to win the customer."
+        description={`People your AI took a message from, with what they need — follow up to win the ${v.customer}.`}
       />
       {leads.length === 0 ? (
         <EmptyState
