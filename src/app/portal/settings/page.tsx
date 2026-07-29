@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listAlertContacts } from "@/lib/data/alert-contacts";
+import { getClientSetupStatus } from "@/lib/data/setup";
 import { AlertRoster } from "@/components/portal/alert-roster";
 import { PageHeader } from "@/components/page-header";
 import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { PortalSettings } from "@/components/portal/portal-settings";
+import { SetupChecklist } from "@/components/portal/setup-checklist";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -16,6 +18,7 @@ export default async function PortalSettingsPage() {
   const client = await getClientByIdUnsafe(clientId);
   if (!client) notFound();
   const alertContacts = await listAlertContacts(clientId).catch(() => []);
+  const setup = await getClientSetupStatus(clientId);
 
   return (
     <div className="space-y-6">
@@ -28,6 +31,12 @@ export default async function PortalSettingsPage() {
       ) : null}
       <PortalSettings client={client} isAdmin={editAccess.isAdmin} />
       <AlertRoster clientId={clientId} contacts={alertContacts} />
+      <SetupChecklist
+        clientId={clientId}
+        variant="settings"
+        canEdit={editAccess.canEdit}
+        status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
+      />
     </div>
   );
 }

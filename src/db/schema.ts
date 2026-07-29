@@ -158,6 +158,9 @@ export const clients = pgTable(
     timezone: text("timezone").notNull().default("America/Los_Angeles"),
     status: clientStatus("status").notNull().default("draft"),
     trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+    // Set when the owner clicks "I'm done" and the AI readiness check passes.
+    // Hides the overview setup checklist; it stays reachable under Settings.
+    setupCompletedAt: timestamp("setup_completed_at", { withTimezone: true }),
     retellAgentId: text("retell_agent_id"),
     retellLlmId: text("retell_llm_id"),
     retellPhoneNumber: text("retell_phone_number"),

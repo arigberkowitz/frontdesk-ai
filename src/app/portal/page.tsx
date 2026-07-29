@@ -116,8 +116,9 @@ export default async function PortalOverviewPage({
             <div>
               <p className="font-medium">We drafted your receptionist from your website.</p>
               <p className="text-muted-foreground">
-                Review your <strong>Services</strong>, <strong>Hours</strong>, and <strong>FAQ</strong>{" "}
-                tabs, set the greeting and voice under <strong>Your AI</strong>, then activate it. Edit
+                Review your <strong>Services</strong>, <strong>Hours</strong>, and{" "}
+                <strong>Knowledge</strong> tabs, set the greeting and voice under{" "}
+                <strong>Your AI</strong>, then activate it. Edit
                 anything that&apos;s off — nothing goes live until you activate.
               </p>
             </div>
@@ -125,7 +126,11 @@ export default async function PortalOverviewPage({
         </Card>
       ) : null}
 
-      <SetupChecklist status={setup} />
+      <SetupChecklist
+        clientId={clientId}
+        status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
+        canEdit={(await getPortalEditAccess(clientId)).canEdit}
+      />
 
       <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" size="hero" className="sm:col-span-2" />

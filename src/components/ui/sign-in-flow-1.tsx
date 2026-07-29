@@ -12,7 +12,9 @@ import * as THREE from "three";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- three.js / WebGL shader interop is loosely typed */
 
-const AFTER_AUTH_URL = "/dashboard";
+// "/" lets the server route each role to its home (operator → /dashboard,
+// client → /portal, fresh signup → /welcome) without a flash of the wrong shell.
+const AFTER_AUTH_URL = "/";
 const SSO_CALLBACK_URL = "/sign-in/sso-callback";
 
 type Uniforms = {

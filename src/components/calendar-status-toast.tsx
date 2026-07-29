@@ -11,6 +11,10 @@ const MESSAGES: Record<string, { kind: "success" | "error"; text: string }> = {
   },
   disconnected: { kind: "success", text: "Google Calendar disconnected." },
   error: { kind: "error", text: "Couldn't connect Google Calendar — please try again." },
+  noaccess: {
+    kind: "error",
+    text: "Google didn't grant calendar access — try again and approve the calendar permission.",
+  },
 };
 
 /**

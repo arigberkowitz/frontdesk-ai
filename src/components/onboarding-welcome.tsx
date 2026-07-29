@@ -56,7 +56,10 @@ function TimezoneField() {
   );
 }
 
-function WebsiteForm() {
+/** ONE form, one name field: the primary button drafts from the website (or a
+ *  blank manual setup), the secondary starts from an editable template. After
+ *  either, the portal checklist walks the owner through the rest step by step. */
+function SetupForm() {
   const [state, action] = useActionState(onboardFromWebsitePortalAction, initialActionState);
   return (
     <form action={action} className="space-y-3 text-left">
@@ -66,12 +69,25 @@ function WebsiteForm() {
       </Field>
       <Field
         label="Website (optional)"
-        hint="Have one? We'll draft your services, hours, and FAQ from it. No website? Leave it blank — you'll add those in a few quick forms."
+        hint="Have one? We'll read it and draft your services, hours, and FAQ for you."
         error={state.fieldErrors?.websiteUrl}
       >
         <Input name="websiteUrl" type="url" placeholder="https://yourbusiness.com" />
       </Field>
       <SubmitButton idle="Set up my receptionist" busy="Setting up…" />
+      <Button
+        type="submit"
+        variant="ghost"
+        size="sm"
+        className="w-full text-muted-foreground"
+        formAction={createStarterClientAction}
+      >
+        Or start from a pre-filled template instead
+      </Button>
+      <p className="text-center text-xs text-muted-foreground">
+        Either way, a short checklist walks you through the rest — and you can change anything
+        later.
+      </p>
     </form>
   );
 }
@@ -94,6 +110,30 @@ export function OnboardingWelcome({ aiReady }: { aiReady: boolean }) {
         </p>
       </div>
 
+      {aiReady ? (
+        <div className="rounded-2xl border bg-muted/30 p-5 text-left">
+          <div className="mb-3 flex items-center gap-2">
+            <Globe className="size-5 text-primary" />
+            <p className="font-medium">Two quick questions and you&apos;re in</p>
+          </div>
+          <SetupForm />
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3">
+          <form action={createStarterClientAction}>
+            <TimezoneField />
+            <Button type="submit" size="lg">
+              <Sparkles className="size-4" />
+              Set up my receptionist
+            </Button>
+          </form>
+          <p className="max-w-md text-xs text-muted-foreground">
+            We&apos;ll start you off with example services, hours, and FAQs already filled in — just edit
+            each one to match your business.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-3">
         <p className="text-sm font-medium">Here&apos;s your AI receptionist in action</p>
         <DemoCall />
@@ -110,58 +150,6 @@ export function OnboardingWelcome({ aiReady }: { aiReady: boolean }) {
           </div>
         ))}
       </div>
-
-      {aiReady ? (
-        <div className="space-y-5">
-          <div className="rounded-2xl border bg-muted/30 p-5 text-left">
-            <div className="mb-3 flex items-center gap-2">
-              <Globe className="size-5 text-primary" />
-              <p className="font-medium">Start from your website</p>
-            </div>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Paste your site and we&apos;ll read it to draft your services, hours, and FAQs — you just
-              review and tweak. Fastest way to a receptionist that already knows your business.
-            </p>
-            <WebsiteForm />
-          </div>
-
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            or
-            <span className="h-px flex-1 bg-border" />
-          </div>
-
-          <div className="flex flex-col items-center gap-2">
-            <form action={createStarterClientAction} className="flex flex-col items-center gap-2">
-              <TimezoneField />
-              <Input
-                name="name"
-                placeholder="Your business name"
-                required
-                className="w-64"
-                aria-label="Business name"
-              />
-              <SubmitButton idle="Start from a template instead" busy="Setting it up…" />
-            </form>
-            <p className="max-w-md text-xs text-muted-foreground">
-              We&apos;ll pre-fill example services, hours, and FAQs you can edit to match your business.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center gap-3">
-          <form action={createStarterClientAction}>
-            <Button type="submit" size="lg">
-              <Sparkles className="size-4" />
-              Set up my receptionist
-            </Button>
-          </form>
-          <p className="max-w-md text-xs text-muted-foreground">
-            We&apos;ll start you off with example services, hours, and FAQs already filled in — just edit
-            each one to match your business.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

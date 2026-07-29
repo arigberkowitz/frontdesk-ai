@@ -71,6 +71,9 @@ export function CommandPalette({
     return [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, group: "Go to" },
       { label: "Clients", href: "/clients", icon: Building2, group: "Go to" },
+      { label: "Review", href: "/review", icon: CalendarCheck, group: "Go to" },
+      { label: "Growth", href: "/growth", icon: Sparkles, group: "Go to" },
+      { label: "Demo", href: "/demo", icon: Phone, group: "Go to" },
       { label: "Settings", href: "/settings", icon: Settings, group: "Go to" },
       { label: "New client", href: "/clients/new", icon: Plus, group: "Actions" },
       ...(clients ?? []).map((c) => ({

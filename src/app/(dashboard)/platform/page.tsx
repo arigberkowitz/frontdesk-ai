@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { listAllWorkspaces } from "@/lib/data/platform";
 import { PageHeader } from "@/components/page-header";
@@ -11,7 +12,7 @@ import type { ClientStatus } from "@/db/schema";
 export const metadata: Metadata = { title: "Platform" };
 
 export default async function PlatformPage() {
-  await requireSuperAdmin();
+  const admin = await requireSuperAdmin();
   const workspaces = await listAllWorkspaces();
   const selfServe = workspaces.filter((w) => w.kind === "business").length;
 
@@ -56,15 +57,26 @@ export default async function PlatformPage() {
 
               {w.businesses.length ? (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {w.businesses.map((b) => (
-                    <div
-                      key={b.id}
-                      className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
-                    >
-                      <span>{b.name}</span>
-                      <StatusBadge status={b.status as ClientStatus} />
-                    </div>
-                  ))}
+                  {w.businesses.map((b) =>
+                    w.orgId === admin.orgId ? (
+                      <Link
+                        key={b.id}
+                        href={`/clients/${b.id}`}
+                        className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:border-primary/40 hover:bg-primary/5"
+                      >
+                        <span>{b.name}</span>
+                        <StatusBadge status={b.status as ClientStatus} />
+                      </Link>
+                    ) : (
+                      <div
+                        key={b.id}
+                        className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
+                      >
+                        <span>{b.name}</span>
+                        <StatusBadge status={b.status as ClientStatus} />
+                      </div>
+                    ),
+                  )}
                 </div>
               ) : (
                 <p className="mt-3 text-xs text-muted-foreground">No business set up yet.</p>

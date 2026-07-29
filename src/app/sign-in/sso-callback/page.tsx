@@ -9,8 +9,8 @@ export default function SSOCallbackPage() {
       <div className="size-6 animate-spin rounded-full border-2 border-border border-t-foreground" />
       <p className="text-sm">Signing you in…</p>
       <AuthenticateWithRedirectCallback
-        signInForceRedirectUrl="/dashboard"
-        signUpForceRedirectUrl="/dashboard"
+        signInForceRedirectUrl="/"
+        signUpForceRedirectUrl="/"
       />
     </div>
   );

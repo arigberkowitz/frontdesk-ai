@@ -63,6 +63,14 @@ export function LandingPage() {
             <Phone className="size-4" />
           </div>
           <span className="font-heading text-lg font-semibold tracking-tight">FrontDesk AI</span>
+          <nav className="ml-6 hidden items-center gap-5 text-sm text-muted-foreground sm:flex">
+            <a href="#how" className="transition-colors hover:text-foreground">
+              How it works
+            </a>
+            <a href="#pricing" className="transition-colors hover:text-foreground">
+              Pricing
+            </a>
+          </nav>
           <div className="ml-auto flex items-center gap-2">
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/sign-in" />}>
               Sign in

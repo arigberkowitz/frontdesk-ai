@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { businessHours, clients, knowledgeItems, services } from "@/db/schema";
+import { alertContacts, businessHours, clients, knowledgeItems, services } from "@/db/schema";
 import { getBookingProviderForClient } from "@/lib/booking";
 
 export interface SetupStep {
@@ -17,6 +17,8 @@ export interface SetupStatus {
   doneCount: number;
   total: number;
   complete: boolean;
+  /** Owner clicked "I'm done" and the AI readiness check passed. */
+  finishedAt: Date | null;
 }
 
 /** Activation checklist state for a client, derived from real data. `complete`
@@ -37,6 +39,10 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
     })
     .from(businessHours)
     .where(eq(businessHours.clientId, clientId));
+  const [alerts] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(alertContacts)
+    .where(eq(alertContacts.clientId, clientId));
 
   const calendar = client ? getBookingProviderForClient(client).isConfigured() : false;
 
@@ -64,6 +70,13 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
       hint: "So the AI can book appointments.",
     },
     {
+      key: "alerts",
+      label: "Choose who gets alerts",
+      href: "/portal/settings",
+      done: (alerts?.n ?? 0) > 0 || Boolean(client?.ownerEmail?.trim()),
+      hint: "Who we text or email when a lead or emergency comes in.",
+    },
+    {
       key: "live",
       label: "Activate your receptionist",
       href: "/portal/guidelines",
@@ -73,5 +86,11 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
   ];
 
   const doneCount = steps.filter((s) => s.done).length;
-  return { steps, doneCount, total: steps.length, complete: doneCount === steps.length };
+  return {
+    steps,
+    doneCount,
+    total: steps.length,
+    complete: doneCount === steps.length,
+    finishedAt: client?.setupCompletedAt ?? null,
+  };
 }

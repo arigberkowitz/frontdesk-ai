@@ -6,6 +6,7 @@ import { organizations } from "@/db/schema";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ResyncCard } from "@/components/settings/resync-card";
 import { SignupsCard } from "@/components/settings/signups-card";
 import { requireOperator } from "@/lib/auth-guard";
 import { env, integrations } from "@/lib/env";
@@ -171,7 +172,12 @@ export default async function SettingsPage() {
     <div className="space-y-6">
       <PageHeader title="Settings" description="Integrations and workspace configuration." />
 
-      {org?.kind === "agency" ? <SignupsCard enabled={org.autoAttachSignups} /> : null}
+      {org?.kind === "agency" ? (
+        <>
+          <SignupsCard enabled={org.autoAttachSignups} />
+          <ResyncCard />
+        </>
+      ) : null}
 
       <Card>
         <CardHeader>
