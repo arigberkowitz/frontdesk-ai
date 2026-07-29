@@ -20,13 +20,17 @@ export async function findFreeProvider(
   const team = (await listProviders(clientId)).filter((p) => p.isActive);
   if (team.length === 0) return null;
 
+  // Raw fragments get ISO strings, not Date objects — postgres-js can't
+  // serialize Dates inside sql`` template params (ERR_INVALID_ARG_TYPE).
+  const startIso = startAt.toISOString();
+  const endIso = endAt.toISOString();
   const busy = await db.query.appointments.findMany({
     where: and(
       eq(appointments.clientId, clientId),
       isNull(appointments.deletedAt),
       sql`${appointments.status} not in ('cancelled', 'no_show')`,
-      sql`${appointments.startAt} < ${endAt}`,
-      sql`coalesce(${appointments.endAt}, ${appointments.startAt} + interval '30 minutes') > ${startAt}`,
+      sql`${appointments.startAt} < ${endIso}::timestamptz`,
+      sql`coalesce(${appointments.endAt}, ${appointments.startAt} + interval '30 minutes') > ${startIso}::timestamptz`,
     ),
     columns: { providerId: true },
   });
@@ -55,10 +59,12 @@ export async function getProviderStats(
   dayEnd: Date,
 ): Promise<ProviderDayStats[]> {
   const team = await listProviders(clientId);
+  const dayStartIso = dayStart.toISOString();
+  const dayEndIso = dayEnd.toISOString();
   const rows = await db
     .select({
       providerId: appointments.providerId,
-      today: sql<number>`count(*) filter (where ${appointments.startAt} >= ${dayStart} and ${appointments.startAt} < ${dayEnd})::int`,
+      today: sql<number>`count(*) filter (where ${appointments.startAt} >= ${dayStartIso}::timestamptz and ${appointments.startAt} < ${dayEndIso}::timestamptz)::int`,
       total: sql<number>`count(*)::int`,
       earned: sql<number>`coalesce(sum(${services.priceCents}) filter (where ${appointments.startAt} <= now()), 0)::int`,
     })

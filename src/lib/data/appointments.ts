@@ -27,14 +27,18 @@ export async function hasOverlappingAppointment(
 ): Promise<boolean> {
   const capacity = Math.max(1, service?.providerCount ?? 1);
 
+  // ISO strings in raw fragments — postgres-js can't serialize Date instances
+  // inside sql`` params.
+  const startIso = startAt.toISOString();
+  const endIso = endAt.toISOString();
   const overlapping = await db.query.appointments.findMany({
     where: and(
       eq(appointments.clientId, clientId),
       isNull(appointments.deletedAt),
       sql`${appointments.status} not in ('cancelled', 'no_show')`,
       // Overlap: existing.start < new.end AND existing.end > new.start
-      sql`${appointments.startAt} < ${endAt}`,
-      sql`coalesce(${appointments.endAt}, ${appointments.startAt} + interval '30 minutes') > ${startAt}`,
+      sql`${appointments.startAt} < ${endIso}::timestamptz`,
+      sql`coalesce(${appointments.endAt}, ${appointments.startAt} + interval '30 minutes') > ${startIso}::timestamptz`,
     ),
     columns: { serviceId: true },
   });
