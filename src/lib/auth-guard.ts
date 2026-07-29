@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { clients, organizations, users, type User } from "@/db/schema";
+import { alertContacts, clients, organizations, users, type User } from "@/db/schema";
 
 /**
  * Auth + tenant-isolation helpers (§12, §17). Every server entry point into
@@ -341,6 +341,21 @@ export async function requireBusinessCreator(): Promise<User> {
 export async function attachCreatorToClient(user: User, clientId: string): Promise<void> {
   if (user.role === "operator") return;
   await db.update(users).set({ clientId }).where(eq(users.id, user.id));
+
+  // The creator is the owner: pre-fill where alerts go so nothing starts
+  // empty. Their email becomes the owner contact AND the first on-duty person
+  // on the alert roster — both editable later in portal Settings.
+  const email = user.email?.trim();
+  if (!email) return;
+  const ownerName = email.split("@")[0] || "Owner";
+  await db
+    .update(clients)
+    .set({ ownerEmail: email })
+    .where(and(eq(clients.id, clientId), isNull(clients.ownerEmail)));
+  await db
+    .insert(alertContacts)
+    .values({ clientId, name: ownerName, email, onDuty: true })
+    .onConflictDoNothing();
 }
 
 /**
