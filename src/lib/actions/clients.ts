@@ -79,12 +79,17 @@ export async function createStarterClientAction(formData: FormData): Promise<voi
   } catch {
     /* keep default */
   }
+  const sizeRaw = String(formData.get("companySize") ?? "solo");
+  const companySize = ["solo", "team", "big"].includes(sizeRaw) ? sizeRaw : "solo";
   const client = await clientsData.createClient(user.orgId, {
     name,
     websiteUrl: null,
     industry: null,
     address: null,
     timezone,
+    companySize,
+    // Teams start with per-person booking ready to go.
+    staffModeEnabled: companySize !== "solo",
   });
   await attachCreatorToClient(user, client.id);
 

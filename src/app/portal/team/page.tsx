@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentDbUser, getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
@@ -37,7 +38,12 @@ function todayWindow(tz: string): { start: Date; end: Date } {
   return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
 }
 
-export default async function PortalTeamPage() {
+export default async function PortalTeamPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ as?: string }>;
+}) {
+  const { as: viewAs } = await searchParams;
   const { clientId } = await resolvePortalClient();
   const user = await getCurrentDbUser();
   const editAccess = await getPortalEditAccess(clientId);
@@ -69,22 +75,37 @@ export default async function PortalTeamPage() {
     }),
   );
 
+  // Manager step-in: ?as=<id> focuses one person's view (admins only).
+  const focused =
+    editAccess.isAdmin && viewAs ? members.find((m) => m.id === viewAs) ?? null : null;
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Team"
+        title={focused ? `${focused.name}'s day` : "Team"}
         description={
-          client.staffModeEnabled
-            ? "Who's on the clock, who's crushing it, and everyone's day at a glance."
-            : "Turn on staff mode to book by person and give every teammate their own view."
+          focused
+            ? "Exactly what this teammate sees — their schedule, their numbers."
+            : client.staffModeEnabled
+              ? "Who's on the clock, who's crushing it, and everyone's day at a glance."
+              : "Turn on staff mode to book by person and give every teammate their own view."
         }
       />
+      {focused ? (
+        <Link
+          href="/portal/team"
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          ← Back to the whole team
+        </Link>
+      ) : null}
       <TeamBoard
         clientId={clientId}
         enabled={client.staffModeEnabled}
         isAdmin={editAccess.isAdmin}
         viewerEmail={user.email}
-        members={members}
+        members={focused ? [focused] : members}
+        focusedId={focused?.id ?? null}
       />
     </div>
   );

@@ -17,11 +17,13 @@ const ITEMS = [
   { label: "Settings", href: "/portal/settings" },
 ];
 
-export function PortalNav() {
+/** Solo businesses get zero team clutter — the Team tab only shows when staff
+ *  mode is on or the business said it has a team at setup. */
+export function PortalNav({ showTeam = true }: { showTeam?: boolean }) {
   const pathname = usePathname();
   return (
     <nav className="-mx-1 flex items-center gap-1 overflow-x-auto px-1">
-      {ITEMS.map((item) => {
+      {ITEMS.filter((item) => showTeam || item.href !== "/portal/team").map((item) => {
         const active =
           item.href === "/portal" ? pathname === "/portal" : pathname.startsWith(item.href);
         return (

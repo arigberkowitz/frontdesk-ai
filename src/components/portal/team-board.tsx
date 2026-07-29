@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { Crown, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -102,12 +103,14 @@ function MemberCard({
   topEarner,
   isAdmin,
   viewerEmail,
+  focused = false,
 }: {
   clientId: string;
   member: TeamMemberView;
   topEarner: boolean;
   isAdmin: boolean;
   viewerEmail: string;
+  focused?: boolean;
 }) {
   const isSelf = Boolean(
     member.email && member.email.toLowerCase() === viewerEmail.toLowerCase(),
@@ -192,7 +195,15 @@ function MemberCard({
         )}
 
         {isAdmin ? (
-          <div className="mt-2 flex justify-end">
+          <div className="mt-2 flex items-center justify-end gap-1">
+            {!focused ? (
+              <Link
+                href={`/portal/team?as=${member.id}`}
+                className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                View their day
+              </Link>
+            ) : null}
             <RemoveButton clientId={clientId} providerId={member.id} />
           </div>
         ) : null}
@@ -239,12 +250,14 @@ export function TeamBoard({
   isAdmin,
   viewerEmail,
   members,
+  focusedId = null,
 }: {
   clientId: string;
   enabled: boolean;
   isAdmin: boolean;
   viewerEmail: string;
   members: TeamMemberView[];
+  focusedId?: string | null;
 }) {
   const [modeState, modeAction, modePending] = useActionState(
     setStaffModeAction,
@@ -298,6 +311,7 @@ export function TeamBoard({
                   topEarner={m.id === topEarnerId}
                   isAdmin={isAdmin}
                   viewerEmail={viewerEmail}
+                  focused={m.id === focusedId}
                 />
               ))}
             </div>

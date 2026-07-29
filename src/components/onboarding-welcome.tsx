@@ -74,6 +74,20 @@ function SetupForm() {
       >
         <Input name="websiteUrl" type="url" placeholder="https://yourbusiness.com" />
       </Field>
+      <Field
+        label="Who's answering the phones?"
+        hint="Shapes your setup — solo keeps it simple, teams get per-person booking."
+      >
+        <select
+          name="companySize"
+          defaultValue="solo"
+          className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <option value="solo">Just me</option>
+          <option value="team">A small team (2–10)</option>
+          <option value="big">A bigger operation</option>
+        </select>
+      </Field>
       <SubmitButton idle="Set up my receptionist" busy="Setting up…" />
       <Button
         type="submit"

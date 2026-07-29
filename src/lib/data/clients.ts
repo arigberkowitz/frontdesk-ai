@@ -75,7 +75,10 @@ export async function assertClientInOrg(orgId: string, clientId: string): Promis
 
 export async function createClient(
   orgId: string,
-  input: Pick<NewClient, "name" | "websiteUrl" | "industry" | "address" | "timezone">,
+  input: Pick<
+    NewClient,
+    "name" | "websiteUrl" | "industry" | "address" | "timezone" | "companySize" | "staffModeEnabled"
+  >,
 ): Promise<Client> {
   const [row] = await db.insert(clients).values({ ...input, orgId }).returning();
   if (!row) throw new Error("Failed to create client");

@@ -163,6 +163,8 @@ export const clients = pgTable(
     setupCompletedAt: timestamp("setup_completed_at", { withTimezone: true }),
     // Staff mode: named team members, per-person booking + views. Off = solo.
     staffModeEnabled: boolean("staff_mode_enabled").notNull().default(false),
+    // Setup profile: 'solo' | 'team' | 'big' — shapes which tabs/features lead.
+    companySize: text("company_size").notNull().default("solo"),
     retellAgentId: text("retell_agent_id"),
     retellLlmId: text("retell_llm_id"),
     retellPhoneNumber: text("retell_phone_number"),

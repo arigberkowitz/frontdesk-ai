@@ -42,7 +42,9 @@ export default async function PortalLayout({ children }: { children: React.React
           <p className="text-xs text-muted-foreground leading-tight">FrontDesk AI</p>
         </div>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <PortalNav />
+          <PortalNav
+            showTeam={Boolean(client && (client.staffModeEnabled || client.companySize !== "solo"))}
+          />
           <CommandPalette portal />
           <ThemeToggle />
           <UserMenuButton />

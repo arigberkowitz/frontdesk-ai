@@ -3,6 +3,9 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { clients } from "@/db/schema";
 import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "@/lib/auth-guard";
 import { createClient } from "@/lib/data/clients";
 import { applyWebsiteToClient } from "@/lib/onboarding-apply";
@@ -92,6 +95,15 @@ export async function onboardFromWebsitePortalAction(
     safeTimezone(formData.get("timezone")),
   );
   await attachCreatorToClient(user, clientId);
+
+  // Setup profile: teams start with per-person booking ready to go.
+  const sizeRaw = String(formData.get("companySize") ?? "solo");
+  const companySize = ["solo", "team", "big"].includes(sizeRaw) ? sizeRaw : "solo";
+  await db
+    .update(clients)
+    .set({ companySize, staffModeEnabled: companySize !== "solo" })
+    .where(eq(clients.id, clientId));
+
   revalidatePath("/portal", "layout");
   redirect("/portal?onboarded=1");
 }
