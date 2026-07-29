@@ -10,18 +10,27 @@ function fmt(s: number): string {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-/** Styled audio player for a call recording — play/pause + seekable progress bar. */
+const SPEEDS = [1, 1.25, 1.5, 2] as const;
+
+/** Styled audio player for a call recording — play/pause, seekable progress bar,
+ *  and a playback-speed cycler (1× → 1.25× → 1.5× → 2×) for skimming calls. */
 export function CallAudioPlayer({ src }: { src: string }) {
   const ref = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [cur, setCur] = useState(0);
   const [dur, setDur] = useState(0);
+  const [speedIdx, setSpeedIdx] = useState(0);
 
   function toggle() {
     const a = ref.current;
     if (!a) return;
     if (a.paused) void a.play();
     else a.pause();
+  }
+  function cycleSpeed() {
+    const next = (speedIdx + 1) % SPEEDS.length;
+    setSpeedIdx(next);
+    if (ref.current) ref.current.playbackRate = SPEEDS[next];
   }
   function seek(e: React.MouseEvent<HTMLButtonElement>) {
     const a = ref.current;
@@ -43,7 +52,10 @@ export function CallAudioPlayer({ src }: { src: string }) {
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
         onTimeUpdate={(e) => setCur(e.currentTarget.currentTime)}
-        onLoadedMetadata={(e) => setDur(e.currentTarget.duration)}
+        onLoadedMetadata={(e) => {
+          setDur(e.currentTarget.duration);
+          e.currentTarget.playbackRate = SPEEDS[speedIdx];
+        }}
       />
       <button
         type="button"
@@ -67,6 +79,15 @@ export function CallAudioPlayer({ src }: { src: string }) {
           <span>{fmt(dur)}</span>
         </div>
       </div>
+      <button
+        type="button"
+        onClick={cycleSpeed}
+        aria-label={`Playback speed ${SPEEDS[speedIdx]}x — click to change`}
+        title="Playback speed"
+        className="shrink-0 rounded-md border px-2 py-1 text-xs font-medium tabular-nums text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        {SPEEDS[speedIdx]}×
+      </button>
     </div>
   );
 }

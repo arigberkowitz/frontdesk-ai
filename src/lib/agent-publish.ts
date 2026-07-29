@@ -40,6 +40,19 @@ export function buildPromptForClient(client: ClientWithRelations): string {
 export async function syncAgentPrompt(orgId: string, clientId: string): Promise<boolean> {
   const client = await getClient(orgId, clientId);
   if (!client?.retellLlmId || !integrations.retell()) return false;
+
+  // Paused (portal Settings → Receptionist off): the number still answers, but
+  // the agent only takes a brief message — no booking, no FAQ answering, no
+  // texting. Resume re-syncs and everything comes straight back.
+  if (client.status === "paused") {
+    await getRetellClient().llm.update(client.retellLlmId, {
+      general_prompt: `You are the answering service for ${client.name}. The business has TEMPORARILY TURNED OFF its automated receptionist. Apologize briefly, say the team will call back, and take a message: ask for the caller's name, then their phone number (one question at a time, read the number back), then a one-sentence reason for the call. Do not answer questions about prices, hours, or services. Do not book appointments. Keep the whole call under a minute.`,
+      begin_message: `Thanks for calling ${client.name}. Our automated assistant is off right now, but I can take a quick message so the team calls you back.`,
+      general_tools: buildAgentTools(env.APP_URL, clientId, client.escalationNumber),
+    });
+    return true;
+  }
+
   await getRetellClient().llm.update(client.retellLlmId, {
     general_prompt: buildPromptForClient(client),
     begin_message:

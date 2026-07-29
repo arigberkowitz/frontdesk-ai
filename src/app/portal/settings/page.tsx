@@ -8,6 +8,7 @@ import { AlertRoster } from "@/components/portal/alert-roster";
 import { PageHeader } from "@/components/page-header";
 import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { PortalSettings } from "@/components/portal/portal-settings";
+import { ReceptionistPower } from "@/components/portal/receptionist-power";
 import { SetupChecklist } from "@/components/portal/setup-checklist";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -29,6 +30,11 @@ export default async function PortalSettingsPage() {
       {!editAccess.canEdit ? (
         <EditLockBanner clientId={clientId} hasCode={editAccess.hasCode} />
       ) : null}
+      <ReceptionistPower
+        clientId={clientId}
+        status={client.status}
+        isAdmin={editAccess.isAdmin}
+      />
       <PortalSettings client={client} isAdmin={editAccess.isAdmin} />
       <AlertRoster clientId={clientId} contacts={alertContacts} />
       <SetupChecklist
