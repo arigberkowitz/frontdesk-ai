@@ -14,9 +14,41 @@ import { initialActionState } from "@/lib/actions/types";
 
 /**
  * "Connect your calendar" — provider picker, not a Google-only button.
- * Google = OAuth. Cal.com = API key (and it doubles as the universal bridge:
- * Cal.com syncs with Outlook / Microsoft 365 / Apple on the business's side).
+ * Google = OAuth. Everything else (Outlook, Apple, other) bridges through a
+ * free Cal.com account with numbered, linked steps so a non-technical owner
+ * can follow along.
  */
+
+function ExtLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-medium text-primary underline underline-offset-2"
+    >
+      {label}
+    </a>
+  );
+}
+
+function Steps({ intro, items }: { intro?: string; items: React.ReactNode[] }) {
+  return (
+    <div className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
+      {intro ? <p className="mb-2">{intro}</p> : null}
+      <ol className="space-y-1.5">
+        {items.map((item, i) => (
+          <li key={i} className="flex gap-2">
+            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+              {i + 1}
+            </span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
 export function CalendarConnect({
   clientId,
   provider,
@@ -102,30 +134,105 @@ export function CalendarConnect({
         >
           <option value="">Which calendar does your business use?</option>
           <option value="google">Google Calendar</option>
+          <option value="outlook">Outlook / Microsoft 365</option>
+          <option value="apple">Apple Calendar (iCloud)</option>
           <option value="calcom">Cal.com</option>
-          <option value="other">Outlook / Microsoft 365 / Apple / other</option>
+          <option value="other">Something else / not sure</option>
         </NativeSelect>
 
         {choice === "google" ? (
-          <Button
-            size="sm"
-            nativeButton={false}
-            render={<Link href={`/api/calendar/google/connect?client=${clientId}`} prefetch={false} />}
-          >
-            <CalendarPlus className="size-4" />
-            Connect Google Calendar
-          </Button>
+          <div className="space-y-2">
+            <Steps
+              items={[
+                <>Click the button below.</>,
+                <>Sign in with the Google account whose calendar you use.</>,
+                <>
+                  Approve the calendar permission — that&apos;s it. Bookings appear on your calendar
+                  automatically.
+                </>,
+              ]}
+            />
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={
+                <Link href={`/api/calendar/google/connect?client=${clientId}`} prefetch={false} />
+              }
+            >
+              <CalendarPlus className="size-4" />
+              Connect Google Calendar
+            </Button>
+          </div>
+        ) : null}
+
+        {choice === "outlook" ? (
+          <Steps
+            intro="Outlook connects through a free Cal.com account — a 5-minute bridge, one time:"
+            items={[
+              <>
+                Create a free account at <ExtLink href="https://app.cal.com/signup" label="cal.com/signup" />
+                .
+              </>,
+              <>
+                In Cal.com, open <strong>Settings → Calendars → Add</strong>, choose{" "}
+                <strong>Outlook / Office 365</strong>, and sign in with your Microsoft account.
+              </>,
+              <>
+                Open <ExtLink href="https://app.cal.com/settings/developer/api-keys" label="Settings → Developer → API keys" />
+                , create a key, and copy it (starts with <code className="font-mono">cal_live_</code>).
+              </>,
+              <>Paste the key below and hit Connect. Bookings land on your Outlook calendar.</>,
+            ]}
+          />
+        ) : null}
+
+        {choice === "apple" ? (
+          <Steps
+            intro="Apple Calendar connects through a free Cal.com account — one-time, ~5 minutes:"
+            items={[
+              <>
+                Create a free account at <ExtLink href="https://app.cal.com/signup" label="cal.com/signup" />
+                .
+              </>,
+              <>
+                Get an app-specific password at{" "}
+                <ExtLink href="https://appleid.apple.com" label="appleid.apple.com" /> (Sign-In &
+                Security → App-Specific Passwords).
+              </>,
+              <>
+                In Cal.com, open <strong>Settings → Calendars → Add</strong>, choose{" "}
+                <strong>Apple Calendar</strong>, and sign in with your Apple ID + that password.
+              </>,
+              <>
+                Open <ExtLink href="https://app.cal.com/settings/developer/api-keys" label="Settings → Developer → API keys" />
+                , create a key, copy it, paste it below, and hit Connect.
+              </>,
+            ]}
+          />
         ) : null}
 
         {choice === "other" ? (
-          <p className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
-            Easiest path: create a free Cal.com account, link your Outlook/Apple calendar to it
-            (Cal.com → Settings → Calendars), then paste your Cal.com API key below. Bookings flow
-            through to the calendar you already use.
-          </p>
+          <Steps
+            intro="No problem — Cal.com is a free bridge that syncs with almost every calendar (and works on its own if you don't have one):"
+            items={[
+              <>
+                Create a free account at <ExtLink href="https://app.cal.com/signup" label="cal.com/signup" />
+                .
+              </>,
+              <>
+                If you use another calendar app, link it under <strong>Settings → Calendars → Add</strong>{" "}
+                (Outlook, Apple, Google, and more). No calendar at all? Skip this — Cal.com becomes
+                your calendar.
+              </>,
+              <>
+                Open <ExtLink href="https://app.cal.com/settings/developer/api-keys" label="Settings → Developer → API keys" />
+                , create a key, copy it, paste it below, and hit Connect.
+              </>,
+            ]}
+          />
         ) : null}
 
-        {choice === "calcom" || choice === "other" ? (
+        {choice === "calcom" || choice === "other" || choice === "outlook" || choice === "apple" ? (
           <form action={calcomAction} className="space-y-3">
             <input type="hidden" name="clientId" value={clientId} />
             <Field label="Cal.com API key" error={calcom.fieldErrors?.apiKey}>
