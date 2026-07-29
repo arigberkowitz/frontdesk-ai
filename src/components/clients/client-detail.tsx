@@ -20,6 +20,8 @@ import type { BillingInfo } from "@/components/clients/billing-card";
 import { formatCurrencyCents, formatPercent, formatPhone } from "@/lib/format";
 import { clientMetricBreakdowns } from "@/lib/metric-breakdowns";
 import { AppointmentsView } from "@/components/appointments-view";
+import { NewAppointmentDialog } from "@/components/portal/new-appointment-dialog";
+import { vocabFor } from "@/lib/vocab";
 import type { VoiceMeta } from "@/config/voice";
 import type {
   Appointment,
@@ -40,6 +42,8 @@ interface Props {
   knowledge: KnowledgeItem[];
   calls: Call[];
   appointments: AppointmentWithService[];
+  /** Active team members (staff mode) for assigning manual appointments. */
+  providers: { id: string; name: string }[];
   leads: Lead[];
   metrics: ClientMetrics;
   retellReady: boolean;
@@ -97,6 +101,7 @@ export function ClientDetail(props: Props) {
     knowledge,
     calls,
     appointments,
+    providers,
     leads,
     metrics,
     retellReady,
@@ -106,6 +111,7 @@ export function ClientDetail(props: Props) {
   } = props;
 
   const bd = clientMetricBreakdowns(metrics);
+  const v = vocabFor(client.industry);
 
   return (
     <Tabs defaultValue="overview">
@@ -160,9 +166,19 @@ export function ClientDetail(props: Props) {
       </TabsContent>
 
       <TabsContent value="appointments" className="space-y-3">
-        {appointments.length > 0 ? (
-          <ExportCsvButton clientId={client.id} type="appointments" />
-        ) : null}
+        <div className="flex items-center gap-2">
+          <NewAppointmentDialog
+            clientId={client.id}
+            services={services
+              .filter((s) => s.isActive)
+              .map((s) => ({ id: s.id, name: s.name, durationMin: s.durationMin }))}
+            providers={providers}
+            vocab={{ customer: v.customer, appointment: v.appointment }}
+          />
+          {appointments.length > 0 ? (
+            <ExportCsvButton clientId={client.id} type="appointments" />
+          ) : null}
+        </div>
         {appointments.length === 0 ? (
           <EmptyState icon={CalendarCheck} title="No appointments yet" />
         ) : (

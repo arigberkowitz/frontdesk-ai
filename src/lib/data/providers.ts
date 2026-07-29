@@ -45,6 +45,29 @@ export async function findFreeProvider(
   return team.find((p) => !busyIds.has(p.id)) ?? null;
 }
 
+/** Whether one specific provider has no overlapping active appointment in [startAt, endAt). */
+export async function isProviderFree(
+  clientId: string,
+  providerId: string,
+  startAt: Date,
+  endAt: Date,
+): Promise<boolean> {
+  const startIso = startAt.toISOString();
+  const endIso = endAt.toISOString();
+  const clash = await db.query.appointments.findFirst({
+    where: and(
+      eq(appointments.clientId, clientId),
+      eq(appointments.providerId, providerId),
+      isNull(appointments.deletedAt),
+      sql`${appointments.status} not in ('cancelled', 'no_show')`,
+      sql`${appointments.startAt} < ${endIso}::timestamptz`,
+      sql`coalesce(${appointments.endAt}, ${appointments.startAt} + interval '30 minutes') > ${startIso}::timestamptz`,
+    ),
+    columns: { id: true },
+  });
+  return !clash;
+}
+
 export interface ProviderDayStats {
   provider: Provider;
   todayCount: number;

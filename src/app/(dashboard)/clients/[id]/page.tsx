@@ -5,6 +5,7 @@ import { requireOperator } from "@/lib/auth-guard";
 import { getClient } from "@/lib/data/clients";
 import { listCalls } from "@/lib/data/calls";
 import { listAppointments } from "@/lib/data/appointments";
+import { listProviders } from "@/lib/data/providers";
 import { listLeads } from "@/lib/data/leads";
 import { getClientMetrics } from "@/lib/data/metrics";
 import { listAgentVersions } from "@/lib/data/agent-versions";
@@ -36,12 +37,13 @@ export default async function ClientPage({
   const client = await getClient(user.orgId, id);
   if (!client) notFound();
 
-  const [calls, appointments, leads, metrics, versions] = await Promise.all([
+  const [calls, appointments, leads, metrics, versions, team] = await Promise.all([
     listCalls(id),
     listAppointments(id),
     listLeads(id),
     getClientMetrics(id),
     listAgentVersions(id),
+    client.staffModeEnabled ? listProviders(id) : Promise.resolve([]),
   ]);
 
   // Best-effort: load the live Retell voice library for the picker. Never block
@@ -138,6 +140,7 @@ export default async function ClientPage({
         knowledge={client.knowledgeItems}
         calls={calls}
         appointments={appointments}
+        providers={team.filter((p) => p.isActive).map((p) => ({ id: p.id, name: p.name }))}
         leads={leads}
         metrics={metrics}
         retellReady={integrations.retell()}

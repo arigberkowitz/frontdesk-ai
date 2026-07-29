@@ -3,7 +3,9 @@ import { CalendarCheck } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listAppointments } from "@/lib/data/appointments";
+import { listProviders } from "@/lib/data/providers";
 import { remindersByAppointment } from "@/lib/data/reminders";
+import { NewAppointmentDialog } from "@/components/portal/new-appointment-dialog";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { AppointmentsView } from "@/components/appointments-view";
@@ -26,6 +28,17 @@ export default async function PortalAppointmentsPage({
     searchParams,
   ]);
   const v = vocabFor(client?.industry);
+  const team = client?.staffModeEnabled ? await listProviders(clientId) : [];
+  const addButton = (
+    <NewAppointmentDialog
+      clientId={clientId}
+      services={(client?.services ?? [])
+        .filter((s) => s.isActive)
+        .map((s) => ({ id: s.id, name: s.name, durationMin: s.durationMin }))}
+      providers={team.filter((p) => p.isActive).map((p) => ({ id: p.id, name: p.name }))}
+      vocab={{ customer: v.customer, appointment: v.appointment }}
+    />
+  );
   const items = appointments.map((a) => ({
     id: a.id,
     callId: a.callId,
@@ -49,7 +62,12 @@ export default async function PortalAppointmentsPage({
   return (
     <div className="space-y-6">
       <CalendarStatusToast status={sp.calendar} returnTo="/portal/appointments" />
-      <PageHeader title={capVocab(v.appointments)} description="Booked by your AI receptionist." />
+      <PageHeader
+        title={capVocab(v.appointments)}
+        description="Booked by your AI receptionist — or added by you."
+      >
+        {addButton}
+      </PageHeader>
       <CalendarConnect
         clientId={clientId}
         provider={client?.calendarProvider ?? null}

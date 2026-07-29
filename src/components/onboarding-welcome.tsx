@@ -6,9 +6,11 @@ import { CalendarCheck, Globe, MessageSquare, Phone, Sparkles } from "lucide-rea
 import { createStarterClientAction } from "@/lib/actions/clients";
 import { onboardFromWebsitePortalAction } from "@/lib/actions/onboard";
 import { initialActionState } from "@/lib/actions/types";
+import { INDUSTRIES } from "@/config/options";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/form/field";
+import { NativeSelect } from "@/components/form/native-select";
 import { DemoCall } from "@/components/demo-call";
 
 const STEPS = [
@@ -56,6 +58,20 @@ function TimezoneField() {
   );
 }
 
+/** Industry picker feeding the starter packs — value must match INDUSTRIES. */
+function IndustrySelect() {
+  return (
+    <NativeSelect name="industry" defaultValue="" className="h-9">
+      <option value="">Pick one (or skip)…</option>
+      {INDUSTRIES.map((i) => (
+        <option key={i} value={i}>
+          {i}
+        </option>
+      ))}
+    </NativeSelect>
+  );
+}
+
 /** ONE form, one name field: the primary button drafts from the website (or a
  *  blank manual setup), the secondary starts from an editable template. After
  *  either, the portal checklist walks the owner through the rest step by step. */
@@ -66,6 +82,12 @@ function SetupForm() {
       <TimezoneField />
       <Field label="Business name" error={state.fieldErrors?.name}>
         <Input name="name" placeholder="Bright Smile Dental" required />
+      </Field>
+      <Field
+        label="What kind of business?"
+        hint="Starts you with real services, hours, and FAQs for your industry — all editable."
+      >
+        <IndustrySelect />
       </Field>
       <Field
         label="Website (optional)"
@@ -134,16 +156,19 @@ export function OnboardingWelcome({ aiReady }: { aiReady: boolean }) {
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3">
-          <form action={createStarterClientAction}>
+          <form action={createStarterClientAction} className="w-full max-w-sm space-y-3 text-left">
             <TimezoneField />
-            <Button type="submit" size="lg">
+            <Field label="What kind of business?">
+              <IndustrySelect />
+            </Field>
+            <Button type="submit" size="lg" className="w-full">
               <Sparkles className="size-4" />
               Set up my receptionist
             </Button>
           </form>
           <p className="max-w-md text-xs text-muted-foreground">
-            We&apos;ll start you off with example services, hours, and FAQs already filled in — just edit
-            each one to match your business.
+            We&apos;ll start you off with services, hours, and FAQs for your industry already filled
+            in — just edit each one to match your business.
           </p>
         </div>
       )}

@@ -7,9 +7,8 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "@/lib/auth-guard";
 import { clientCreateSchema, clientProfileSchema, emptyToNull } from "@/lib/validation";
 import * as clientsData from "@/lib/data/clients";
-import * as servicesData from "@/lib/data/services";
-import * as knowledgeData from "@/lib/data/knowledge";
-import * as hoursData from "@/lib/data/hours";
+import { seedClientFromPack } from "@/lib/starter-seed";
+import { safeIndustry } from "@/config/starter-packs";
 import { env } from "@/lib/env";
 import type { ClientStatus } from "@/db/schema";
 import { type ActionState, fieldErrorsOf } from "./types";
@@ -40,29 +39,11 @@ export async function createClientAction(
   redirect(`/clients/${client.id}`);
 }
 
-/** Example content a new company edits to match their own business. */
-const STARTER_SERVICES = [
-  { name: "Consultation", durationMin: 30, priceCents: 0, description: "A free intro call to understand what the customer needs." },
-  { name: "Standard appointment", durationMin: 60, priceCents: 12000, description: "Your most common service." },
-  { name: "Follow-up visit", durationMin: 30, priceCents: 8000, description: "A shorter check-in for returning customers." },
-];
-const STARTER_FAQ = [
-  { question: "What are your hours?", answer: "We're open Monday to Friday, 9am to 5pm." },
-  { question: "Do I need an appointment, or do you take walk-ins?", answer: "Appointments are best, but we take walk-ins whenever we have availability." },
-  { question: "How do I reschedule or cancel?", answer: "Just let us know at least 24 hours ahead and we'll happily move your appointment." },
-];
-const STARTER_GUARDRAILS =
-  "Always be warm, polite, and professional. Only answer using the information in this profile — if " +
-  "you're not sure about a price, availability, or a policy, offer to take a message and have someone " +
-  "follow up. Never make up details, and never give medical, legal, or financial advice.";
-const STARTER_BOOKING =
-  "Offer the next available openings during business hours. Before booking, confirm the service, the " +
-  "date and time, and the caller's name and phone number, then read the appointment back to them.";
-
 /**
- * One-click starter for a new company: create their first business pre-filled with
- * editable example services, hours, FAQ, and guardrails, then drop them into it to
- * swap in their real details.
+ * One-click starter for a new company: create their first business pre-filled
+ * from its industry's starter pack (services, hours, FAQ, guardrails — see
+ * `src/config/starter-packs.ts`), then drop them into it to swap in their
+ * real details.
  */
 export async function createStarterClientAction(formData: FormData): Promise<void> {
   const user = await requireBusinessCreator();
@@ -81,10 +62,11 @@ export async function createStarterClientAction(formData: FormData): Promise<voi
   }
   const sizeRaw = String(formData.get("companySize") ?? "solo");
   const companySize = ["solo", "team", "big"].includes(sizeRaw) ? sizeRaw : "solo";
+  const industry = safeIndustry(formData.get("industry"));
   const client = await clientsData.createClient(user.orgId, {
     name,
     websiteUrl: null,
-    industry: null,
+    industry,
     address: null,
     timezone,
     companySize,
@@ -92,26 +74,7 @@ export async function createStarterClientAction(formData: FormData): Promise<voi
     staffModeEnabled: companySize !== "solo",
   });
   await attachCreatorToClient(user, client.id);
-
-  await Promise.all([
-    ...STARTER_SERVICES.map((s) => servicesData.createService(client.id, { ...s, isActive: true })),
-    ...STARTER_FAQ.map((f) =>
-      knowledgeData.createKnowledge(client.id, { ...f, source: "manual", isActive: true }),
-    ),
-    hoursData.setWeekHours(
-      client.id,
-      [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-        dayOfWeek,
-        isClosed: dayOfWeek === 0 || dayOfWeek === 6,
-        openTime: "09:00",
-        closeTime: "17:00",
-      })),
-    ),
-    clientsData.updateClient(user.orgId, client.id, {
-      agentGuidance: STARTER_GUARDRAILS,
-      bookingInstructions: STARTER_BOOKING,
-    }),
-  ]);
+  await seedClientFromPack(user.orgId, client.id, industry);
 
   revalidatePath("/portal");
   redirect("/portal");

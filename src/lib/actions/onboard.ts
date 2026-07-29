@@ -9,6 +9,8 @@ import { clients } from "@/db/schema";
 import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "@/lib/auth-guard";
 import { createClient } from "@/lib/data/clients";
 import { applyWebsiteToClient } from "@/lib/onboarding-apply";
+import { seedClientFromPack } from "@/lib/starter-seed";
+import { safeIndustry } from "@/config/starter-packs";
 import { DEFAULT_TIMEZONE } from "@/config/app";
 import { type ActionState, fieldErrorsOf } from "./types";
 
@@ -99,10 +101,18 @@ export async function onboardFromWebsitePortalAction(
   // Setup profile: teams start with per-person booking ready to go.
   const sizeRaw = String(formData.get("companySize") ?? "solo");
   const companySize = ["solo", "team", "big"].includes(sizeRaw) ? sizeRaw : "solo";
+  const industry = safeIndustry(formData.get("industry"));
   await db
     .update(clients)
-    .set({ companySize, staffModeEnabled: companySize !== "solo" })
+    .set({ companySize, staffModeEnabled: companySize !== "solo", industry })
     .where(eq(clients.id, clientId));
+
+  // No website to draft from → don't leave them with a blank portal. Their
+  // industry's starter pack pre-fills services, hours, and FAQ instead
+  // (all editable; the checklist walks them through reviewing it).
+  if (!parsed.data.websiteUrl) {
+    await seedClientFromPack(user.orgId, clientId, industry);
+  }
 
   revalidatePath("/portal", "layout");
   redirect("/portal?onboarded=1");
