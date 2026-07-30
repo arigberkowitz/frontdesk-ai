@@ -133,6 +133,35 @@ export async function getCurrentDbUser(): Promise<User> {
     }
   }
 
+  // Platform owner arriving with an unfamiliar Clerk id. This happens for real
+  // when the Clerk *instance* changes — moving from the development instance to
+  // a production one mints brand-new user ids for the same human. Without this,
+  // the owner falls into the house-agency branch below, is created as a
+  // `client_admin` with no business, and gets bounced to /welcome — locked out
+  // of their own dashboard with every client still sitting in the database.
+  //
+  // So: re-link the existing row to the new Clerk id (matched on a Clerk-verified
+  // email, and only ever for the configured super-admin addresses), and make sure
+  // the role is `operator`.
+  if (email && SUPER_ADMIN_EMAILS.has(email.toLowerCase())) {
+    const prior = await db.query.users.findFirst({
+      where: and(eq(users.email, email), isNull(users.deletedAt)),
+    });
+    if (prior) {
+      const relinked = (
+        await db
+          .update(users)
+          .set({ clerkUserId: userId, role: "operator" })
+          .where(eq(users.id, prior.id))
+          .returning()
+      )[0];
+      if (relinked) {
+        await ensureSuperAdminGoverns(relinked);
+        return relinked;
+      }
+    }
+  }
+
   // Self-serve signup → they become a CLIENT of the house agency, not their own
   // isolated workspace: the user lands in the platform's agency org as a
   // client_admin with no business yet (the /welcome flow creates it), so every
@@ -144,7 +173,10 @@ export async function getCurrentDbUser(): Promise<User> {
     where: eq(organizations.kind, "agency"),
     orderBy: (o, { asc }) => [asc(o.createdAt)],
   });
-  if (houseOrg && houseOrg.autoAttachSignups) {
+  // A super-admin with no prior row must NOT be auto-attached as a client of the
+  // house agency — they fall through to the workspace bootstrap, which makes
+  // them an operator.
+  if (houseOrg && houseOrg.autoAttachSignups && !SUPER_ADMIN_EMAILS.has(email.toLowerCase())) {
     const member = (
       await db
         .insert(users)
