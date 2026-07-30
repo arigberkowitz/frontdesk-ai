@@ -8,12 +8,19 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
  * Public routes: the auth pages, plus machine-to-machine endpoints that
  * authenticate by signature/secret rather than a Clerk session — Retell webhooks
  * (`x-retell-signature`), Stripe webhooks, and agent tool callbacks.
+ *
+ * The legal pages MUST stay public: carrier/TCR reviewers open the privacy,
+ * terms, and SMS-consent URLs submitted with the A2P campaign — a sign-in
+ * redirect there gets the campaign rejected ("could not verify CTA").
  */
 const isPublicRoute = createRouteMatcher([
   "/", // public marketing landing (page.tsx routes signed-in users to their app)
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/intake(.*)",
+  "/terms",
+  "/privacy",
+  "/sms-consent",
   "/api/webhooks(.*)",
   "/api/agent-tools(.*)",
   "/api/cron(.*)",

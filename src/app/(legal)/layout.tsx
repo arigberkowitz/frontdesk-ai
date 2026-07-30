@@ -32,6 +32,9 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
             <Link href="/privacy" className="hover:text-foreground">
               Privacy
             </Link>
+            <Link href="/sms-consent" className="hover:text-foreground">
+              SMS Consent
+            </Link>
           </span>
         </div>
       </footer>

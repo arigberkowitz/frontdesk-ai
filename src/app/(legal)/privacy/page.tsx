@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Privacy Policy" };
 
-const UPDATED = "July 8, 2026";
+const UPDATED = "July 30, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -85,7 +85,25 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="6. Retention">
+        <Section title="6. Text messaging (SMS)">
+          <p>
+            Callers who verbally agree on a call may receive appointment confirmations, reminders,
+            and requested follow-up texts from the business they called. Message frequency varies;
+            message and data rates may apply; reply STOP to opt out or HELP for help.{" "}
+            <strong>
+              Phone numbers and SMS opt-in data (consent) will not be shared with, or sold to,
+              third parties or affiliates for marketing or promotional purposes.
+            </strong>{" "}
+            Consent to receive texts is not a condition of purchase. How consent is collected is
+            documented on our{" "}
+            <a href="/sms-consent" className="text-foreground underline underline-offset-2">
+              SMS Consent page
+            </a>
+            .
+          </p>
+        </Section>
+
+        <Section title="7. Retention">
           <p>
             We keep call recordings, transcripts, and business data while the business&rsquo;s
             account is active and for a reasonable period afterwards, after which they are deleted
@@ -95,7 +113,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="7. Security">
+        <Section title="8. Security">
           <p>
             Data is encrypted in transit, access is limited by role and tenant (a business can only
             ever see its own data), calendar credentials are stored encrypted, and webhooks are
@@ -104,7 +122,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="8. Your rights">
+        <Section title="9. Your rights">
           <p>
             Depending on where you live (for example under the CCPA or GDPR), you may have rights
             to access, correct, delete, or export personal information, and to object to certain
@@ -115,7 +133,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="9. Changes and contact">
+        <Section title="10. Changes and contact">
           <p>
             We will post any changes to this policy here and notify customers of material changes
             by email or in-product. Questions or requests:{" "}
