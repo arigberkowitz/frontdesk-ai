@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
+import { env } from "@/lib/env";
 
-export const metadata: Metadata = { title: "SMS Consent & Messaging Policy" };
+export const metadata: Metadata = {
+  title: "SMS Consent & Messaging Policy",
+  // One canonical copy — the app also answers on the old *.vercel.app URL.
+  alternates: { canonical: `${env.APP_URL.replace(/\/$/, "")}/sms-consent` },
+};
 
 const UPDATED = "July 30, 2026";
 

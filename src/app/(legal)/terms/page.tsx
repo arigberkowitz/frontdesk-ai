@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
+import { env } from "@/lib/env";
 
-export const metadata: Metadata = { title: "Terms of Service" };
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  // One canonical copy — the app also answers on the old *.vercel.app URL.
+  alternates: { canonical: `${env.APP_URL.replace(/\/$/, "")}/terms` },
+};
 
 const UPDATED = "July 30, 2026";
 
