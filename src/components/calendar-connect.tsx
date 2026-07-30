@@ -162,6 +162,12 @@ export function CalendarConnect({
               <CalendarPlus className="size-4" />
               Connect Google Calendar
             </Button>
+            <p className="text-xs text-muted-foreground">
+              Use a Google account you control — a personal Gmail or your own business&apos;s
+              Google Workspace. School or employer accounts are often blocked by their IT
+              policies (&quot;Access blocked: Authorization Error&quot;), and that&apos;s on their
+              side, not yours.
+            </p>
           </div>
         ) : null}
 
