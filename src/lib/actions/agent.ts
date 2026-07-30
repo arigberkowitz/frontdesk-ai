@@ -175,7 +175,11 @@ export async function provisionAgentPortalAction(
   const guard = await requireClientEditor(clientId);
   if (!guard.ok) return { ok: false, error: guard.error };
   const user = guard.user;
-  if (user.role !== "operator") {
+  // Self-serve owners sign up as client_admin (they're a client of the house
+  // agency, not an operator) — they MUST be able to activate their own AI, or
+  // the whole signup funnel dead-ends here. Unlocked staff (client_viewer with
+  // an edit cookie) can tune content but not provision infrastructure.
+  if (user.role !== "operator" && user.role !== "client_admin") {
     return { ok: false, error: "Only the business owner can activate the receptionist." };
   }
   await assertClientInOrg(user.orgId, clientId);

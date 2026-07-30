@@ -7,7 +7,9 @@ export const metadata: Metadata = { title: "Sign up" };
 export default function SignUpPage() {
   return (
     <div className="flex flex-col items-center gap-4">
-      <SignUp />
+      {/* Straight to guided setup — the default /dashboard fallback costs a new
+          signup two extra redirect hops (dashboard → portal → welcome). */}
+      <SignUp fallbackRedirectUrl="/welcome" />
       <p className="max-w-xs text-center text-xs text-muted-foreground">
         By signing up you agree to our{" "}
         <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">

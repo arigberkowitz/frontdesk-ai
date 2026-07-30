@@ -110,7 +110,10 @@ function SetupForm() {
           <option value="big">A bigger operation</option>
         </select>
       </Field>
-      <SubmitButton idle="Set up my receptionist" busy="Setting up…" />
+      <SubmitButton
+        idle="Set up my receptionist"
+        busy="Setting up — reading your website, takes up to a minute…"
+      />
       <Button
         type="submit"
         variant="ghost"
@@ -150,7 +153,7 @@ export function OnboardingWelcome({ aiReady }: { aiReady: boolean }) {
         <div className="rounded-2xl border bg-muted/30 p-5 text-left">
           <div className="mb-3 flex items-center gap-2">
             <Globe className="size-5 text-primary" />
-            <p className="font-medium">Two quick questions and you&apos;re in</p>
+            <p className="font-medium">Tell us about your business — under a minute</p>
           </div>
           <SetupForm />
         </div>
