@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { alertContacts, clients, organizations, users, type User } from "@/db/schema";
+import { logger } from "./logger";
 
 /**
  * Auth + tenant-isolation helpers (§12, §17). Every server entry point into
@@ -133,29 +134,38 @@ export async function getCurrentDbUser(): Promise<User> {
     }
   }
 
-  // Platform owner arriving with an unfamiliar Clerk id. This happens for real
-  // when the Clerk *instance* changes — moving from the development instance to
-  // a production one mints brand-new user ids for the same human. Without this,
-  // the owner falls into the house-agency branch below, is created as a
-  // `client_admin` with no business, and gets bounced to /welcome — locked out
-  // of their own dashboard with every client still sitting in the database.
+  // A returning human arriving with an unfamiliar Clerk id — re-link them to the
+  // account they already have instead of stranding it.
   //
-  // So: re-link the existing row to the new Clerk id (matched on a Clerk-verified
-  // email, and only ever for the configured super-admin addresses), and make sure
-  // the role is `operator`.
-  if (email && SUPER_ADMIN_EMAILS.has(email.toLowerCase())) {
+  // This is not hypothetical: switching Clerk from its development instance to a
+  // production one mints brand-new user ids for the same people. Because we match
+  // on `clerk_user_id`, everyone comes back unrecognized. The platform owner would
+  // fall into the house-agency branch below as a `client_admin` with no business —
+  // bounced to /welcome, locked out of their own dashboard while every client sits
+  // in the database. A business owner would lose their business and be asked to
+  // build one from scratch, with their calls and bookings orphaned.
+  //
+  // Matched on `verifiedEmail` specifically, never the unverified fallback: Clerk
+  // has proven this person controls the address, and that proof is the whole basis
+  // for rebinding. Matching an unverified address would let a stranger claim
+  // someone else's account by typing their email at signup.
+  if (verifiedEmail) {
     const prior = await db.query.users.findFirst({
-      where: and(eq(users.email, email), isNull(users.deletedAt)),
+      where: and(eq(users.email, verifiedEmail), isNull(users.deletedAt)),
     });
     if (prior) {
+      // Super-admins also get their role restored — the platform owner must never
+      // come back as anything other than an operator.
+      const isSuper = SUPER_ADMIN_EMAILS.has(verifiedEmail.toLowerCase());
       const relinked = (
         await db
           .update(users)
-          .set({ clerkUserId: userId, role: "operator" })
+          .set({ clerkUserId: userId, ...(isSuper ? { role: "operator" as const } : {}) })
           .where(eq(users.id, prior.id))
           .returning()
       )[0];
       if (relinked) {
+        logger.info("auth.user.relinked", { userId: relinked.id, role: relinked.role });
         await ensureSuperAdminGoverns(relinked);
         return relinked;
       }
