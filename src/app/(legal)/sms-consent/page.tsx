@@ -87,8 +87,15 @@ export default function SmsConsentPage() {
         <Section title="5. Privacy">
           <p>
             Phone numbers and text-messaging opt-in data are used only to send the messages
-            described above. <strong>No mobile information will be shared with third parties or
-            affiliates for marketing or promotional purposes.</strong> See our{" "}
+            described above.{" "}
+            <strong>
+              No mobile information will be shared with third parties or affiliates for marketing or
+              promotional purposes. Information sharing to subcontractors in support services, such
+              as customer service, is permitted. All other use case categories exclude text
+              messaging originator opt-in data and consent; this information will not be shared with
+              any third parties.
+            </strong>{" "}
+            See our{" "}
             <a href="/privacy" className="text-foreground underline underline-offset-2">
               Privacy Policy
             </a>{" "}

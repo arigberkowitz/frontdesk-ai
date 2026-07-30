@@ -8,6 +8,7 @@ import { assertClientAccess, grantEditUnlock } from "@/lib/auth-guard";
 import { hashEditCode, verifyEditCode } from "@/lib/crypto";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { logger } from "@/lib/logger";
+import { clearAttempts, consumeAttempt, formatRetryAfter } from "@/lib/rate-limit";
 import { type ActionState } from "./types";
 
 /** Staff enters the admin's code → 12h editing unlock (signed cookie). */
@@ -21,6 +22,19 @@ export async function unlockEditingAction(
   await assertClientInOrg(user.orgId, clientId);
   if (!code) return { ok: false, error: "Enter the edit code." };
 
+  // The edit code is short and hand-typed, so an unlocked-out staff account
+  // could otherwise just loop this action until it guesses. Throttle per
+  // user+client (see rate-limit.ts for the honest limits of this).
+  const throttleKey = `editcode:${clientId}:${user.id}`;
+  const gate = consumeAttempt(throttleKey);
+  if (!gate.ok) {
+    logger.warn("editlock.throttled", { clientId, userId: user.id });
+    return {
+      ok: false,
+      error: `Too many incorrect codes. Try again in ${formatRetryAfter(gate.retryAfterSec)}.`,
+    };
+  }
+
   const client = await db.query.clients.findFirst({
     where: eq(clients.id, clientId),
     columns: { editCodeHash: true },
@@ -33,6 +47,7 @@ export async function unlockEditingAction(
     return { ok: false, error: "That code isn't right — check with your admin." };
   }
 
+  clearAttempts(throttleKey);
   await grantEditUnlock(clientId, user.id);
   revalidatePath("/portal", "layout");
   return { ok: true, message: "Editing unlocked for 12 hours." };

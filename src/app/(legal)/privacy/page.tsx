@@ -25,6 +25,23 @@ export default function PrivacyPage() {
         <p className="text-sm text-muted-foreground">Last updated {UPDATED}</p>
       </div>
 
+      {/* Carrier/TCR vetters scan for this exact statement and reject the A2P
+          campaign when they can't find it, or when it looks contradicted by the
+          subprocessor list further down (error 30908). Keep it above the fold,
+          verbatim, and keep §5 and §6 consistent with it. */}
+      <div className="rounded-xl border border-foreground/15 bg-muted/40 p-5 text-[15px] leading-relaxed">
+        <p className="font-semibold text-foreground">Mobile information and text messaging</p>
+        <p className="mt-2 text-muted-foreground [&_strong]:text-foreground">
+          <strong>
+            No mobile information will be shared with third parties or affiliates for marketing or
+            promotional purposes. Information sharing to subcontractors in support services, such as
+            customer service, is permitted. All other use case categories exclude text messaging
+            originator opt-in data and consent; this information will not be shared with any third
+            parties.
+          </strong>
+        </p>
+      </div>
+
       <div className="space-y-10 text-[15px] leading-relaxed text-muted-foreground [&_strong]:text-foreground">
         <Section title="1. Scope">
           <p>
@@ -81,21 +98,38 @@ export default function PrivacyPage() {
             voice and telephony (Retell AI), AI language processing (Anthropic), text messaging
             (Twilio), email (Resend), payments (Stripe), authentication (Clerk), database and
             hosting (Neon, Vercel), and calendar scheduling (Google Calendar or Cal.com, when the
-            business connects them). Each is bound by its own data protection commitments.
+            business connects them). Each acts as our subcontractor in support of delivering the
+            Service, is bound by its own data protection commitments, and may not use the data for
+            its own marketing.
+          </p>
+          <p>
+            <strong>
+              This does not include mobile opt-in data. Text messaging originator opt-in data and
+              consent are never shared with any third party or affiliate, including the
+              subcontractors listed above, for marketing or promotional purposes.
+            </strong>
           </p>
         </Section>
 
-        <Section title="6. Text messaging (SMS)">
+        <Section title="6. Text messaging (SMS) and mobile information">
           <p>
             Callers who verbally agree on a call may receive appointment confirmations, reminders,
             and requested follow-up texts from the business they called. Message frequency varies;
-            message and data rates may apply; reply STOP to opt out or HELP for help.{" "}
+            message and data rates may apply; reply STOP to opt out or HELP for help. Consent to
+            receive texts is not a condition of any purchase.
+          </p>
+          <p>
             <strong>
-              Phone numbers and SMS opt-in data (consent) will not be shared with, or sold to,
-              third parties or affiliates for marketing or promotional purposes.
-            </strong>{" "}
-            Consent to receive texts is not a condition of purchase. How consent is collected is
-            documented on our{" "}
+              No mobile information will be shared with third parties or affiliates for marketing or
+              promotional purposes. Information sharing to subcontractors in support services, such
+              as customer service, is permitted. All other use case categories exclude text
+              messaging originator opt-in data and consent; this information will not be shared with
+              any third parties.
+            </strong>
+          </p>
+          <p>
+            We do not sell mobile phone numbers or SMS consent data, and we do not use them for our
+            own marketing. How consent is collected on the call is documented in full on our{" "}
             <a href="/sms-consent" className="text-foreground underline underline-offset-2">
               SMS Consent page
             </a>

@@ -14,6 +14,7 @@ import { notifier } from "@/lib/notifier";
 import { env } from "@/lib/env";
 import { TRIAL_DAYS } from "@/config/plans";
 import { logger } from "@/lib/logger";
+import { clearAttempts, consumeAttempt, formatRetryAfter } from "@/lib/rate-limit";
 import { type ActionState } from "./types";
 
 /**
@@ -60,6 +61,17 @@ export async function requestTrialAction(
     return { ok: true, message: "Your trial request is in — you'll get an email once it's approved." };
   }
 
+  // Short hand-typed code — throttle so it can't be guessed in a loop.
+  const throttleKey = `trialcode:${clientId}:${guard.user.id}`;
+  const gate = consumeAttempt(throttleKey);
+  if (!gate.ok) {
+    logger.warn("trial.request.throttled", { clientId });
+    return {
+      ok: false,
+      error: `Too many incorrect codes. Try again in ${formatRetryAfter(gate.retryAfterSec)}.`,
+    };
+  }
+
   const org = await db.query.organizations.findFirst({
     where: eq(organizations.id, client.orgId),
   });
@@ -70,6 +82,7 @@ export async function requestTrialAction(
       error: "That code isn't valid. Double-check it with the person who gave it to you.",
     };
   }
+  clearAttempts(throttleKey);
 
   await db.update(clients).set({ trialRequestedAt: new Date() }).where(eq(clients.id, clientId));
 
