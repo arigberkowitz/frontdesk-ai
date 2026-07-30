@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { timingSafeEqual } from "node:crypto";
-import { getCurrentDbUserSafe } from "@/lib/auth-guard";
+import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
 import { getClient, updateClient } from "@/lib/data/clients";
 import { exchangeMsCodeForTokens } from "@/lib/microsoft-calendar";
 import { encryptSecret } from "@/lib/crypto";
@@ -38,7 +38,9 @@ export async function GET(req: Request): Promise<Response> {
 
   const user = await getCurrentDbUserSafe();
   if (!user) return NextResponse.redirect(new URL("/sign-in", req.url));
-  if (user.role === "client_viewer" && user.clientId !== clientId) {
+  // Tenant rule lives in one place — a role-specific check here would let a
+  // client_admin act on another business in the same house-agency org.
+  if (!userMayAccessClient(user, clientId)) {
     return new Response("Forbidden", { status: 403 });
   }
   const client = await getClient(user.orgId, clientId);

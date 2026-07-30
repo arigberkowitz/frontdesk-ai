@@ -406,11 +406,24 @@ export async function attachCreatorToClient(user: User, clientId: string): Promi
  */
 export async function assertClientAccess(clientId: string): Promise<User> {
   const user = await getCurrentDbUser();
-  if (user.role === "operator") return user;
-  if (user.clientId !== clientId) {
+  if (!userMayAccessClient(user, clientId)) {
     throw new Error("Forbidden: cross-tenant access denied.");
   }
   return user;
+}
+
+/**
+ * The single tenant rule, as a pure predicate: operators reach any client in
+ * their org; everyone else reaches only the one client they're attached to.
+ *
+ * Route handlers must use THIS rather than hand-rolling a check. Self-serve
+ * signups all live in the same house-agency org, so an org-scoped lookup alone
+ * does NOT isolate them from each other — a check that only rejects
+ * `client_viewer` silently lets one business's admin act on another's.
+ */
+export function userMayAccessClient(user: User, clientId: string): boolean {
+  if (user.role === "operator") return true;
+  return Boolean(clientId) && user.clientId === clientId;
 }
 
 /* ------------------------- portal edit permissions ------------------------ */

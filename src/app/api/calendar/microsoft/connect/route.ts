@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
-import { getCurrentDbUserSafe } from "@/lib/auth-guard";
+import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
 import { getClient } from "@/lib/data/clients";
 import { microsoftAuthUrl, microsoftConfigured } from "@/lib/microsoft-calendar";
 
@@ -18,7 +18,9 @@ export async function GET(req: Request): Promise<Response> {
   if (!microsoftConfigured()) {
     return new Response("Outlook connect isn't configured.", { status: 400 });
   }
-  if (user.role === "client_viewer" && user.clientId !== clientId) {
+  // Tenant rule lives in one place — a role-specific check here would let a
+  // client_admin act on another business in the same house-agency org.
+  if (!userMayAccessClient(user, clientId)) {
     return new Response("Forbidden", { status: 403 });
   }
   const client = await getClient(user.orgId, clientId);

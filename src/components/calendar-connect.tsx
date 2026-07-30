@@ -48,6 +48,37 @@ function Steps({ intro, items }: { intro?: string; items: React.ReactNode[] }) {
     </div>
   );
 }
+/**
+ * Disconnecting stops the AI booking anything — it drops back to taking
+ * messages — so it asks once before doing it rather than firing on a stray
+ * click. Same arm-then-confirm shape as cancelling an appointment.
+ */
+function DisconnectButton({ clientId }: { clientId: string }) {
+  const [armed, setArmed] = useState(false);
+
+  if (!armed) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setArmed(true)}>
+        Disconnect
+      </Button>
+    );
+  }
+  return (
+    <form action={disconnectCalendarAction} className="flex items-center gap-2">
+      <input type="hidden" name="clientId" value={clientId} />
+      <span className="text-xs text-muted-foreground">
+        Your AI will stop booking and take messages instead.
+      </span>
+      <Button type="submit" variant="destructive" size="sm">
+        Yes, disconnect
+      </Button>
+      <Button type="button" variant="ghost" size="sm" onClick={() => setArmed(false)}>
+        Keep it
+      </Button>
+    </form>
+  );
+}
+
 export function CalendarConnect({
   clientId,
   provider,
@@ -95,25 +126,12 @@ export function CalendarConnect({
               </p>
             </div>
           </div>
-          {provider === "google" || provider === "microsoft" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              nativeButton={false}
-              render={
-                <Link href={`/api/calendar/google/disconnect?client=${clientId}`} prefetch={false} />
-              }
-            >
-              Disconnect
-            </Button>
-          ) : (
-            <form action={disconnectCalendarAction}>
-              <input type="hidden" name="clientId" value={clientId} />
-              <Button type="submit" variant="outline" size="sm">
-                Disconnect
-              </Button>
-            </form>
-          )}
+          {/* One disconnect path for every provider: a POSTed server action.
+              The old Google/Outlook variant was a plain GET link, which meant
+              any page could trigger it with an <img> tag, and it skipped the
+              agent republish — so the AI kept offering to book appointments
+              onto a calendar it could no longer reach. */}
+          <DisconnectButton clientId={clientId} />
         </CardContent>
       </Card>
     );
