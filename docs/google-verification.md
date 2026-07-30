@@ -1,32 +1,53 @@
-# Google OAuth verification — getting calendar connect open to everyone
+# Google OAuth verification — status and what's left
 
-**Why:** the OAuth consent screen is in *Testing* mode. Only listed test users can connect
-Google Calendar; everyone else sees "Access blocked". Publishing + verification removes that
-wall. The `https://www.googleapis.com/auth/calendar` scope is **sensitive**, so Google review
-is mandatory (typically 1–4 weeks; no CASA security audit needed for sensitive-only scopes).
+**Goal:** remove the "Google hasn't verified this app" screen that every business owner
+currently sees when connecting Google Calendar.
 
-## Before you submit
-1. **Console** (console.cloud.google.com → APIs & Services → OAuth consent screen):
-   - App name: FrontDesk AI · support email: your address
-   - App domain: https://frontdesk-ai-alpha.vercel.app (move to a custom domain first if you
-     plan to — verification is per-domain, and re-verifying later is a second review)
-   - **Privacy policy**: https://frontdesk-ai-alpha.vercel.app/privacy (already public ✓)
-   - **Terms**: https://frontdesk-ai-alpha.vercel.app/terms (already public ✓)
-   - Authorized domain: verify ownership in Search Console (vercel.app subdomains can't be
-     verified as yours — this is the strongest argument for a custom domain before submitting)
-2. **Scope justification** (you'll paste this in the form): "FrontDesk AI is an AI phone
-   receptionist for small businesses. With the user's consent it reads free/busy times to
-   offer open slots to callers, and creates/cancels calendar events when a caller books or
-   cancels an appointment. Events may include a Google Meet link for video-friendly services."
-3. **Demo video** (unlisted YouTube): screen-record the full flow — portal → Appointments →
-   Connect Google Calendar → consent screen (URL bar visible, showing your client ID) →
-   grant → a booking appearing on the calendar. 2–3 minutes, no narration needed.
+## Done ✅
+- Custom domain **frontdeskai.company** live, `APP_URL` set, app re-provisioned against it.
+- OAuth client redirect URI added: `https://frontdeskai.company/api/calendar/google/callback`
+  (the old vercel.app URI is kept so nothing breaks mid-migration).
+- Branding page: app name, support email, home page, privacy + terms URLs all on the new
+  domain; `frontdeskai.company` added as an authorized domain.
+- **Search Console ownership verified** (TXT record on the apex domain, via Vercel DNS).
+  Don't delete that record — removing it silently un-verifies the domain.
+- Publishing status moved from *Testing* → **In production**, so any Google account can
+  connect today (with the unverified-app warning until review completes).
+- Sensitive scope `https://www.googleapis.com/auth/calendar` declared under Data Access,
+  with the written justification saved (879/1000 chars).
+- In-app guidance shipped: the Google tile in the portal tells owners exactly what the
+  warning screen looks like and which link to click, so it stops costing conversions.
 
-## Submit
-OAuth consent screen → **Publish app** → **Prepare for verification** → fill the form with
-the links + video → submit. Answer reviewer emails quickly; each round-trip costs days.
+## Left to do 🎬
+**One thing: the demo video.** Google requires an unlisted/public YouTube link showing the
+scope in real use. Then hit Submit in the Verification Center.
 
-## Until it's approved
-Test users (max 100) keep working: OAuth consent screen → Test users → Add. Personal Gmail
-addresses only — Workspace accounts under org policies can still be blocked by their admins
-regardless of verification.
+### Recording script (~90 seconds, no narration needed)
+Record the whole screen (QuickTime → File → New Screen Recording), **URL bar visible the
+whole time** — reviewers check the domain and client ID.
+
+1. Start at `https://frontdeskai.company` — let the landing page sit for 2 seconds.
+2. Sign in and go to **Appointments** in the portal.
+3. Click the **Google Calendar** tile, then **Continue to Google**.
+4. Pick a Google account. **Let the "Google hasn't verified this app" screen appear and
+   stay on screen ~3 seconds** — Google explicitly requires this to be visible. Then click
+   *Advanced* → *Go to FrontDesk AI (unsafe)*.
+5. **Pause on the consent screen** for ~3 seconds so the requested calendar permission and
+   the app name are clearly legible. Click **Allow**.
+6. Land back in the portal — show the green "Google Calendar connected" state.
+7. Open Google Calendar in a new tab and show a booking that the AI created (or create one
+   from the portal's "New appointment" and show it appear).
+
+Upload to YouTube as **Unlisted**, copy the link.
+
+### Then submit
+Google Cloud Console → **Google Auth Platform → Data Access** → paste the link in
+*Demo video* → **Save** → then **Verification Center → Submit for verification**.
+
+Reply to any reviewer email quickly; each round trip adds days. Typical review for a
+sensitive-only scope (no CASA audit needed): a few days to ~4 weeks.
+
+## While waiting
+Nothing is blocked — owners can connect today by clicking through the warning, and
+Outlook / Cal.com have no warning at all. The 100-user cap on unverified sensitive scopes
+applies over the app's lifetime, so verification matters well before 100 businesses.
