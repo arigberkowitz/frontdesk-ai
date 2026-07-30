@@ -53,6 +53,24 @@ export default async function PortalLayout({ children }: { children: React.React
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="fd-fade-up mx-auto w-full max-w-5xl">{children}</div>
       </main>
+      <footer className="border-t px-4 py-4 text-center text-xs text-muted-foreground sm:px-6">
+        FrontDesk AI ·{" "}
+        <Link
+          href="/terms"
+          target="_blank"
+          className="underline-offset-2 hover:text-foreground hover:underline"
+        >
+          Terms
+        </Link>{" "}
+        ·{" "}
+        <Link
+          href="/privacy"
+          target="_blank"
+          className="underline-offset-2 hover:text-foreground hover:underline"
+        >
+          Privacy
+        </Link>
+      </footer>
     </div>
   );
 }
