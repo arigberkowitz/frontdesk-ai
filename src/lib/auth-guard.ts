@@ -419,6 +419,26 @@ export async function assertClientEditor(clientId: string): Promise<User> {
   return user;
 }
 
+/**
+ * Non-throwing variant of `assertClientEditor` for server actions that return
+ * an ActionState: a locked staff member gets a friendly error (rendered as a
+ * toast / inline message) instead of a thrown error that nukes the whole page
+ * into the error boundary.
+ */
+export async function requireClientEditor(
+  clientId: string,
+): Promise<{ ok: true; user: User } | { ok: false; error: string }> {
+  try {
+    const user = await assertClientEditor(clientId);
+    return { ok: true, user };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Editing is limited to your admin.",
+    };
+  }
+}
+
 /** Set the unlock cookie after a correct code entry (12h, per client+user). */
 export async function grantEditUnlock(clientId: string, userId: string): Promise<void> {
   const { signUnlockToken } = await import("./crypto");

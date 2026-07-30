@@ -176,7 +176,7 @@ export function LandingPage() {
                 One price per location. A 14-day free trial — no charge until you go live.
               </p>
             </div>
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
+            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {planList().map((plan) => {
                 const featured = plan.key === "pro";
                 return (
@@ -199,7 +199,9 @@ export function LandingPage() {
                       <span className="text-sm text-muted-foreground">/mo</span>
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      + {formatCurrencyCents(plan.setupFeeCents)} one-time setup
+                      {plan.setupFeeCents > 0
+                        ? `+ ${formatCurrencyCents(plan.setupFeeCents)} one-time setup`
+                        : "No setup fee"}
                     </p>
                     <ul className="mt-4 space-y-2">
                       {plan.highlights.map((h) => (

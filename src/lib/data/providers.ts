@@ -126,6 +126,7 @@ export async function listProviderAppointments(
       eq(appointments.clientId, clientId),
       eq(appointments.providerId, providerId),
       isNull(appointments.deletedAt),
+      sql`${appointments.status} not in ('cancelled', 'no_show')`,
       gte(appointments.startAt, from),
       lt(appointments.startAt, to),
     ),

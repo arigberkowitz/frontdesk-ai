@@ -70,10 +70,15 @@ export default async function PortalOverviewPage({
     `${m.leads} left a message`,
     `${answered} got a question answered`,
   ];
+  // Match the tile's number: cancelled / no-show bookings don't count there,
+  // so they don't belong in its breakdown list either.
+  const activeAppts = appts.filter((a) => a.status !== "cancelled" && a.status !== "no_show");
   const apptBreakdown = [
     `The ${v.appointments} your AI put on the calendar.`,
-    ...(appts.length
-      ? appts.slice(0, 4).map((a) => `${a.customerName ?? "Caller"} — ${formatDateTime(a.startAt, tz)}`)
+    ...(activeAppts.length
+      ? activeAppts
+          .slice(0, 4)
+          .map((a) => `${a.customerName ?? "Caller"} — ${formatDateTime(a.startAt, tz)}`)
       : [`No ${v.appointments} yet.`]),
   ];
   const afterHoursBreakdown = [

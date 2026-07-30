@@ -10,6 +10,7 @@ import * as clientsData from "@/lib/data/clients";
 import { seedClientFromPack } from "@/lib/starter-seed";
 import { safeIndustry } from "@/config/starter-packs";
 import { env } from "@/lib/env";
+import { DEFAULT_TIMEZONE } from "@/config/app";
 import type { ClientStatus } from "@/db/schema";
 import { type ActionState, fieldErrorsOf } from "./types";
 
@@ -51,7 +52,7 @@ export async function createStarterClientAction(formData: FormData): Promise<voi
   // Settings was a real usability bug.
   const name = String(formData.get("name") ?? "").trim().slice(0, 120) || "Your business";
   const tz = String(formData.get("timezone") ?? "").trim();
-  let timezone = "America/New_York";
+  let timezone = DEFAULT_TIMEZONE;
   try {
     if (tz) {
       new Intl.DateTimeFormat("en-US", { timeZone: tz });

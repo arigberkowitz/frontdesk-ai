@@ -40,9 +40,15 @@ export const env = {
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : "http://localhost:3300"),
   // Shared secret the agent-tool callbacks check (baked into Retell tool URLs).
-  // Use `||` so an empty RETELL_API_KEY doesn't become the secret.
+  // Use `||` so an empty RETELL_API_KEY doesn't become the secret. The dev
+  // default NEVER applies in production — a guessable public string as the
+  // only auth on booking/cancel/message endpoints would be an open door;
+  // authenticateAgentTool rejects an empty secret, so prod without env vars
+  // fails closed instead.
   AGENT_TOOLS_SECRET:
-    process.env.AGENT_TOOLS_SECRET || process.env.RETELL_API_KEY || "dev-agent-tools-secret",
+    process.env.AGENT_TOOLS_SECRET ||
+    process.env.RETELL_API_KEY ||
+    (process.env.NODE_ENV === "production" ? "" : "dev-agent-tools-secret"),
   // Secret protecting the digest cron endpoint (digests disabled until set).
   CRON_SECRET: process.env.CRON_SECRET ?? "",
 } as const;

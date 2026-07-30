@@ -1,13 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { assertClientEditor, requireOperator } from "@/lib/auth-guard";
+import { requireClientEditor, requireOperator } from "@/lib/auth-guard";
 import { agentConfigSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg, getClient, updateClient } from "@/lib/data/clients";
 import { createAgentVersion } from "@/lib/data/agent-versions";
 import { defaultGreeting, DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { buildPromptForClient } from "@/lib/agent-publish";
 import {
+  buildAgentTools,
   DEFAULT_VOICE_ID,
   getRetellClient,
   provisionAgentForClient,
@@ -171,7 +172,9 @@ export async function provisionAgentPortalAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const user = guard.user;
   if (user.role !== "operator") {
     return { ok: false, error: "Only the business owner can activate the receptionist." };
   }
@@ -199,6 +202,10 @@ export async function publishAgentAction(
         begin_message:
           client.greeting?.trim() ||
           defaultGreeting({ name: client.name }, client.agentName?.trim() || DEFAULT_AGENT_NAME),
+        // Keep tools in lockstep with the prompt: a prompt that mentions
+        // cancel_appointment (or a changed escalation number) must ship the
+        // matching tool set, or agents provisioned earlier hallucinate calls.
+        general_tools: buildAgentTools(env.APP_URL, clientId, client.escalationNumber),
       });
     } catch (err) {
       return {

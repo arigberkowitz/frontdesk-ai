@@ -274,7 +274,12 @@ export function AppointmentsView({
                         key={a.id}
                         onClick={() => setSelected(a)}
                         title={`${a.customerName ?? "Caller"}${a.serviceName ? ` · ${a.serviceName}` : ""} · ${format(a.date, "h:mm a")}`}
-                        className="block w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-left text-[11px] leading-tight text-foreground outline-none transition-colors hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-ring"
+                        className={cn(
+                          "block w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] leading-tight outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                          a.status === "cancelled" || a.status === "no_show"
+                            ? "bg-muted text-muted-foreground line-through hover:bg-muted/80"
+                            : "bg-primary/10 text-foreground hover:bg-primary/20",
+                        )}
                       >
                         <span className="font-medium tabular-nums">{format(a.date, "h:mm")}</span>{" "}
                         {a.customerName ?? "Caller"}
@@ -395,7 +400,7 @@ export function AppointmentsView({
                   />
                 ) : null}
               </div>
-              {clientId ? (
+              {clientId && selected.status !== "cancelled" && selected.status !== "no_show" ? (
                 <AppointmentReminders
                   clientId={clientId}
                   appointmentId={selected.id}

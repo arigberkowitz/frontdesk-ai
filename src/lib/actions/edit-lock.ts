@@ -18,6 +18,7 @@ export async function unlockEditingAction(
   const clientId = String(formData.get("clientId") ?? "");
   const code = String(formData.get("code") ?? "").trim();
   const user = await assertClientAccess(clientId);
+  await assertClientInOrg(user.orgId, clientId);
   if (!code) return { ok: false, error: "Enter the edit code." };
 
   const client = await db.query.clients.findFirst({

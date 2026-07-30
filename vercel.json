@@ -6,7 +6,7 @@
       "schedule": "0 14 * * *"
     },
     {
-      "path": "/api/cron/digest?period=weekly",
+      "path": "/api/cron/weekly-report",
       "schedule": "0 15 * * 1"
     },
     {

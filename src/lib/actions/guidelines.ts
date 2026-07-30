@@ -1,13 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { assertClientEditor } from "@/lib/auth-guard";
+import { requireClientEditor } from "@/lib/auth-guard";
 import { guidelinesSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg, updateClient } from "@/lib/data/clients";
 import { applyClientEdit } from "@/lib/agent-publish";
 import { updateAgentVoice } from "@/lib/retell";
 import { integrations } from "@/lib/env";
-import { voiceIdForGender, type VoiceGender } from "@/config/voice";
 import { type ActionState, fieldErrorsOf } from "./types";
 import type { NewClient } from "@/db/schema";
 
@@ -24,8 +23,9 @@ export async function saveGuidelinesAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientEditor(clientId);
-
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const user = guard.user;
   // Collect only the field(s) this card actually submitted.
   const raw: Record<string, FormDataEntryValue> = {};
   for (const f of FIELDS) {
@@ -50,35 +50,6 @@ export async function saveGuidelinesAction(
 }
 
 /**
- * Let a business choose whether its receptionist sounds like a woman or a man.
- * Saves the voice and, if the agent is already live, updates its voice on Retell;
- * otherwise the choice is applied when the agent is first provisioned.
- */
-export async function setVoiceAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const clientId = String(formData.get("clientId") ?? "");
-  const gender = String(formData.get("gender") ?? "") as VoiceGender;
-  if (gender !== "female" && gender !== "male") return { ok: false, error: "Pick a voice." };
-
-  const user = await assertClientEditor(clientId);
-  await assertClientInOrg(user.orgId, clientId);
-
-  const voiceId = voiceIdForGender(gender);
-  const client = await updateClient(user.orgId, clientId, { voiceId });
-
-  if (client.retellAgentId && integrations.retell()) {
-    try {
-      await updateAgentVoice(client.retellAgentId, voiceId);
-    } catch {
-      return { ok: false, error: "Saved your choice, but couldn't update the live voice — try again." };
-    }
-  }
-
-  revalidatePath("/portal/guidelines");
-  revalidatePath(`/clients/${clientId}`);
-  return { ok: true };
-}
-
-/**
  * Set a specific voice by its Retell voice id (the grouped Women/Men dropdown).
  * Like setVoiceAction, but the caller picks an exact voice rather than a gender.
  */
@@ -90,7 +61,11 @@ export async function setVoiceByIdAction(
   const voiceId = String(formData.get("voiceId") ?? "").trim();
   if (!voiceId || voiceId.length > 120) return { ok: false, error: "Pick a voice." };
 
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
 
   const client = await updateClient(user.orgId, clientId, { voiceId });

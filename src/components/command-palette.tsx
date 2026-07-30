@@ -15,8 +15,7 @@ import {
   Search,
   Settings,
   Sparkles,
-  Wrench,
-} from "lucide-react";
+  Wrench, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +38,7 @@ const PORTAL_ITEMS: CmdItem[] = [
   { label: "Services", href: "/portal/services", icon: Wrench, group: "Go to" },
   { label: "Hours", href: "/portal/hours", icon: Clock, group: "Go to" },
   { label: "Knowledge", href: "/portal/knowledge", icon: HelpCircle, group: "Go to" },
+  { label: "Team", href: "/portal/team", icon: Users, group: "Go to" },
   { label: "Your AI", href: "/portal/guidelines", icon: Sparkles, group: "Go to" },
   { label: "Settings", href: "/portal/settings", icon: Settings, group: "Go to" },
 ];

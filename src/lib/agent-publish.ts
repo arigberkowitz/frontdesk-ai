@@ -24,6 +24,8 @@ export function buildPromptForClient(client: ClientWithRelations): string {
       humanHandoffEnabled: client.humanHandoffEnabled,
       humanHoursNote: client.humanHoursNote,
       languages: client.languages,
+      // Missed-only mode: the agent acknowledges the caller expected a person.
+      answeringMode: client.answeringMode,
       // The agent only promises booking when a calendar is actually connected.
       bookingEnabled: getBookingProviderForClient(client).isConfigured(),
     },
@@ -51,7 +53,12 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
     await getRetellClient().llm.update(client.retellLlmId, {
       general_prompt: `You are the answering service for ${client.name}. The business has TEMPORARILY TURNED OFF its automated receptionist. Apologize briefly, say the team will call back, and take a message: ask for the caller's name, then their phone number (one question at a time, read the number back), then a one-sentence reason for the call. Do not answer questions about prices, hours, or services. Do not book appointments. Keep the whole call under a minute.`,
       begin_message: `Thanks for calling ${client.name}. Our automated assistant is off right now, but I can take a quick message so the team calls you back.`,
-      general_tools: buildAgentTools(env.APP_URL, clientId, client.escalationNumber),
+      // Message-taking only: strip the booking/cancel tools so a paused
+      // business can't get a real booking row from an LLM that ignores the
+      // prompt — keep take_message and the human-transfer path.
+      general_tools: buildAgentTools(env.APP_URL, clientId, client.escalationNumber).filter(
+        (t) => t.name === "take_message" || t.name === "transfer_to_human",
+      ),
     });
     return true;
   }

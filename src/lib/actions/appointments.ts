@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { assertClientAccess } from "@/lib/auth-guard";
-import { getClientByIdUnsafe } from "@/lib/data/clients";
+import { assertClientInOrg, getClientByIdUnsafe } from "@/lib/data/clients";
 import {
   cancelAppointment,
   createAppointment,
@@ -37,7 +37,8 @@ export async function createManualAppointmentAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  await assertClientAccess(clientId);
+  const user = await assertClientAccess(clientId);
+  await assertClientInOrg(user.orgId, clientId);
 
   const parsed = manualApptSchema.safeParse({
     customerName: formData.get("customerName") ?? undefined,
@@ -114,7 +115,8 @@ export async function cancelAppointmentAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  await assertClientAccess(clientId);
+  const user = await assertClientAccess(clientId);
+  await assertClientInOrg(user.orgId, clientId);
   const appointmentId = String(formData.get("appointmentId") ?? "");
   if (!appointmentId) return { ok: false, error: "Missing appointment." };
 

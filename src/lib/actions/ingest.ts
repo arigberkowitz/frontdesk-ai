@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { assertClientEditor } from "@/lib/auth-guard";
+import { requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg, getClientByIdUnsafe } from "@/lib/data/clients";
 import { ingestDocument } from "@/lib/agents/ingest";
 import { type ActionState } from "./types";
@@ -12,7 +12,9 @@ export async function ingestDocumentAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
 
   const docText = String(formData.get("docText") ?? "").trim();

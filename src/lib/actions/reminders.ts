@@ -32,6 +32,9 @@ export async function sendReminderAction(
 
   const appt = await getClientAppointment(clientId, appointmentId);
   if (!appt) return { ok: false, error: "Appointment not found." };
+  if (appt.status === "cancelled" || appt.status === "no_show") {
+    return { ok: false, error: "This appointment was cancelled — no reminder to send." };
+  }
 
   const phone = appt.customerPhone?.trim();
   if (!phone) {

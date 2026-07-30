@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, providers } from "@/db/schema";
-import { assertClientAccess, assertClientEditor } from "@/lib/auth-guard";
+import { assertClientAccess, requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { applyClientEdit } from "@/lib/agent-publish";
 import { type ActionState } from "./types";
@@ -22,6 +22,7 @@ export async function setStaffModeAction(
   if (user.role !== "operator" && user.role !== "client_admin") {
     return { ok: false, error: "Only your admin can change staff mode." };
   }
+  await assertClientInOrg(user.orgId, clientId);
   await db.update(clients).set({ staffModeEnabled: enabled }).where(eq(clients.id, clientId));
   await applyClientEdit(user, clientId); // the live agent starts/stops offering "who would you like to see?"
   return {
@@ -38,7 +39,9 @@ export async function addProviderAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
 
   const name = String(formData.get("name") ?? "").trim();
@@ -68,7 +71,9 @@ export async function removeProviderAction(
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
   const providerId = String(formData.get("providerId") ?? "");
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
 
   await db
@@ -88,6 +93,7 @@ export async function setClockAction(
   const providerId = String(formData.get("providerId") ?? "");
   const onClock = String(formData.get("onClock") ?? "") === "true";
   const user = await assertClientAccess(clientId);
+  await assertClientInOrg(user.orgId, clientId);
 
   const row = await db.query.providers.findFirst({
     where: and(eq(providers.id, providerId), eq(providers.clientId, clientId)),
@@ -100,7 +106,10 @@ export async function setClockAction(
     return { ok: false, error: "You can only clock yourself in or out." };
   }
 
-  await db.update(providers).set({ onClock }).where(eq(providers.id, providerId));
+  await db
+    .update(providers)
+    .set({ onClock })
+    .where(and(eq(providers.id, providerId), eq(providers.clientId, clientId)));
   revalidatePath("/portal", "layout");
   return {
     ok: true,

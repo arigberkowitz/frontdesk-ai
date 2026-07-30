@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
-import { assertClientEditor } from "@/lib/auth-guard";
+import { requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { getClientSetupStatus } from "@/lib/data/setup";
 import { checkSetupReadiness } from "@/lib/agents/setup-check";
@@ -21,7 +21,9 @@ export async function finishSetupAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
 
   const status = await getClientSetupStatus(clientId);
@@ -60,7 +62,9 @@ export async function setSetupFlagAction(
   const clientId = String(formData.get("clientId") ?? "");
   const flag = String(formData.get("flag") ?? "");
   const value = String(formData.get("value") ?? "") === "true";
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
   if (flag !== "calendarSkipped" && flag !== "forwardingDone") {
     return { ok: false, error: "Unknown setting." };
@@ -94,7 +98,9 @@ export async function reopenSetupAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
 
   await db.update(clients).set({ setupCompletedAt: null }).where(eq(clients.id, clientId));

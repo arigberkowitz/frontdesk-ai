@@ -372,7 +372,7 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
 
   const [apptAgg] = await db
     .select({
-      today: sql<number>`count(*) filter (where ${appointments.createdAt} >= date_trunc('day', now()))::int`,
+      today: sql<number>`count(*) filter (where ${appointments.createdAt} >= date_trunc('day', now()) and ${appointments.status} not in ('cancelled','no_show'))::int`,
       month: sql<number>`count(*) filter (where ${appointments.createdAt} >= date_trunc('month', now()) and ${appointments.status} not in ('cancelled','no_show'))::int`,
     })
     .from(appointments)
@@ -399,7 +399,10 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     .groupBy(calls.clientId);
 
   const apptByClient = await db
-    .select({ clientId: appointments.clientId, total: sql<number>`count(*)::int` })
+    .select({
+      clientId: appointments.clientId,
+      total: sql<number>`count(*) filter (where ${appointments.status} not in ('cancelled','no_show'))::int`,
+    })
     .from(appointments)
     .where(and(inArray(appointments.clientId, ids), isNull(appointments.deletedAt)))
     .groupBy(appointments.clientId);

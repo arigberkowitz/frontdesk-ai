@@ -1,6 +1,6 @@
 "use server";
 
-import { assertClientEditor } from "@/lib/auth-guard";
+import { requireClientEditor } from "@/lib/auth-guard";
 import { serviceSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg } from "@/lib/data/clients";
 import * as servicesData from "@/lib/data/services";
@@ -23,7 +23,9 @@ export async function createServiceAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const user = guard.user;
   const parsed = parseService(formData);
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
 
@@ -46,7 +48,9 @@ export async function updateServiceAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const user = guard.user;
   const serviceId = String(formData.get("serviceId") ?? "");
   const parsed = parseService(formData);
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
@@ -67,7 +71,9 @@ export async function updateServiceAction(
 
 export async function deleteServiceAction(formData: FormData): Promise<void> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return; // locked staff: silent no-op (banner explains)
+  const user = guard.user;
   const serviceId = String(formData.get("serviceId") ?? "");
   await assertClientInOrg(user.orgId, clientId);
   await servicesData.deleteService(clientId, serviceId);

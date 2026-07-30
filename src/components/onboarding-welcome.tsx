@@ -158,8 +158,20 @@ export function OnboardingWelcome({ aiReady }: { aiReady: boolean }) {
         <div className="flex flex-col items-center gap-3">
           <form action={createStarterClientAction} className="w-full max-w-sm space-y-3 text-left">
             <TimezoneField />
+            {/* The action reads name + companySize — without these fields the
+                business gets created as literally "Your business", solo. */}
+            <Field label="Business name">
+              <Input name="name" placeholder="Bright Smile Dental" required />
+            </Field>
             <Field label="What kind of business?">
               <IndustrySelect />
+            </Field>
+            <Field label="Who's answering the phones?">
+              <NativeSelect name="companySize" defaultValue="solo" className="h-9">
+                <option value="solo">Just me</option>
+                <option value="team">A small team (2–10)</option>
+                <option value="big">A bigger operation</option>
+              </NativeSelect>
             </Field>
             <Button type="submit" size="lg" className="w-full">
               <Sparkles className="size-4" />

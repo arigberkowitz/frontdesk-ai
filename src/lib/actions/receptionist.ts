@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
 import { assertClientAccess } from "@/lib/auth-guard";
+import { assertClientInOrg } from "@/lib/data/clients";
 import { syncAgentPrompt } from "@/lib/agent-publish";
 import { logger } from "@/lib/logger";
 import { type ActionState } from "./types";
@@ -25,6 +26,7 @@ export async function setReceptionistPowerAction(
   if (user.role !== "operator" && user.role !== "client_admin") {
     return { ok: false, error: "Only your admin can turn the receptionist on or off." };
   }
+  await assertClientInOrg(user.orgId, clientId);
 
   const client = await db.query.clients.findFirst({ where: eq(clients.id, clientId) });
   if (!client) return { ok: false, error: "Business not found." };
@@ -82,6 +84,7 @@ export async function setAnsweringModeAction(
   if (user.role !== "operator" && user.role !== "client_admin") {
     return { ok: false, error: "Only your admin can change how calls are answered." };
   }
+  await assertClientInOrg(user.orgId, clientId);
 
   await db.update(clients).set({ answeringMode: mode }).where(eq(clients.id, clientId));
 

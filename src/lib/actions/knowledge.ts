@@ -1,6 +1,6 @@
 "use server";
 
-import { assertClientEditor } from "@/lib/auth-guard";
+import { requireClientEditor } from "@/lib/auth-guard";
 import { knowledgeSchema } from "@/lib/validation";
 import { assertClientInOrg } from "@/lib/data/clients";
 import * as knowledgeData from "@/lib/data/knowledge";
@@ -12,7 +12,9 @@ export async function createKnowledgeAction(
   formData: FormData,
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const user = guard.user;
   const parsed = knowledgeSchema.safeParse({
     question: formData.get("question"),
     answer: formData.get("answer"),
@@ -37,7 +39,9 @@ export async function updateKnowledgeAction(
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
   const itemId = String(formData.get("itemId") ?? "");
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const user = guard.user;
   const parsed = knowledgeSchema.safeParse({
     question: formData.get("question"),
     answer: formData.get("answer"),
@@ -57,7 +61,9 @@ export async function updateKnowledgeAction(
 
 export async function deleteKnowledgeAction(formData: FormData): Promise<void> {
   const clientId = String(formData.get("clientId") ?? "");
-  const user = await assertClientEditor(clientId);
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return; // locked staff: silent no-op (banner explains)
+  const user = guard.user;
   const itemId = String(formData.get("itemId") ?? "");
   await assertClientInOrg(user.orgId, clientId);
   await knowledgeData.deleteKnowledge(clientId, itemId);
