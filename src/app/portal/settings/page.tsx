@@ -36,7 +36,14 @@ export default async function PortalSettingsPage() {
         status={client.status}
         isAdmin={editAccess.isAdmin}
       />
-      <AiNumberCard phoneNumber={client.retellPhoneNumber} />
+      <AiNumberCard
+        clientId={clientId}
+        phoneNumber={client.retellPhoneNumber}
+        mode={client.answeringMode === "missed_only" ? "missed_only" : "all_calls"}
+        forwardingDone={Boolean(client.setupFlags?.forwardingDone)}
+        isAdmin={editAccess.isAdmin}
+        canEdit={editAccess.canEdit}
+      />
       <PortalSettings client={client} isAdmin={editAccess.isAdmin} />
       <AlertRoster clientId={clientId} contacts={alertContacts} />
       <SetupChecklist

@@ -101,7 +101,7 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
     {
       key: "forwarding",
       label: "Forward your business line",
-      href: "/portal/settings",
+      href: "/portal/settings#forwarding",
       done: Boolean(flags.forwardingDone),
       manual: true,
       // Every business gets its own dedicated AI number at activation — show

@@ -19,6 +19,8 @@ export interface PromptClient {
   guidance?: string | null;
   /** Company-authored rules for how the assistant should book. */
   bookingInstructions?: string | null;
+  /** "all_calls" (24/7 receptionist) or "missed_only" (backup for missed calls). */
+  answeringMode?: string | null;
   /** "Human touch": proactively offer a real person, not just on request. */
   humanHandoffEnabled?: boolean;
   /** Freeform note on when a human is actually reachable, e.g. "weekdays 9–5". */
@@ -134,6 +136,9 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
       : null,
     // Voice-call pacing: stacked questions overwhelm callers. One at a time.
     "Ask for ONE piece of information at a time and wait for the answer — never bundle questions (\"your name?\" … then \"best number to reach you?\" … then \"when works for you?\"). Briefly acknowledge or confirm each answer (especially phone numbers, read them back) before asking the next.",
+    client.answeringMode === "missed_only"
+      ? "You answer the calls the team couldn't get to — the caller likely expected a person. Acknowledge that naturally (\"Sorry — everyone's helping other customers right now, but I can take care of you\") and never pretend to be human."
+      : null,
     disclosure ? `At the start of the call, naturally disclose: "${disclosure}"` : null,
     guidance
       ? `Follow the "What ${client.name} wants you to say" section above EXACTLY — those instructions take priority over these rules wherever they conflict.`

@@ -7,7 +7,7 @@
  *   Monthly:    $300–$600 flat per client
  *   Trial:      14-day free pilot, no charge until conversion
  */
-export type PlanKey = "starter" | "pro" | "scale";
+export type PlanKey = "backup" | "starter" | "pro" | "scale";
 
 export interface Plan {
   key: PlanKey;
@@ -23,6 +23,20 @@ export interface Plan {
 }
 
 export const PLANS: Record<PlanKey, Plan> = {
+  backup: {
+    key: "backup",
+    name: "Missed-Call Rescue",
+    monthlyPriceCents: 14_900, // $149
+    setupFeeCents: 0,
+    includedMinutes: 200,
+    description: "You answer when you can — the AI catches every call you miss.",
+    highlights: [
+      "Answers missed & after-hours calls only",
+      "Books appointments & captures leads on those calls",
+      "Instant owner alerts",
+      "Upgrade to 24/7 coverage anytime",
+    ],
+  },
   starter: {
     key: "starter",
     name: "Starter",

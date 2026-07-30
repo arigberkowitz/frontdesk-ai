@@ -210,6 +210,11 @@ export const clients = pgTable(
     // Text-message alerts to the owner's alert phone on bookings/leads.
     // On by default; the owner can switch them off in portal Settings.
     smsAlertsEnabled: boolean("sms_alerts_enabled").notNull().default(true),
+    // How the business routes calls to the AI. "all_calls" = full receptionist
+    // (forward everything); "missed_only" = backup mode via carrier conditional
+    // forwarding — the AI answers only what the team misses, and the prompt
+    // acknowledges the caller tried a person first.
+    answeringMode: text("answering_mode").notNull().default("all_calls"),
     ...timestamps,
     ...softDelete,
   },
