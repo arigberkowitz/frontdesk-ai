@@ -315,6 +315,45 @@ export const businessHours = pgTable(
   ],
 );
 
+/**
+ * Times the business is open on paper but genuinely can't take a booking: the
+ * lunch hour, a holiday closure, the boiler being replaced, one person on
+ * leave. Weekly open/close hours can't express any of these, so the AI would
+ * cheerfully book straight through them.
+ *
+ * Two shapes share the table, told apart by which columns are set:
+ *   recurring — dayOfWeek + startTime/endTime  ("Lunch, Mondays 12:00–13:00")
+ *   one-off   — startsAt/endsAt                ("Closed Dec 24–26")
+ * `providerId` null blocks the whole business; set blocks only that staff
+ * member, leaving the rest of the team bookable.
+ */
+export const availabilityBlocks = pgTable(
+  "availability_blocks",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    providerId: uuid("provider_id").references((): AnyPgColumn => providers.id, {
+      onDelete: "cascade",
+    }),
+    /** For the owner's eyes only — never read to callers. "Lunch", "Thanksgiving". */
+    label: text("label").notNull(),
+    /** Recurring: 0=Sun…6=Sat, or null meaning every day. Null on one-off rows. */
+    dayOfWeek: integer("day_of_week"),
+    startTime: text("start_time"), // "12:00", client-local
+    endTime: text("end_time"), // "13:00"
+    /** One-off window, absolute instants. Null on recurring rows. */
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    index("availability_blocks_client_idx").on(t.clientId),
+    index("availability_blocks_provider_idx").on(t.providerId),
+  ],
+);
+
 /** One row per call. `retell_call_id` is the idempotency key for webhook upserts. */
 export const calls = pgTable(
   "calls",
@@ -711,6 +750,7 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   providers: many(providers),
   services: many(services),
   businessHours: many(businessHours),
+  availabilityBlocks: many(availabilityBlocks),
   calls: many(calls),
   appointments: many(appointments),
   leads: many(leads),
@@ -736,6 +776,14 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
 
 export const businessHoursRelations = relations(businessHours, ({ one }) => ({
   client: one(clients, { fields: [businessHours.clientId], references: [clients.id] }),
+}));
+
+export const availabilityBlocksRelations = relations(availabilityBlocks, ({ one }) => ({
+  client: one(clients, { fields: [availabilityBlocks.clientId], references: [clients.id] }),
+  provider: one(providers, {
+    fields: [availabilityBlocks.providerId],
+    references: [providers.id],
+  }),
 }));
 
 export const callsRelations = relations(calls, ({ one, many }) => ({
@@ -844,3 +892,6 @@ export type ClientStatus = (typeof clientStatus.enumValues)[number];
 export type CallOutcome = (typeof callOutcome.enumValues)[number];
 export type UserRole = (typeof userRole.enumValues)[number];
 export type SuggestionStatus = (typeof suggestionStatus.enumValues)[number];
+
+export type AvailabilityBlock = typeof availabilityBlocks.$inferSelect;
+export type NewAvailabilityBlock = typeof availabilityBlocks.$inferInsert;

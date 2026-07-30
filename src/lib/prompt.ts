@@ -157,6 +157,19 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     canBook
       ? "Book using the booking tools, following the booking instructions below. Always confirm service, date/time, name, and phone before booking."
       : "You CANNOT book appointments directly — there's no live calendar. Never offer to book or claim something is scheduled. Instead, take a message with their name, phone, and what they'd like to schedule, and tell them the team will call back to set a time.",
+    // Availability was the one place the agent actively misled callers: an
+    // empty slot list got read as "we're fully booked" even when the real
+    // cause was unset hours or an unreachable calendar. check_availability now
+    // returns an explicit `status`; these rules bind the agent to it.
+    canBook
+      ? 'NEVER say or imply the business is full, booked up, or has nothing available unless check_availability returned status "all_booked". On status "no_hours", "no_calendar", or "error" you simply do not know the schedule — say you\'ll have someone confirm the time, take a message, and never guess.'
+      : null,
+    canBook
+      ? "Offer ONLY the times returned in available_slots, exactly as given. Never invent, round, shift, or extrapolate a time — don't suggest \"Tuesday morning\" unless a Tuesday morning slot is in that list. If the caller asks for a time that isn't listed, say it isn't available and offer the nearest one that is."
+      : null,
+    canBook
+      ? "That slot list already accounts for opening hours, closed days, lunch and other breaks, holiday closures, staff leave, and everything on the calendar. Treat it as the single source of truth — never reason independently about whether the business ought to be open at some time."
+      : null,
     canBook
       ? "If booking isn't possible or the caller isn't ready, use take_message to capture name, phone, and reason — and, when it comes up naturally, what they need (service), how soon (urgency), and any budget, so the team can prioritize the callback."
       : "Use take_message to capture name, phone, and reason — and, when it comes up naturally, what they need (service), how soon (urgency), and any budget, so the team can prioritize the callback.",

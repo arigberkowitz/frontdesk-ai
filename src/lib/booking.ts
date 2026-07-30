@@ -11,6 +11,7 @@ import {
   freeBusy,
   getAccessToken,
   insertEvent,
+  type AvailabilityBlockLite,
   type BusinessHourLite,
 } from "./google-calendar";
 
@@ -32,6 +33,8 @@ export interface AvailabilityQuery {
   timezone: string;
   /** The client's weekly hours — used by the Google provider to build slots. */
   businessHours?: BusinessHourLite[];
+  /** Lunch, closures, staff leave — subtracted alongside calendar busy time. */
+  blocks?: AvailabilityBlockLite[];
 }
 
 export interface CreateBookingInput {
@@ -198,6 +201,7 @@ class GoogleCalendarBookingProvider implements BookingProvider {
     return computeFreeSlots({
       busy,
       businessHours: query.businessHours ?? [],
+      blocks: query.blocks ?? [],
       durationMin: query.durationMin,
       rangeStart: query.rangeStart,
       rangeEnd: query.rangeEnd,
@@ -274,6 +278,7 @@ class MicrosoftBookingProvider implements BookingProvider {
     return compute({
       busy,
       businessHours: query.businessHours ?? [],
+      blocks: query.blocks ?? [],
       durationMin: query.durationMin,
       rangeStart: query.rangeStart,
       rangeEnd: query.rangeEnd,

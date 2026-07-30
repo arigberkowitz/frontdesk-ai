@@ -202,12 +202,68 @@ export interface BusinessHourLite {
 }
 
 /**
+ * A window the business is closed for despite its weekly hours — lunch, a
+ * holiday, someone on leave. Recurring rows carry startTime/endTime (+ an
+ * optional dayOfWeek); one-off rows carry absolute startsAt/endsAt.
+ */
+export interface AvailabilityBlockLite {
+  dayOfWeek?: number | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  startsAt?: Date | string | null;
+  endsAt?: Date | string | null;
+}
+
+/** Why availability came back empty — so the agent can say something true. */
+export type NoSlotsReason =
+  | "no_hours" // nobody ever set opening hours
+  | "all_booked" // hours exist, every slot is taken or blocked
+  | "none"; // slots were found
+
+export interface AvailabilityResult {
+  slots: Array<{ startAt: string; endAt: string }>;
+  reason: NoSlotsReason;
+}
+
+/** Absolute [start,end) windows that a block covers inside one local day. */
+function blockWindowsForDay(
+  blocks: AvailabilityBlockLite[],
+  tz: string,
+  y: number,
+  mo: number,
+  dd: number,
+  dow: number,
+): Array<readonly [number, number]> {
+  const out: Array<readonly [number, number]> = [];
+  for (const b of blocks) {
+    if (b.startsAt && b.endsAt) {
+      // One-off: already absolute, applies to whatever days it spans.
+      out.push([new Date(b.startsAt).getTime(), new Date(b.endsAt).getTime()] as const);
+      continue;
+    }
+    if (!b.startTime || !b.endTime) continue;
+    // Recurring: null dayOfWeek means every day.
+    if (b.dayOfWeek != null && b.dayOfWeek !== dow) continue;
+    const [sh, sm] = b.startTime.split(":").map(Number);
+    const [eh, em] = b.endTime.split(":").map(Number);
+    if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) continue;
+    out.push([
+      zonedTime(tz, y, mo, dd, sh, sm).getTime(),
+      zonedTime(tz, y, mo, dd, eh, em).getTime(),
+    ] as const);
+  }
+  return out;
+}
+
+/**
  * Open slots = the business-hours grid (in the client's tz) minus busy periods,
  * future-only. A simple, calendar-respecting availability for Google.
  */
 export function computeFreeSlots(opts: {
   busy: Array<{ start: string; end: string }>;
   businessHours: BusinessHourLite[];
+  /** Lunch breaks, closures, staff leave — subtracted like calendar busy. */
+  blocks?: AvailabilityBlockLite[];
   durationMin: number;
   rangeStart: string;
   rangeEnd: string;
@@ -215,14 +271,39 @@ export function computeFreeSlots(opts: {
   nowMs: number;
   limit?: number;
 }): Array<{ startAt: string; endAt: string }> {
+  return computeAvailability(opts).slots;
+}
+
+/**
+ * Same grid as `computeFreeSlots`, but it also reports WHY it came back empty.
+ *
+ * That distinction is the whole point: an empty list can mean "genuinely booked
+ * solid" or "this business never set opening hours". Collapsing both into `[]`
+ * is what let the agent tell callers a wide-open week was fully booked.
+ */
+export function computeAvailability(opts: {
+  busy: Array<{ start: string; end: string }>;
+  businessHours: BusinessHourLite[];
+  blocks?: AvailabilityBlockLite[];
+  durationMin: number;
+  rangeStart: string;
+  rangeEnd: string;
+  timezone: string;
+  nowMs: number;
+  limit?: number;
+}): AvailabilityResult {
   const { timezone: tz, durationMin, nowMs } = opts;
   const limit = opts.limit ?? 8;
+  const blocks = opts.blocks ?? [];
   const byDay = new Map(opts.businessHours.map((h) => [h.dayOfWeek, h]));
   const busy = opts.busy.map((b) => [Date.parse(b.start), Date.parse(b.end)] as const);
-  const overlaps = (s: number, e: number) => busy.some(([bs, be]) => s < be && e > bs);
   const rangeEndMs = Date.parse(opts.rangeEnd);
   const slotMs = durationMin * 60_000;
   const out: Array<{ startAt: string; endAt: string }> = [];
+
+  // Did any day in the window actually have opening hours? Distinguishes
+  // "closed solid" from "never configured".
+  let sawOpenDay = false;
 
   const startDate = new Date(opts.rangeStart);
   for (let i = 0; i < 14 && out.length < limit; i++) {
@@ -239,6 +320,7 @@ export function computeFreeSlots(opts: {
     const dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(ymd.weekday);
     const bh = byDay.get(dow);
     if (!bh || bh.isClosed || !bh.openTime || !bh.closeTime) continue;
+    sawOpenDay = true;
 
     const [oh, om] = bh.openTime.split(":").map(Number);
     const [ch, cm] = bh.closeTime.split(":").map(Number);
@@ -248,11 +330,19 @@ export function computeFreeSlots(opts: {
     const open = zonedTime(tz, y, mo, dd, oh, om).getTime();
     const close = zonedTime(tz, y, mo, dd, ch, cm).getTime();
 
+    // Calendar busy plus this day's blocks are the same kind of obstacle.
+    const dayBlocks = blockWindowsForDay(blocks, tz, y, mo, dd, dow);
+    const blocked = (s: number, e: number) =>
+      busy.some(([bs, be]) => s < be && e > bs) ||
+      dayBlocks.some(([bs, be]) => s < be && e > bs);
+
     for (let t = open; t + slotMs <= close && out.length < limit; t += slotMs) {
-      if (t > nowMs && t < rangeEndMs && !overlaps(t, t + slotMs)) {
+      if (t > nowMs && t < rangeEndMs && !blocked(t, t + slotMs)) {
         out.push({ startAt: new Date(t).toISOString(), endAt: new Date(t + slotMs).toISOString() });
       }
     }
   }
-  return out;
+
+  const reason: NoSlotsReason = out.length > 0 ? "none" : sawOpenDay ? "all_booked" : "no_hours";
+  return { slots: out, reason };
 }
