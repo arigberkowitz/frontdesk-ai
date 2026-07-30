@@ -140,11 +140,8 @@ export function CalendarConnect({
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           <Button
             variant="outline"
-            className="h-auto flex-col gap-1 py-3"
-            nativeButton={false}
-            render={
-              <Link href={`/api/calendar/google/connect?client=${clientId}`} prefetch={false} />
-            }
+            className={`h-auto flex-col gap-1 py-3 ${choice === "google" ? "border-primary" : ""}`}
+            onClick={() => setChoice(choice === "google" ? "" : "google")}
           >
             <span className="text-base font-semibold">G</span>
             <span className="text-xs font-normal">Google Calendar</span>
@@ -197,10 +194,49 @@ export function CalendarConnect({
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Google and Outlook connect in one click — sign in, approve, done. Use an account you
-          control: school or employer accounts are often blocked by their IT policies
-          (&quot;Access blocked&quot;), and that&apos;s on their side, not yours.
+          Use an account you control. School or employer accounts are often blocked by their own IT
+          policies (&quot;Access blocked&quot;) — that&apos;s on their side, not yours.
         </p>
+
+        {/* Google's review of our app is still in progress, so its consent flow
+            shows a scary-looking "unverified app" interstitial. Telling people
+            EXACTLY what they'll see and which link to click turns the single
+            biggest drop-off point in setup into a non-event. */}
+        {choice === "google" ? (
+          <div className="space-y-2">
+            <Steps
+              intro="Two screens, about 20 seconds:"
+              items={[
+                <>Sign in with the Google account whose calendar you use.</>,
+                <>
+                  You&apos;ll likely see <strong>&ldquo;Google hasn&apos;t verified this
+                  app&rdquo;</strong> — that&apos;s expected while our security review is in
+                  progress, and it doesn&apos;t mean anything is wrong. Click{" "}
+                  <strong>Advanced</strong>, then{" "}
+                  <strong>&ldquo;Go to FrontDesk AI (unsafe)&rdquo;</strong>.
+                </>,
+                <>
+                  Approve the calendar permission. Done — bookings land on your calendar
+                  automatically.
+                </>,
+              ]}
+            />
+            <p className="text-xs text-muted-foreground">
+              We only ask for calendar access — enough to check your free times and add bookings.
+              We never read your email, contacts, or files. See our{" "}
+              <ExtLink href="/privacy" label="Privacy Policy" />.
+            </p>
+            <Button
+              nativeButton={false}
+              render={
+                <Link href={`/api/calendar/google/connect?client=${clientId}`} prefetch={false} />
+              }
+            >
+              <CalendarPlus className="size-4" />
+              Continue to Google
+            </Button>
+          </div>
+        ) : null}
 
         {choice === "outlook" && !microsoftReady ? (
           <Steps
