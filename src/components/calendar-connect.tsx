@@ -8,7 +8,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/form/field";
-import { NativeSelect } from "@/components/form/native-select";
 import { connectCalcomAction, disconnectCalendarAction } from "@/lib/actions/calendar";
 import { initialActionState } from "@/lib/actions/types";
 
@@ -135,81 +134,73 @@ export function CalendarConnect({
           </div>
         </div>
 
-        <NativeSelect
-          value={choice}
-          onChange={(e) => setChoice(e.target.value)}
-          aria-label="Calendar type"
-        >
-          <option value="">Which calendar does your business use?</option>
-          <option value="google">Google Calendar</option>
-          <option value="outlook">Outlook / Microsoft 365</option>
-          <option value="apple">Apple Calendar (iCloud)</option>
-          <option value="calcom">Cal.com</option>
-          <option value="other">Something else / not sure</option>
-        </NativeSelect>
-
-        {choice === "google" ? (
-          <div className="space-y-2">
-            <Steps
-              items={[
-                <>Click the button below.</>,
-                <>Sign in with the Google account whose calendar you use.</>,
-                <>
-                  Approve the calendar permission — that&apos;s it. Bookings appear on your calendar
-                  automatically.
-                </>,
-              ]}
-            />
+        {/* One-click tiles: Google and Outlook jump STRAIGHT into OAuth — no
+            dropdown, no intermediate step. Everything else expands short
+            guided steps below. */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <Button
+            variant="outline"
+            className="h-auto flex-col gap-1 py-3"
+            nativeButton={false}
+            render={
+              <Link href={`/api/calendar/google/connect?client=${clientId}`} prefetch={false} />
+            }
+          >
+            <span className="text-base font-semibold">G</span>
+            <span className="text-xs font-normal">Google Calendar</span>
+          </Button>
+          {microsoftReady ? (
             <Button
-              size="sm"
+              variant="outline"
+              className="h-auto flex-col gap-1 py-3"
               nativeButton={false}
               render={
-                <Link href={`/api/calendar/google/connect?client=${clientId}`} prefetch={false} />
+                <Link href={`/api/calendar/microsoft/connect?client=${clientId}`} prefetch={false} />
               }
             >
-              <CalendarPlus className="size-4" />
-              Connect Google Calendar
+              <span className="text-base font-semibold">O</span>
+              <span className="text-xs font-normal">Outlook / 365</span>
             </Button>
-            <p className="text-xs text-muted-foreground">
-              Use a Google account you control — a personal Gmail or your own business&apos;s
-              Google Workspace. School or employer accounts are often blocked by their IT
-              policies (&quot;Access blocked: Authorization Error&quot;), and that&apos;s on their
-              side, not yours.
-            </p>
-          </div>
-        ) : null}
-
-        {choice === "outlook" && microsoftReady ? (
-          <div className="space-y-2">
-            <Steps
-              items={[
-                <>Click the button below.</>,
-                <>Sign in with the Microsoft account whose calendar you use.</>,
-                <>
-                  Approve the calendar permission — that&apos;s it. Bookings appear on your Outlook
-                  calendar automatically.
-                </>,
-              ]}
-            />
+          ) : (
             <Button
-              size="sm"
-              nativeButton={false}
-              render={
-                <Link
-                  href={`/api/calendar/microsoft/connect?client=${clientId}`}
-                  prefetch={false}
-                />
-              }
+              variant="outline"
+              className={`h-auto flex-col gap-1 py-3 ${choice === "outlook" ? "border-primary" : ""}`}
+              onClick={() => setChoice(choice === "outlook" ? "" : "outlook")}
             >
-              <CalendarPlus className="size-4" />
-              Connect Outlook / Microsoft 365
+              <span className="text-base font-semibold">O</span>
+              <span className="text-xs font-normal">Outlook / 365</span>
             </Button>
-            <p className="text-xs text-muted-foreground">
-              Use a Microsoft account you control — work/school tenants can block new apps, and
-              that&apos;s their IT policy, not a problem on your side.
-            </p>
-          </div>
-        ) : null}
+          )}
+          <Button
+            variant="outline"
+            className={`h-auto flex-col gap-1 py-3 ${choice === "apple" ? "border-primary" : ""}`}
+            onClick={() => setChoice(choice === "apple" ? "" : "apple")}
+          >
+            <span className="text-base font-semibold">A</span>
+            <span className="text-xs font-normal">Apple Calendar</span>
+          </Button>
+          <Button
+            variant="outline"
+            className={`h-auto flex-col gap-1 py-3 ${choice === "calcom" ? "border-primary" : ""}`}
+            onClick={() => setChoice(choice === "calcom" ? "" : "calcom")}
+          >
+            <span className="text-base font-semibold">C</span>
+            <span className="text-xs font-normal">Cal.com</span>
+          </Button>
+          <Button
+            variant="outline"
+            className={`h-auto flex-col gap-1 py-3 ${choice === "other" ? "border-primary" : ""}`}
+            onClick={() => setChoice(choice === "other" ? "" : "other")}
+          >
+            <span className="text-base font-semibold">?</span>
+            <span className="text-xs font-normal">Other / not sure</span>
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Google and Outlook connect in one click — sign in, approve, done. Use an account you
+          control: school or employer accounts are often blocked by their IT policies
+          (&quot;Access blocked&quot;), and that&apos;s on their side, not yours.
+        </p>
 
         {choice === "outlook" && !microsoftReady ? (
           <Steps

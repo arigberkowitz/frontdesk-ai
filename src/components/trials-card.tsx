@@ -9,10 +9,14 @@ import {
   declineTrialAction,
   endTrialAction,
   regenerateTrialCodeAction,
+  setTrialCodeAction,
 } from "@/lib/actions/trial";
 import { initialActionState, type ActionState } from "@/lib/actions/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { Pencil } from "lucide-react";
 
 type TrialAction = (prev: ActionState, fd: FormData) => Promise<ActionState>;
 
@@ -57,6 +61,9 @@ export function TrialsCard({
   const decline = useToastAction(declineTrialAction);
   const end = useToastAction(endTrialAction);
   const regen = useToastAction(regenerateTrialCodeAction);
+  const setCode = useToastAction(setTrialCodeAction);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
 
   return (
     <Card>
@@ -97,7 +104,43 @@ export function TrialsCard({
             <RefreshCw className="size-3.5" />
             {code ? "New code" : "Generate code"}
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => {
+              setDraft(code ?? "");
+              setEditing((v) => !v);
+            }}
+          >
+            <Pencil className="size-3.5" />
+            {editing ? "Cancel" : "Set my own"}
+          </Button>
         </div>
+
+        {editing ? (
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setCode.run({ code: draft });
+              setEditing(false);
+            }}
+          >
+            <Input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="ARI2026"
+              autoComplete="off"
+              className="max-w-45 font-mono uppercase"
+              maxLength={24}
+              required
+            />
+            <Button type="submit" size="sm" disabled={setCode.pending}>
+              Save code
+            </Button>
+          </form>
+        ) : null}
 
         {pending.length > 0 ? (
           <div className="space-y-2">

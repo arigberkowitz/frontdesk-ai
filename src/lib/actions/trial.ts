@@ -197,6 +197,24 @@ export async function endTrialAction(
   return { ok: true, message: `${client.name}'s trial has ended — their receptionist is paused.` };
 }
 
+/** Operator: set a custom trial access code (e.g. "ARI2026"). */
+export async function setTrialCodeAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireOperator();
+  const code = String(formData.get("code") ?? "").trim().toUpperCase().replace(/\s+/g, "-");
+  if (!/^[A-Z0-9-]{4,24}$/.test(code)) {
+    return {
+      ok: false,
+      error: "Codes are 4–24 letters, numbers, or dashes — e.g. ARI2026 or FD-VIP.",
+    };
+  }
+  await db.update(organizations).set({ trialAccessCode: code }).where(eq(organizations.id, user.orgId));
+  revalidatePath("/dashboard");
+  return { ok: true, message: `Trial code set: ${code}` };
+}
+
 /** Operator: create or rotate the trial access code. */
 export async function regenerateTrialCodeAction(
   _prev: ActionState,
