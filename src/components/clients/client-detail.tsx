@@ -195,6 +195,7 @@ export function ClientDetail(props: Props) {
             }))}
             callBasePath={`/clients/${client.id}/calls`}
             clientId={client.id}
+            timeZone={client.timezone}
           />
         )}
       </TabsContent>

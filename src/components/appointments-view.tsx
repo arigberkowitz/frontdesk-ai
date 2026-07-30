@@ -12,7 +12,6 @@ import {
   endOfWeek,
   format,
   isSameMonth,
-  isToday,
   startOfMonth,
   startOfWeek,
 } from "date-fns";
@@ -36,6 +35,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import {
+  tzDateLong,
+  tzDateTime,
+  tzDayKey,
+  tzTime,
+  tzTimeShort,
+  tzTodayKey,
+  zoneAbbrev,
+} from "@/lib/tz";
 import { AppointmentReminders, type ReminderLog } from "@/components/portal/appointment-reminders";
 
 export interface CalendarAppointment {
@@ -145,6 +153,7 @@ export function AppointmentsView({
   callBasePath,
   clientId,
   reminders,
+  timeZone,
 }: {
   appointments: CalendarAppointment[];
   /** Base path for the source-call link, e.g. "/portal/calls" or "/clients/<id>/calls". */
@@ -153,6 +162,12 @@ export function AppointmentsView({
   clientId?: string;
   /** Reminder history keyed by appointment id. */
   reminders?: Record<string, ReminderLog[]>;
+  /**
+   * The BUSINESS's timezone. Every time on this screen renders in it, so the
+   * portal, the confirmation email and the caller all say the same clock time
+   * no matter where the viewer happens to be sitting.
+   */
+  timeZone: string;
 }) {
   const items: Item[] = useMemo(
     () =>
@@ -170,16 +185,18 @@ export function AppointmentsView({
   const [selected, setSelected] = useState<Item | null>(null);
   // Snapshot once on mount — render-time Date.now() violates react-hooks/purity.
   const [now] = useState(() => Date.now());
+  const [todayKey] = useState(() => tzTodayKey(timeZone));
+  const [zoneLabel] = useState(() => zoneAbbrev(timeZone));
   const [month, setMonth] = useState(() => startOfMonth(items[0]?.date ?? new Date(0)));
 
   const byDay = useMemo(() => {
     const map = new Map<string, Item[]>();
     for (const a of items) {
-      const key = format(a.date, "yyyy-MM-dd");
+      const key = tzDayKey(a.date, timeZone);
       map.set(key, [...(map.get(key) ?? []), a]);
     }
     return map;
-  }, [items]);
+  }, [items, timeZone]);
 
   const days = eachDayOfInterval({
     start: startOfWeek(startOfMonth(month)),
@@ -205,6 +222,13 @@ export function AppointmentsView({
             List
           </button>
         </div>
+
+        {/* Say which clock these times are on. Without it, an owner checking the
+            portal from another state can't tell whether 2:00 PM means their
+            time or the shop's. */}
+        <span className="text-xs text-muted-foreground">
+          All times in {zoneLabel}
+        </span>
 
         {view === "calendar" ? (
           <div className="flex items-center gap-1">
@@ -259,7 +283,7 @@ export function AppointmentsView({
                       inMonth ? "text-muted-foreground" : "text-muted-foreground/40",
                     )}
                   >
-                    {isToday(day) ? (
+                    {format(day, "yyyy-MM-dd") === todayKey ? (
                       <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
                         {format(day, "d")}
                       </span>
@@ -273,7 +297,7 @@ export function AppointmentsView({
                         type="button"
                         key={a.id}
                         onClick={() => setSelected(a)}
-                        title={`${a.customerName ?? "Caller"}${a.serviceName ? ` · ${a.serviceName}` : ""} · ${format(a.date, "h:mm a")}`}
+                        title={`${a.customerName ?? "Caller"}${a.serviceName ? ` · ${a.serviceName}` : ""} · ${tzTime(a.date, timeZone)}`}
                         className={cn(
                           "block w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] leading-tight outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                           a.status === "cancelled" || a.status === "no_show"
@@ -281,7 +305,7 @@ export function AppointmentsView({
                             : "bg-primary/10 text-foreground hover:bg-primary/20",
                         )}
                       >
-                        <span className="font-medium tabular-nums">{format(a.date, "h:mm")}</span>{" "}
+                        <span className="font-medium tabular-nums">{tzTimeShort(a.date, timeZone)}</span>{" "}
                         {a.customerName ?? "Caller"}
                       </button>
                     ))}
@@ -309,7 +333,7 @@ export function AppointmentsView({
                   <p className="font-medium">{a.customerName ?? "Caller"}</p>
                   <p className="text-sm text-muted-foreground">
                     {a.serviceName ? `${a.serviceName} · ` : ""}
-                    {format(a.date, "EEE, MMM d, yyyy · h:mm a")}
+                    {tzDateTime(a.date, timeZone)}
                     {a.customerPhone ? ` · ${a.customerPhone}` : ""}
                   </p>
                 </div>
@@ -332,7 +356,7 @@ export function AppointmentsView({
           <DialogHeader>
             <DialogTitle>{selected?.customerName ?? "Appointment"}</DialogTitle>
             <DialogDescription>
-              {selected ? format(selected.date, "EEEE, MMMM d, yyyy") : ""}
+              {selected ? tzDateLong(selected.date, timeZone) : ""}
             </DialogDescription>
           </DialogHeader>
           {selected ? (
@@ -344,7 +368,7 @@ export function AppointmentsView({
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-muted-foreground">Time</dt>
-                  <dd className="font-medium tabular-nums">{format(selected.date, "h:mm a")}</dd>
+                  <dd className="font-medium tabular-nums">{tzTime(selected.date, timeZone)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-muted-foreground">Phone</dt>

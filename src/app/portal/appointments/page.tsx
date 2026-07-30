@@ -13,6 +13,7 @@ import { CalendarConnect } from "@/components/calendar-connect";
 import { CalendarStatusToast } from "@/components/calendar-status-toast";
 import { capVocab, vocabFor } from "@/lib/vocab";
 import { integrations } from "@/lib/env";
+import { DEFAULT_TIMEZONE } from "@/config/app";
 
 export const metadata: Metadata = { title: "Appointments" };
 
@@ -87,6 +88,7 @@ export default async function PortalAppointmentsPage({
           callBasePath="/portal/calls"
           clientId={clientId}
           reminders={reminders}
+          timeZone={client?.timezone ?? DEFAULT_TIMEZONE}
         />
       )}
     </div>
