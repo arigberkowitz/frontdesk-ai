@@ -189,7 +189,7 @@ function tzOffsetMs(timeZone: string, date: Date): number {
 }
 
 /** A Date for local Y/M/D H:M in `timeZone`. */
-function zonedTime(timeZone: string, y: number, m0: number, d: number, h: number, min: number): Date {
+export function zonedTime(timeZone: string, y: number, m0: number, d: number, h: number, min: number): Date {
   const guess = Date.UTC(y, m0, d, h, min);
   return new Date(guess - tzOffsetMs(timeZone, new Date(guess)));
 }
