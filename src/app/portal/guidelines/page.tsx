@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { GuidelinesForm } from "@/components/portal/guidelines-form";
 import { VoicePicker } from "@/components/portal/voice-picker";
 import { ProvisionCard } from "@/components/portal/provision-card";
+import { TrialCodeCard } from "@/components/portal/trial-code-card";
+import { clientMayActivate } from "@/lib/data/trial";
 import { TestCallButton } from "@/components/clients/test-call-button";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import {
@@ -27,7 +29,10 @@ export default async function PortalGuidelinesPage() {
   const [client, me] = await Promise.all([getClientByIdUnsafe(clientId), getCurrentDbUser()]);
   if (!client) notFound();
 
-  const canManage = me.role === "operator";
+  // Operators AND the business's own admin manage activation. Whether the admin
+  // can actually provision depends on plan/trial state (checked below + in the action).
+  const canManage = me.role === "operator" || me.role === "client_admin";
+  const mayActivate = me.role === "operator" ? true : await clientMayActivate(clientId);
   const retellReady = integrations.retell();
   const agentName = client.agentName?.trim() || DEFAULT_AGENT_NAME;
 
@@ -66,13 +71,16 @@ export default async function PortalGuidelinesPage() {
         <EditLockBanner clientId={clientId} hasCode={editAccess.hasCode} />
       ) : null}
 
-      {canManage ? (
+      {canManage && !mayActivate ? (
+        <TrialCodeCard clientId={client.id} requested={Boolean(client.trialRequestedAt)} />
+      ) : canManage ? (
         <ProvisionCard
           clientId={client.id}
           hasAgent={Boolean(client.retellAgentId)}
           phoneNumber={client.retellPhoneNumber}
           agentName={agentName}
           retellReady={retellReady}
+          onTrial={client.status === "trial"}
         />
       ) : client.retellAgentId ? (
         <Card>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Terms of Service" };
 
-const UPDATED = "July 8, 2026";
+const UPDATED = "July 30, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -118,7 +118,36 @@ export default function TermsPage() {
           </p>
         </Section>
 
-        <Section title="9. Termination">
+        <Section title="9. Indemnification">
+          <p>
+            You will defend and indemnify us against third-party claims arising from your use of
+            the Service in violation of these terms or of law — including claims that you recorded
+            calls, sent text messages, or contacted consumers without a legally required consent or
+            disclosure, and claims arising from the goods or services your business provides to
+            your own customers.
+          </p>
+        </Section>
+
+        <Section title="10. Dispute resolution — binding arbitration and class-action waiver">
+          <p>
+            Before filing any claim, you agree to contact us and give us 30 days to resolve the
+            dispute informally. If we can&rsquo;t, <strong>any dispute arising out of or relating
+            to these terms or the Service will be resolved by binding individual arbitration</strong>{" "}
+            administered by the American Arbitration Association under its Commercial Arbitration
+            Rules, rather than in court — except that either party may bring an individual claim in
+            small-claims court, or seek injunctive relief for infringement or misuse of
+            intellectual property.{" "}
+            <strong>
+              You and we each waive the right to a jury trial and the right to participate in a
+              class action, class arbitration, or other representative proceeding.
+            </strong>{" "}
+            Disputes may only be brought individually. You may opt out of this arbitration
+            agreement by emailing us within 30 days of first accepting these terms; opting out does
+            not affect any other provision.
+          </p>
+        </Section>
+
+        <Section title="11. Termination">
           <p>
             You may cancel at any time from your account or by contacting us; cancellation takes
             effect at the end of the current billing period. We may suspend or terminate the
@@ -127,7 +156,7 @@ export default function TermsPage() {
           </p>
         </Section>
 
-        <Section title="10. General">
+        <Section title="12. General">
           <p>
             These terms are governed by the laws of the State of California, excluding conflict of
             law rules. We may update these terms; material changes will be notified by email or

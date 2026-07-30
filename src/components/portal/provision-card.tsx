@@ -21,12 +21,15 @@ export function ProvisionCard({
   phoneNumber,
   agentName,
   retellReady,
+  onTrial = false,
 }: {
   clientId: string;
   hasAgent: boolean;
   phoneNumber: string | null;
   agentName: string;
   retellReady: boolean;
+  /** Approved free trial — full access, shown as a friendly badge. */
+  onTrial?: boolean;
 }) {
   const [state, action, pending] = useActionState(provisionAgentPortalAction, initialActionState);
 
@@ -55,6 +58,11 @@ export function ProvisionCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {onTrial ? (
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            <CheckCircle2 className="size-3.5" /> Free trial — full access, nothing held back
+          </p>
+        ) : null}
         {hasAgent ? (
           <div className="flex items-start gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />

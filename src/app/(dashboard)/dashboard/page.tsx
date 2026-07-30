@@ -16,7 +16,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CallsChart } from "@/components/charts/calls-chart";
 import { OutcomesChart } from "@/components/charts/outcomes-chart";
 import { ClientSummaryCard } from "@/components/clients/client-summary-card";
+import { TrialsCard, type TrialRow } from "@/components/trials-card";
 import { formatCurrencyCents } from "@/lib/format";
+import { db } from "@/db";
+import { clients, organizations } from "@/db/schema";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -31,6 +35,30 @@ export default async function DashboardPage() {
   ]);
   const pct = (v: number) => `${Math.round(v * 100)}%`;
   const firstName = cu?.firstName ?? undefined;
+
+  // Free trials: the operator's access code + pending requests + running trials.
+  const [org, trialPendingRows, trialActiveRows] = await Promise.all([
+    db.query.organizations.findFirst({ where: eq(organizations.id, user.orgId) }),
+    db.query.clients.findMany({
+      where: and(
+        eq(clients.orgId, user.orgId),
+        isNotNull(clients.trialRequestedAt),
+        isNull(clients.deletedAt),
+      ),
+    }),
+    db.query.clients.findMany({
+      where: and(eq(clients.orgId, user.orgId), eq(clients.status, "trial"), isNull(clients.deletedAt)),
+    }),
+  ]);
+  const toTrialRow = (c: (typeof trialPendingRows)[number]): TrialRow => ({
+    id: c.id,
+    name: c.name,
+    requestedAt: c.trialRequestedAt?.toISOString() ?? null,
+    trialEndsAt: c.trialEndsAt?.toISOString() ?? null,
+    status: c.status,
+  });
+  const trialPending = trialPendingRows.filter((c) => c.status !== "trial" && c.status !== "live").map(toTrialRow);
+  const trialActive = trialActiveRows.map(toTrialRow);
 
   const money = formatCurrencyCents;
   const perClientOverhead = m.activeClients ? Math.round(m.overheadCents / m.activeClients) : 0;
@@ -85,6 +113,12 @@ export default async function DashboardPage() {
           New client
         </Button>
       </PageHeader>
+
+      <TrialsCard
+        code={org?.trialAccessCode ?? null}
+        pending={trialPending}
+        active={trialActive}
+      />
 
       {m.newLeads > 0 ? (
         <Card className="border-amber-500/40 bg-amber-500/5">

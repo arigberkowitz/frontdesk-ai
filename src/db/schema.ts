@@ -138,6 +138,9 @@ export const organizations = pgTable(
     // this agency as a client_admin so the operator oversees every account.
     // When false, new signups bootstrap their own isolated workspace instead.
     autoAttachSignups: boolean("auto_attach_signups").notNull().default(true),
+    // Operator-held access code for free trials: a business owner enters this
+    // code in their portal to request a trial; the operator approves it.
+    trialAccessCode: text("trial_access_code"),
     ...timestamps,
   },
   (t) => [uniqueIndex("organizations_domain_idx").on(t.domain)],
@@ -158,6 +161,9 @@ export const clients = pgTable(
     timezone: text("timezone").notNull().default("America/Los_Angeles"),
     status: clientStatus("status").notNull().default("draft"),
     trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+    // Set when the owner redeems the operator's trial code; cleared on decline.
+    // status flips to "trial" only when the operator approves.
+    trialRequestedAt: timestamp("trial_requested_at", { withTimezone: true }),
     // Set when the owner clicks "I'm done" and the AI readiness check passes.
     // Hides the overview setup checklist; it stays reachable under Settings.
     setupCompletedAt: timestamp("setup_completed_at", { withTimezone: true }),

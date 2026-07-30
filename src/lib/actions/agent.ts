@@ -15,6 +15,7 @@ import {
   updateAgentVoice,
 } from "@/lib/retell";
 import { env, integrations, webhookUrl } from "@/lib/env";
+import { clientMayActivate } from "@/lib/data/trial";
 import { logger } from "@/lib/logger";
 import { type ActionState, fieldErrorsOf } from "./types";
 
@@ -183,6 +184,15 @@ export async function provisionAgentPortalAction(
     return { ok: false, error: "Only the business owner can activate the receptionist." };
   }
   await assertClientInOrg(user.orgId, clientId);
+  // Owners activate once a plan or an approved free trial is in place —
+  // otherwise anyone who signed up could provision real phone infrastructure.
+  if (user.role !== "operator" && !(await clientMayActivate(clientId))) {
+    return {
+      ok: false,
+      error:
+        "Activation unlocks with a plan or an approved free trial — enter your trial code on this page, or contact us.",
+    };
+  }
   return runProvision(user, clientId);
 }
 
