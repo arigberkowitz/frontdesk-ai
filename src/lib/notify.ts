@@ -66,7 +66,13 @@ export async function notifyOwnerBooking(client: Client, appt: Appointment): Pro
       html: ownerEmailHtml({
         title: "📅 New booking",
         business: client.name,
-        lines: [`<strong>${esc(who)}</strong> — ${esc(when)}`, `Callback: ${phone}`],
+        lines: [
+          `<strong>${esc(who)}</strong> — ${esc(when)}`,
+          `Callback: ${phone}`,
+          ...(appt.meetingUrl
+            ? [`Video visit: <a href="${esc(appt.meetingUrl)}">${esc(appt.meetingUrl)}</a>`]
+            : []),
+        ],
       }),
       text: `New booking for ${client.name}: ${who} on ${when}. Callback: ${phone}`,
     });

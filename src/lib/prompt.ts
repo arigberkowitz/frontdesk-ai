@@ -48,6 +48,8 @@ export interface PromptService {
   durationMin: number;
   priceCents?: number | null;
   description?: string | null;
+  /** Can be done by video — a Meet/Teams link is added to the booking. */
+  virtualOk?: boolean;
   isActive: boolean;
 }
 export interface PromptHours {
@@ -92,7 +94,10 @@ function servicesBlock(services: PromptService[]): string {
       const price = s.priceCents != null ? ` — ${formatCurrencyCents(s.priceCents)}` : "";
       const dur = ` (${s.durationMin} min)`;
       const desc = s.description ? ` — ${s.description}` : "";
-      return `- ${s.name}${dur}${price}${desc}`;
+      const video = s.virtualOk
+        ? " [can be done by video — a video link is added to the booking automatically]"
+        : "";
+      return `- ${s.name}${dur}${price}${desc}${video}`;
     })
     .join("\n");
 }

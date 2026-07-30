@@ -12,6 +12,7 @@ import { AppointmentsView } from "@/components/appointments-view";
 import { CalendarConnect } from "@/components/calendar-connect";
 import { CalendarStatusToast } from "@/components/calendar-status-toast";
 import { capVocab, vocabFor } from "@/lib/vocab";
+import { integrations } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Appointments" };
 
@@ -72,6 +73,7 @@ export default async function PortalAppointmentsPage({
         clientId={clientId}
         provider={client?.calendarProvider ?? null}
         account={client?.calendarAccount ?? null}
+        microsoftReady={integrations.microsoft()}
       />
       {items.length === 0 ? (
         <EmptyState

@@ -53,10 +53,13 @@ export function CalendarConnect({
   clientId,
   provider,
   account,
+  microsoftReady = false,
 }: {
   clientId: string;
   provider: string | null;
   account: string | null;
+  /** Azure OAuth app configured → Outlook connects with one click. */
+  microsoftReady?: boolean;
 }) {
   const [choice, setChoice] = useState<string>("");
   const [calcom, calcomAction, calcomPending] = useActionState(
@@ -69,7 +72,7 @@ export function CalendarConnect({
     else if (calcom.error) toast.error(calcom.error);
   }, [calcom]);
 
-  const connected = provider === "google" || provider === "calcom";
+  const connected = provider === "google" || provider === "calcom" || provider === "microsoft";
 
   if (connected) {
     return (
@@ -81,14 +84,19 @@ export function CalendarConnect({
             </div>
             <div className="text-sm">
               <p className="font-medium">
-                {provider === "google" ? "Google Calendar" : "Cal.com"} connected
+                {provider === "google"
+                  ? "Google Calendar"
+                  : provider === "microsoft"
+                    ? "Outlook / Microsoft 365"
+                    : "Cal.com"}{" "}
+                connected
               </p>
               <p className="text-muted-foreground">
                 {account ? `New bookings sync to ${account}` : "New bookings sync to your calendar"}
               </p>
             </div>
           </div>
-          {provider === "google" ? (
+          {provider === "google" || provider === "microsoft" ? (
             <Button
               variant="outline"
               size="sm"
@@ -171,7 +179,39 @@ export function CalendarConnect({
           </div>
         ) : null}
 
-        {choice === "outlook" ? (
+        {choice === "outlook" && microsoftReady ? (
+          <div className="space-y-2">
+            <Steps
+              items={[
+                <>Click the button below.</>,
+                <>Sign in with the Microsoft account whose calendar you use.</>,
+                <>
+                  Approve the calendar permission — that&apos;s it. Bookings appear on your Outlook
+                  calendar automatically.
+                </>,
+              ]}
+            />
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={
+                <Link
+                  href={`/api/calendar/microsoft/connect?client=${clientId}`}
+                  prefetch={false}
+                />
+              }
+            >
+              <CalendarPlus className="size-4" />
+              Connect Outlook / Microsoft 365
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Use a Microsoft account you control — work/school tenants can block new apps, and
+              that&apos;s their IT policy, not a problem on your side.
+            </p>
+          </div>
+        ) : null}
+
+        {choice === "outlook" && !microsoftReady ? (
           <Steps
             intro="Outlook connects through a free Cal.com account — a 5-minute bridge, one time:"
             items={[
@@ -187,7 +227,10 @@ export function CalendarConnect({
                 Open <ExtLink href="https://app.cal.com/settings/developer/api-keys" label="Settings → Developer → API keys" />
                 , create a key, and copy it (starts with <code className="font-mono">cal_live_</code>).
               </>,
-              <>Paste the key below and hit Connect. Bookings land on your Outlook calendar.</>,
+              <>
+                Paste the key below and hit Connect — we verify it and pick your default event type
+                automatically. Bookings land on your Outlook calendar.
+              </>,
             ]}
           />
         ) : null}
@@ -238,21 +281,21 @@ export function CalendarConnect({
           />
         ) : null}
 
-        {choice === "calcom" || choice === "other" || choice === "outlook" || choice === "apple" ? (
+        {choice === "calcom" ||
+        choice === "other" ||
+        (choice === "outlook" && !microsoftReady) ||
+        choice === "apple" ? (
           <form action={calcomAction} className="space-y-3">
             <input type="hidden" name="clientId" value={clientId} />
-            <Field label="Cal.com API key" error={calcom.fieldErrors?.apiKey}>
+            <Field
+              label="Cal.com API key"
+              hint="We check it with Cal.com and pick your default event type for you."
+              error={calcom.fieldErrors?.apiKey}
+            >
               <Input name="apiKey" type="password" placeholder="cal_live_…" autoComplete="off" />
             </Field>
-            <Field
-              label="Event type ID (optional)"
-              hint="Cal.com → Event Types → the number in the URL. Leave blank to use your default."
-              error={calcom.fieldErrors?.eventTypeId}
-            >
-              <Input name="eventTypeId" placeholder="123456" />
-            </Field>
             <Button type="submit" size="sm" disabled={calcomPending}>
-              {calcomPending ? "Connecting…" : "Connect Cal.com"}
+              {calcomPending ? "Verifying with Cal.com…" : "Connect Cal.com"}
             </Button>
           </form>
         ) : null}

@@ -155,3 +155,22 @@ Running log of choices and deviations (PRD §0). Newest first.
 - Plans (`src/config/plans.ts`): **Starter $300 / Pro $450 / Scale $600** monthly; setup
   **$750 / $1,000 / $1,500**; 14-day trial. Margin cost assumptions encoded for the EPIC A4
   margin view. Editable without touching billing logic.
+
+## 2026-07-30 — Calendars: native Outlook, verified Cal.com keys, video links
+
+- **Native Outlook / Microsoft 365 OAuth** (`src/lib/microsoft-calendar.ts` + Graph booking
+  provider): one-click connect like Google, replacing the Cal.com bridge whenever
+  `MS_CLIENT_ID`/`MS_CLIENT_SECRET` are set (Azure app registration, multi-tenant, scope
+  `Calendars.ReadWrite`). Microsoft **rotates refresh tokens** — the provider persists the
+  rotated token via callback; without it connections die in ~90 days. Bridge remains the
+  fallback when the Azure app isn't configured, and for Apple/other calendars.
+- **Cal.com keys are verified at connect time** (v1 `/event-types` probe) and the default
+  event type is auto-selected — the "Event type ID" field is gone. A key that would fail
+  mid-call now fails in the owner's face at setup, with a fix-it message.
+- **Video-friendly services** (`services.virtual_ok`): per-service toggle; bookings on a
+  connected Google calendar get a **Meet** link (conferenceData), on Microsoft a **Teams**
+  link (isOnlineMeeting, degrades gracefully for mailboxes without Teams). Link is stored on
+  the appointment (`appointments.meeting_url`), shown in the owner's booking email and in
+  reminder texts. **Zoom was considered and rejected**: separate OAuth app + marketplace
+  review for a capability most local-service callers can't use; Meet/Teams ride the calendar
+  connections we already hold.

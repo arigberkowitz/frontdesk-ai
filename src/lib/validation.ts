@@ -38,6 +38,8 @@ export const serviceSchema = z.object({
   // How many staff can perform this service at once (1 = no overlapping slots).
   providerCount: z.coerce.number().int().min(1).max(50).default(1),
   description: optionalString,
+  // Bookable by video: Google/Microsoft calendars attach a Meet/Teams link.
+  virtualOk: z.coerce.boolean().default(false),
   isActive: z.coerce.boolean().default(true),
 });
 export type ServiceInput = z.infer<typeof serviceSchema>;

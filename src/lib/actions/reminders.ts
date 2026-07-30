@@ -51,6 +51,7 @@ export async function sendReminderAction(
   const callbackNumber = client?.escalationNumber?.trim();
   const body =
     `Hi${appt.customerName ? ` ${appt.customerName}` : ""}, a friendly reminder of your ${service}appointment with ${business} on ${when}.` +
+    (appt.meetingUrl ? ` Join by video: ${appt.meetingUrl}` : "") +
     (callbackNumber ? ` Need to reschedule? Call ${callbackNumber}.` : "");
 
   // Text sends for real via Twilio when configured. Outbound voice reminders ride

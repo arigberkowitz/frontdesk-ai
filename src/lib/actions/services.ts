@@ -14,6 +14,7 @@ function parseService(formData: FormData) {
     priceDollars: formData.get("priceDollars") || undefined,
     providerCount: formData.get("providerCount") || 1,
     description: formData.get("description"),
+    virtualOk: formData.get("virtualOk") !== null,
     isActive: formData.get("isActive") !== null,
   });
 }
@@ -37,6 +38,7 @@ export async function createServiceAction(
     priceCents: d.priceDollars != null ? Math.round(d.priceDollars * 100) : null,
     providerCount: d.providerCount,
     description: emptyToNull(d.description),
+    virtualOk: d.virtualOk,
     isActive: d.isActive,
   });
   await applyClientEdit(user, clientId);
@@ -63,6 +65,7 @@ export async function updateServiceAction(
     priceCents: d.priceDollars != null ? Math.round(d.priceDollars * 100) : null,
     providerCount: d.providerCount,
     description: emptyToNull(d.description),
+    virtualOk: d.virtualOk,
     isActive: d.isActive,
   });
   await applyClientEdit(user, clientId);

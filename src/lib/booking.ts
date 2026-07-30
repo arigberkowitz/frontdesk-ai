@@ -1,6 +1,9 @@
 import "server-only";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { clients } from "@/db/schema";
 import { env, integrations } from "./env";
-import { decryptSecret } from "./crypto";
+import { decryptSecret, encryptSecret } from "./crypto";
 import { logger } from "./logger";
 import {
   computeFreeSlots,
@@ -40,12 +43,16 @@ export interface CreateBookingInput {
   customerEmail?: string;
   notes?: string;
   timezone: string;
+  /** Video-friendly service: attach a Meet/Teams link when the provider can. */
+  virtual?: boolean;
 }
 
 export interface BookingResult {
   externalBookingId: string;
   startAt: string;
   endAt: string;
+  /** Google Meet / Teams join link, when one was created. */
+  meetingUrl?: string | null;
 }
 
 export interface BookingProvider {
@@ -203,19 +210,103 @@ class GoogleCalendarBookingProvider implements BookingProvider {
     const token = await getAccessToken(this.config.refreshToken);
     const start = new Date(input.startAt);
     const end = new Date(start.getTime() + input.durationMin * 60_000);
-    const id = await insertEvent(token, this.config.calendarId, {
+    const { id, meetingUrl } = await insertEvent(token, this.config.calendarId, {
       summary: input.customerName ? `Appointment — ${input.customerName}` : "Appointment",
       description: `Booked by your AI receptionist.${input.customerPhone ? ` Phone: ${input.customerPhone}.` : ""}${input.notes ? `\n${input.notes}` : ""}`,
       start: start.toISOString(),
       end: end.toISOString(),
       timeZone: input.timezone,
+      withMeet: Boolean(input.virtual),
     });
-    return { externalBookingId: id, startAt: start.toISOString(), endAt: end.toISOString() };
+    return {
+      externalBookingId: id,
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
+      meetingUrl,
+    };
   }
 
   async cancelBooking(externalBookingId: string): Promise<void> {
     const token = await getAccessToken(this.config.refreshToken);
     await deleteEvent(token, this.config.calendarId, externalBookingId);
+  }
+}
+
+export interface MicrosoftCalendarConfig {
+  refreshToken: string;
+  /** Persist a rotated refresh token — Microsoft rotates them on use. */
+  onTokenRotate?: (newRefreshToken: string) => Promise<void>;
+}
+
+/**
+ * Per-business Outlook / Microsoft 365 calendar via the Graph API. One-click
+ * OAuth (like Google); bookings land on the connected mailbox's calendar, and
+ * video-friendly services get a Teams link.
+ */
+class MicrosoftBookingProvider implements BookingProvider {
+  readonly name = "microsoft-calendar";
+
+  constructor(private readonly config: MicrosoftCalendarConfig) {}
+
+  isConfigured(): boolean {
+    return Boolean(this.config.refreshToken && integrations.microsoft());
+  }
+
+  private async token(): Promise<string> {
+    const { getMsTokens } = await import("./microsoft-calendar");
+    const { accessToken, rotatedRefreshToken } = await getMsTokens(this.config.refreshToken);
+    if (rotatedRefreshToken && this.config.onTokenRotate) {
+      // Best-effort: a failed persist must not fail the caller's booking.
+      await this.config.onTokenRotate(rotatedRefreshToken).catch((err) =>
+        logger.warn("booking.microsoft.token_rotate_persist_failed", {
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
+    return accessToken;
+  }
+
+  async getAvailability(query: AvailabilityQuery): Promise<TimeSlot[]> {
+    const { msBusyTimes } = await import("./microsoft-calendar");
+    const token = await this.token();
+    const busy = await msBusyTimes(token, query.rangeStart, query.rangeEnd);
+    const { computeFreeSlots: compute } = await import("./google-calendar");
+    return compute({
+      busy,
+      businessHours: query.businessHours ?? [],
+      durationMin: query.durationMin,
+      rangeStart: query.rangeStart,
+      rangeEnd: query.rangeEnd,
+      timezone: query.timezone,
+      nowMs: Date.now(),
+    });
+  }
+
+  async createBooking(input: CreateBookingInput): Promise<BookingResult> {
+    const { msInsertEvent } = await import("./microsoft-calendar");
+    const token = await this.token();
+    const start = new Date(input.startAt);
+    const end = new Date(start.getTime() + input.durationMin * 60_000);
+    const { id, meetingUrl } = await msInsertEvent(token, {
+      summary: input.customerName ? `Appointment — ${input.customerName}` : "Appointment",
+      description: `Booked by your AI receptionist.${input.customerPhone ? ` Phone: ${input.customerPhone}.` : ""}${input.notes ? `\n${input.notes}` : ""}`,
+      start: start.toISOString(),
+      end: end.toISOString(),
+      timeZone: "UTC",
+      withOnlineMeeting: Boolean(input.virtual),
+    });
+    return {
+      externalBookingId: id,
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
+      meetingUrl,
+    };
+  }
+
+  async cancelBooking(externalBookingId: string): Promise<void> {
+    const { msDeleteEvent } = await import("./microsoft-calendar");
+    const token = await this.token();
+    await msDeleteEvent(token, externalBookingId);
   }
 }
 
@@ -246,6 +337,8 @@ export function getDefaultBookingProvider(): BookingProvider {
 
 /** Fields needed to resolve a client's own connected calendar. */
 export interface ClientCalendarConnection {
+  /** When present, lets the Microsoft provider persist rotated refresh tokens. */
+  id?: string;
   calendarProvider?: string | null;
   calendarSecret?: string | null;
   calendarId?: string | null;
@@ -270,6 +363,20 @@ export function getBookingProviderForClient(client: ClientCalendarConnection): B
     return new GoogleCalendarBookingProvider({
       refreshToken: decryptSecret(secret),
       calendarId: client.calendarId ?? "primary",
+    });
+  }
+  if (provider === "microsoft" && secret) {
+    const clientRowId = client.id;
+    return new MicrosoftBookingProvider({
+      refreshToken: decryptSecret(secret),
+      onTokenRotate: clientRowId
+        ? async (newToken) => {
+            await db
+              .update(clients)
+              .set({ calendarSecret: encryptSecret(newToken) })
+              .where(eq(clients.id, clientRowId));
+          }
+        : undefined,
     });
   }
   return new NullBookingProvider();

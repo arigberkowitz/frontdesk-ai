@@ -54,6 +54,7 @@ export async function POST(req: Request): Promise<Response> {
   // provider decrypts a stored secret, so keep it inside the try — a bad/rotated key
   // must degrade to a local booking, not 500 mid-call.
   let externalBookingId: string | null = null;
+  let meetingUrl: string | null = null;
   try {
     const provider = getBookingProviderForClient(client);
     if (provider.isConfigured()) {
@@ -63,8 +64,11 @@ export async function POST(req: Request): Promise<Response> {
         customerName,
         customerPhone,
         timezone: client.timezone,
+        // Video-friendly service → the calendar event gets a Meet/Teams link.
+        virtual: Boolean(service.virtualOk),
       });
       externalBookingId = r.externalBookingId;
+      meetingUrl = r.meetingUrl ?? null;
     }
   } catch (err) {
     logger.error("agent-tools.book.provider_failed", {
@@ -117,6 +121,7 @@ export async function POST(req: Request): Promise<Response> {
     endAt,
     status: "booked",
     externalBookingId,
+    meetingUrl,
   });
 
   await notifyOwnerBooking(client, appt);

@@ -279,6 +279,9 @@ export const services = pgTable(
     // overlapping bookings for this service); 3 = up to three simultaneous.
     providerCount: integer("provider_count").notNull().default(1),
     description: text("description"),
+    // "Can be done by video": bookings on a connected Google/Microsoft calendar
+    // get a Meet/Teams link attached automatically.
+    virtualOk: boolean("virtual_ok").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps,
     ...softDelete,
@@ -360,6 +363,8 @@ export const appointments = pgTable(
     endAt: timestamp("end_at", { withTimezone: true }),
     status: appointmentStatus("status").notNull().default("booked"),
     externalBookingId: text("external_booking_id"),
+    // Video-visit link (Google Meet / Teams) when the service allows video.
+    meetingUrl: text("meeting_url"),
     ...timestamps,
     ...softDelete,
   },

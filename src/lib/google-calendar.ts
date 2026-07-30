@@ -108,10 +108,19 @@ export async function freeBusy(
 export async function insertEvent(
   accessToken: string,
   calendarId: string,
-  event: { summary: string; description?: string; start: string; end: string; timeZone: string },
-): Promise<string> {
+  event: {
+    summary: string;
+    description?: string;
+    start: string;
+    end: string;
+    timeZone: string;
+    /** Attach a Google Meet link (video-friendly services). */
+    withMeet?: boolean;
+  },
+): Promise<{ id: string; meetingUrl: string | null }> {
+  const qs = event.withMeet ? "?conferenceDataVersion=1" : "";
   const res = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events${qs}`,
     {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -120,12 +129,22 @@ export async function insertEvent(
         description: event.description,
         start: { dateTime: event.start, timeZone: event.timeZone },
         end: { dateTime: event.end, timeZone: event.timeZone },
+        ...(event.withMeet
+          ? {
+              conferenceData: {
+                createRequest: {
+                  requestId: crypto.randomUUID(),
+                  conferenceSolutionKey: { type: "hangoutsMeet" },
+                },
+              },
+            }
+          : {}),
       }),
     },
   );
   if (!res.ok) throw new Error(`Google event insert failed: ${res.status} ${await res.text()}`);
-  const data = (await res.json()) as { id: string };
-  return data.id;
+  const data = (await res.json()) as { id: string; hangoutLink?: string };
+  return { id: data.id, meetingUrl: data.hangoutLink ?? null };
 }
 
 export async function deleteEvent(

@@ -88,6 +88,10 @@ function ServiceForm({
         <Textarea name="description" rows={2} defaultValue={service?.description ?? ""} />
       </Field>
       <div className="flex items-center gap-2">
+        <Switch id="virtualOk" name="virtualOk" defaultChecked={service?.virtualOk ?? false} />
+        <Label htmlFor="virtualOk">Can be done by video (adds a Meet/Teams link when booked)</Label>
+      </div>
+      <div className="flex items-center gap-2">
         <Switch id="isActive" name="isActive" defaultChecked={service?.isActive ?? true} />
         <Label htmlFor="isActive">Active (offered for booking)</Label>
       </div>

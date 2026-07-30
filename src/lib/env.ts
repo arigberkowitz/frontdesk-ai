@@ -29,6 +29,9 @@ export const env = {
   // Google Calendar OAuth app (per-business one-click calendar connect).
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "",
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? "",
+  // Microsoft (Azure AD) OAuth app — one-click Outlook / Microsoft 365 connect.
+  MS_CLIENT_ID: process.env.MS_CLIENT_ID ?? "",
+  MS_CLIENT_SECRET: process.env.MS_CLIENT_SECRET ?? "",
   // Public number for the sales demo agent (§11 screen 9).
   DEMO_PHONE_NUMBER: process.env.DEMO_PHONE_NUMBER ?? "",
   // Public base URL for webhook + agent-tool callbacks (baked into Retell at
@@ -63,6 +66,7 @@ export const integrations = {
     Boolean(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM_NUMBER),
   calcom: () => Boolean(env.CALCOM_API_KEY),
   google: () => Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+  microsoft: () => Boolean(env.MS_CLIENT_ID && env.MS_CLIENT_SECRET),
 } as const;
 
 /** Absolute URL for webhook targets (Retell/Stripe call back into us). */
