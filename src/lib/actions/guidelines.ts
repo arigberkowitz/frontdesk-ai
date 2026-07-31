@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireClientEditor } from "@/lib/auth-guard";
 import { guidelinesSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg, updateClient } from "@/lib/data/clients";
-import { applyClientEdit } from "@/lib/agent-publish";
+import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { updateAgentVoice } from "@/lib/retell";
 import { integrations } from "@/lib/env";
 import { type ActionState, fieldErrorsOf } from "./types";
@@ -45,8 +45,8 @@ export async function saveGuidelinesAction(
 
   await assertClientInOrg(user.orgId, clientId);
   await updateClient(user.orgId, clientId, patch);
-  await applyClientEdit(user, clientId);
-  return { ok: true };
+  const sync = await applyClientEdit(user, clientId);
+  return { ok: true, message: withSyncNote("Saved.", sync) };
 }
 
 /**

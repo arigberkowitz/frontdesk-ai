@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { users, type NewClient } from "@/db/schema";
 import { assertClientAccess, requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg, getClientByIdUnsafe, updateClient } from "@/lib/data/clients";
-import { applyClientEdit } from "@/lib/agent-publish";
+import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { notifier } from "@/lib/notifier";
 import { logger } from "@/lib/logger";
 import { type ActionState } from "./types";
@@ -115,9 +115,9 @@ export async function savePortalProfileAction(
 
   await updateClient(user.orgId, clientId, patch);
   // Business name lives in the agent prompt, so keep the live agent in sync.
-  await applyClientEdit(user, clientId);
+  const sync = await applyClientEdit(user, clientId);
   revalidatePath("/portal/settings");
-  return { ok: true };
+  return { ok: true, message: withSyncNote("Saved.", sync) };
 }
 
 /**

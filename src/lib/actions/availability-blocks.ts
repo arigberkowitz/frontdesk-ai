@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { availabilityBlocks } from "@/db/schema";
 import { requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
-import { applyClientEdit } from "@/lib/agent-publish";
+import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { zonedTime } from "@/lib/google-calendar";
 import { logger } from "@/lib/logger";
 import { type ActionState } from "./types";
@@ -92,11 +92,14 @@ export async function addAvailabilityBlockAction(
   }
 
   // The prompt tells callers what the AI can do; republish so it reflects reality.
-  await applyClientEdit(user, clientId);
+  const sync = await applyClientEdit(user, clientId);
   logger.info("availability.block.added", { clientId, kind });
   revalidatePath("/portal/hours");
   revalidatePath("/portal", "layout");
-  return { ok: true, message: `Added "${label}" — your AI won't book over it.` };
+  return {
+    ok: true,
+    message: withSyncNote(`Added "${label}" — your AI won't book over it.`, sync),
+  };
 }
 
 /** Remove a break/closure. Scoped to the client so ids can't be guessed across tenants. */
@@ -114,8 +117,11 @@ export async function deleteAvailabilityBlockAction(
     .delete(availabilityBlocks)
     .where(and(eq(availabilityBlocks.id, id), eq(availabilityBlocks.clientId, clientId)));
 
-  await applyClientEdit(guard.user, clientId);
+  const sync = await applyClientEdit(guard.user, clientId);
   revalidatePath("/portal/hours");
   revalidatePath("/portal", "layout");
-  return { ok: true, message: "Removed — those times are bookable again." };
+  return {
+    ok: true,
+    message: withSyncNote("Removed — those times are bookable again.", sync),
+  };
 }

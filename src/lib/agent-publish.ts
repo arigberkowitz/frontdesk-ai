@@ -77,21 +77,49 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
 }
 
 /**
+ * What happened to the LIVE agent when we saved.
+ *
+ * "synced" is the only one that means the person on the phone hears the change.
+ * The other two used to be indistinguishable from success, which is how a
+ * business could edit its greeting, be told "Saved", and still get answered with
+ * the old one.
+ */
+export type AgentSyncStatus = "synced" | "not_provisioned" | "failed";
+
+/**
  * Shared post-edit hook for self-serve fields (services / hours / knowledge /
  * greeting / guardrails): refresh both the operator and portal views and push the
  * rebuilt prompt to the live agent, so any edit takes effect immediately. The
  * operator's explicit "Publish" button additionally snapshots a versioned prompt.
- * Best-effort: a Retell hiccup never fails the save.
+ *
+ * Still best-effort — a Retell hiccup must never lose an edit that's already
+ * safely in the database. But it now reports what happened, so callers can say
+ * so instead of claiming a success nobody verified.
  */
-export async function applyClientEdit(user: { orgId: string }, clientId: string): Promise<void> {
+export async function applyClientEdit(
+  user: { orgId: string },
+  clientId: string,
+): Promise<AgentSyncStatus> {
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/portal", "layout");
   try {
-    await syncAgentPrompt(user.orgId, clientId);
+    return (await syncAgentPrompt(user.orgId, clientId)) ? "synced" : "not_provisioned";
   } catch (err) {
     logger.warn("agent.autosync.failed", {
       clientId,
       error: err instanceof Error ? err.message : String(err),
     });
+    return "failed";
   }
+}
+
+/**
+ * Turn a save confirmation into an honest one. The edit is saved either way —
+ * that's why this appends rather than replaces. What changes is whether we can
+ * claim the phone line reflects it yet.
+ */
+export function withSyncNote(message: string, sync: AgentSyncStatus): string {
+  if (sync === "synced") return message;
+  if (sync === "not_provisioned") return `${message} It'll apply once your AI is activated.`;
+  return `${message} We couldn't reach your live AI just now, so callers still hear the previous version — save again in a minute.`;
 }

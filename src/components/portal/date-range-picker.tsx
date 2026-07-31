@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   addMonths,
   eachDayOfInterval,
@@ -56,23 +57,62 @@ export function DateRangePicker({
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
   const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  /**
+   * The panel renders into <body>, not next to the button.
+   *
+   * Every Card in this app sets `overflow-hidden` for its rounded corners, so an
+   * absolutely-positioned child gets sliced off at the card's edge — which hid
+   * the back half of the month and both the Clear and Done buttons. A portal is
+   * the only fix that doesn't require changing every card in the product.
+   *
+   * Fixed positioning means no scroll-offset math, but it does mean recomputing
+   * while the page moves under us.
+   */
+  const place = useCallback(() => {
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const W = 288; // w-72
+    const H = 360; // six week-rows plus the footer
+    const below = window.innerHeight - r.bottom;
+    // Flip above the trigger when there's more room up there — otherwise the
+    // last week of the month sits below the fold.
+    const top = below < H && r.top > below ? Math.max(8, r.top - H - 8) : r.bottom + 8;
+    const left = Math.min(Math.max(8, r.left), window.innerWidth - W - 8);
+    setPos({ top, left });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
 
   // Close on outside click / Escape — a calendar that traps you is worse than none.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      // The panel lives outside wrapRef now, so it needs its own check — without
+      // it, every click on a date counts as "outside" and shuts the calendar.
+      if (wrapRef.current?.contains(t) || popRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true); // capture: catches scrolling containers
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
     };
-  }, [open]);
+  }, [open, place]);
 
   const days = useMemo(
     () =>
@@ -114,23 +154,39 @@ export function DateRangePicker({
     <div className="space-y-3" ref={wrapRef}>
       {/* What the server action reads. Kept in sync with the visual state. */}
       <input type="hidden" name={startName} value={from ? format(from, KEY) : ""} />
-      <input type="hidden" name={endName} value={format(to ?? from ?? new Date(0), KEY)} />
+      {/* Empty, not epoch: an unset range used to post endDate="1970-01-01",
+          which reads as a real date to anything not looking out for it. */}
+      <input
+        type="hidden"
+        name={endName}
+        value={to ?? from ? format((to ?? from) as Date, KEY) : ""}
+      />
       <input type="hidden" name={startTimeName} value={allDay ? "" : startTime} />
       <input type="hidden" name={endTimeName} value={allDay ? "" : endTime} />
 
-      <div className="relative">
+      <div>
         <Button
           type="button"
+          ref={triggerRef}
           variant="outline"
           className="w-full justify-start font-normal"
+          aria-haspopup="dialog"
+          aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
         >
           <CalendarDays className="size-4" />
           {label}
         </Button>
 
-        {open ? (
-          <div className="absolute left-0 top-full z-50 mt-2 w-72 rounded-xl border bg-popover p-3 shadow-lg">
+        {open && pos
+          ? createPortal(
+          <div
+            ref={popRef}
+            role="dialog"
+            aria-label="Choose dates"
+            style={{ top: pos.top, left: pos.left }}
+            className="fixed z-50 w-72 rounded-xl border bg-popover p-3 shadow-lg"
+          >
             <div className="mb-2 flex items-center justify-between">
               <Button
                 type="button"
@@ -207,8 +263,10 @@ export function DateRangePicker({
                 Done
               </Button>
             </div>
-          </div>
-        ) : null}
+          </div>,
+              document.body,
+            )
+          : null}
       </div>
 
       <label className="flex items-center gap-2 text-sm">

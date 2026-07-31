@@ -43,3 +43,8 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# patch files dropped in the repo root while applying changes by hand — a
+# delivery mechanism, not source. `git status` stops being readable once a
+# dozen of them pile up.
+/*.patch

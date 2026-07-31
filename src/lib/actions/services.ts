@@ -4,7 +4,7 @@ import { requireClientEditor } from "@/lib/auth-guard";
 import { serviceSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg } from "@/lib/data/clients";
 import * as servicesData from "@/lib/data/services";
-import { applyClientEdit } from "@/lib/agent-publish";
+import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { type ActionState, fieldErrorsOf } from "./types";
 
 function parseService(formData: FormData) {
@@ -41,8 +41,8 @@ export async function createServiceAction(
     virtualOk: d.virtualOk,
     isActive: d.isActive,
   });
-  await applyClientEdit(user, clientId);
-  return { ok: true };
+  const sync = await applyClientEdit(user, clientId);
+  return { ok: true, message: withSyncNote("Saved.", sync) };
 }
 
 export async function updateServiceAction(
@@ -68,8 +68,8 @@ export async function updateServiceAction(
     virtualOk: d.virtualOk,
     isActive: d.isActive,
   });
-  await applyClientEdit(user, clientId);
-  return { ok: true };
+  const sync = await applyClientEdit(user, clientId);
+  return { ok: true, message: withSyncNote("Saved.", sync) };
 }
 
 export async function deleteServiceAction(formData: FormData): Promise<void> {

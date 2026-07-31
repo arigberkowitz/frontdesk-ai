@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { clients, providers } from "@/db/schema";
 import { assertClientAccess, requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
-import { applyClientEdit } from "@/lib/agent-publish";
+import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { type ActionState } from "./types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -60,8 +60,8 @@ export async function addProviderAction(
     phone: phone || null,
     onClock: false,
   });
-  await applyClientEdit(user, clientId);
-  return { ok: true, message: `${name} added to the team.` };
+  const sync = await applyClientEdit(user, clientId);
+  return { ok: true, message: withSyncNote(`${name} added to the team.`, sync) };
 }
 
 /** Remove a team member (their past appointments keep their name via soft link). */
@@ -80,8 +80,8 @@ export async function removeProviderAction(
     .update(providers)
     .set({ deletedAt: new Date(), onClock: false })
     .where(and(eq(providers.id, providerId), eq(providers.clientId, clientId)));
-  await applyClientEdit(user, clientId);
-  return { ok: true, message: "Removed from the team." };
+  const sync = await applyClientEdit(user, clientId);
+  return { ok: true, message: withSyncNote("Removed from the team.", sync) };
 }
 
 /** Clock in / out. Staff can clock THEMSELVES (matched by login email); admins anyone. */

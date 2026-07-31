@@ -4,7 +4,7 @@ import { requireClientEditor } from "@/lib/auth-guard";
 import { knowledgeSchema } from "@/lib/validation";
 import { assertClientInOrg } from "@/lib/data/clients";
 import * as knowledgeData from "@/lib/data/knowledge";
-import { applyClientEdit } from "@/lib/agent-publish";
+import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { type ActionState, fieldErrorsOf } from "./types";
 
 export async function createKnowledgeAction(
@@ -29,8 +29,8 @@ export async function createKnowledgeAction(
     source: "manual",
     isActive: parsed.data.isActive,
   });
-  await applyClientEdit(user, clientId);
-  return { ok: true };
+  const sync = await applyClientEdit(user, clientId);
+  return { ok: true, message: withSyncNote("Saved.", sync) };
 }
 
 export async function updateKnowledgeAction(
@@ -55,8 +55,8 @@ export async function updateKnowledgeAction(
     answer: parsed.data.answer,
     isActive: parsed.data.isActive,
   });
-  await applyClientEdit(user, clientId);
-  return { ok: true };
+  const sync = await applyClientEdit(user, clientId);
+  return { ok: true, message: withSyncNote("Saved.", sync) };
 }
 
 export async function deleteKnowledgeAction(formData: FormData): Promise<void> {

@@ -3,7 +3,7 @@
 import { requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { setWeekHours, type DayHoursInput } from "@/lib/data/hours";
-import { applyClientEdit } from "@/lib/agent-publish";
+import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import type { ActionState } from "./types";
 
 export async function saveHoursAction(
@@ -30,6 +30,6 @@ export async function saveHoursAction(
   }
 
   await setWeekHours(clientId, days);
-  await applyClientEdit(user, clientId);
-  return { ok: true };
+  const sync = await applyClientEdit(user, clientId);
+  return { ok: true, message: withSyncNote("Hours saved.", sync) };
 }
