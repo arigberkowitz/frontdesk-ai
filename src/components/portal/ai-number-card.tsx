@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { Check, CheckCircle2, Circle, Copy, PhoneForwarded } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { SubmitButton } from "@/components/form/submit-button";
 import { setAnsweringModeAction } from "@/lib/actions/receptionist";
 import { setSetupFlagAction } from "@/lib/actions/setup";
@@ -39,6 +39,16 @@ export function AiNumberCard({
   const [copied, setCopied] = useState(false);
   const pretty = phoneNumber ? formatPhone(phoneNumber) : null;
   const digits = phoneNumber ? phoneNumber.replace(/[^\d+]/g, "") : "";
+  /**
+   * What you actually key in after a star code. Landline/VoIP switches expect a
+   * plain 10-digit number — a leading "+1" makes the switch reject the code — so
+   * strip the country code for US numbers. GSM codes (**21*…#) are the opposite
+   * and want the full international form, so those keep `digits`.
+   */
+  const dialDigits = (() => {
+    const bare = digits.replace(/\D/g, "");
+    return bare.length === 11 && bare.startsWith("1") ? bare.slice(1) : bare;
+  })();
 
   const toastResult = (next: ActionState) => {
     if (next.ok && next.message) toast.success(next.message);
@@ -56,6 +66,26 @@ export function AiNumberCard({
 
   const code = (s: string) => (
     <code className="rounded bg-muted px-1.5 py-0.5 font-medium tabular-nums text-foreground">{s}</code>
+  );
+
+  /**
+   * Tap-to-dial. On a phone this opens the dialer pre-filled, so forwarding is
+   * one tap instead of a code retyped from memory. On a desktop browser a `tel:`
+   * link usually does nothing — hence the codes stay visible as text above, and
+   * the hint below tells people which device to be holding.
+   *
+   * `*` and `#` must be percent-encoded or some dialers silently drop the rest
+   * of the string.
+   */
+  const dialHref = (seq: string) => `tel:${seq.replace(/\*/g, "%2A").replace(/#/g, "%23")}`;
+  const DialButton = ({ seq, label }: { seq: string; label: string }) => (
+    <a
+      href={dialHref(seq)}
+      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "tabular-nums")}
+    >
+      <PhoneForwarded className="size-3.5" />
+      {label}
+    </a>
   );
 
   return (
@@ -93,24 +123,48 @@ export function AiNumberCard({
             </div>
           ) : (
             <span className="rounded-md bg-muted px-3 py-1.5 text-sm text-muted-foreground">
-              Added once billing is set up
+              Not assigned yet
             </span>
           )}
         </div>
 
-        {/* On/off at a glance — driven by the same flag as the setup checklist. */}
+        {/* On/off at a glance — driven by the same flag as the setup checklist.
+            Three genuinely different situations, so three different messages:
+            forwarding live, forwarding off but a number exists, no number yet. */}
         <div
           className={cn(
-            "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+            "flex items-start gap-2 rounded-lg border px-3 py-2 text-sm",
             forwardingDone
               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
               : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
           )}
         >
-          {forwardingDone ? <CheckCircle2 className="size-4" /> : <Circle className="size-4" />}
-          {forwardingDone
-            ? "Forwarding is set up — calls to your business number reach your AI."
-            : "Not set up yet — your business calls don't reach your AI until you forward them (about 2 minutes, steps below)."}
+          {forwardingDone ? (
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+          ) : (
+            <Circle className="mt-0.5 size-4 shrink-0" />
+          )}
+          <span>
+            {forwardingDone ? (
+              <>
+                <strong>Forwarding is on.</strong> Calls to your business number ring through to
+                your AI.
+              </>
+            ) : pretty ? (
+              <>
+                <strong>Forwarding is off.</strong> Your AI is live on {pretty} and ready to answer
+                — but calls to your own business number still ring your phone as usual. Switch it on
+                below: it&apos;s one quick call from your business phone.
+              </>
+            ) : (
+              <>
+                <strong>No AI phone number yet.</strong> Your AI is fully built and you can talk to
+                it right now with a test call in the browser — it just has no phone line of its own
+                to answer on. Adding one takes a payment method on the Retell account (about $2 a
+                month); the dial-in steps appear here the moment it&apos;s assigned.
+              </>
+            )}
+          </span>
         </div>
 
         {/* Mode choice: full receptionist vs. backup. Admin-only. */}
@@ -185,6 +239,9 @@ export function AiNumberCard({
                   Test it: call your business number and don&apos;t pick up — your AI should answer
                   after a few rings.
                 </li>
+                <li>
+                  Turn it off anytime: dial {code("*91")} and {code("*93")}.
+                </li>
               </ol>
             ) : (
               <ol className="list-decimal space-y-2 pl-5 text-muted-foreground">
@@ -201,10 +258,38 @@ export function AiNumberCard({
             )
           ) : (
             <p className="text-muted-foreground">
-              Your dedicated AI number arrives once billing is set up — then the exact dial codes
-              appear here. Until then, try your AI with a test call in the browser (Your AI page).
+              The exact dial codes appear here as soon as your AI has its own phone number — they
+              include that number, so there&apos;s nothing useful to show until then. Meanwhile your
+              AI is ready to talk: try a test call in the browser on the Your AI page.
             </p>
           )}
+
+          {/* One tap instead of a retyped code. Same sequences as the steps above. */}
+          {pretty ? (
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap gap-2">
+                {mode === "missed_only" ? (
+                  <>
+                    <DialButton seq={`*90${dialDigits}`} label={`Dial *90 ${pretty}`} />
+                    <DialButton seq={`*92${dialDigits}`} label={`Dial *92 ${pretty}`} />
+                    <DialButton seq="*91" label="Turn off (*91)" />
+                    <DialButton seq="*93" label="Turn off (*93)" />
+                  </>
+                ) : (
+                  <>
+                    <DialButton seq={`*72${dialDigits}`} label={`Dial *72 ${pretty}`} />
+                    <DialButton seq="*73" label="Turn forwarding off (*73)" />
+                  </>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Open this page on your business phone and tap a button — it fills the dialer for
+                you. The codes have to be dialed from that phone; dialing them from any other line
+                won&apos;t do anything.
+              </p>
+            </div>
+          ) : null}
+
           <p className="text-muted-foreground">
             Your website, Google listing, and business cards don&apos;t change — customers keep
             calling the number they already know.

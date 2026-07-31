@@ -108,7 +108,7 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
       // the real one here the moment it exists instead of "your AI number".
       hint: aiNumber
         ? `From your business phone, dial *72 ${aiNumber} (most carriers; AT&T/T-Mobile: **21*${aiNumber.replace(/[^\d+]/g, "")}#). ~2 minutes, undo with *73.`
-        : "Your dedicated AI number arrives once billing is set up — until then, try it with a test call in your browser (Your AI page).",
+        : "The dial code contains your AI's own phone number, so it appears here once that number is assigned. Until then, try your AI with a test call in your browser (Your AI page).",
     },
     {
       key: "testcall",

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/form/field";
 import { NativeSelect } from "@/components/form/native-select";
+import { DateRangePicker } from "@/components/portal/date-range-picker";
 import { DAYS } from "@/config/options";
 
 export interface TimeOffBlock {
@@ -175,20 +176,12 @@ export function TimeOffCard({
                 </Field>
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="First day closed" error={addState.fieldErrors?.startDate}>
-                  <Input name="startDate" type="date" required />
-                </Field>
-                <Field label="Last day closed" error={addState.fieldErrors?.endDate}>
-                  <Input name="endDate" type="date" required />
-                </Field>
-                <Field label="From (optional)" hint="Leave blank for the whole day">
-                  <Input name="startTimeOneOff" type="time" />
-                </Field>
-                <Field label="To (optional)">
-                  <Input name="endTimeOneOff" type="time" />
-                </Field>
-              </div>
+              <Field
+                label="Which dates?"
+                error={addState.fieldErrors?.startDate ?? addState.fieldErrors?.endDate}
+              >
+                <DateRangePicker />
+              </Field>
             )}
 
             {providers.length > 0 ? (
