@@ -54,6 +54,29 @@ export async function savePortalProfileAction(
   if (formData.has("alertPhone")) {
     const phone = String(formData.get("alertPhone") ?? "").trim();
     if (phone.length > 40) return { ok: false, fieldErrors: { alertPhone: ["That doesn't look right"] } };
+    // The transfer loop: their forwarded line points at the AI, so transferring
+    // a caller there sends the call straight back to the AI and the caller never
+    // reaches a person. It's an easy mistake — the forwarded line is the number
+    // most people think of as "our phone" — and it fails silently on live calls,
+    // so refuse it here rather than let them find out from an angry customer.
+    if (phone) {
+      const existing = await db.query.clients.findFirst({
+        where: (c, { eq: e }) => e(c.id, clientId),
+        columns: { forwardingNumber: true },
+      });
+      const bare = (s: string) => s.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+      const fwd = existing?.forwardingNumber ? bare(existing.forwardingNumber) : "";
+      if (fwd && bare(phone) === fwd) {
+        return {
+          ok: false,
+          fieldErrors: {
+            alertPhone: [
+              "That's the line you forwarded to your AI — transferring a caller there would send them right back to the AI. Use a mobile or a direct line instead.",
+            ],
+          },
+        };
+      }
+    }
     patch.escalationNumber = phone || null;
   }
   if (formData.has("humanHandoffEnabled")) {

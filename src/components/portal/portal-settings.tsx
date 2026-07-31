@@ -153,6 +153,15 @@ export function PortalSettings({ client, isAdmin = true }: { client: Client; isA
                 placeholder="+1 415 555 0100"
               />
             </Field>
+            {/* The loop is the least obvious way to break this product, and the
+                forwarded line is the number people reach for first. We can't
+                detect it (we never store the number they forwarded), so say it
+                plainly at the point of entry. */}
+            <p className="-mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+              <strong>Use a mobile or a direct line — not the number you forwarded.</strong> Calls
+              to your forwarded line go to your AI, so if it transfers a caller there, the call
+              comes straight back to the AI and the caller never reaches a person.
+            </p>
             <Field
               label="Text-message alerts"
               hint="Texts the number above the moment your AI books an appointment or takes a message. Email alerts always send."
