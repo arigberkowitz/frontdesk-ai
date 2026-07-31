@@ -1,4 +1,17 @@
+import { NextResponse } from "next/server";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+
+/**
+ * The old Vercel alias served a byte-identical copy of every legal page. TCR
+ * rejects a brand when it finds "multiple or inconsistent privacy policies" it
+ * can't reconcile (error 30908), and a reviewer who searches for us can easily
+ * land on the wrong host. A canonical <link> asks nicely; a 308 settles it.
+ *
+ * Matched by exact hostname, not a *.vercel.app suffix — preview deployments
+ * live on that suffix too and must keep working.
+ */
+const LEGACY_HOST = "frontdesk-ai-alpha.vercel.app";
+const CANONICAL_HOST = "frontdeskai.company";
 
 /**
  * Clerk auth gate. In Next 16 the middleware file convention is `proxy.ts`
@@ -27,6 +40,17 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
+  // Before any auth work: one canonical home for the site. Both hosts are
+  // literals rather than env-derived — APP_URL falls back to Vercel's injected
+  // production URL, which can itself be the legacy host, and a middleware that
+  // redirects a host to itself is an infinite loop on every request.
+  if (req.headers.get("host") === LEGACY_HOST) {
+    const to = new URL(req.url);
+    to.protocol = "https:";
+    to.host = CANONICAL_HOST;
+    return NextResponse.redirect(to, 308);
+  }
+
   if (!isPublicRoute(req)) {
     // Send unauthenticated visitors to our own /sign-in page (the custom animated
     // flow) instead of Clerk's hosted Account Portal.
