@@ -171,9 +171,15 @@ export const clients = pgTable(
     staffModeEnabled: boolean("staff_mode_enabled").notNull().default(false),
     // Setup profile: 'solo' | 'team' | 'big' — shapes which tabs/features lead.
     companySize: text("company_size").notNull().default("solo"),
-    // Manual checklist state: { calendarSkipped?: boolean; forwardingDone?: boolean }
+    // Manual checklist state, plus the last time we warned about a silent line.
+    // `quietAlertAt` lives here rather than in its own column so the quiet-line
+    // check needs no migration: it's dedupe state, not business data.
     setupFlags: jsonb("setup_flags")
-      .$type<{ calendarSkipped?: boolean; forwardingDone?: boolean }>()
+      .$type<{
+        calendarSkipped?: boolean;
+        forwardingDone?: boolean;
+        quietAlertAt?: string;
+      }>()
       .notNull()
       .default({}),
     retellAgentId: text("retell_agent_id"),
