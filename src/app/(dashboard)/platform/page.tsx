@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { listAllWorkspaces } from "@/lib/data/platform";
+import { integrationHealth } from "@/lib/data/integration-health";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/clients/status-badge";
 import { AdoptWorkspace } from "@/components/platform/adopt-workspace";
+import { IntegrationHealth } from "@/components/platform/integration-health";
 import { LocalDateTime } from "@/components/local-datetime";
 import type { ClientStatus } from "@/db/schema";
 
@@ -15,6 +17,7 @@ export const metadata: Metadata = { title: "Platform" };
 export default async function PlatformPage() {
   const admin = await requireSuperAdmin();
   const workspaces = await listAllWorkspaces();
+  const health = integrationHealth();
   const selfServe = workspaces.filter((w) => w.kind === "business").length;
 
   return (
@@ -23,6 +26,8 @@ export default async function PlatformPage() {
         title="Platform"
         description={`Every company that's signed up for FrontDesk AI — one workspace is created per signup, not per login. ${workspaces.length} total, ${selfServe} self-serve.`}
       />
+
+      <IntegrationHealth {...health} />
 
       <div className="space-y-3">
         {workspaces.map((w) => (

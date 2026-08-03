@@ -36,7 +36,9 @@ const REALERT_AFTER_DAYS = 7;
 const DAY_MS = 86_400_000;
 
 /** Which weekdays (0=Sun) this client is actually open, in their own zone. */
-function openWeekdays(hours: Array<{ dayOfWeek: number; isClosed: boolean; openTime: string | null }>) {
+function openWeekdays(
+  hours: Array<{ dayOfWeek: number; isClosed: boolean; openTime: string | null }>,
+) {
   return new Set(hours.filter((h) => !h.isClosed && h.openTime).map((h) => h.dayOfWeek));
 }
 
