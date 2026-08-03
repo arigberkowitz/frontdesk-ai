@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { verifyIntakeToken } from "@/lib/intake-token";
+import { toE164 } from "@/lib/format";
 import { getClientByIdUnsafe, updateClient } from "@/lib/data/clients";
 import { applyWebsiteToClient } from "@/lib/onboarding-apply";
 import { type ActionState } from "./types";
@@ -41,7 +42,7 @@ export async function submitIntakeAction(
     name,
     websiteUrl: websiteUrl || null,
     ownerEmail: ownerEmail || null,
-    escalationNumber: ownerCell || null,
+    escalationNumber: toE164(ownerCell),
     agentGuidance: instructions || client.agentGuidance,
   });
 

@@ -2,6 +2,7 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import Retell from "retell-sdk";
 import { env, integrations } from "./env";
+import { toE164 } from "@/lib/format";
 import { logger } from "./logger";
 
 /**
@@ -100,6 +101,7 @@ function agentToolUrl(appUrl: string, path: string, clientId: string): string {
 
 /** The four custom function tools (§9.4) that POST to our agent-tool endpoints. */
 export function buildAgentTools(appUrl: string, clientId: string, escalationNumber?: string | null) {
+  const transferTo = toE164(escalationNumber);
   return [
     {
       type: "custom" as const,
@@ -186,13 +188,19 @@ export function buildAgentTools(appUrl: string, clientId: string, escalationNumb
         required: ["name", "phone"],
       },
     },
-    escalationNumber?.trim()
+    // E.164 or nothing. Retell rejects anything else with a 400, and because
+    // this is built during provisioning, one badly-formatted escalation number
+    // used to fail the ENTIRE publish — no agent, no phone binding, and an
+    // error message that blamed the receptionist instead of the phone field.
+    // A number we can't normalize degrades to the message-taking fallback,
+    // which is a worse experience for one caller rather than a dead business.
+    transferTo
       ? {
           type: "transfer_call" as const,
           name: AGENT_TOOL_NAMES.transferToHuman,
           description:
             "Warm-transfer the caller to a human teammate when they ask for a person, say 'agent'/'representative', or for sensitive matters.",
-          transfer_destination: { type: "predefined" as const, number: escalationNumber.trim() },
+          transfer_destination: { type: "predefined" as const, number: transferTo },
           transfer_option: { type: "warm_transfer" as const, agent_detection_timeout_ms: 20000 },
           speak_during_execution: true,
           execution_message_description: "Briefly tell the caller you're connecting them to a teammate.",

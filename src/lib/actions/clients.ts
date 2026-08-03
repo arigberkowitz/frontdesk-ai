@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { clerkClient } from "@clerk/nextjs/server";
 import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "@/lib/auth-guard";
+import { toE164 } from "@/lib/format";
 import { clientCreateSchema, clientProfileSchema, emptyToNull } from "@/lib/validation";
 import * as clientsData from "@/lib/data/clients";
 import { seedClientFromPack } from "@/lib/starter-seed";
@@ -107,7 +108,9 @@ export async function updateClientProfileAction(
     industry: emptyToNull(d.industry),
     address: emptyToNull(d.address),
     timezone: d.timezone,
-    escalationNumber: emptyToNull(d.escalationNumber),
+    // Normalize here too: the operator form is the other door into this
+    // field, and Retell rejects anything that isn't E.164.
+    escalationNumber: toE164(d.escalationNumber) ?? emptyToNull(d.escalationNumber),
     forwardingNumber: emptyToNull(d.forwardingNumber),
     ownerEmail: emptyToNull(d.ownerEmail),
   });

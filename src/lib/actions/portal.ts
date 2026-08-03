@@ -5,6 +5,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { users, type NewClient } from "@/db/schema";
 import { assertClientAccess, requireClientEditor } from "@/lib/auth-guard";
+import { toE164 } from "@/lib/format";
 import { assertClientInOrg, getClientByIdUnsafe, updateClient } from "@/lib/data/clients";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { notifier } from "@/lib/notifier";
@@ -77,7 +78,24 @@ export async function savePortalProfileAction(
         };
       }
     }
-    patch.escalationNumber = phone || null;
+    // Store E.164 or reject. Retell's transfer tool demands it, and a number
+    // that reaches provisioning malformed fails the whole publish.
+    if (phone) {
+      const e164 = toE164(phone);
+      if (!e164) {
+        return {
+          ok: false,
+          fieldErrors: {
+            alertPhone: [
+              "That doesn't look like a full phone number — include the area code, like (415) 555-0100.",
+            ],
+          },
+        };
+      }
+      patch.escalationNumber = e164;
+    } else {
+      patch.escalationNumber = null;
+    }
   }
   if (formData.has("humanHandoffEnabled")) {
     patch.humanHandoffEnabled = String(formData.get("humanHandoffEnabled")) === "on";
