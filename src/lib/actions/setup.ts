@@ -35,22 +35,35 @@ export async function finishSetupAction(
     };
   }
 
+  // The reviewer's findings are ADVICE, not a gate. Every mechanical step is
+  // done by this point — the AI has a number, hours, a calendar and a greeting,
+  // and it will answer the phone correctly. "Your consultation has no price" is
+  // worth knowing and worth ignoring; refusing to let someone finish over it
+  // told them they'd failed when they'd actually succeeded.
   const check = await checkSetupReadiness(clientId);
-  if (!check.ready && check.issues.length > 0) {
-    return {
-      ok: false,
-      error: `The AI reviewer found a few things to fix first: ${check.issues.join(" · ")}`,
-    };
-  }
+  const notes = check.issues.slice(0, 6);
 
-  await db.update(clients).set({ setupCompletedAt: new Date() }).where(eq(clients.id, clientId));
-  logger.info("setup.finished", { clientId, aiChecked: check.checked });
+  const existing = await db.query.clients.findFirst({
+    where: (c, { eq: e }) => e(c.id, clientId),
+    columns: { setupFlags: true },
+  });
+  await db
+    .update(clients)
+    .set({
+      setupCompletedAt: new Date(),
+      setupFlags: { ...(existing?.setupFlags ?? {}), reviewNotes: notes },
+    })
+    .where(eq(clients.id, clientId));
+
+  logger.info("setup.finished", { clientId, aiChecked: check.checked, notes: notes.length });
   revalidatePath("/portal", "layout");
   return {
     ok: true,
-    message: check.checked
-      ? "Setup complete — the AI reviewed everything and you're ready for live calls. You can revisit setup anytime under Settings."
-      : "Setup complete — you're ready for live calls. You can revisit setup anytime under Settings.",
+    message: notes.length
+      ? `Setup complete — you're ready for live calls. The AI also left ${notes.length === 1 ? "a suggestion" : `${notes.length} suggestions`} below, none of them blocking.`
+      : check.checked
+        ? "Setup complete — the AI reviewed everything and you're ready for live calls. You can revisit setup anytime under Settings."
+        : "Setup complete — you're ready for live calls. You can revisit setup anytime under Settings.",
   };
 }
 
@@ -106,4 +119,31 @@ export async function reopenSetupAction(
   await db.update(clients).set({ setupCompletedAt: null }).where(eq(clients.id, clientId));
   revalidatePath("/portal", "layout");
   return { ok: true, message: "Setup checklist reopened on your Overview." };
+}
+
+/**
+ * Clear the AI's setup suggestions. They're optional by definition, so a
+ * business that has read them and decided otherwise should be able to put them
+ * away for good rather than living with a permanent nag.
+ */
+export async function dismissReviewNotesAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  await assertClientInOrg(guard.user.orgId, clientId);
+
+  const existing = await db.query.clients.findFirst({
+    where: (c, { eq: e }) => e(c.id, clientId),
+    columns: { setupFlags: true },
+  });
+  await db
+    .update(clients)
+    .set({ setupFlags: { ...(existing?.setupFlags ?? {}), reviewNotes: [] } })
+    .where(eq(clients.id, clientId));
+
+  revalidatePath("/portal", "layout");
+  return { ok: true, message: "Dismissed." };
 }

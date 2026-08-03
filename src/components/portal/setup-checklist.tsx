@@ -2,11 +2,16 @@
 
 import { useActionState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, CheckCircle2, Sparkles } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, Lightbulb, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { finishSetupAction, reopenSetupAction, setSetupFlagAction } from "@/lib/actions/setup";
+import {
+  dismissReviewNotesAction,
+  finishSetupAction,
+  reopenSetupAction,
+  setSetupFlagAction,
+} from "@/lib/actions/setup";
 import { initialActionState } from "@/lib/actions/types";
 import { formatDateTime } from "@/lib/format";
 
@@ -53,6 +58,8 @@ export interface SetupStatusView {
   total: number;
   complete: boolean;
   finishedAt: string | null;
+  /** Optional improvements from the AI review — advice, never blockers. */
+  reviewNotes?: string[];
 }
 
 /**
@@ -86,13 +93,52 @@ export function SetupChecklist({
     if (finishState.ok) toast.success(finishState.message ?? "Setup complete.");
     else if (finishState.error) toast.error(finishState.error, { duration: 9000 });
   }, [finishState]);
+  const [, dismissAction, dismissing] = useActionState(
+    dismissReviewNotesAction,
+    initialActionState,
+  );
   useEffect(() => {
     if (reopenState.ok) toast.success(reopenState.message ?? "Reopened.");
     else if (reopenState.error) toast.error(reopenState.error);
   }, [reopenState]);
 
-  // Overview: once finished (AI-checked), the card disappears entirely.
-  if (variant === "overview" && status.finishedAt) return null;
+  const notes = status.reviewNotes ?? [];
+
+  // Overview: once finished, the checklist has served its purpose and goes away
+  // — unless the review left suggestions, which are worth one more look.
+  if (variant === "overview" && status.finishedAt && notes.length === 0) return null;
+  if (variant === "overview" && status.finishedAt) {
+    return (
+      <Card>
+        <CardContent className="space-y-3">
+          <div className="flex items-start gap-2.5">
+            <Lightbulb className="mt-0.5 size-4 shrink-0 text-amber-500" />
+            <div className="min-w-0">
+              <h2 className="font-heading text-base font-semibold">Worth a look</h2>
+              <p className="text-sm text-muted-foreground">
+                You&apos;re live and taking calls — these are optional polish, not problems.
+              </p>
+            </div>
+          </div>
+          <ul className="space-y-1.5 pl-6">
+            {notes.map((n) => (
+              <li key={n} className="list-disc text-sm text-muted-foreground marker:text-amber-500">
+                {n}
+              </li>
+            ))}
+          </ul>
+          {canEdit ? (
+            <form action={dismissAction} className="pl-6">
+              <input type="hidden" name="clientId" value={clientId} />
+              <Button type="submit" variant="ghost" size="sm" disabled={dismissing}>
+                {dismissing ? "Dismissing…" : "Got it, hide these"}
+              </Button>
+            </form>
+          ) : null}
+        </CardContent>
+      </Card>
+    );
+  }
 
   const pct = Math.round((status.doneCount / status.total) * 100);
   const finished = Boolean(status.finishedAt);

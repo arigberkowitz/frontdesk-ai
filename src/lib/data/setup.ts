@@ -24,6 +24,8 @@ export interface SetupStatus {
   complete: boolean;
   /** Owner clicked "I'm done" and the AI readiness check passed. */
   finishedAt: Date | null;
+  /** Advisory notes from the AI review. Optional improvements, never blockers. */
+  reviewNotes: string[];
 }
 
 /** Activation checklist state for a client, derived from real data. `complete`
@@ -128,5 +130,6 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
     total: steps.length,
     complete: doneCount === steps.length,
     finishedAt: client?.setupCompletedAt ?? null,
+    reviewNotes: client?.setupFlags?.reviewNotes ?? [],
   };
 }

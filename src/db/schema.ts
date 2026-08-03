@@ -179,6 +179,8 @@ export const clients = pgTable(
         calendarSkipped?: boolean;
         forwardingDone?: boolean;
         quietAlertAt?: string;
+        /** Advisory notes from the AI setup review — suggestions, not blockers. */
+        reviewNotes?: string[];
       }>()
       .notNull()
       .default({}),
