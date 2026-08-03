@@ -223,3 +223,74 @@ export async function notifyOperatorComplianceRisk(
     r,
   );
 }
+
+/**
+ * Tell the owner NOW when a call went badly in a way that can still be saved.
+ *
+ * The dashboard panel is retrospective — it's there so nobody discovers a
+ * problem from an angry customer a week later. This is the other half: two
+ * failures are worth interrupting someone's day over, because both have a
+ * window in which a callback still fixes them.
+ *
+ * A caller who asked for a person and didn't get one is a customer who is,
+ * right now, deciding whether to try a competitor. And a call that mentioned
+ * something urgent is the failure with the worst ratio of consequence to
+ * visibility in this whole product — it never becomes a bad review.
+ *
+ * Deliberately narrow. Alert on everything and the owner mutes us, which costs
+ * more than sending nothing.
+ */
+export async function notifyOwnerCallProblem(
+  client: Client,
+  call: { id: string; fromNumber: string | null; startAt: Date | null },
+  health: { problems: string[]; notes: string[] },
+): Promise<void> {
+  const urgent = health.problems.includes("possible_emergency");
+  const stranded = health.problems.includes("stranded_asking_for_human");
+  if (!urgent && !stranded) return;
+
+  const phone = formatPhone(call.fromNumber);
+  const when = formatDateTime(call.startAt, client.timezone);
+  const headline = urgent
+    ? `A caller may have had an emergency`
+    : `A caller asked for a person and didn't get one`;
+  const action = urgent
+    ? "Listen to this one first, then call them back."
+    : "They're deciding whether to try someone else. A callback now usually saves it.";
+  const link = `${env.APP_URL.replace(/\/$/, "")}/portal/calls/${call.id}`;
+
+  const { emails, phones } = await getAlertRecipients(client);
+  const smsTargets = client.smsAlertsEnabled ? phones : [];
+
+  for (const sms of smsTargets) {
+    const body = `${urgent ? "🚨" : "⚠️"} ${client.name}: ${headline}. ${phone} at ${when}. ${action} ${link}`;
+    const r = await notifier.sendSms({ to: sms, body });
+    await logNotification(client.id, "system", "sms", sms, { body, callId: call.id }, r);
+  }
+
+  for (const to of emails) {
+    const html = ownerEmailHtml({
+      title: headline,
+      business: client.name,
+      lines: [
+        ...health.notes.map((n) => esc(n)),
+        `<strong>Caller:</strong> ${esc(phone)} · ${esc(when)}`,
+        `<strong>${esc(action)}</strong>`,
+        `<a href="${link}">Listen to the call</a>`,
+      ],
+    });
+    const r = await notifier.sendEmail({
+      to,
+      subject: `${urgent ? "Urgent — " : ""}${headline} · ${client.name}`,
+      html,
+      text: `${headline}. ${health.notes.join(" ")} Caller ${phone} at ${when}. ${action} ${link}`,
+    });
+    await logNotification(client.id, "system", "email", to, { headline, callId: call.id }, r);
+  }
+
+  logger.info("notify.call_problem", {
+    clientId: client.id,
+    callId: call.id,
+    problems: health.problems,
+  });
+}

@@ -182,7 +182,12 @@ export default async function PortalOverviewPage({
 
       {/* Deliberately above the activity chart. A business should meet the
           calls that went wrong before it meets the ones that went right. */}
-      <CallHealthPanel summary={health.summary} items={health.needsAttention} timeZone={tz} />
+      <CallHealthPanel
+        summary={health.summary}
+        items={health.needsAttention}
+        waste={health.waste}
+        timeZone={tz}
+      />
 
       <CallActivity
         trend={m.callsByDay}

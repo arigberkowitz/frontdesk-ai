@@ -3,6 +3,8 @@ import { and, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, notifications, type Client } from "@/db/schema";
 import { getClientPeriodSummary, type PeriodSummary } from "./data/metrics";
+import { getCallHealth } from "./data/calls";
+import type { CallHealthSummary } from "./call-health";
 import { notifier } from "./notifier";
 import { formatCurrencyCents } from "./format";
 import { env } from "./env";
@@ -97,8 +99,57 @@ function statRow(label: string, value: string, sub?: string): string {
   </tr>`;
 }
 
+
+/**
+ * The part of the week nobody else sends.
+ *
+ * A weekly report that only contains good news trains the reader to skim it.
+ * Worse, it means the first time a business hears that callers were asking for
+ * a human and not getting one is when one of them says so. If the week was
+ * clean, say that plainly — it's only worth believing because we'd have said
+ * otherwise.
+ */
+function healthBlock(health?: CallHealthSummary): string {
+  if (!health || health.total === 0) return "";
+  const rows: string[] = [];
+  if (health.strandedAskingForHuman > 0)
+    rows.push(
+      `${health.strandedAskingForHuman} caller${health.strandedAskingForHuman === 1 ? "" : "s"} asked for a person and didn't reach one`,
+    );
+  if (health.repeatedQuestion > 0)
+    rows.push(
+      `${health.repeatedQuestion} call${health.repeatedQuestion === 1 ? "" : "s"} where your AI had to ask the same thing three or more times`,
+    );
+  if (health.earlyHangup > 0)
+    rows.push(`${health.earlyHangup} hung up within the first 15 seconds`);
+  if (health.noContactCaptured > 0)
+    rows.push(`${health.noContactCaptured} ended with no name or number to follow up on`);
+  if (health.possibleEmergency > 0)
+    rows.push(
+      `<strong>${health.possibleEmergency} mentioned something that may have been urgent</strong>`,
+    );
+
+  if (!rows.length) {
+    return `<p style="margin:16px 0 0;padding:10px 12px;background:#f0fdf4;border-radius:8px;font-size:14px;color:#166534">
+    Every call this week went cleanly — nobody was left waiting, cut off, or asked the same thing twice.
+  </p>`;
+  }
+
+  return `<div style="margin:18px 0 0;padding:12px;background:#fffbeb;border-radius:8px">
+    <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:#92400e">Worth a listen this week</p>
+    <ul style="margin:0;padding-left:18px;color:#78350f;font-size:14px">
+      ${rows.map((r) => `<li style="margin:2px 0">${r}</li>`).join("\n      ")}
+    </ul>
+    <p style="margin:8px 0 0;font-size:12px;color:#92400e">Each one is in your dashboard with the recording attached.</p>
+  </div>`;
+}
+
 /** The retention machine: one glance says what the AI earned this week. */
-export function weeklyReportEmailHtml(client: Client, s: PeriodSummary): string {
+export function weeklyReportEmailHtml(
+  client: Client,
+  s: PeriodSummary,
+  health?: CallHealthSummary,
+): string {
   // Earned and upcoming are different claims and are never added together.
   // "Booked $X" used to mean "count × the average price on your menu", which
   // was neither.
@@ -119,6 +170,7 @@ export function weeklyReportEmailHtml(client: Client, s: PeriodSummary): string 
     ${statRow("After-hours saves", String(s.afterHours), "Calls that would have gone to voicemail")}
     ${statRow("Messages & leads captured", String(s.leads), "Callers who left a callback request")}
   </table>
+  ${healthBlock(health)}
   <p style="margin:20px 0">
     <a href="${env.APP_URL}/portal" style="background:#111;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;display:inline-block">Open your dashboard</a>
   </p>
@@ -153,7 +205,10 @@ export async function sendWeeklyReports(): Promise<DigestRunResult> {
       }
 
       const subject = `Your AI answered ${s.calls} call${s.calls === 1 ? "" : "s"} and booked ${s.bookings} appointment${s.bookings === 1 ? "" : "s"} this week`;
-      const html = weeklyReportEmailHtml(client, s);
+      // The week's failures ride along with the week's wins. A report that only
+      // ever flatters is a report nobody reads closely.
+      const health = await getCallHealth(client.id, 7).catch(() => null);
+      const html = weeklyReportEmailHtml(client, s, health?.summary);
       const result = await notifier.sendEmail({
         to,
         subject,

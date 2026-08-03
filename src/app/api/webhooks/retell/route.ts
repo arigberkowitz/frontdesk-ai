@@ -6,6 +6,8 @@ import { extractCallInsights } from "@/lib/agents/extract";
 import { verifyRetellSignature } from "@/lib/retell";
 import { getClientByRetellAgentId } from "@/lib/data/clients";
 import { upsertCallByRetellId } from "@/lib/data/calls";
+import { analyzeCall } from "@/lib/call-health";
+import { notifyOwnerCallProblem } from "@/lib/notify";
 import {
   deleteWebhookEvent,
   markWebhookProcessed,
@@ -128,6 +130,31 @@ export async function POST(req: Request): Promise<Response> {
     if ((event === "call_ended" || event === "call_analyzed") && row) {
       const outcome = await classifyOutcome(row.id, custom);
       await upsertCallByRetellId({ ...values, outcome });
+
+      // Two failures are worth waking someone for: a caller who asked for a
+      // person and never got one, and anything that sounded like an emergency.
+      // Both still have a window where a callback fixes them; by the time
+      // either shows up on a dashboard, it usually doesn't.
+      const health = analyzeCall({
+        transcript: values.transcript,
+        durationSec: values.durationSec,
+        outcome,
+        transferConnected: outcome === "escalated",
+      });
+      if (health.problems.some((p) => p === "possible_emergency" || p === "stranded_asking_for_human")) {
+        after(() =>
+          notifyOwnerCallProblem(
+            client,
+            { id: row.id, fromNumber: values.fromNumber ?? null, startAt: values.startAt ?? null },
+            health,
+          ).catch((err) =>
+            logger.error("webhook.retell.problem_alert_failed", {
+              callId: row.id,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          ),
+        );
+      }
     }
 
     // Agent #2 — post-call extraction (intent, entities, spam, follow-up draft).

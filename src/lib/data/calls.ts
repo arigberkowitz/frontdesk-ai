@@ -107,8 +107,30 @@ export async function getCallHealth(clientId: string, days = 30) {
     }),
   }));
 
+  // What the business is paying for calls that produced nothing. The single
+  // most-cited final straw in this market is a bill full of robocalls and ring
+  // time that the customer discovered themselves. Surfacing it first turns the
+  // top cancellation cause into a reason to trust the invoice.
+  const wasted = rows.filter(
+    (c) =>
+      c.outcome === "spam" ||
+      (c.leads.length === 0 &&
+        c.appointments.length === 0 &&
+        c.outcome !== "faq_answered" &&
+        c.outcome !== "escalated"),
+  );
+  const waste = {
+    calls: wasted.length,
+    seconds: wasted.reduce((n, c) => n + (c.durationSec ?? 0), 0),
+    spamCalls: rows.filter((c) => c.outcome === "spam").length,
+    spamSeconds: rows
+      .filter((c) => c.outcome === "spam")
+      .reduce((n, c) => n + (c.durationSec ?? 0), 0),
+  };
+
   return {
     summary: summarize(scored.map((s) => s.health)),
+    waste,
     // Worst first: the ones an owner should actually listen to.
     needsAttention: scored
       .filter((s) => !s.health.clean)

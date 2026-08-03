@@ -8,6 +8,7 @@ import { getBookingProviderForClient } from "@/lib/booking";
 import { blocksForProvider, businessWideBlocks, checkSlot, slotRefusal } from "@/lib/booking-window";
 import { matchService, serviceClarification } from "@/lib/service-match";
 import { parseInClientTimezone } from "@/lib/hours-util";
+import { toE164 } from "@/lib/format";
 import { notifyOwnerBooking } from "@/lib/notify";
 import { logger } from "@/lib/logger";
 
@@ -62,9 +63,21 @@ export async function POST(req: Request): Promise<Response> {
   const durationMin = service.durationMin ?? 30;
   const endAt = new Date(startAt.getTime() + durationMin * 60_000);
   const customerName = String(args.name ?? "").trim();
-  const customerPhone = String(args.phone ?? "").trim();
-  if (!customerPhone) {
+  // A booking with an unusable number is a booking nobody can confirm, move, or
+  // chase — and "ended with no way to call back" is one of the failures we
+  // report to the business. Better to ask again on the call than to write a
+  // record that quietly can't be acted on.
+  const spokenPhone = String(args.phone ?? "").trim();
+  if (!spokenPhone) {
     return Response.json({ message: "What's the best callback number to put on the booking?" });
+  }
+  const customerPhone = toE164(spokenPhone);
+  if (!customerPhone) {
+    logger.info("agent-tools.book.unusable_phone", { clientId: client.id });
+    return Response.json({
+      message:
+        "I didn't quite catch that number. Could you read me the ten digits one at a time?",
+    });
   }
 
   // ---------------------------------------------------------------------

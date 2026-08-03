@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, PhoneOff, Repeat, UserRound } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDateTime, formatPhone } from "@/lib/format";
+import { formatDateTime, formatDuration, formatPhone } from "@/lib/format";
 import type { CallProblem, CallHealthSummary } from "@/lib/call-health";
 
 export interface CallHealthItem {
@@ -20,6 +20,13 @@ const ICONS: Partial<Record<CallProblem, typeof UserRound>> = {
   possible_emergency: AlertTriangle,
 };
 
+export interface CallWaste {
+  calls: number;
+  seconds: number;
+  spamCalls: number;
+  spamSeconds: number;
+}
+
 /**
  * "What went wrong" — the half of the story the rest of this market leaves out.
  *
@@ -33,10 +40,12 @@ const ICONS: Partial<Record<CallProblem, typeof UserRound>> = {
 export function CallHealthPanel({
   summary,
   items,
+  waste,
   timeZone,
 }: {
   summary: CallHealthSummary;
   items: CallHealthItem[];
+  waste?: CallWaste;
   timeZone?: string;
 }) {
   if (summary.total === 0) return null;
@@ -119,6 +128,20 @@ export function CallHealthPanel({
             </ul>
           </>
         )}
+
+        {waste && waste.spamCalls > 0 ? (
+          /* Every competitor bills for these and says nothing. The most-cited
+             final straw in this market is a customer working out for themselves
+             that most of their minutes were robocalls. */
+          <p className="rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+            <strong className="text-foreground">
+              {waste.spamCalls} spam {waste.spamCalls === 1 ? "call" : "calls"}
+            </strong>{" "}
+            reached your number this month — {formatDuration(waste.spamSeconds)} of them. Your AI
+            handled these so you didn&apos;t have to, and they don&apos;t count toward anything you
+            pay for.
+          </p>
+        ) : null}
 
         <p className="text-xs text-muted-foreground">
           These are counted from what was actually said on each call, not scored by an AI. Every
