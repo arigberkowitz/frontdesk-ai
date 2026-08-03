@@ -148,6 +148,12 @@ function CancelAppointmentButton({
   );
 }
 
+/** "2026-08-03" → the first of that month, as a plain calendar Date. */
+function monthFromDayKey(key: string): Date {
+  const [y, m] = key.split("-").map(Number);
+  return new Date(y, m - 1, 1);
+}
+
 export function AppointmentsView({
   appointments,
   callBasePath,
@@ -187,7 +193,16 @@ export function AppointmentsView({
   const [now] = useState(() => Date.now());
   const [todayKey] = useState(() => tzTodayKey(timeZone));
   const [zoneLabel] = useState(() => zoneAbbrev(timeZone));
-  const [month, setMonth] = useState(() => startOfMonth(items[0]?.date ?? new Date(0)));
+  /**
+   * Open on the CURRENT month, in the business's timezone.
+   *
+   * This used to open on the month of the first appointment in the list, so a
+   * calendar with an old booking in it opened in the past and looked frozen —
+   * and with no appointments at all the fallback was `new Date(0)`, which put
+   * people in January 1970. Derived from the same tz day-key the grid uses, so
+   * a viewer in another timezone still sees the business's month.
+   */
+  const [month, setMonth] = useState(() => monthFromDayKey(todayKey));
 
   const byDay = useMemo(() => {
     const map = new Map<string, Item[]>();
@@ -251,6 +266,17 @@ export function AppointmentsView({
             >
               <ChevronRight className="size-4" />
             </button>
+            {/* Once you've paged away there's otherwise no way back without a
+                reload. Hidden when it would do nothing. */}
+            {!isSameMonth(month, monthFromDayKey(todayKey)) ? (
+              <button
+                type="button"
+                onClick={() => setMonth(monthFromDayKey(todayKey))}
+                className="ml-1 rounded-md border px-2 py-1.5 text-xs font-medium text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Today
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>
