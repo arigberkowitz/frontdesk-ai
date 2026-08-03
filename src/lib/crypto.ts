@@ -90,7 +90,15 @@ export function verifyUnlockToken(
   const [cid, uid, expStr, sig] = parts;
   if (cid !== clientId || uid !== userId) return false;
   if (Number(expStr) < Date.now()) return false;
-  const expected = createHmac("sha256", key()).update(`${cid}.${uid}.${expStr}`).digest("base64url");
+  // This runs while rendering portal pages. A missing secret should leave
+  // editing locked, not throw a 500 through the middle of someone's dashboard —
+  // fail closed here, and let the paths that genuinely need the key shout.
+  let expected: string;
+  try {
+    expected = createHmac("sha256", key()).update(`${cid}.${uid}.${expStr}`).digest("base64url");
+  } catch {
+    return false;
+  }
   const a = Buffer.from(expected);
   const b = Buffer.from(sig);
   return a.length === b.length && timingSafeEqual(a, b);
