@@ -160,8 +160,8 @@ export function AiNumberCard({
               <>
                 <strong>No AI phone number yet.</strong> Your AI is fully built and you can talk to
                 it right now with a test call in the browser — it just has no phone line of its own
-                to answer on. Adding one takes a payment method on the Retell account (about $2 a
-                month); the dial-in steps appear here the moment it&apos;s assigned.
+                to answer on. We&apos;re assigning one; the dial-in steps appear here the moment
+                it&apos;s ready.
               </>
             )}
           </span>

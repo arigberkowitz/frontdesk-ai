@@ -311,7 +311,7 @@ export function PortalSettings({ client, isAdmin = true }: { client: Client; isA
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="help" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Get help</CardTitle>
           <CardDescription>

@@ -115,7 +115,10 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
     {
       key: "testcall",
       label: "Make a test call — hear it answer",
-      href: "/portal/calls",
+      // The hint tells you to use the browser test call, which lives on Your AI.
+      // Sending you to the (empty) call log instead was a dead end at the exact
+      // moment you were trying to do the thing.
+      href: "/portal/guidelines#test-call",
       done: (callCount?.n ?? 0) > 0,
       hint: aiNumber
         ? `Call your AI at ${aiNumber}. This checks itself off when your first call appears.`

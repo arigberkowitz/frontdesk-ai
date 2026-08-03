@@ -51,17 +51,24 @@ export function HoursTab({ clientId, hours }: { clientId: string; hours: Busines
                   closed && "pointer-events-none opacity-40",
                 )}
               >
+                {/* The weekday name labels this row visually, but a screen
+                    reader reaching these inputs hears only "time, blank" twice
+                    over — seven days running. */}
                 <Input
                   type="time"
                   name={`open_${d.value}`}
+                  aria-label={`${d.label} opening time`}
                   defaultValue={h?.openTime ?? "09:00"}
                   disabled={closed}
                   className="w-36"
                 />
-                <span className="text-muted-foreground">–</span>
+                <span aria-hidden className="text-muted-foreground">
+                  –
+                </span>
                 <Input
                   type="time"
                   name={`close_${d.value}`}
+                  aria-label={`${d.label} closing time`}
                   defaultValue={h?.closeTime ?? "17:00"}
                   disabled={closed}
                   className="w-36"

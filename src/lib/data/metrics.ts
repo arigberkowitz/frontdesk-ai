@@ -246,8 +246,10 @@ export async function getClientPeriodSummary(
 
 export interface ClientRoi {
   windowDays: number;
-  /** Estimated booked value over the window (bookings × avg service price), cents. */
+  /** Earned in the window: real prices of appointments that have happened, cents. */
   valueCents: number;
+  /** Booked in the window, happening later. Shown separately, never added in. */
+  upcomingValueCents: number;
   /** The client's active/trial plan price, cents — null if not on a paid plan. */
   planCents: number | null;
   calls: number;
@@ -278,6 +280,7 @@ export async function getClientRoi(clientId: string): Promise<ClientRoi> {
   return {
     windowDays: 30,
     valueCents,
+    upcomingValueCents: summary.upcomingRevenueCents,
     planCents,
     calls: summary.calls,
     bookings: summary.bookings,

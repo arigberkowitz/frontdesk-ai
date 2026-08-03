@@ -1,14 +1,16 @@
 import { TrendingUp } from "lucide-react";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { CountUp } from "@/components/count-up";
 import { formatCurrencyCents } from "@/lib/format";
 import type { ClientRoi } from "@/lib/data/metrics";
 
-/** "What your AI did this month" — value captured vs. plan cost, with a plain-English
- *  takeaway. Degrades to an activity-led message when there are no bookings yet. The
- *  supporting stat breakdown lives in the metric cards just below, so it isn't repeated here. */
+/** "What your AI did this month" — value earned vs. plan cost, with a plain-English
+ *  takeaway. Degrades to an activity-led message when there are no bookings yet, and
+ *  to a get-started nudge when the phone hasn't rung at all. The supporting stat
+ *  breakdown lives in the metric cards just below, so it isn't repeated here. */
 export function RoiPanel({ roi }: { roi: ClientRoi }) {
-  const { valueCents, planCents, multiple, calls, afterHours } = roi;
+  const { valueCents, upcomingValueCents, planCents, multiple, calls, afterHours } = roi;
   const hasValue = valueCents > 0;
   // Only claim a multiple when the value is clearly above the plan cost.
   const showMultiple = multiple != null && multiple >= 1.5;
@@ -30,10 +32,16 @@ export function RoiPanel({ roi }: { roi: ClientRoi }) {
                 <CountUp value={formatCurrencyCents(valueCents)} />
               </span>
               <span className="text-sm text-muted-foreground">
-                booked
+                earned
                 {planCents != null ? ` — while your plan costs ${formatCurrencyCents(planCents)}` : ""}
               </span>
             </div>
+            {upcomingValueCents > 0 ? (
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                Plus <strong>{formatCurrencyCents(upcomingValueCents)}</strong> booked and still to
+                come.
+              </p>
+            ) : null}
             {showMultiple ? (
               <p className="mt-2 text-sm">
                 Your AI brought in about{" "}
@@ -41,7 +49,7 @@ export function RoiPanel({ roi }: { roi: ClientRoi }) {
               </p>
             ) : null}
           </>
-        ) : (
+        ) : calls > 0 ? (
           <>
             <p className="mt-2.5 font-heading text-2xl font-semibold tracking-tight">
               Your AI is on the job
@@ -49,13 +57,31 @@ export function RoiPanel({ roi }: { roi: ClientRoi }) {
             <p className="mt-1 text-sm text-muted-foreground">
               It answered {calls} call{calls === 1 ? "" : "s"}
               {afterHours > 0 ? ` and caught ${afterHours} after-hours` : ""} in the last 30 days.
-              Bookings show their dollar value here as they come in.
+              Appointments show their value here once they&apos;ve happened.
+            </p>
+          </>
+        ) : (
+          /* Nothing has come in at all. Telling this business "your AI is on the
+             job" is worse than saying nothing — it's the exact reassurance that
+             stops someone checking whether their phone is actually forwarded. */
+          <>
+            <p className="mt-2.5 font-heading text-2xl font-semibold tracking-tight">
+              No calls yet
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your AI hasn&apos;t been sent a call in the last 30 days. If that&apos;s a surprise,
+              check that your business line is forwarding to it —{" "}
+              <Link href="/portal/settings#forwarding" className="underline underline-offset-2">
+                see the forwarding steps
+              </Link>
+              .
             </p>
           </>
         )}
 
         <p className="mt-4 text-xs text-muted-foreground">
-          &ldquo;Booked&rdquo; = appointments your AI scheduled × your average service price.
+          &ldquo;Earned&rdquo; = what the appointments your AI booked were actually worth, counted
+          once they&apos;ve happened.
         </p>
       </CardContent>
     </Card>

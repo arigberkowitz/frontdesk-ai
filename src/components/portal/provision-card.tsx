@@ -53,7 +53,7 @@ export function ProvisionCard({
         <CardTitle>Your AI receptionist</CardTitle>
         <CardDescription>
           {hasAgent
-            ? "Your receptionist is set up. Test it in your browser, and re-sync after you change anything below."
+            ? "Your receptionist is set up. Changes you save publish to it automatically — re-sync only if something looks out of date."
             : "Activate your receptionist so you can hear it and put it to work."}
         </CardDescription>
       </CardHeader>
@@ -82,7 +82,10 @@ export function ProvisionCard({
           </div>
         ) : null}
 
-        {hasAgent ? <TestCallButton clientId={clientId} agentName={agentName} /> : null}
+        {/* Anchor: the setup checklist's "make a test call" step links here. */}
+        <div id="test-call" className="scroll-mt-24">
+          {hasAgent ? <TestCallButton clientId={clientId} agentName={agentName} /> : null}
+        </div>
 
         {!retellReady ? (
           <p className="text-sm text-amber-600 dark:text-amber-400">

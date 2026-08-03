@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Crown, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { ConfirmDelete, ConfirmDeleteAction } from "@/components/confirm-delete";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -77,23 +77,32 @@ function ClockSwitch({
   );
 }
 
-function RemoveButton({ clientId, providerId }: { clientId: string; providerId: string }) {
+function RemoveButton({
+  clientId,
+  providerId,
+  name,
+}: {
+  clientId: string;
+  providerId: string;
+  name: string;
+}) {
   const [state, action, pending] = useActionState(removeProviderAction, initialActionState);
   useToastState(state);
   return (
-    <form action={action}>
-      <input type="hidden" name="clientId" value={clientId} />
-      <input type="hidden" name="providerId" value={providerId} />
-      <Button
-        type="submit"
-        variant="ghost"
-        size="sm"
-        disabled={pending}
-        className="text-muted-foreground hover:text-destructive"
-      >
-        Remove
-      </Button>
-    </form>
+    <ConfirmDelete
+      title={`Remove ${name} from the team?`}
+      description="They stop being offered for new bookings. Appointments already on the calendar stay put."
+      triggerLabel="Remove"
+      triggerVariant="text"
+    >
+      <form action={action}>
+        <input type="hidden" name="clientId" value={clientId} />
+        <input type="hidden" name="providerId" value={providerId} />
+        <ConfirmDeleteAction type="submit" disabled={pending}>
+          Remove
+        </ConfirmDeleteAction>
+      </form>
+    </ConfirmDelete>
   );
 }
 
@@ -204,7 +213,7 @@ function MemberCard({
                 View their day
               </Link>
             ) : null}
-            <RemoveButton clientId={clientId} providerId={member.id} />
+            <RemoveButton clientId={clientId} providerId={member.id} name={member.name} />
           </div>
         ) : null}
       </CardContent>

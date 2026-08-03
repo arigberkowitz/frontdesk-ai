@@ -49,7 +49,7 @@ export default async function PortalLeadsPage() {
         <EmptyState
           icon={Inbox}
           title="No leads yet"
-          description="Messages your AI captures will show up here."
+          description="Anyone your AI takes a message from will show up here."
         />
       ) : (
         <>

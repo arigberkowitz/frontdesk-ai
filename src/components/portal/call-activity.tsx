@@ -50,6 +50,7 @@ interface Props {
 /** Trend chart + outcomes donut + a "who called and why it didn't book" panel that
  *  the chart drives: tap a day, see that day's unbooked calls with numbers to call back. */
 export function CallActivity({ trend, outcomes, followUps, clientId, tz }: Props) {
+  const totalCalls = trend.reduce((n, d) => n + d.calls, 0);
   // Default to the most recent day that actually has someone to follow up with.
   const [selectedDate, setSelectedDate] = useState<string | null>(followUps[0]?.date ?? null);
 
@@ -101,8 +102,13 @@ export function CallActivity({ trend, outcomes, followUps, clientId, tz }: Props
         </CardHeader>
         <CardContent>
           {followUps.length === 0 ? (
+            /* "Every call either booked or was fully handled" is a claim about
+               calls. With no calls it's a claim about nothing, and it read as
+               praise to businesses whose phone had never rung. */
             <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-              Nothing to follow up on — every call either booked or was fully handled.
+              {totalCalls === 0
+                ? "No calls yet — this fills in with anyone worth calling back."
+                : "Nothing to follow up on — every call either booked or was fully handled."}
             </p>
           ) : dayItems.length === 0 ? (
             <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">

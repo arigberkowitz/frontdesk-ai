@@ -1,6 +1,6 @@
-import { Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ConfirmDelete, ConfirmDeleteAction } from "@/components/confirm-delete";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/form/field";
 import { SubmitButton } from "@/components/form/submit-button";
@@ -66,13 +66,17 @@ export function AlertRoster({
                     {c.onDuty ? "On duty" : "Off duty"}
                   </Button>
                 </form>
-                <form action={deleteAlertContactAction}>
-                  <input type="hidden" name="clientId" value={clientId} />
-                  <input type="hidden" name="contactId" value={c.id} />
-                  <Button type="submit" size="icon" variant="ghost" aria-label={`Remove ${c.name}`}>
-                    <Trash2 className="size-4 text-muted-foreground" />
-                  </Button>
-                </form>
+                <ConfirmDelete
+                  title={`Remove ${c.name}?`}
+                  description="They'll stop getting alerts when a lead or an emergency comes in."
+                  triggerLabel={`Remove ${c.name}`}
+                >
+                  <form action={deleteAlertContactAction}>
+                    <input type="hidden" name="clientId" value={clientId} />
+                    <input type="hidden" name="contactId" value={c.id} />
+                    <ConfirmDeleteAction type="submit">Remove</ConfirmDeleteAction>
+                  </form>
+                </ConfirmDelete>
               </li>
             ))}
           </ul>

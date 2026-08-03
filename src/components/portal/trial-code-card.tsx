@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, startTransition } from "react";
+import Link from "next/link";
 import { Ticket, Hourglass } from "lucide-react";
 import { toast } from "sonner";
 import { requestTrialAction } from "@/lib/actions/trial";
@@ -78,12 +79,16 @@ export function TrialCodeCard({
                 {pending ? "Checking…" : "Start my free trial"}
               </Button>
             </div>
+            {/* Was a mailto: to a personal Gmail address, printed in full to
+                every prospective customer. The in-app form routes to whoever
+                actually handles support and arrives with the business already
+                attached. */}
             <p className="text-xs text-muted-foreground">
-              No code? Email{" "}
-              <a href="mailto:arigberkowitz@gmail.com" className="underline underline-offset-2">
-                arigberkowitz@gmail.com
-              </a>{" "}
-              and ask about a trial — or just reply to your welcome email.
+              No code?{" "}
+              <Link href="/portal/settings#help" className="underline underline-offset-2">
+                Ask us about a trial
+              </Link>{" "}
+              — or just reply to your welcome email.
             </p>
           </form>
         )}

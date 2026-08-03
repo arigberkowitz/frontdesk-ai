@@ -282,12 +282,26 @@ export function DateRangePicker({
       {!allDay ? (
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <span className="text-sm font-medium">From</span>
-            <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+            <label htmlFor="block-from" className="block text-sm font-medium">
+              From
+            </label>
+            <Input
+              id="block-from"
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
-            <span className="text-sm font-medium">To</span>
-            <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+            <label htmlFor="block-to" className="block text-sm font-medium">
+              To
+            </label>
+            <Input
+              id="block-to"
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+            />
           </div>
         </div>
       ) : null}

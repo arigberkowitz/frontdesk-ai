@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
   createServiceAction,
@@ -10,6 +10,7 @@ import {
 } from "@/lib/actions/services";
 import { initialActionState } from "@/lib/actions/types";
 import { Button } from "@/components/ui/button";
+import { ConfirmDelete, ConfirmDeleteAction } from "@/components/confirm-delete";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -160,13 +161,17 @@ export function ServicesTab({ clientId, services }: { clientId: string; services
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <ServiceDialog clientId={clientId} service={s} />
-                <form action={deleteServiceAction}>
-                  <input type="hidden" name="clientId" value={clientId} />
-                  <input type="hidden" name="serviceId" value={s.id} />
-                  <Button variant="ghost" size="icon" type="submit" aria-label="Delete service">
-                    <Trash2 className="size-4 text-destructive" />
-                  </Button>
-                </form>
+                <ConfirmDelete
+                  title={`Delete ${s.name}?`}
+                  description="Your receptionist will stop offering this service and quoting its price. Existing appointments keep it."
+                  triggerLabel={`Delete ${s.name}`}
+                >
+                  <form action={deleteServiceAction}>
+                    <input type="hidden" name="clientId" value={clientId} />
+                    <input type="hidden" name="serviceId" value={s.id} />
+                    <ConfirmDeleteAction type="submit">Delete</ConfirmDeleteAction>
+                  </form>
+                </ConfirmDelete>
               </div>
             </li>
           ))}
