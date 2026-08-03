@@ -357,23 +357,23 @@ export interface ClientCalendarConnection {
  */
 export function getBookingProviderForClient(client: ClientCalendarConnection): BookingProvider {
   const provider = client.calendarProvider ?? null;
-  const secret = client.calendarSecret ?? null;
+  const secret = readStoredSecret(client.calendarSecret ?? null, client.id);
   if (provider === "calcom" && secret) {
     return new CalcomBookingProvider({
-      apiKey: decryptSecret(secret),
+      apiKey: secret,
       eventTypeId: client.calendarId ? Number(client.calendarId) : null,
     });
   }
   if (provider === "google" && secret) {
     return new GoogleCalendarBookingProvider({
-      refreshToken: decryptSecret(secret),
+      refreshToken: secret,
       calendarId: client.calendarId ?? "primary",
     });
   }
   if (provider === "microsoft" && secret) {
     const clientRowId = client.id;
     return new MicrosoftBookingProvider({
-      refreshToken: decryptSecret(secret),
+      refreshToken: secret,
       onTokenRotate: clientRowId
         ? async (newToken) => {
             await db
@@ -385,6 +385,35 @@ export function getBookingProviderForClient(client: ClientCalendarConnection): B
     });
   }
   return new NullBookingProvider();
+}
+
+/**
+ * Decrypt a stored calendar credential, or treat it as absent.
+ *
+ * This function is called while rendering the portal — the setup checklist asks
+ * "is a calendar connected?" on every page load. It used to let decryption
+ * throw, which meant a credential we can't read took down the entire portal
+ * with a generic "Something went wrong" and no way for the owner to reach the
+ * button that would fix it.
+ *
+ * A secret we can't decrypt is one we don't have. That's true whether the key
+ * was rotated, the row was copied between environments, or the ciphertext is
+ * corrupt — and in every one of those cases the honest state is "not
+ * connected, please reconnect", which the portal already knows how to show.
+ */
+function readStoredSecret(secret: string | null, clientId?: string): string | null {
+  if (!secret) return null;
+  try {
+    return decryptSecret(secret);
+  } catch (err) {
+    logger.error("booking.secret_unreadable", {
+      clientId,
+      error: err instanceof Error ? err.message : String(err),
+      detail:
+        "Stored calendar credential could not be decrypted — most likely encrypted under a previous CREDENTIALS_SECRET. Treating the calendar as disconnected; the owner needs to reconnect it.",
+    });
+    return null;
+  }
 }
 
 export function isBookingConfigured(): boolean {
