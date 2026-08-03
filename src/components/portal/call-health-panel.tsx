@@ -1,0 +1,149 @@
+import Link from "next/link";
+import { AlertTriangle, CheckCircle2, PhoneOff, Repeat, UserRound } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDateTime, formatPhone } from "@/lib/format";
+import type { CallProblem, CallHealthSummary } from "@/lib/call-health";
+
+export interface CallHealthItem {
+  id: string;
+  startAt: Date | string | null;
+  fromNumber: string | null;
+  durationSec: number | null;
+  problems: CallProblem[];
+  notes: string[];
+}
+
+const ICONS: Partial<Record<CallProblem, typeof UserRound>> = {
+  stranded_asking_for_human: UserRound,
+  repeated_question: Repeat,
+  early_hangup: PhoneOff,
+  possible_emergency: AlertTriangle,
+};
+
+/**
+ * "What went wrong" — the half of the story the rest of this market leaves out.
+ *
+ * Competitors report calls answered and a sentiment score their own model
+ * produced. This reports the calls that failed, says how, and links to the
+ * recording so the owner can check us. It will sometimes make the product look
+ * worse than a competitor's dashboard. That's the point: a business that finds
+ * out from a customer instead of from us cancels, and every one of these is
+ * something they'd otherwise find out from a customer.
+ */
+export function CallHealthPanel({
+  summary,
+  items,
+  timeZone,
+}: {
+  summary: CallHealthSummary;
+  items: CallHealthItem[];
+  timeZone?: string;
+}) {
+  if (summary.total === 0) return null;
+
+  const problemCalls = summary.total - summary.clean;
+
+  return (
+    <Card>
+      <CardHeader className="gap-1">
+        <CardTitle>What went wrong — last 30 days</CardTitle>
+        <CardDescription>
+          {problemCalls === 0
+            ? `All ${summary.total} calls went cleanly. No one was left waiting, cut off, or asked the same thing twice.`
+            : `${problemCalls} of ${summary.total} calls had something worth a look. Tap any one to hear it.`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {problemCalls === 0 ? (
+          <p className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
+            <CheckCircle2 className="size-4 shrink-0" />
+            Nothing needs your attention.
+          </p>
+        ) : (
+          <>
+            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Stat
+                label="Asked for a person, didn't get one"
+                value={summary.strandedAskingForHuman}
+                tone={summary.strandedAskingForHuman > 0 ? "bad" : "ok"}
+              />
+              <Stat
+                label="Had to be asked something 3+ times"
+                value={summary.repeatedQuestion}
+                tone={summary.repeatedQuestion > 0 ? "bad" : "ok"}
+              />
+              <Stat
+                label="Hung up in the first 15 seconds"
+                value={summary.earlyHangup}
+                tone={summary.earlyHangup > 0 ? "warn" : "ok"}
+              />
+              <Stat
+                label="Ended with no way to call back"
+                value={summary.noContactCaptured}
+                tone={summary.noContactCaptured > 0 ? "warn" : "ok"}
+              />
+            </dl>
+
+            {summary.possibleEmergency > 0 ? (
+              <p className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  <strong>{summary.possibleEmergency}</strong>{" "}
+                  {summary.possibleEmergency === 1 ? "call" : "calls"} mentioned something that
+                  might have been urgent. Worth listening to these first.
+                </span>
+              </p>
+            ) : null}
+
+            <ul className="divide-y rounded-lg border">
+              {items.map((item) => {
+                const lead = item.problems[0];
+                const Icon = (lead && ICONS[lead]) ?? AlertTriangle;
+                return (
+                  <li key={item.id}>
+                    <Link
+                      href={`/portal/calls/${item.id}`}
+                      className="flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-muted/50"
+                    >
+                      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm">{item.notes[0]}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatPhone(item.fromNumber)} · {formatDateTime(item.startAt, timeZone)}
+                        </p>
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+
+        <p className="text-xs text-muted-foreground">
+          These are counted from what was actually said on each call, not scored by an AI. Every
+          one links to the recording so you can check us.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone: "ok" | "warn" | "bad" }) {
+  return (
+    <div className="rounded-lg border p-3">
+      <dd
+        className={
+          tone === "bad"
+            ? "font-heading text-2xl font-semibold text-destructive"
+            : tone === "warn"
+              ? "font-heading text-2xl font-semibold text-amber-600 dark:text-amber-400"
+              : "font-heading text-2xl font-semibold text-muted-foreground"
+        }
+      >
+        {value}
+      </dd>
+      <dt className="mt-0.5 text-xs text-muted-foreground">{label}</dt>
+    </div>
+  );
+}

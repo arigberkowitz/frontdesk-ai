@@ -1,0 +1,214 @@
+import { describe, expect, it } from "vitest";
+import { analyzeCall, repeatedTopics, summarize } from "./call-health";
+
+/**
+ * These encode the failures businesses actually cancel over, taken from real
+ * reviews and forum posts. Each test is a call that today would be counted as
+ * "answered" and reported as a success.
+ */
+
+const t = (...lines: string[]) => lines.join("\n");
+
+describe("the caller asked for a person", () => {
+  it("catches the plain ask and whether they got there", () => {
+    const transcript = t(
+      "Agent: Thanks for calling! How can I help?",
+      "Caller: Can I speak to a real person please",
+      "Agent: I can help with that.",
+    );
+    const stranded = analyzeCall({ transcript, durationSec: 40, hasContact: true });
+    expect(stranded.problems).toContain("asked_for_human");
+    expect(stranded.problems).toContain("stranded_asking_for_human");
+    expect(stranded.notes.join(" ")).toContain("ended without reaching one");
+
+    const transferred = analyzeCall({
+      transcript,
+      durationSec: 40,
+      hasContact: true,
+      transferConnected: true,
+    });
+    expect(transferred.problems).toContain("asked_for_human");
+    expect(transferred.problems).not.toContain("stranded_asking_for_human");
+  });
+
+  it("recognizes the many ways people ask", () => {
+    const phrasings = [
+      "I want to talk to someone",
+      "get me a human",
+      "representative",
+      "can I speak with a manager",
+      "is this a robot",
+      "are you an AI",
+      "let me talk to a real human",
+      "operator",
+    ];
+    for (const p of phrasings) {
+      const r = analyzeCall({ transcript: `Caller: ${p}`, durationSec: 30, hasContact: true });
+      expect(r.problems, p).toContain("asked_for_human");
+    }
+  });
+
+  it("does not fire when the AGENT says the word", () => {
+    // "I'll connect you with a person" must not read as the caller demanding one.
+    const r = analyzeCall({
+      transcript: t(
+        "Agent: I can connect you with a real person if you'd like.",
+        "Caller: No thanks, you're doing fine.",
+      ),
+      durationSec: 60,
+      hasContact: true,
+    });
+    expect(r.problems).not.toContain("asked_for_human");
+  });
+});
+
+describe("the agent asked the same thing over and over", () => {
+  // The failure that got a plumber fired over a five-figure remodel: the agent
+  // could not capture an address and kept asking.
+  it("counts re-asks for the same field, however it's worded", () => {
+    const transcript = t(
+      "Agent: What's the address?",
+      "Caller: 1450 Sansome Street",
+      "Agent: Sorry, could I get your address again?",
+      "Caller: One four five zero Sansome",
+      "Agent: I didn't catch that — what is the street address?",
+      "Caller: forget it",
+    );
+    expect(repeatedTopics(transcript)).toContain("address");
+    const r = analyzeCall({ transcript, durationSec: 55, hasContact: false });
+    expect(r.problems).toContain("repeated_question");
+    expect(r.notes.join(" ")).toContain("their address");
+  });
+
+  it("tolerates asking twice — that's a stumble, not a pattern", () => {
+    const transcript = t(
+      "Agent: Can I get your name?",
+      "Caller: Ari",
+      "Agent: Sorry, your name again?",
+      "Caller: Ari",
+    );
+    expect(repeatedTopics(transcript)).toHaveLength(0);
+  });
+
+  it("doesn't count a statement as a question", () => {
+    const transcript = t(
+      "Agent: I have your address as 1450 Sansome Street.",
+      "Agent: Your address is on file.",
+      "Agent: Great, the address is confirmed.",
+    );
+    expect(repeatedTopics(transcript)).toHaveLength(0);
+  });
+
+  it("keeps separate fields separate", () => {
+    const transcript = t(
+      "Agent: What's your name?",
+      "Agent: What's your phone number?",
+      "Agent: And the address?",
+    );
+    expect(repeatedTopics(transcript)).toHaveLength(0);
+  });
+});
+
+describe("calls that ended badly and get counted as answered", () => {
+  it("flags a hang-up in the first few seconds", () => {
+    const r = analyzeCall({
+      transcript: "Agent: Thanks for calling Bright Smile Dental, this is...",
+      durationSec: 6,
+      hasContact: false,
+    });
+    expect(r.problems).toContain("early_hangup");
+    expect(r.notes.join(" ")).toContain("6 seconds");
+  });
+
+  it("does not count a short spam call as a lost customer", () => {
+    const r = analyzeCall({ transcript: "", durationSec: 4, outcome: "spam", hasContact: false });
+    expect(r.problems).not.toContain("early_hangup");
+    expect(r.problems).not.toContain("no_contact_captured");
+  });
+
+  it("flags a real conversation that captured no way to call back", () => {
+    const r = analyzeCall({
+      transcript: t("Caller: I need a quote for a new roof", "Agent: I can help with that."),
+      durationSec: 90,
+      hasContact: false,
+      outcome: "other",
+    });
+    expect(r.problems).toContain("no_contact_captured");
+  });
+
+  it("doesn't demand contact details from someone who just asked the hours", () => {
+    const r = analyzeCall({
+      transcript: "Caller: what time do you close",
+      durationSec: 25,
+      hasContact: false,
+      outcome: "faq_answered",
+    });
+    expect(r.problems).not.toContain("no_contact_captured");
+  });
+});
+
+describe("signals worth a human's eyes", () => {
+  it("notices swearing", () => {
+    const r = analyzeCall({
+      transcript: "Caller: this is bullshit, just let me talk to someone",
+      durationSec: 45,
+      hasContact: true,
+    });
+    expect(r.problems).toContain("caller_frustrated");
+  });
+
+  it("notices possible emergencies across trades and clinics", () => {
+    const cases = [
+      "there's no heat and I have a newborn",
+      "I smell gas",
+      "the basement is flooding",
+      "I'm having chest pain",
+      "I was just in an accident",
+      "someone broke into my house",
+    ];
+    for (const c of cases) {
+      const r = analyzeCall({ transcript: `Caller: ${c}`, durationSec: 60, hasContact: true });
+      expect(r.problems, c).toContain("possible_emergency");
+    }
+  });
+
+  it("calls a good call clean", () => {
+    const r = analyzeCall({
+      transcript: t(
+        "Agent: Thanks for calling! How can I help?",
+        "Caller: I'd like to book a cleaning",
+        "Agent: What's your name?",
+        "Caller: Dana Reed",
+        "Agent: And the best number?",
+        "Caller: 415 555 0134",
+        "Agent: Booked for Thursday at 2. See you then!",
+      ),
+      durationSec: 95,
+      hasContact: true,
+      outcome: "booked",
+    });
+    expect(r.clean).toBe(true);
+    expect(r.problems).toHaveLength(0);
+  });
+
+  it("survives a missing transcript instead of throwing mid-report", () => {
+    expect(analyzeCall({}).clean).toBe(true);
+    expect(analyzeCall({ transcript: null, durationSec: null }).clean).toBe(true);
+  });
+});
+
+describe("summarize", () => {
+  it("counts each problem across a period", () => {
+    const calls = [
+      analyzeCall({ transcript: "Caller: get me a human", durationSec: 30, hasContact: true }),
+      analyzeCall({ transcript: "Agent: hi", durationSec: 5, hasContact: false }),
+      analyzeCall({ transcript: "Caller: book me in", durationSec: 90, hasContact: true, outcome: "booked" }),
+    ];
+    const s = summarize(calls);
+    expect(s.total).toBe(3);
+    expect(s.clean).toBe(1);
+    expect(s.askedForHuman).toBe(1);
+    expect(s.strandedAskingForHuman).toBe(1);
+    expect(s.earlyHangup).toBe(1);
+  });
+});

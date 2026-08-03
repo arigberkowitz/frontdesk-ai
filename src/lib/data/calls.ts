@@ -2,6 +2,7 @@ import "server-only";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { calls, clients, type NewCall } from "@/db/schema";
+import { analyzeCall, summarize } from "@/lib/call-health";
 
 /** Call data access + the idempotent webhook upsert. */
 
@@ -67,4 +68,58 @@ export async function countCallsToday(orgId: string): Promise<number> {
       ),
     );
   return row?.n ?? 0;
+}
+
+/* ----------------------------- call health ------------------------------- */
+
+/**
+ * The last N days of calls, scored for what went wrong.
+ *
+ * Every competitor's dashboard answers "how many calls did we answer?". This
+ * answers "which of them failed, and how?" — hang-ups in the first seconds,
+ * callers who asked for a person and didn't get one, questions the agent had
+ * to ask three times, calls that ended with nobody's number.
+ *
+ * The scoring is rule-based on the transcript (see lib/call-health), not a
+ * model's opinion, so every count links to a recording the owner can check.
+ */
+export async function getCallHealth(clientId: string, days = 30) {
+  const rows = await db.query.calls.findMany({
+    where: and(
+      eq(calls.clientId, clientId),
+      isNull(calls.deletedAt),
+      sql`${calls.startAt} >= now() - make_interval(days => ${days})`,
+    ),
+    orderBy: [desc(calls.startAt)],
+    limit: 500,
+    with: { leads: { columns: { id: true } }, appointments: { columns: { id: true } } },
+  });
+
+  const scored = rows.map((call) => ({
+    call,
+    health: analyzeCall({
+      transcript: call.transcript,
+      durationSec: call.durationSec,
+      outcome: call.outcome,
+      // A lead or a booking means we came away with someone we can reach.
+      hasContact: call.leads.length > 0 || call.appointments.length > 0,
+      transferConnected: call.outcome === "escalated",
+    }),
+  }));
+
+  return {
+    summary: summarize(scored.map((s) => s.health)),
+    // Worst first: the ones an owner should actually listen to.
+    needsAttention: scored
+      .filter((s) => !s.health.clean)
+      .slice(0, 20)
+      .map((s) => ({
+        id: s.call.id,
+        startAt: s.call.startAt,
+        fromNumber: s.call.fromNumber,
+        durationSec: s.call.durationSec,
+        problems: s.health.problems,
+        notes: s.health.notes,
+      })),
+  };
 }
