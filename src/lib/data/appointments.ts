@@ -66,6 +66,73 @@ export async function createAppointment(
 }
 
 /**
+ * Insert, but only if the slot is still free — checked and taken atomically.
+ *
+ * Checking availability and then inserting are two round trips, and two callers
+ * can sit in the gap between them. Both are told the 2 o'clock is theirs; the
+ * business finds out when two people arrive. Rare and silent, which is exactly
+ * the combination nobody believes until it happens.
+ *
+ * A transaction-scoped advisory lock keyed on the client serializes bookings
+ * for one business — the check and the insert become one indivisible step —
+ * while every other business carries on unblocked. No schema change required,
+ * which matters: the textbook fix is a gist exclusion constraint, and that
+ * can't go on this table without a migration nobody can run mid-call.
+ *
+ * Returns null when the slot went while we were looking at it.
+ */
+export async function reserveAppointment(
+  clientId: string,
+  input: Omit<NewAppointment, "clientId" | "id">,
+  service?: { id: string; providerCount?: number | null } | null,
+): Promise<Appointment | null> {
+  const startAt = input.startAt instanceof Date ? input.startAt : new Date(input.startAt as string);
+  const endAt = input.endAt
+    ? input.endAt instanceof Date
+      ? input.endAt
+      : new Date(input.endAt as string)
+    : new Date(startAt.getTime() + 30 * 60_000);
+  const startIso = startAt.toISOString();
+  const endIso = endAt.toISOString();
+  const capacity = Math.max(1, service?.providerCount ?? 1);
+
+  return db.transaction(async (tx) => {
+    // Held until this transaction ends, whether it commits or rolls back.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${clientId}))`);
+
+    const overlapping = await tx
+      .select({ serviceId: appointments.serviceId, providerId: appointments.providerId })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.clientId, clientId),
+          isNull(appointments.deletedAt),
+          sql`${appointments.status} not in ('cancelled', 'no_show')`,
+          sql`${appointments.startAt} < ${endIso}::timestamptz`,
+          sql`coalesce(${appointments.endAt}, ${appointments.startAt} + interval '30 minutes') > ${startIso}::timestamptz`,
+        ),
+      );
+
+    if (input.providerId) {
+      // Staff mode: this person, at this time, once.
+      if (overlapping.some((a) => a.providerId === input.providerId)) return null;
+    } else if (overlapping.length > 0) {
+      const sameService = service
+        ? overlapping.filter((a) => a.serviceId === service.id).length
+        : overlapping.length;
+      if (sameService >= capacity) return null;
+      // Solo capacity: any overlap at all is a clash, same rule as the
+      // pre-flight check.
+      if (capacity <= 1) return null;
+    }
+
+    const [row] = await tx.insert(appointments).values({ ...input, clientId }).returning();
+    if (!row) throw new Error("Failed to create appointment");
+    return row;
+  });
+}
+
+/**
  * Upcoming active appointments whose customer phone matches the given number
  * (compared on digits, tolerating +1/formatting differences). Powers the
  * cancel-by-phone flow.

@@ -50,8 +50,11 @@ export async function requestTrialAction(
   if (!guard.ok) return { ok: false, error: guard.error };
   if (!code) return { ok: false, error: "Enter your trial code." };
 
+  // requireClientEditor answers "may this ROLE edit a client"; an operator
+  // passes it for any client anywhere. The org half of the tenancy rule has to
+  // be asked separately, and here it wasn't — so this lookup was unscoped.
   const client = await db.query.clients.findFirst({
-    where: and(eq(clients.id, clientId), isNull(clients.deletedAt)),
+    where: and(eq(clients.id, clientId), eq(clients.orgId, guard.user.orgId), isNull(clients.deletedAt)),
   });
   if (!client) return { ok: false, error: "Business not found." };
   if (client.status === "trial" || client.status === "live") {

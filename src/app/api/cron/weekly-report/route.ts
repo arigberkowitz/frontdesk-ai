@@ -1,7 +1,11 @@
 import { sendDigests, sendWeeklyReports } from "@/lib/digest";
-import { env } from "@/lib/env";
+import { authorizeCron } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
+// Sweeping every client takes longer than the default 10s ceiling, and hitting
+// it kills the run partway through — some businesses emailed, some silently
+// not, differently each night.
+export const maxDuration = 300;
 
 /**
  * Monday cron: weekly SMS digest + the weekly owner report email. A dedicated
@@ -10,17 +14,11 @@ export const runtime = "nodejs";
  * silently degrade to a daily digest.
  */
 export async function GET(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const provided =
-    (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "") ||
-    url.searchParams.get("secret") ||
-    "";
-
-  if (!env.CRON_SECRET || provided !== env.CRON_SECRET) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const denied = authorizeCron(req, "weekly-report");
+  if (denied) return denied;
 
   const digest = await sendDigests("weekly");
   const report = await sendWeeklyReports();
-  return Response.json({ ok: true, digest, report });
+  const ok = digest.failed === 0 && report.failed === 0;
+  return Response.json({ ok, digest, report }, { status: ok ? 200 : 500 });
 }

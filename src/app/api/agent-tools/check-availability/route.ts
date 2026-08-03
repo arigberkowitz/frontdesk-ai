@@ -1,6 +1,8 @@
 import { authenticateAgentTool, readToolArgs } from "@/lib/agent-tools-auth";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listActiveBlocks } from "@/lib/data/availability-blocks";
+import { businessWideBlocks } from "@/lib/booking-window";
+import { matchService } from "@/lib/service-match";
 import { getBookingProviderForClient } from "@/lib/booking";
 import { logger } from "@/lib/logger";
 
@@ -23,9 +25,12 @@ export async function POST(req: Request): Promise<Response> {
   const client = await getClientByIdUnsafe(auth.clientId);
   if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
 
-  const wanted = String(args.service ?? "").toLowerCase();
-  const service =
-    client.services.find((s) => s.name.toLowerCase().includes(wanted)) ?? client.services[0];
+  // Only the length matters here — we're sizing the slot grid, not booking.
+  // Falling back to `services[0]` used to reach retired services and size the
+  // grid off something the business no longer offers.
+  const match = matchService(String(args.service ?? ""), client.services);
+  const active = client.services.filter((s) => s.isActive !== false);
+  const service = match.kind === "exact" ? match.service : active[0];
   const durationMin = service?.durationMin ?? 30;
 
   const now = new Date();
@@ -56,7 +61,10 @@ export async function POST(req: Request): Promise<Response> {
       });
     }
 
-    const blocks = await listActiveBlocks(client.id);
+    // Only closures that apply to the whole business. A block tied to one
+    // person is their leave; treating it as a shutdown made a single hygienist's
+    // Friday off read as "we're fully booked all Friday".
+    const blocks = businessWideBlocks(await listActiveBlocks(client.id));
     const slots = await provider.getAvailability({
       durationMin,
       rangeStart: now.toISOString(),

@@ -1,6 +1,7 @@
 import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
 import { getClient } from "@/lib/data/clients";
 import { getRetellClient } from "@/lib/retell";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,12 @@ export async function POST(
     });
     return Response.json({ accessToken: webCall.access_token, callId: webCall.call_id });
   } catch (err) {
+    // The vendor's message can name the account and the agent, so it stays in
+    // the log rather than going back to a browser.
+    logger.error("test-call.failed", {
+      clientId: id,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return Response.json(
       { error: "Couldn't start the test call just now. Try again in a moment." },
       { status: 500 },

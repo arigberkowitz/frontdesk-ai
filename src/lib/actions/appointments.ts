@@ -127,6 +127,12 @@ export async function cancelAppointmentAction(
   const cancelled = await cancelAppointment(clientId, appointmentId);
   if (!cancelled) return { ok: false, error: `That ${v.appointment} no longer exists.` };
 
+  // Cancelling on the real calendar can fail — an expired token, Google down —
+  // and that failure used to be logged and then contradicted by a cheerful "the
+  // slot is open again". It isn't: the event is still on the owner's calendar,
+  // blocking the slot, and the one person who could fix it has been told
+  // everything is fine. Say what actually happened.
+  let calendarStillHolds = false;
   if (cancelled.externalBookingId) {
     try {
       const provider = getBookingProviderForClient(client);
@@ -134,6 +140,7 @@ export async function cancelAppointmentAction(
         await provider.cancelBooking(cancelled.externalBookingId, "Cancelled from FrontDesk AI");
       }
     } catch (err) {
+      calendarStillHolds = true;
       logger.error("appointments.cancel.provider_failed", {
         clientId,
         appointmentId,
@@ -145,8 +152,11 @@ export async function cancelAppointmentAction(
   revalidatePath("/portal/appointments");
   revalidatePath("/portal");
   revalidatePath(`/clients/${clientId}`);
+  const noun = `${v.appointment[0].toUpperCase()}${v.appointment.slice(1)}`;
   return {
     ok: true,
-    message: `${v.appointment[0].toUpperCase()}${v.appointment.slice(1)} cancelled — the slot is open again.`,
+    message: calendarStillHolds
+      ? `${noun} cancelled here, but we couldn't remove it from your calendar — please delete that event yourself.`
+      : `${noun} cancelled — the slot is open again.`,
   };
 }

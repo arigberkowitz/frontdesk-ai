@@ -1,6 +1,11 @@
 import "server-only";
 import { env, integrations } from "./env";
 import { wallClockToInstant } from "./hours-util";
+import {
+  blockWindowsForDay,
+  type AvailabilityBlockLite,
+  type BusinessHourLite,
+} from "./booking-window";
 
 /**
  * Google Calendar integration (§EPIC D): OAuth connect + free/busy availability
@@ -176,26 +181,6 @@ export function zonedTime(timeZone: string, y: number, m0: number, d: number, h:
   return wallClockToInstant(timeZone, y, m0, d, h, min);
 }
 
-export interface BusinessHourLite {
-  dayOfWeek: number;
-  isClosed: boolean;
-  openTime: string | null;
-  closeTime: string | null;
-}
-
-/**
- * A window the business is closed for despite its weekly hours — lunch, a
- * holiday, someone on leave. Recurring rows carry startTime/endTime (+ an
- * optional dayOfWeek); one-off rows carry absolute startsAt/endsAt.
- */
-export interface AvailabilityBlockLite {
-  dayOfWeek?: number | null;
-  startTime?: string | null;
-  endTime?: string | null;
-  startsAt?: Date | string | null;
-  endsAt?: Date | string | null;
-}
-
 /** Why availability came back empty — so the agent can say something true. */
 export type NoSlotsReason =
   | "no_hours" // nobody ever set opening hours
@@ -207,35 +192,9 @@ export interface AvailabilityResult {
   reason: NoSlotsReason;
 }
 
-/** Absolute [start,end) windows that a block covers inside one local day. */
-function blockWindowsForDay(
-  blocks: AvailabilityBlockLite[],
-  tz: string,
-  y: number,
-  mo: number,
-  dd: number,
-  dow: number,
-): Array<readonly [number, number]> {
-  const out: Array<readonly [number, number]> = [];
-  for (const b of blocks) {
-    if (b.startsAt && b.endsAt) {
-      // One-off: already absolute, applies to whatever days it spans.
-      out.push([new Date(b.startsAt).getTime(), new Date(b.endsAt).getTime()] as const);
-      continue;
-    }
-    if (!b.startTime || !b.endTime) continue;
-    // Recurring: null dayOfWeek means every day.
-    if (b.dayOfWeek != null && b.dayOfWeek !== dow) continue;
-    const [sh, sm] = b.startTime.split(":").map(Number);
-    const [eh, em] = b.endTime.split(":").map(Number);
-    if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) continue;
-    out.push([
-      zonedTime(tz, y, mo, dd, sh, sm).getTime(),
-      zonedTime(tz, y, mo, dd, eh, em).getTime(),
-    ] as const);
-  }
-  return out;
-}
+// Business hours, blocks, and the day-window arithmetic live in booking-window
+// so the slot grid and the booking check can't drift apart.
+export type { AvailabilityBlockLite, BusinessHourLite };
 
 /**
  * Open slots = the business-hours grid (in the client's tz) minus busy periods,

@@ -82,6 +82,8 @@ export interface QuietLineResult {
   checked: number;
   alerted: number;
   reasons: Record<string, number>;
+  /** Clients whose check threw. Non-zero means this run missed someone. */
+  failed: number;
 }
 
 export async function checkQuietLines(now: Date = new Date()): Promise<QuietLineResult> {
@@ -97,67 +99,78 @@ export async function checkQuietLines(now: Date = new Date()): Promise<QuietLine
   });
 
   let alerted = 0;
+  let failed = 0;
 
+  // This whole job exists to notice silence. It would be a poor joke if one
+  // client's error made it fall silent about everyone else's.
   for (const client of active) {
-    // Only businesses that told us forwarding is on. Without that, silence is
-    // just a business that hasn't finished setting up.
-    if (!client.setupFlags?.forwardingDone || !client.retellPhoneNumber) {
-      skip("not_forwarded");
-      continue;
+    try {
+      // Only businesses that told us forwarding is on. Without that, silence is
+      // just a business that hasn't finished setting up.
+      if (!client.setupFlags?.forwardingDone || !client.retellPhoneNumber) {
+        skip("not_forwarded");
+        continue;
+      }
+
+      const last = client.setupFlags.quietAlertAt;
+      if (last && nowMs - Date.parse(last) < REALERT_AFTER_DAYS * DAY_MS) {
+        skip("recently_alerted");
+        continue;
+      }
+
+      const open = openWeekdays(client.businessHours);
+      if (open.size === 0) {
+        skip("no_open_days");
+        continue;
+      }
+
+      const since = new Date(nowMs - BASELINE_DAYS * DAY_MS);
+      const recent = await db.query.calls.findMany({
+        where: and(
+          eq(calls.clientId, client.id),
+          eq(calls.direction, "inbound"),
+          gte(calls.startAt, since),
+          isNull(calls.deletedAt),
+        ),
+        orderBy: [desc(calls.startAt)],
+        columns: { startAt: true },
+      });
+
+      if (recent.length < MIN_BASELINE_CALLS) {
+        skip("no_baseline");
+        continue;
+      }
+
+      const lastCallAt = recent[0]?.startAt;
+      if (!lastCallAt) {
+        skip("no_baseline");
+        continue;
+      }
+
+      const quietDays = openDaysBetween(
+        lastCallAt.getTime(),
+        nowMs,
+        client.timezone ?? "America/Los_Angeles",
+        open,
+      );
+      if (quietDays < QUIET_OPEN_DAYS) {
+        skip("still_active");
+        continue;
+      }
+
+      await sendQuietAlert(client, lastCallAt, recent.length, quietDays);
+      alerted++;
+    } catch (err) {
+      failed++;
+      logger.error("quiet_line.client_failed", {
+        clientId: client.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
-
-    const last = client.setupFlags.quietAlertAt;
-    if (last && nowMs - Date.parse(last) < REALERT_AFTER_DAYS * DAY_MS) {
-      skip("recently_alerted");
-      continue;
-    }
-
-    const open = openWeekdays(client.businessHours);
-    if (open.size === 0) {
-      skip("no_open_days");
-      continue;
-    }
-
-    const since = new Date(nowMs - BASELINE_DAYS * DAY_MS);
-    const recent = await db.query.calls.findMany({
-      where: and(
-        eq(calls.clientId, client.id),
-        eq(calls.direction, "inbound"),
-        gte(calls.startAt, since),
-        isNull(calls.deletedAt),
-      ),
-      orderBy: [desc(calls.startAt)],
-      columns: { startAt: true },
-    });
-
-    if (recent.length < MIN_BASELINE_CALLS) {
-      skip("no_baseline");
-      continue;
-    }
-
-    const lastCallAt = recent[0]?.startAt;
-    if (!lastCallAt) {
-      skip("no_baseline");
-      continue;
-    }
-
-    const quietDays = openDaysBetween(
-      lastCallAt.getTime(),
-      nowMs,
-      client.timezone ?? "America/Los_Angeles",
-      open,
-    );
-    if (quietDays < QUIET_OPEN_DAYS) {
-      skip("still_active");
-      continue;
-    }
-
-    await sendQuietAlert(client, lastCallAt, recent.length, quietDays);
-    alerted++;
   }
 
-  logger.info("quiet_line.run", { checked: active.length, alerted, reasons });
-  return { checked: active.length, alerted, reasons };
+  logger.info("quiet_line.run", { checked: active.length, alerted, reasons, failed });
+  return { checked: active.length, alerted, reasons, failed };
 }
 
 async function sendQuietAlert(

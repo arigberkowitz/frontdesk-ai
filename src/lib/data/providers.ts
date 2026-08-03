@@ -2,6 +2,7 @@ import "server-only";
 import { and, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { appointments, providers, services, type Provider } from "@/db/schema";
+import { overlapsBlock, type AvailabilityBlockLite } from "@/lib/booking-window";
 
 export async function listProviders(clientId: string): Promise<Provider[]> {
   return db.query.providers.findMany({
@@ -10,15 +11,37 @@ export async function listProviders(clientId: string): Promise<Provider[]> {
   });
 }
 
-/** A provider is free at [startAt, endAt) when they have no overlapping active appointment. */
+/**
+ * A provider is free at [startAt, endAt) when they have no overlapping active
+ * appointment AND aren't on leave.
+ *
+ * The leave half is new. Availability blocks carrying a providerId are one
+ * person's time off, but nothing consulted them when assigning work — so the
+ * receptionist cheerfully booked the hygienist who was on holiday, because her
+ * calendar was, of course, empty.
+ */
 export async function findFreeProvider(
   clientId: string,
   startAt: Date,
   endAt: Date,
   preferredName?: string | null,
+  leave?: { blocks: AvailabilityBlockLite[]; timezone: string },
 ): Promise<Provider | null> {
-  const team = (await listProviders(clientId)).filter((p) => p.isActive);
+  let team = (await listProviders(clientId)).filter((p) => p.isActive);
   if (team.length === 0) return null;
+
+  if (leave?.blocks.length) {
+    team = team.filter(
+      (p) =>
+        !overlapsBlock(
+          leave.blocks.filter((b) => b.providerId === p.id),
+          leave.timezone,
+          startAt.getTime(),
+          endAt.getTime(),
+        ),
+    );
+    if (team.length === 0) return null;
+  }
 
   // Raw fragments get ISO strings, not Date objects — postgres-js can't
   // serialize Dates inside sql`` template params (ERR_INVALID_ARG_TYPE).

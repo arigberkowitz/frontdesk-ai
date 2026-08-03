@@ -89,9 +89,15 @@ export async function POST(req: Request): Promise<Response> {
   } catch (err) {
     logger.error("stripe.webhook.handler_failed", {
       type: event.type,
+      eventId: event.id,
       error: err instanceof Error ? err.message : String(err),
     });
-    // 200 so Stripe doesn't hammer retries on a bug we'll see in logs.
+    // Stripe retries a 500 with backoff for up to three days. That is exactly
+    // what we want here: these events carry whether a business is paying. A 200
+    // told Stripe "recorded" and threw the only copy away, so a transient blip
+    // during checkout left a paying customer marked unpaid, permanently, and
+    // the only trace was a line in a log nobody reads.
+    return new Response("Handler failed", { status: 500 });
   }
 
   return new Response("ok", { status: 200 });
