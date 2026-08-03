@@ -212,3 +212,43 @@ describe("summarize", () => {
     expect(s.earlyHangup).toBe(1);
   });
 });
+
+/**
+ * The failure mode that would quietly destroy the point of this feature: a
+ * transcript we can't parse produces no problems, which reads as a clean call.
+ * A product whose claim is honest reporting must never manufacture good news.
+ */
+describe("transcripts we can't read", () => {
+  it("says so instead of reporting a clean call", () => {
+    // Real words, no speaker labels we recognize — e.g. the vendor changed format.
+    const r = analyzeCall({
+      transcript: "Hi thanks for calling. I need to book something. Sure, what day?",
+      durationSec: 120,
+      hasContact: true,
+    });
+    expect(r.readable).toBe(false);
+    expect(r.clean).toBe(false);
+    expect(r.problems).toContain("unreadable");
+  });
+
+  it("still catches a hang-up, because duration doesn't need parsing", () => {
+    const r = analyzeCall({ transcript: "unlabelled words here", durationSec: 4 });
+    expect(r.problems).toContain("early_hangup");
+    expect(r.problems).toContain("unreadable");
+  });
+
+  it("an empty transcript is not the same as an unreadable one", () => {
+    // Nothing was said — a ring-out or a silent call. We read it fine.
+    const r = analyzeCall({ transcript: "", durationSec: 40, hasContact: true });
+    expect(r.readable).toBe(true);
+  });
+
+  it("counts unreadable calls separately in the summary", () => {
+    const s = summarize([
+      analyzeCall({ transcript: "no labels at all", durationSec: 60, hasContact: true }),
+      analyzeCall({ transcript: "Caller: book me in", durationSec: 60, hasContact: true }),
+    ]);
+    expect(s.unreadable).toBe(1);
+    expect(s.clean).toBe(1);
+  });
+});

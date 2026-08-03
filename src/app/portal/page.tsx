@@ -186,6 +186,8 @@ export default async function PortalOverviewPage({
         summary={health.summary}
         items={health.needsAttention}
         waste={health.waste}
+        medianReplyMs={health.medianReplyMs}
+        latencySampleSize={health.latencySampleSize}
         timeZone={tz}
       />
 

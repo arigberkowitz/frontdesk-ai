@@ -41,11 +41,16 @@ export function CallHealthPanel({
   summary,
   items,
   waste,
+  medianReplyMs,
+  latencySampleSize,
   timeZone,
 }: {
   summary: CallHealthSummary;
   items: CallHealthItem[];
   waste?: CallWaste;
+  /** Median time the AI took to start replying, or null if unknown. */
+  medianReplyMs?: number | null;
+  latencySampleSize?: number;
   timeZone?: string;
 }) {
   if (summary.total === 0) return null;
@@ -140,6 +145,26 @@ export function CallHealthPanel({
             reached your number this month — {formatDuration(waste.spamSeconds)} of them. Your AI
             handled these so you didn&apos;t have to, and they don&apos;t count toward anything you
             pay for.
+          </p>
+        ) : null}
+
+        {summary.unreadable > 0 ? (
+          /* Never let an unreadable transcript round down to "fine". A clean
+             report is only worth anything if we'd have said otherwise. */
+          <p className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
+            We couldn&apos;t read {summary.unreadable} {summary.unreadable === 1 ? "call" : "calls"}{" "}
+            well enough to check {summary.unreadable === 1 ? "it" : "them"}, so{" "}
+            {summary.unreadable === 1 ? "it isn't" : "they aren't"} counted either way. We&apos;re
+            looking into it.
+          </p>
+        ) : null}
+
+        {medianReplyMs != null && (latencySampleSize ?? 0) >= 3 ? (
+          <p className="text-sm text-muted-foreground">
+            Your AI started replying in{" "}
+            <strong className="text-foreground">{(medianReplyMs / 1000).toFixed(1)}s</strong> on a
+            typical turn. Under a second and a half feels like a conversation; past three, callers
+            start talking over it.
           </p>
         ) : null}
 

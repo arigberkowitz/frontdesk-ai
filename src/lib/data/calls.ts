@@ -73,6 +73,35 @@ export async function countCallsToday(orgId: string): Promise<number> {
 /* ----------------------------- call health ------------------------------- */
 
 /**
+ * Response latency, in milliseconds, if the vendor reported it.
+ *
+ * Nobody in the small-business tier publishes this. The developer platforms all
+ * do — it's the number that decides whether a call feels like a conversation or
+ * like waiting on a machine — and it vanishes the moment a product is sold to
+ * someone non-technical. We already store the whole webhook payload, so this
+ * costs a read and nothing else.
+ *
+ * Returns null rather than a guess when the shape isn't what we expect. An
+ * invented latency figure would be exactly the kind of number this product
+ * exists to stop shipping.
+ */
+function latencyMsFrom(rawPayload: unknown): number | null {
+  const call = (rawPayload as { call?: Record<string, unknown> } | null)?.call;
+  const latency = call?.latency as { e2e?: { p50?: unknown } } | undefined;
+  const p50 = latency?.e2e?.p50;
+  return typeof p50 === "number" && Number.isFinite(p50) && p50 > 0 ? Math.round(p50) : null;
+}
+
+/** Median of a list. Median, not mean — one 8-second outlier shouldn't move it. */
+function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
+
+
+/**
  * The last N days of calls, scored for what went wrong.
  *
  * Every competitor's dashboard answers "how many calls did we answer?". This
@@ -128,9 +157,14 @@ export async function getCallHealth(clientId: string, days = 30) {
       .reduce((n, c) => n + (c.durationSec ?? 0), 0),
   };
 
+  const latencies = rows.map((c) => latencyMsFrom(c.rawPayload)).filter((n): n is number => n != null);
+
   return {
     summary: summarize(scored.map((s) => s.health)),
     waste,
+    /** Median time the AI took to start replying. Null when the vendor didn't say. */
+    medianReplyMs: median(latencies),
+    latencySampleSize: latencies.length,
     // Worst first: the ones an owner should actually listen to.
     needsAttention: scored
       .filter((s) => !s.health.clean)

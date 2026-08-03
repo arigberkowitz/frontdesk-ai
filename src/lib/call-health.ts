@@ -34,12 +34,24 @@ export type CallProblem =
   /** Caller swore. Not proof of failure, but never a good sign. */
   | "caller_frustrated"
   /** Words that should never have reached a booking flow. */
-  | "possible_emergency";
+  | "possible_emergency"
+  /** We could not read this transcript, so we know nothing about this call. */
+  | "unreadable";
 
 export interface CallHealth {
   problems: CallProblem[];
-  /** True when nothing needed a human's attention. */
+  /** True when nothing needed a human's attention AND we could actually check. */
   clean: boolean;
+  /**
+   * Whether we could read the transcript well enough to judge it.
+   *
+   * This matters more than it looks. The speaker-label parsing below assumes a
+   * shape; if a vendor changes it, every call silently comes back with no
+   * problems and the business reads a clean bill of health we never actually
+   * took. A product whose whole claim is honest reporting cannot have a failure
+   * mode that manufactures good news. Unknown is reported as unknown.
+   */
+  readable: boolean;
   /** Short, plain-English lines to show the owner. One per problem. */
   notes: string[];
 }
@@ -137,7 +149,18 @@ export function analyzeCall(input: CallHealthInput): CallHealth {
   const problems: CallProblem[] = [];
   const notes: string[] = [];
 
-  const caller = callerLines(transcript).join(" ");
+  const callerTurns = callerLines(transcript);
+  const agentTurns = agentLines(transcript);
+  // A call with words in it but no speaker labels we recognize means the format
+  // changed under us. Duration alone still tells us about hang-ups, so keep
+  // those checks — but say plainly that the rest is unknown.
+  const readable = transcript.trim().length === 0 || callerTurns.length + agentTurns.length > 0;
+  if (!readable) {
+    problems.push("unreadable");
+    notes.push("We couldn't read this transcript, so we haven't checked this call.");
+  }
+
+  const caller = callerTurns.join(" ");
   const askedForHuman = HUMAN_REQUEST.test(caller);
   const reachedHuman = input.transferConnected === true || input.outcome === "escalated";
 
@@ -186,12 +209,14 @@ export function analyzeCall(input: CallHealthInput): CallHealth {
     notes.push("This call ended with no name or number — there's no way to follow up.");
   }
 
-  return { problems, clean: problems.length === 0, notes };
+  return { problems, clean: problems.length === 0, readable, notes };
 }
 
 export interface CallHealthSummary {
   total: number;
   clean: number;
+  /** Calls we could not read. Reported, never rounded down to "fine". */
+  unreadable: number;
   askedForHuman: number;
   strandedAskingForHuman: number;
   repeatedQuestion: number;
@@ -207,6 +232,7 @@ export function summarize(results: CallHealth[]): CallHealthSummary {
   return {
     total: results.length,
     clean: results.filter((r) => r.clean).length,
+    unreadable: results.filter((r) => !r.readable).length,
     askedForHuman: count("asked_for_human"),
     strandedAskingForHuman: count("stranded_asking_for_human"),
     repeatedQuestion: count("repeated_question"),
