@@ -83,40 +83,63 @@ export function LandingPage() {
       </header>
 
       <main className="flex-1">
-        <section className="mx-auto max-w-3xl px-4 pb-6 pt-16 text-center sm:px-6">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">
-            <Sparkles className="size-3.5" /> AI receptionist for local business
-          </span>
-          <h1 className="mt-4 font-heading text-5xl font-semibold leading-[1.02] tracking-[-0.025em] sm:text-7xl">
-            Never miss
-            <br />
-            <em className="font-medium">another call.</em>
-          </h1>
-          <p className="mx-auto mt-5 max-w-xl text-balance text-base text-muted-foreground sm:text-lg">
-            Your AI receptionist answers every call, books appointments straight to your calendar,
-            and captures every lead — 24/7, in English and Spanish, for a fraction of a hire.
-          </p>
-          <div className="mt-7 flex flex-wrap justify-center gap-3">
-            <Button size="lg" nativeButton={false} render={<Link href="/sign-up" />}>
-              <ArrowRight className="size-4" />
-              Get started free
-            </Button>
-            <Button size="lg" variant="outline" nativeButton={false} render={<Link href="#how" />}>
-              See how it works
-            </Button>
+        {/*
+          The demo IS the pitch. It used to sit in a small section below the
+          fold, so the one thing that convinces anyone — hearing the AI handle a
+          real booking — was something you had to scroll to find. It's in the
+          hero now, side by side with the claim it proves.
+        */}
+        <section className="relative overflow-hidden">
+          {/* Brand glow. Pure decoration, so it's hidden from assistive tech and
+              sits behind everything at low opacity. */}
+          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+            <div className="absolute left-1/2 top-[-12rem] h-[34rem] w-[34rem] -translate-x-1/2 rounded-full bg-indigo-500/20 blur-[120px]" />
+            <div className="absolute right-[-8rem] top-[6rem] h-[26rem] w-[26rem] rounded-full bg-emerald-500/20 blur-[120px]" />
           </div>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t pt-5 text-xs text-muted-foreground sm:text-sm">
-            <span>Picks up on the first ring</span>
-            <span aria-hidden className="hidden text-border sm:inline">·</span>
-            <span>Books on the call</span>
-            <span aria-hidden className="hidden text-border sm:inline">·</span>
-            <span>English y Español</span>
-          </div>
-        </section>
 
-        <section className="mx-auto max-w-lg px-4 pb-16 sm:px-6">
-          <p className="fd-section-label mb-3 text-center">Hear it answer</p>
-          <DemoCall />
+          <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 pb-16 pt-14 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-14 lg:pt-20">
+            <div className="text-center lg:text-left">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                <Sparkles className="size-3.5" /> AI receptionist for local business
+              </span>
+              <h1 className="mt-4 font-heading text-5xl font-semibold leading-[1.02] tracking-[-0.025em] sm:text-6xl lg:text-7xl">
+                Never miss
+                <br />
+                <em className="font-medium">another call.</em>
+              </h1>
+              <p className="mx-auto mt-5 max-w-xl text-balance text-base text-muted-foreground sm:text-lg lg:mx-0">
+                Every call answered on the first ring. Appointments booked straight into your
+                calendar. Every lead captured — 24/7, in English and Spanish, for a fraction of a
+                hire.
+              </p>
+              <div className="mt-7 flex flex-wrap justify-center gap-3 lg:justify-start">
+                <Button size="lg" nativeButton={false} render={<Link href="/sign-up" />}>
+                  <ArrowRight className="size-4" />
+                  Get started free
+                </Button>
+                <Button size="lg" variant="outline" nativeButton={false} render={<Link href="#how" />}>
+                  See how it works
+                </Button>
+              </div>
+              <ul className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-2 border-t pt-5 text-sm text-muted-foreground lg:justify-start">
+                {["Picks up on the first ring", "Books on the call", "English y Español"].map(
+                  (item) => (
+                    <li key={item} className="flex items-center gap-1.5">
+                      <Check className="size-4 shrink-0 text-emerald-500" />
+                      {item}
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
+
+            <div className="relative">
+              <p className="fd-section-label mb-3 text-center lg:text-left">
+                Here&apos;s a real call, start to finish
+              </p>
+              <DemoCall />
+            </div>
+          </div>
         </section>
 
         <section className="border-t bg-card/40">

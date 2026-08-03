@@ -21,6 +21,10 @@ export const METRIC_SIZES: Record<
 interface MetricCardProps {
   label: string;
   value: string;
+  /** A second figure that belongs WITH the headline — e.g. money booked
+   *  ahead sitting under money earned. Rendered quieter and inline so the
+   *  two read as one fact, not two competing numbers. */
+  sub?: string;
   hint?: string;
   /** Leading accent icon-chip; binds to a fixed color in the registry. */
   icon?: MetricIcon;
@@ -37,12 +41,13 @@ interface MetricCardProps {
 }
 
 /** Big, legible stat. Optionally links to the records, or expands a breakdown on click. */
-export function MetricCard({ label, value, hint, icon, href, breakdown, spark, sparkColor, size = "default", className }: MetricCardProps) {
+export function MetricCard({ label, value, sub, hint, icon, href, breakdown, spark, sparkColor, size = "default", className }: MetricCardProps) {
   if (breakdown && breakdown.length > 0) {
     return (
       <MetricBreakdown
         label={label}
         value={value}
+        sub={sub}
         hint={hint}
         icon={icon}
         breakdown={breakdown}
@@ -62,7 +67,14 @@ export function MetricCard({ label, value, hint, icon, href, breakdown, spark, s
       <p className={cn("font-heading font-semibold tracking-tight tabular-nums", s.num, icon && "mt-3")}>
         <CountUp value={value} />
       </p>
-      <p className="mt-1 text-sm font-medium text-muted-foreground">{label}</p>
+      {sub ? (
+        <p className="mt-1 text-sm font-medium text-emerald-600 tabular-nums dark:text-emerald-400">
+          {sub}
+        </p>
+      ) : null}
+      <p className={cn("text-sm font-medium text-muted-foreground", sub ? "mt-0.5" : "mt-1")}>
+        {label}
+      </p>
       {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
       {spark && spark.length > 1 ? (
         <Sparkline data={spark} color={sparkColor} className={cn("w-full", s.spark)} />

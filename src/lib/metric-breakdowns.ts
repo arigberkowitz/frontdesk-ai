@@ -17,9 +17,11 @@ export function clientMetricBreakdowns(m: ClientMetrics): Record<string, string[
     revenue: [
       "Appointments that have already happened, valued at the price of the service actually booked. Cancellations and no-shows excluded.",
       m.bookings > 0
-        ? `${m.completedBookings} of ${m.bookings} booking${m.bookings === 1 ? "" : "s"} completed so far`
+        ? `Earned — ${m.completedBookings} of ${m.bookings} booking${m.bookings === 1 ? "" : "s"} already held: ${money(m.estRevenueCents)}`
         : "No bookings yet.",
-      `= ${money(m.estRevenueCents)}`,
+      m.upcomingBookings > 0
+        ? `On the books — ${m.upcomingBookings} upcoming worth ${money(m.upcomingRevenueCents)}, not counted above`
+        : "On the books — nothing scheduled ahead yet.",
     ],
     calls: [
       "Every inbound call your AI answered.",

@@ -127,7 +127,7 @@ export function ClientDetail(props: Props) {
 
       <TabsContent value="overview" className="space-y-6">
         <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(metrics.estRevenueCents)} hint="Completed bookings, at each service's price" breakdown={bd.revenue} spark={metrics.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
+          <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(metrics.estRevenueCents)} sub={metrics.upcomingRevenueCents > 0 ? `+ ${formatCurrencyCents(metrics.upcomingRevenueCents)} booked ahead` : undefined} hint="Earned once the appointment happens" breakdown={bd.revenue} spark={metrics.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
           <MetricCard icon="calls" label="Calls" value={String(metrics.totalCalls)} hint="All time" breakdown={bd.calls} spark={metrics.callsByDay.map((d) => d.calls)} sparkColor="#0ea5e9" />
           <MetricCard icon="bookings" label="Bookings" value={String(metrics.bookings)} breakdown={bd.bookings} spark={metrics.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
           <MetricCard icon="afterHours" label="After-hours saves" value={String(metrics.afterHoursCalls)} breakdown={bd.afterHours} />

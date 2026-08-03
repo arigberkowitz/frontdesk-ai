@@ -27,8 +27,11 @@ export interface ClientMetrics {
   totalCalls: number;
   afterHoursCalls: number;
   bookings: number;
-  /** Appointments whose time has passed — the only ones counted as revenue. */
+  /** Appointments whose time has passed — the only ones counted as earned revenue. */
   completedBookings: number;
+  /** Scheduled but not yet occurred: the pipeline, never mixed into earned. */
+  upcomingBookings: number;
+  upcomingRevenueCents: number;
   leads: number;
   newLeads: number;
   escalated: number;
@@ -94,11 +97,17 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
   // has actually happened (startAt <= now), valued at the ACTUAL booked
   // service's price — a $1,000 service adds $1,000, not an average. Future
   // bookings show in the bookings count but add $0 until they occur.
-  const [{ bookings, completedBookings, earnedRevenue }] = await db
+  const [{ bookings, completedBookings, earnedRevenue, upcomingBookings, upcomingRevenue }] =
+    await db
     .select({
       bookings: sql<number>`count(*)::int`,
       completedBookings: sql<number>`count(*) filter (where ${appointments.startAt} <= now())::int`,
       earnedRevenue: sql<number>`coalesce(sum(${services.priceCents}) filter (where ${appointments.startAt} <= now()), 0)::int`,
+      // Money on the books but not yet in the till. Kept strictly separate from
+      // earned revenue — a business should never have to wonder whether the
+      // number in front of it has already happened.
+      upcomingBookings: sql<number>`count(*) filter (where ${appointments.startAt} > now())::int`,
+      upcomingRevenue: sql<number>`coalesce(sum(${services.priceCents}) filter (where ${appointments.startAt} > now()), 0)::int`,
     })
     .from(appointments)
     .leftJoin(services, eq(appointments.serviceId, services.id))
@@ -164,6 +173,8 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
     avgServicePriceCents,
     estRevenueCents: earnedRevenue,
     completedBookings,
+    upcomingBookings,
+    upcomingRevenueCents: upcomingRevenue,
     callsByDay: fillDays(byDayRows, 14, timeZone),
     outcomes,
   };
@@ -321,6 +332,9 @@ export interface PortfolioMetrics {
   newLeads: number;
   mrrCents: number;
   estRevenueMonthCents: number;
+  /** Scheduled-but-not-yet-happened revenue across the portfolio. */
+  upcomingRevenueCents: number;
+  upcomingBookings: number;
   marginCents: number;
   clients: PortfolioClientCard[];
   // Component figures behind the headline numbers — surfaced in the card breakdowns.
@@ -350,6 +364,8 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     newLeads: 0,
     mrrCents: 0,
     estRevenueMonthCents: 0,
+    upcomingRevenueCents: 0,
+    upcomingBookings: 0,
     marginCents: 0,
     clients: [],
     bookingsThisMonth: 0,
@@ -389,6 +405,14 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
           and ${appointments.startAt} <= now()
           and ${appointments.status} not in ('cancelled','no_show')
       ), 0)::int`,
+      upcomingRevenue: sql<number>`coalesce(sum(${services.priceCents}) filter (
+        where ${appointments.startAt} > now()
+          and ${appointments.status} not in ('cancelled','no_show')
+      ), 0)::int`,
+      upcomingBookings: sql<number>`count(*) filter (
+        where ${appointments.startAt} > now()
+          and ${appointments.status} not in ('cancelled','no_show')
+      )::int`,
     })
     .from(appointments)
     .leftJoin(services, eq(appointments.serviceId, services.id))
@@ -477,6 +501,8 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
   const avgServiceCents = avgPrice != null ? Math.round(Number(avgPrice)) : 0;
   const bookingsThisMonth = apptAgg?.month ?? 0;
   const estRevenueMonthCents = apptAgg?.earnedMonth ?? 0;
+  const upcomingRevenueCents = apptAgg?.upcomingRevenue ?? 0;
+  const upcomingBookings = apptAgg?.upcomingBookings ?? 0;
   const overheadCents = activeClients * COST_ASSUMPTIONS.overheadPerClientCents;
   const retellCostMonthCents = callAgg?.retellCostMonth ?? 0;
   const marginCents = (mrr ?? 0) - retellCostMonthCents - overheadCents;
@@ -490,6 +516,8 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     newLeads,
     mrrCents: mrr ?? 0,
     estRevenueMonthCents,
+    upcomingRevenueCents,
+    upcomingBookings,
     marginCents,
     clients: rows.map((r) => ({
       id: r.id,

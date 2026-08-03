@@ -13,6 +13,10 @@ import { Sparkline } from "@/components/charts/sparkline";
 interface MetricBreakdownProps {
   label: string;
   value: string;
+  /** A second figure that belongs WITH the headline — e.g. money booked
+   *  ahead sitting under money earned. Rendered quieter and inline so the
+   *  two read as one fact, not two competing numbers. */
+  sub?: string;
   hint?: string;
   icon?: MetricIcon;
   breakdown: string[];
@@ -24,7 +28,7 @@ interface MetricBreakdownProps {
 }
 
 /** Client island for a metric that expands its breakdown on click. */
-export function MetricBreakdown({ label, value, hint, icon, breakdown, href, spark, sparkColor, size = "default", className }: MetricBreakdownProps) {
+export function MetricBreakdown({ label, value, sub, hint, icon, breakdown, href, spark, sparkColor, size = "default", className }: MetricBreakdownProps) {
   const [open, setOpen] = useState(false);
   const s = METRIC_SIZES[size];
 
@@ -50,6 +54,11 @@ export function MetricBreakdown({ label, value, hint, icon, breakdown, href, spa
             <CountUp value={value} />
           </p>
           <p className="mt-1 text-sm font-medium text-muted-foreground">{label}</p>
+          {sub ? (
+            <p className="mt-1 text-sm font-medium text-emerald-600 tabular-nums dark:text-emerald-400">
+              {sub}
+            </p>
+          ) : null}
           {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
           {spark && spark.length > 1 ? (
             <Sparkline data={spark} color={sparkColor} className={cn("w-full", s.spark)} />
