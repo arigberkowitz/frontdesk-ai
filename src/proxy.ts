@@ -39,12 +39,31 @@ const isPublicRoute = createRouteMatcher([
   "/api/cron(.*)",
 ]);
 
+/**
+ * Endpoints called by machines that authenticate per-request (signature or
+ * shared secret) rather than by session. These must be served wherever they're
+ * addressed — never redirected — because a redirect invalidates the signature.
+ */
+const isMachineRoute = createRouteMatcher([
+  "/api/webhooks(.*)",
+  "/api/agent-tools(.*)",
+  "/api/cron(.*)",
+]);
+
 export default clerkMiddleware(async (auth, req) => {
   // Before any auth work: one canonical home for the site. Both hosts are
   // literals rather than env-derived — APP_URL falls back to Vercel's injected
   // production URL, which can itself be the legacy host, and a middleware that
   // redirects a host to itself is an infinite loop on every request.
-  if (req.headers.get("host") === LEGACY_HOST) {
+  //
+  // Machine callers are exempt, and that exemption is load-bearing. Twilio and
+  // Retell sign each webhook against the EXACT url they post to, while our
+  // verifiers rebuild that url from APP_URL. Bounce a signed POST to a different
+  // host and the signatures stop matching, so the request 401s — silently, and
+  // only in production. The Twilio number's webhook still points at the legacy
+  // host, and that handler is what processes STOP: breaking it would drop
+  // opt-outs on the floor while everything looked fine.
+  if (req.headers.get("host") === LEGACY_HOST && !isMachineRoute(req)) {
     const to = new URL(req.url);
     to.protocol = "https:";
     to.host = CANONICAL_HOST;

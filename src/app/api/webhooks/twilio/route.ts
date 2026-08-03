@@ -33,6 +33,33 @@ function twiml(message?: string): Response {
   return new Response(body, { headers: { "content-type": "text/xml" } });
 }
 
+/**
+ * Hostnames this webhook may legitimately be addressed at.
+ *
+ * Twilio signs each request against the EXACT url it posts to, so verification
+ * has to use that same url — not whatever APP_URL happens to be. A number
+ * configured against an older hostname would otherwise 401 forever, silently,
+ * and this is the handler that processes STOP. Dropping opt-outs is the worst
+ * failure available to us, so accept either host and verify honestly against
+ * whichever one was used.
+ *
+ * This is not a weakening: the HMAC still has to be valid for the url claimed,
+ * and only Twilio can produce that. The allowlist exists so an attacker can't
+ * nominate a host of their own via a forged Host header.
+ */
+const ALLOWED_WEBHOOK_HOSTS = ["frontdeskai.company", "frontdesk-ai-alpha.vercel.app"];
+
+/** Every url this request could plausibly have been signed against. */
+function candidateUrls(req: Request): string[] {
+  const seen = new Set<string>([webhookUrl("/api/webhooks/twilio")]);
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  if (host && ALLOWED_WEBHOOK_HOSTS.includes(host.split(":")[0])) {
+    const proto = req.headers.get("x-forwarded-proto") ?? "https";
+    seen.add(`${proto}://${host}/api/webhooks/twilio`);
+  }
+  return [...seen];
+}
+
 /** Twilio request signature: HMAC-SHA1(url + sorted-concatenated params, auth token). */
 function verifyTwilioSignature(
   url: string,
@@ -59,7 +86,10 @@ export async function POST(req: Request): Promise<Response> {
     if (typeof v === "string") params[k] = v;
   }
 
-  if (!verifyTwilioSignature(webhookUrl("/api/webhooks/twilio"), params, req.headers.get("x-twilio-signature"))) {
+  const signature = req.headers.get("x-twilio-signature");
+  const urls = candidateUrls(req);
+  if (!urls.some((u) => verifyTwilioSignature(u, params, signature))) {
+    logger.warn("webhook.twilio.bad_signature", { tried: urls });
     return new Response("Invalid signature", { status: 401 });
   }
 
