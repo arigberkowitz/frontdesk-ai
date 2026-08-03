@@ -3,7 +3,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { leads } from "@/db/schema";
 import { recordOptOut, removeOptOut, normalizePhone } from "@/lib/data/sms-optouts";
-import { getClientByIdUnsafe } from "@/lib/data/clients";
+import { findClientByPhone } from "@/lib/data/clients";
 import { notifier } from "@/lib/notifier";
 import { env, webhookUrl } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -134,11 +134,25 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    // A real reply: attach it to the most recent lead with this phone and
-    // hand the conversation to the owner.
+    // A real reply: attach it to the most recent lead with this phone AT THE
+    // BUSINESS THEY TEXTED, and hand the conversation to that owner.
+    //
+    // This used to search every lead on the platform. The same consumer is
+    // often a lead at two businesses — they called a dentist and a plumber —
+    // so a reply could stamp the wrong tenant's lead and email one business's
+    // customer message to a different business. `To` is the number the
+    // customer texted, which is the only trustworthy signal of who they meant.
+    const to = params.To ?? "";
+    const owner = to ? await findClientByPhone(to) : null;
+    if (!owner) {
+      logger.warn("sms.reply.unknown_recipient", { to: normalizePhone(to) });
+      return twiml();
+    }
+
     const digits = normalizePhone(from);
     const lead = await db.query.leads.findFirst({
       where: and(
+        eq(leads.clientId, owner.id),
         sql`regexp_replace(coalesce(${leads.phone}, ''), '[^0-9]', '', 'g') like ${"%" + digits.slice(-10)}`,
         isNull(leads.deletedAt),
       ),
@@ -147,8 +161,7 @@ export async function POST(req: Request): Promise<Response> {
 
     if (lead) {
       await db.update(leads).set({ lastReplyAt: new Date() }).where(eq(leads.id, lead.id));
-      const client = await getClientByIdUnsafe(lead.clientId);
-      const ownerEmail = client?.ownerEmail?.trim();
+      const ownerEmail = owner.ownerEmail?.trim();
       if (ownerEmail) {
         await notifier.sendEmail({
           to: ownerEmail,
@@ -160,7 +173,7 @@ export async function POST(req: Request): Promise<Response> {
         });
       }
     } else {
-      logger.info("sms.reply.no_lead", { phone: digits });
+      logger.info("sms.reply.no_lead", { clientId: owner.id, phone: digits });
     }
     return twiml();
   } catch (err) {

@@ -7,7 +7,8 @@ import { MessageSquare, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { sendLeadFollowupAction } from "@/lib/actions/reminders";
 import { initialActionState } from "@/lib/actions/types";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export interface FollowupLog {
   channel: string; // "call" | "sms"
@@ -83,10 +84,20 @@ export function LeadFollowup({
         <MessageSquare className="size-3.5" />
         {draft ? "Send text" : "Text"}
       </FollowupButton>
-      <FollowupButton clientId={clientId} leadId={leadId} channel="call" disabled={!hasPhone}>
+      {/* Opens the owner's own dialer — the app can't place this call, and
+          logging one it didn't place is how a lead ends up marked "contacted"
+          by nobody. */}
+      <a
+        href={hasPhone ? `tel:${phone!.replace(/[^\d+]/g, "")}` : undefined}
+        aria-disabled={!hasPhone}
+        className={cn(
+          buttonVariants({ variant: "outline", size: "sm" }),
+          !hasPhone && "pointer-events-none opacity-50",
+        )}
+      >
         <Phone className="size-3.5" />
         Call
-      </FollowupButton>
+      </a>
       {last ? (
         <span className="text-xs text-muted-foreground">
           · Last {last.channel === "call" ? "called" : "texted"} {format(new Date(last.at), "MMM d, h:mm a")}

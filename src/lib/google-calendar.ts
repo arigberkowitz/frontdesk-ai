@@ -1,5 +1,6 @@
 import "server-only";
 import { env, integrations } from "./env";
+import { wallClockToInstant } from "./hours-util";
 
 /**
  * Google Calendar integration (§EPIC D): OAuth connect + free/busy availability
@@ -163,35 +164,16 @@ export async function deleteEvent(
 
 /* --------------------------- timezone-aware slots ------------------------- */
 
-/** Milliseconds the zone is ahead of UTC at `date`. */
-function tzOffsetMs(timeZone: string, date: Date): number {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour12: false,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  const p: Record<string, string> = {};
-  for (const part of dtf.formatToParts(date)) if (part.type !== "literal") p[part.type] = part.value;
-  const asUTC = Date.UTC(
-    Number(p.year),
-    Number(p.month) - 1,
-    Number(p.day),
-    Number(p.hour) % 24,
-    Number(p.minute),
-    Number(p.second),
-  );
-  return asUTC - date.getTime();
-}
-
-/** A Date for local Y/M/D H:M in `timeZone`. */
+/**
+ * A Date for local Y/M/D H:M in `timeZone`.
+ *
+ * Shares one implementation with the agent's datetime parsing — this used to be
+ * a second copy of the same single-pass offset lookup, and so had the same
+ * DST bug in a second place. Slot generation and booking must agree about what
+ * "9 AM" means or the calendar disagrees with the confirmation.
+ */
 export function zonedTime(timeZone: string, y: number, m0: number, d: number, h: number, min: number): Date {
-  const guess = Date.UTC(y, m0, d, h, min);
-  return new Date(guess - tzOffsetMs(timeZone, new Date(guess)));
+  return wallClockToInstant(timeZone, y, m0, d, h, min);
 }
 
 export interface BusinessHourLite {

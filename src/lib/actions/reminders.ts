@@ -54,38 +54,40 @@ export async function sendReminderAction(
     (appt.meetingUrl ? ` Join by video: ${appt.meetingUrl}` : "") +
     (callbackNumber ? ` Need to reschedule? Call ${callbackNumber}.` : "");
 
-  // Text sends for real via Twilio when configured. Outbound voice reminders ride
-  // the same logging path and place a real call once outbound telephony is wired;
-  // until then both are recorded as a demo send so the log is populated.
-  const result =
-    channel === "sms" ? await notifier.sendSms({ to: phone, body }) : { ok: false, skipped: true as const };
+  // Outbound voice isn't wired up. This used to write a "sent" row anyway and
+  // tell the owner the reminder went out, so the appointment history showed a
+  // call that never happened — the one record they'd rely on if a customer
+  // said nobody told them.
+  if (channel === "call") {
+    return {
+      ok: false,
+      error: "Calling customers isn't connected yet. Text them here, or dial them from your phone.",
+    };
+  }
 
-  const demo = Boolean(result.skipped) || !integrations.twilio();
-  const failed = !result.ok && !result.skipped;
+  const result = await notifier.sendSms({ to: phone, body });
 
-  await createReminder(clientId, {
-    appointmentId,
-    channel,
-    status: failed ? "failed" : "sent",
-    sentAt: failed ? null : new Date(),
-    error: failed ? (result.error ?? "Send failed") : null,
-  });
+  if (result.skipped || !integrations.twilio()) {
+    logger.warn("reminder.send.not_configured", { clientId, appointmentId });
+    return { ok: false, error: "Texting isn't connected yet, so nothing was sent." };
+  }
 
-  revalidatePath("/portal/appointments");
-
-  if (failed) {
+  if (!result.ok) {
+    await createReminder(clientId, {
+      appointmentId,
+      channel,
+      status: "failed",
+      sentAt: null,
+      error: result.error ?? "Send failed",
+    });
+    revalidatePath("/portal/appointments");
     logger.warn("reminder.send.failed", { clientId, appointmentId, channel, error: result.error });
     return { ok: false, error: "Couldn't send the reminder — please try again." };
   }
-  return {
-    ok: true,
-    message:
-      channel === "sms"
-        ? demo
-          ? "Text reminder logged (demo — connect texting to send for real)."
-          : "Text reminder sent."
-        : "Call reminder logged (demo — connect calling to dial for real).",
-  };
+
+  await createReminder(clientId, { appointmentId, channel, status: "sent", sentAt: new Date(), error: null });
+  revalidatePath("/portal/appointments");
+  return { ok: true, message: "Text reminder sent." };
 }
 
 /**
@@ -127,33 +129,35 @@ export async function sendLeadFollowupAction(
     `Hi${lead.name ? ` ${lead.name}` : ""}, this is ${business} following up on your recent call — when's a good time to connect?` +
       (callbackNumber ? ` You can reach us at ${callbackNumber}.` : "");
 
-  const result =
-    channel === "sms" ? await notifier.sendSms({ to: phone, body }) : { ok: false, skipped: true as const };
+  // Same rule as appointment reminders: only a real send gets logged as one.
+  if (channel === "call") {
+    return {
+      ok: false,
+      error: "Calling leads isn't connected yet. Text them here, or dial them from your phone.",
+    };
+  }
 
-  const demo = Boolean(result.skipped) || !integrations.twilio();
-  const failed = !result.ok && !result.skipped;
+  const result = await notifier.sendSms({ to: phone, body });
 
-  await createReminder(clientId, {
-    leadId,
-    channel,
-    status: failed ? "failed" : "sent",
-    sentAt: failed ? null : new Date(),
-    error: failed ? (result.error ?? "Send failed") : null,
-  });
+  if (result.skipped || !integrations.twilio()) {
+    logger.warn("lead.followup.not_configured", { clientId, leadId });
+    return { ok: false, error: "Texting isn't connected yet, so nothing was sent." };
+  }
 
-  revalidatePath("/portal/leads");
-
-  if (failed) {
+  if (!result.ok) {
+    await createReminder(clientId, {
+      leadId,
+      channel,
+      status: "failed",
+      sentAt: null,
+      error: result.error ?? "Send failed",
+    });
+    revalidatePath("/portal/leads");
     logger.warn("lead.followup.failed", { clientId, leadId, channel, error: result.error });
     return { ok: false, error: "Couldn't send the follow-up — please try again." };
   }
-  return {
-    ok: true,
-    message:
-      channel === "sms"
-        ? demo
-          ? "Text follow-up logged (demo — connect texting to send for real)."
-          : "Text follow-up sent."
-        : "Call follow-up logged (demo — connect calling to dial for real).",
-  };
+
+  await createReminder(clientId, { leadId, channel, status: "sent", sentAt: new Date(), error: null });
+  revalidatePath("/portal/leads");
+  return { ok: true, message: "Text follow-up sent." };
 }

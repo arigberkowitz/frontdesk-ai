@@ -422,8 +422,13 @@ export async function assertClientAccess(clientId: string): Promise<User> {
  * `client_viewer` silently lets one business's admin act on another's.
  */
 export function userMayAccessClient(user: User, clientId: string): boolean {
+  if (!clientId) return false;
+  // Operators are org-scoped, so callers must still confirm the client belongs
+  // to `user.orgId` (assertClientInOrg / getClient(orgId, …)). Returning true
+  // here is the "may this ROLE reach a client at all" half of the answer; the
+  // org half can't be decided without a query. Every call site pairs them.
   if (user.role === "operator") return true;
-  return Boolean(clientId) && user.clientId === clientId;
+  return user.clientId === clientId;
 }
 
 /* ------------------------- portal edit permissions ------------------------ */

@@ -185,7 +185,10 @@ export interface PeriodSummary {
   bookings: number;
   afterHours: number;
   leads: number;
+  /** Earned: the real prices of appointments booked in the window that have happened. */
   estRevenueCents: number;
+  /** Booked in the window but still ahead. Kept apart from earned, never summed in. */
+  upcomingRevenueCents: number;
 }
 
 /** Windowed summary over the last `sinceDays` days — used by digests (§E3). */
@@ -203,15 +206,25 @@ export async function getClientPeriodSummary(
     .from(calls)
     .where(and(eq(calls.clientId, clientId), isNull(calls.deletedAt), sql`${calls.startAt} >= ${since}`));
 
+  // Same revenue rule as the dashboard: value each appointment at the price of
+  // the service actually booked, and recognize it only once the appointment has
+  // happened. This used to be `count × average price of the service catalogue`,
+  // which meant a firm listing a $1,000 session alongside a free consultation
+  // "earned" hundreds of dollars from two free consultations — and that figure
+  // went out in the weekly email, where nobody could check it.
   const [b] = await db
-    .select({ bookings: sql<number>`count(*)::int` })
+    .select({
+      bookings: sql<number>`count(*) filter (where ${appointments.startAt} <= now())::int`,
+      earned: sql<number>`coalesce(sum(${services.priceCents}) filter (where ${appointments.startAt} <= now()), 0)::int`,
+      upcoming: sql<number>`coalesce(sum(${services.priceCents}) filter (where ${appointments.startAt} > now()), 0)::int`,
+    })
     .from(appointments)
+    .leftJoin(services, eq(appointments.serviceId, services.id))
     .where(
       and(
         eq(appointments.clientId, clientId),
         isNull(appointments.deletedAt),
         sql`${appointments.createdAt} >= ${since}`,
-        sql`${appointments.startAt} <= now()`,
         sql`${appointments.status} not in ('cancelled','no_show')`,
       ),
     );
@@ -221,19 +234,13 @@ export async function getClientPeriodSummary(
     .from(leads)
     .where(and(eq(leads.clientId, clientId), isNull(leads.deletedAt), sql`${leads.createdAt} >= ${since}`));
 
-  const [p] = await db
-    .select({ avgPrice: sql<number | null>`avg(${services.priceCents})` })
-    .from(services)
-    .where(and(eq(services.clientId, clientId), eq(services.isActive, true), isNull(services.deletedAt)));
-
-  const avgPrice = p?.avgPrice != null ? Math.round(Number(p.avgPrice)) : 0;
-  const bookings = b?.bookings ?? 0;
   return {
     calls: c?.calls ?? 0,
-    bookings,
+    bookings: b?.bookings ?? 0,
     afterHours: c?.afterHours ?? 0,
     leads: l?.leads ?? 0,
-    estRevenueCents: bookings * avgPrice,
+    estRevenueCents: b?.earned ?? 0,
+    upcomingRevenueCents: b?.upcoming ?? 0,
   };
 }
 
@@ -542,9 +549,12 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
 
 export interface CallQualityMetrics {
   totalCalls: number;
-  answerRate: number; // 0–1
-  containmentRate: number; // 0–1, calls resolved without human escalation
-  positiveShare: number; // 0–1 of calls with a known sentiment
+  /** 0–1, or null with no calls yet. A rate over zero calls is not 100%. */
+  answerRate: number | null;
+  /** 0–1 resolved without human escalation, or null with no calls yet. */
+  containmentRate: number | null;
+  /** 0–1 of calls with a known sentiment, or null before any is known. */
+  positiveShare: number | null;
   knownSentiments: number;
   avgQaScore: number | null; // 1–5, null until the QA agent has graded calls
   gradedCalls: number;
@@ -552,11 +562,15 @@ export interface CallQualityMetrics {
 
 /** Org-wide call quality over the last 30 days (dashboard "Call quality" row). */
 export async function getOrgCallQuality(orgId: string): Promise<CallQualityMetrics> {
+  // No calls means no rate — not a perfect one. A brand-new org used to open
+  // the dashboard to "100% answered, 100% handled" before its phone had ever
+  // rung, which is the most flattering number in the product and the only one
+  // that was pure fiction.
   const empty: CallQualityMetrics = {
     totalCalls: 0,
-    answerRate: 1,
-    containmentRate: 1,
-    positiveShare: 0,
+    answerRate: null,
+    containmentRate: null,
+    positiveShare: null,
     knownSentiments: 0,
     avgQaScore: null,
     gradedCalls: 0,
@@ -609,9 +623,9 @@ export async function getOrgCallQuality(orgId: string): Promise<CallQualityMetri
   const total = agg?.total ?? 0;
   return {
     totalCalls: total,
-    answerRate: total > 0 ? (total - (agg?.missed ?? 0)) / total : 1,
-    containmentRate: total > 0 ? (total - (agg?.escalated ?? 0)) / total : 1,
-    positiveShare: (agg?.known ?? 0) > 0 ? (agg?.positive ?? 0) / (agg?.known ?? 1) : 0,
+    answerRate: total > 0 ? (total - (agg?.missed ?? 0)) / total : null,
+    containmentRate: total > 0 ? (total - (agg?.escalated ?? 0)) / total : null,
+    positiveShare: (agg?.known ?? 0) > 0 ? (agg?.positive ?? 0) / (agg?.known ?? 1) : null,
     knownSentiments: agg?.known ?? 0,
     avgQaScore: qa?.avg != null ? Number(qa.avg) : null,
     gradedCalls: qa?.n ?? 0,

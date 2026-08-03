@@ -17,7 +17,7 @@ import { CallsChart } from "@/components/charts/calls-chart";
 import { OutcomesChart } from "@/components/charts/outcomes-chart";
 import { ClientSummaryCard } from "@/components/clients/client-summary-card";
 import { TrialsCard, type TrialRow } from "@/components/trials-card";
-import { formatCurrencyCents } from "@/lib/format";
+import { formatCurrencyCents, formatPercent } from "@/lib/format";
 import { db } from "@/db";
 import { clients, organizations } from "@/db/schema";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
@@ -33,7 +33,6 @@ export default async function DashboardPage() {
     countOpenGrades(user.orgId),
     getOrgCallQuality(user.orgId),
   ]);
-  const pct = (v: number) => `${Math.round(v * 100)}%`;
   const firstName = cu?.firstName ?? undefined;
 
   // Free trials: the operator's access code + pending requests + running trials.
@@ -165,21 +164,21 @@ export default async function DashboardPage() {
             <MetricCard
               icon="answerRate"
               label="Answer rate"
-              value={pct(quality.answerRate)}
+              value={formatPercent(quality.answerRate)}
               hint={`${quality.totalCalls} calls`}
               size="sm"
             />
             <MetricCard
               icon="containment"
               label="Containment"
-              value={pct(quality.containmentRate)}
+              value={formatPercent(quality.containmentRate)}
               hint="Handled without a human"
               size="sm"
             />
             <MetricCard
               icon="sentiment"
               label="Positive callers"
-              value={quality.knownSentiments > 0 ? pct(quality.positiveShare) : "—"}
+              value={formatPercent(quality.positiveShare)}
               hint={
                 quality.knownSentiments > 0
                   ? `Of ${quality.knownSentiments} rated calls`

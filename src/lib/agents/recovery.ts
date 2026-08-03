@@ -185,12 +185,24 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
     .returning();
 
   let sent = 0;
+  let notSent = 0;
   try {
     for (const t of touches) {
       // Hard compliance gate: STOP means never again, no matter the path.
       if (await isOptedOut(t.to)) continue;
       const result = await notifier.sendSms({ to: t.to, body: t.body });
-      const failed = !result.ok && !result.skipped;
+
+      // `skipped` means the SMS provider isn't wired up, so nothing left the
+      // building. We used to log that as "sent", mark the lead contacted, and
+      // count it against the two-touch limit — which meant a Twilio outage or a
+      // missing key burned every lead's follow-ups in silence and there was no
+      // way to tell afterwards. Nothing sent, nothing recorded, nothing spent.
+      if (result.skipped) {
+        notSent += 1;
+        continue;
+      }
+
+      const failed = !result.ok;
       await createReminder(client.id, {
         leadId: t.leadId ?? null,
         appointmentId: t.appointmentId ?? null,
@@ -215,11 +227,18 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
         .set({
           status: "succeeded",
           finishedAt: new Date(),
-          stats: { attempted: touches.length, sent },
+          stats: { attempted: touches.length, sent, notSent },
         })
         .where(eq(agentRuns.id, run.id));
     }
-    return { ...base, sent };
+    if (notSent > 0) {
+      logger.warn("agents.recovery.provider_unavailable", {
+        clientId: client.id,
+        notSent,
+        detail: "Texting isn't connected, so these follow-ups were left untouched — they stay eligible for the next run.",
+      });
+    }
+    return { ...base, sent, ...(notSent > 0 && sent === 0 ? { skipped: "sms_not_configured" } : {}) };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (run) {

@@ -7,12 +7,18 @@ import { BellRing, Check, MessageSquare, Phone, X } from "lucide-react";
 import { toast } from "sonner";
 import { sendReminderAction } from "@/lib/actions/reminders";
 import { initialActionState } from "@/lib/actions/types";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export interface ReminderLog {
   channel: string; // "call" | "sms"
   status: string; // "queued" | "sent" | "failed"
   at: string; // ISO
+}
+
+/** Strip formatting so tel: gets something every dialer accepts. */
+function telHref(phone: string): string {
+  return `tel:${phone.replace(/[^\d+]/g, "")}`;
 }
 
 function ReminderButton({
@@ -108,10 +114,20 @@ export function AppointmentReminders({
             <MessageSquare className="size-4" />
             Text right now
           </ReminderButton>
-          <ReminderButton clientId={clientId} appointmentId={appointmentId} channel="call" disabled={!hasPhone}>
+          {/* Outbound calling isn't connected, so this opens YOUR phone rather
+              than pretending the AI dialed. A button that logs a call nobody
+              made is worse than no button. */}
+          <a
+            href={hasPhone ? telHref(phone!) : undefined}
+            aria-disabled={!hasPhone}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              !hasPhone && "pointer-events-none opacity-50",
+            )}
+          >
             <Phone className="size-4" />
-            Call right now
-          </ReminderButton>
+            Call them yourself
+          </a>
           <Button variant="ghost" size="sm" onClick={() => setChoosing(false)}>
             Cancel
           </Button>

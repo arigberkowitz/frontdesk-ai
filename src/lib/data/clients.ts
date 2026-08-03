@@ -113,3 +113,25 @@ export async function softDeleteClient(orgId: string, clientId: string): Promise
     .set({ deletedAt: new Date() })
     .where(and(eq(clients.id, clientId), eq(clients.orgId, orgId)));
 }
+
+/**
+ * Which business owns an inbound number.
+ *
+ * Used by the Twilio webhook to attribute a reply to the tenant the customer
+ * actually texted, rather than searching every lead on the platform and hoping.
+ * Matches on the last 10 digits so stored formatting (+1, dashes, parens)
+ * doesn't decide the answer.
+ */
+export async function findClientByPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "").slice(-10);
+  if (digits.length < 10) return null;
+  return (
+    (await db.query.clients.findFirst({
+      where: (c, { and: a, isNull: n, sql: s }) =>
+        a(
+          n(c.deletedAt),
+          s`regexp_replace(coalesce(${c.retellPhoneNumber}, ''), '[^0-9]', '', 'g') like ${"%" + digits}`,
+        ),
+    })) ?? null
+  );
+}

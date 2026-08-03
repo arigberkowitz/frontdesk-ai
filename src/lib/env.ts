@@ -48,9 +48,12 @@ export const env = {
   // only auth on booking/cancel/message endpoints would be an open door;
   // authenticateAgentTool rejects an empty secret, so prod without env vars
   // fails closed instead.
+  // NOT the Retell API key. It used to fall back to it, which meant the key
+  // that can provision numbers and read every tenant's transcripts was baked
+  // into agent tool URLs as ?token=… — visible in Retell's dashboard and in
+  // every access log. Unset in production now fails closed instead.
   AGENT_TOOLS_SECRET:
     process.env.AGENT_TOOLS_SECRET ||
-    process.env.RETELL_API_KEY ||
     (process.env.NODE_ENV === "production" ? "" : "dev-agent-tools-secret"),
   // Secret protecting the digest cron endpoint (digests disabled until set).
   CRON_SECRET: process.env.CRON_SECRET ?? "",

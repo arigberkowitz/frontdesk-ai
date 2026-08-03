@@ -19,8 +19,20 @@ import { env } from "./env";
  * secrets, so clients would need to reconnect.
  */
 function key(): Buffer {
-  const secret = env.CREDENTIALS_SECRET || "dev-insecure-credentials-secret";
-  return createHash("sha256").update(secret).digest();
+  // Fail closed. This key encrypts every client's Google/Microsoft refresh
+  // token and Cal.com API key at rest, and also signs the portal edit-unlock
+  // token. Falling back to a constant that lives in this repo meant a
+  // deployment set up from .env.example encrypted real customer credentials
+  // with a published string — and nothing anywhere said so.
+  if (!env.CREDENTIALS_SECRET) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "CREDENTIALS_SECRET is not set. Calendar credentials cannot be encrypted safely without it.",
+      );
+    }
+    return createHash("sha256").update("dev-insecure-credentials-secret").digest();
+  }
+  return createHash("sha256").update(env.CREDENTIALS_SECRET).digest();
 }
 
 export function encryptSecret(plaintext: string): string {
