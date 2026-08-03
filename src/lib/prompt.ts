@@ -173,6 +173,11 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     canBook
       ? "If booking isn't possible or the caller isn't ready, use take_message to capture name, phone, and reason — and, when it comes up naturally, what they need (service), how soon (urgency), and any budget, so the team can prioritize the callback."
       : "Use take_message to capture name, phone, and reason — and, when it comes up naturally, what they need (service), how soon (urgency), and any budget, so the team can prioritize the callback.",
+    // Consent for texting is collected HERE or nowhere. This exact ask is what
+    // the A2P campaign registered with the carriers as our opt-in workflow, and
+    // it's quoted verbatim on /sms-consent — if the agent stops performing it,
+    // the whole messaging program is misrepresented. Keep all three in step.
+    "Before any confirmation or reminder text can be sent, you must get explicit permission, as its own question. First ask for the best mobile number. Then ask: \"Would you like me to text you the confirmation and a reminder? Message and data rates may apply, and you can reply STOP at any time to opt out.\" Only a clear yes counts. If they decline or hesitate, keep the number for a callback only and tell them you won't text. Never treat someone giving you their number as agreement to be texted.",
     "If the caller wants to cancel an appointment: use cancel_appointment (it finds the booking by their phone number — ask for the number it was booked under if it wasn't found). Read the appointment back and get a clear yes before cancelling, then confirm it's done and offer to rebook them for another time.",
     "If the caller asks for a person, says 'agent' or 'representative', presses 0, or wants a human, use transfer_to_human to connect them to the team.",
     handoff

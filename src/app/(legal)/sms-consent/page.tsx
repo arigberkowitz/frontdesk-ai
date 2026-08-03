@@ -50,13 +50,12 @@ export default function SmsConsentPage() {
           <p>
             Consent is collected <strong>verbally, during the phone call the customer placed to
             the business</strong>. When a caller books an appointment or requests a follow-up, the
-            AI receptionist asks for their mobile number and asks whether it may text them, for
-            example:
+            AI receptionist asks for their mobile number, then asks permission as a separate
+            question:
           </p>
           <p className="rounded-lg border bg-muted/40 p-4 italic">
-            &ldquo;Can I get the best mobile number to text your appointment confirmation and a
-            reminder to? &hellip; Great — you&rsquo;ll get a confirmation text shortly, and you can
-            reply STOP at any time to opt out.&rdquo;
+            &ldquo;Would you like me to text you the confirmation and a reminder? Message and data
+            rates may apply, and you can reply STOP at any time to opt out.&rdquo;
           </p>
           <p>
             The caller provides their number and agrees on the call before any message is sent.
