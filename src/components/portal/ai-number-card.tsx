@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { Check, CheckCircle2, Circle, Copy, PhoneForwarded } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -158,10 +159,19 @@ export function AiNumberCard({
               </>
             ) : (
               <>
+                {/* Careful with this sentence. It briefly read "we're assigning
+                    one", which promises work that nothing in the system is
+                    actually doing — a number is assigned when the receptionist
+                    is activated, and if that attempt failed there is nobody
+                    queued to retry it. A business reading a promise sits and
+                    waits instead of asking. */}
                 <strong>No AI phone number yet.</strong> Your AI is fully built and you can talk to
                 it right now with a test call in the browser — it just has no phone line of its own
-                to answer on. We&apos;re assigning one; the dial-in steps appear here the moment
-                it&apos;s ready.
+                to answer on. Ask us to assign one and the dial-in steps appear here.{" "}
+                <Link href="/portal/settings#help" className="underline underline-offset-2">
+                  Request a number
+                </Link>
+                .
               </>
             )}
           </span>
