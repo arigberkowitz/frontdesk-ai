@@ -87,9 +87,28 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const signature = req.headers.get("x-twilio-signature");
+
+  // A missing auth token and a genuinely forged request both used to come out
+  // as an indistinguishable 401. They are completely different problems — one
+  // is a deployment mistake that silently disables STOP, the other is exactly
+  // what the check is for — so say which is which, loudly.
+  if (!env.TWILIO_AUTH_TOKEN) {
+    logger.error("webhook.twilio.not_configured", {
+      detail: "TWILIO_AUTH_TOKEN is unset, so no inbound message can ever be verified — STOP and HELP are dead until it's set.",
+    });
+    return new Response("Webhook not configured", { status: 503 });
+  }
+
   const urls = candidateUrls(req);
   if (!urls.some((u) => verifyTwilioSignature(u, params, signature))) {
-    logger.warn("webhook.twilio.bad_signature", { tried: urls });
+    // Log the host we were addressed at, not just what we expected. A mismatch
+    // between the two is the failure mode that cost us an afternoon.
+    logger.warn("webhook.twilio.bad_signature", {
+      tried: urls,
+      host: req.headers.get("x-forwarded-host") ?? req.headers.get("host"),
+      hasSignature: Boolean(signature),
+      params: Object.keys(params).sort(),
+    });
     return new Response("Invalid signature", { status: 401 });
   }
 
