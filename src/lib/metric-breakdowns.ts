@@ -11,9 +11,14 @@ export function clientMetricBreakdowns(m: ClientMetrics): Record<string, string[
   const handled = Math.max(0, m.totalCalls - m.escalated);
   const answered = Math.max(0, m.totalCalls - m.missed);
   return {
+    // Don't print a multiplication that doesn't produce the number above it.
+    // Revenue is a SUM of each completed appointment's own service price, so a
+    // $1,000 consultation contributes $1,000 — not the portfolio average.
     revenue: [
-      "Estimated revenue from realized bookings (cancellations and no-shows excluded).",
-      `${m.bookings} booking${m.bookings === 1 ? "" : "s"} × ${money(m.avgServicePriceCents ?? 0)} avg service price`,
+      "Appointments that have already happened, valued at the price of the service actually booked. Cancellations and no-shows excluded.",
+      m.bookings > 0
+        ? `${m.completedBookings} of ${m.bookings} booking${m.bookings === 1 ? "" : "s"} completed so far`
+        : "No bookings yet.",
       `= ${money(m.estRevenueCents)}`,
     ],
     calls: [
@@ -30,11 +35,15 @@ export function clientMetricBreakdowns(m: ClientMetrics): Record<string, string[
     ],
     containment: [
       "Share of calls handled without transferring to a person.",
-      `${handled} of ${m.totalCalls} handled on their own = ${formatPercent(m.containmentRate)}`,
+      m.totalCalls > 0
+        ? `${handled} of ${m.totalCalls} handled on their own = ${formatPercent(m.containmentRate)}`
+        : "No calls yet — there's nothing to compute a rate from.",
     ],
     answerRate: [
       "Share of calls answered rather than missed.",
-      `${answered} of ${m.totalCalls} answered = ${formatPercent(m.answerRate)}`,
+      m.totalCalls > 0
+        ? `${answered} of ${m.totalCalls} answered = ${formatPercent(m.answerRate)}`
+        : "No calls yet — there's nothing to compute a rate from.",
     ],
     leads: [
       "Callers who left a message when booking wasn't the right fit.",

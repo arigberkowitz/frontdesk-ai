@@ -33,8 +33,9 @@ export interface ClientMetrics {
   newLeads: number;
   escalated: number;
   missed: number;
-  answerRate: number; // 0..1
-  containmentRate: number; // 0..1 — handled without escalation
+  /** 0..1, or null when there are no calls yet — a rate over zero is not 100%. */
+  answerRate: number | null;
+  containmentRate: number | null;
   sentimentScore: number | null; // -1..1
   avgServicePriceCents: number | null;
   estRevenueCents: number;
@@ -155,8 +156,10 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
     newLeads: newLeadCount,
     escalated: agg?.escalated ?? 0,
     missed: agg?.missed ?? 0,
-    answerRate: total > 0 ? (total - (agg?.missed ?? 0)) / total : 1,
-    containmentRate: total > 0 ? (total - (agg?.escalated ?? 0)) / total : 1,
+    // null, not 1. "100% answer rate" across zero calls is a made-up number,
+    // and it's the first thing a brand-new business sees on their dashboard.
+    answerRate: total > 0 ? (total - (agg?.missed ?? 0)) / total : null,
+    containmentRate: total > 0 ? (total - (agg?.escalated ?? 0)) / total : null,
     sentimentScore,
     avgServicePriceCents,
     estRevenueCents: earnedRevenue,
@@ -370,12 +373,25 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     .from(calls)
     .where(and(inArray(calls.clientId, ids), isNull(calls.deletedAt)));
 
+  // Revenue is defined ONCE, here and in getClientMetrics, and the two must
+  // agree: money counts only after the appointment has actually happened, at
+  // the price of the service actually booked. This used to be
+  // `bookingsThisMonth × avgServicePrice`, which inflated the figure with
+  // appointments that hadn't occurred yet and valued a $1,000 consultation at
+  // the average of every service in the portfolio. Two cards labelled "Revenue
+  // captured" showed two different numbers.
   const [apptAgg] = await db
     .select({
       today: sql<number>`count(*) filter (where ${appointments.createdAt} >= date_trunc('day', now()) and ${appointments.status} not in ('cancelled','no_show'))::int`,
       month: sql<number>`count(*) filter (where ${appointments.createdAt} >= date_trunc('month', now()) and ${appointments.status} not in ('cancelled','no_show'))::int`,
+      earnedMonth: sql<number>`coalesce(sum(${services.priceCents}) filter (
+        where ${appointments.startAt} >= date_trunc('month', now())
+          and ${appointments.startAt} <= now()
+          and ${appointments.status} not in ('cancelled','no_show')
+      ), 0)::int`,
     })
     .from(appointments)
+    .leftJoin(services, eq(appointments.serviceId, services.id))
     .where(and(inArray(appointments.clientId, ids), isNull(appointments.deletedAt)));
 
   const [{ avgPrice }] = await db
@@ -460,7 +476,7 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
 
   const avgServiceCents = avgPrice != null ? Math.round(Number(avgPrice)) : 0;
   const bookingsThisMonth = apptAgg?.month ?? 0;
-  const estRevenueMonthCents = bookingsThisMonth * avgServiceCents;
+  const estRevenueMonthCents = apptAgg?.earnedMonth ?? 0;
   const overheadCents = activeClients * COST_ASSUMPTIONS.overheadPerClientCents;
   const retellCostMonthCents = callAgg?.retellCostMonth ?? 0;
   const marginCents = (mrr ?? 0) - retellCostMonthCents - overheadCents;

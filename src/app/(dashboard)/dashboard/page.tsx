@@ -65,8 +65,8 @@ export default async function DashboardPage() {
   const clientsWithNew = m.clients.filter((c) => c.newLeads > 0);
 
   const revenueBreakdown = [
-    "Estimated booking revenue captured this month.",
-    `${m.bookingsThisMonth} booking${m.bookingsThisMonth === 1 ? "" : "s"} this month × ${money(m.avgServiceCents)} avg service price`,
+    "Appointments that have already happened this month, valued at the price of the service actually booked.",
+    `${m.bookingsThisMonth} booking${m.bookingsThisMonth === 1 ? "" : "s"} made this month; only those whose time has passed count toward revenue.`,
     `= ${money(m.estRevenueMonthCents)}`,
   ];
   const activeClientsList = m.clients.filter((c) => c.status === "live" || c.status === "trial");
@@ -147,7 +147,7 @@ export default async function DashboardPage() {
       ) : null}
 
       <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard icon="revenue" label="Revenue captured" value={money(m.estRevenueMonthCents)} hint="Bookings × avg price, this month" href="/clients" breakdown={revenueBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
+        <MetricCard icon="revenue" label="Revenue captured" value={money(m.estRevenueMonthCents)} hint="Completed bookings this month, at each service's price" href="/clients" breakdown={revenueBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
         <MetricCard icon="calls" label="Calls today" value={String(m.callsToday)} hint="Across all clients" href="/clients" breakdown={callsTodayBreakdown} spark={m.callsByDay.map((d) => d.calls)} sparkColor="#0ea5e9" />
         <MetricCard icon="bookings" label="Bookings today" value={String(m.bookingsToday)} hint="Appointments captured" href="/clients" breakdown={bookingsTodayBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
       </div>

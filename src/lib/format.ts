@@ -66,8 +66,10 @@ export function isE164(raw: string | null | undefined): boolean {
 }
 
 /** 0.732 → "73%". */
-export function formatPercent(value: number, fractionDigits = 0): string {
-  if (!Number.isFinite(value)) return "—";
+export function formatPercent(value: number | null | undefined, fractionDigits = 0): string {
+  // null means "no data yet", which renders as an em dash rather than a number
+  // we'd be inventing.
+  if (value == null || !Number.isFinite(value)) return "—";
   return `${(value * 100).toFixed(fractionDigits)}%`;
 }
 
