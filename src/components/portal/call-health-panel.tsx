@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, PhoneOff, Repeat, UserRound } from "lucide-react";
+import { AlertTriangle, CheckCircle2, PhoneOff, Repeat, ShieldAlert, UserRound } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime, formatDuration, formatPhone } from "@/lib/format";
 import type { CallProblem, CallHealthSummary } from "@/lib/call-health";
@@ -19,6 +19,7 @@ const ICONS: Partial<Record<CallProblem, typeof UserRound>> = {
   repeated_question: Repeat,
   early_hangup: PhoneOff,
   possible_emergency: AlertTriangle,
+  disclosure_missing: ShieldAlert,
 };
 
 export interface CallWaste {
@@ -101,6 +102,22 @@ export function CallHealthPanel({
                 tone={summary.noContactCaptured > 0 ? "warn" : "ok"}
               />
             </dl>
+
+            {summary.disclosureMissing > 0 ? (
+              /* A business whose calls are transcribed by third-party vendors
+                 without the caller being told is the fact pattern in the
+                 California wiretapping suits — and it's the business that gets
+                 named, not us. Cheap to fix, expensive to discover late. */
+              <p className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                <ShieldAlert className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  On <strong>{summary.disclosureMissing}</strong>{" "}
+                  {summary.disclosureMissing === 1 ? "call" : "calls"}, your AI didn&apos;t give the
+                  full disclosure — that it&apos;s an AI and that the call may be recorded. Both
+                  matter if anyone ever asks. You can adjust the wording in Settings.
+                </span>
+              </p>
+            ) : null}
 
             {summary.possibleEmergency > 0 ? (
               <p className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">

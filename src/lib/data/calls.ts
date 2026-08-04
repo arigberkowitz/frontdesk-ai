@@ -114,6 +114,11 @@ function median(values: number[]): number | null {
  * model's opinion, so every count links to a recording the owner can check.
  */
 export async function getCallHealth(clientId: string, days = 30) {
+  const client = await db.query.clients.findFirst({
+    where: eq(clients.id, clientId),
+    columns: { setupFlags: true, recordingDisclosureEnabled: true },
+  });
+
   const rows = await db.query.calls.findMany({
     where: and(
       eq(calls.clientId, clientId),
@@ -134,6 +139,7 @@ export async function getCallHealth(clientId: string, days = 30) {
       // A lead or a booking means we came away with someone we can reach.
       hasContact: call.leads.length > 0 || call.appointments.length > 0,
       transferConnected: call.outcome === "escalated",
+      expectsDisclosure: client?.recordingDisclosureEnabled ?? false,
     }),
   }));
 
@@ -163,10 +169,6 @@ export async function getCallHealth(clientId: string, days = 30) {
   // Repeat offenders the owner could block with one tap. Counting robocalls and
   // offering nothing to do about them is the vendor behaviour this market
   // cancels over.
-  const client = await db.query.clients.findFirst({
-    where: eq(clients.id, clientId),
-    columns: { setupFlags: true },
-  });
   const blockedNumbers = client?.setupFlags?.blockedNumbers ?? [];
   const suggestedBlocks = spamCandidates(
     rows.map((c) => ({ fromNumber: c.fromNumber, outcome: c.outcome, startAt: c.startAt })),

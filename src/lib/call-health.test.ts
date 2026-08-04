@@ -252,3 +252,77 @@ describe("transcripts we can't read", () => {
     expect(s.clean).toBe(1);
   });
 });
+
+/**
+ * Disclosure is the cheapest legal insurance here, and the business — not us —
+ * is the one a caller's lawyer names first. So it isn't enough to configure a
+ * disclosure line: we check it was actually said, on every call.
+ */
+describe("did the agent actually disclose", () => {
+  const long = (agentLine: string) =>
+    analyzeCall({
+      transcript: t(`Agent: ${agentLine}`, "Caller: Sure, I'd like to book something."),
+      durationSec: 90,
+      hasContact: true,
+      expectsDisclosure: true,
+    });
+
+  it("passes when both claims were made, however phrased", () => {
+    for (const line of [
+      "Hi, I'm an AI assistant for the firm and this call may be recorded.",
+      "Just so you know, you're speaking with a virtual assistant, and calls are recorded for quality.",
+      "This is an automated assistant — the call is being transcribed.",
+    ]) {
+      expect(long(line).problems, line).not.toContain("disclosure_missing");
+    }
+  });
+
+  it("catches the half-disclosure — AI mentioned, recording not", () => {
+    const r = long("Hi, I'm the AI assistant for Bright Smile Dental. How can I help?");
+    expect(r.problems).toContain("disclosure_missing");
+    expect(r.notes.join(" ")).toContain("never mentioned that the call may be recorded");
+  });
+
+  it("catches the other half — recording mentioned, AI not", () => {
+    const r = long("Thanks for calling. This call may be recorded for quality purposes.");
+    expect(r.problems).toContain("disclosure_missing");
+    expect(r.notes.join(" ")).toContain("never said it was an AI");
+  });
+
+  it("catches neither being said at all", () => {
+    const r = long("Thanks for calling Bright Smile Dental! How can I help you today?");
+    expect(r.problems).toContain("disclosure_missing");
+    expect(r.notes.join(" ")).toContain("didn't say it was an AI or mention recording");
+  });
+
+  it("says nothing when the business hasn't turned disclosure on", () => {
+    const r = analyzeCall({
+      transcript: t("Agent: Thanks for calling!", "Caller: hi"),
+      durationSec: 90,
+      hasContact: true,
+    });
+    expect(r.problems).not.toContain("disclosure_missing");
+  });
+
+  it("doesn't pile a second flag onto a four-second hang-up", () => {
+    // Nobody could have disclosed anything. One flag is enough, and two would
+    // train the owner to ignore both.
+    const r = analyzeCall({
+      transcript: "Agent: Thanks for call—",
+      durationSec: 3,
+      expectsDisclosure: true,
+    });
+    expect(r.problems).toContain("early_hangup");
+    expect(r.problems).not.toContain("disclosure_missing");
+  });
+
+  it("doesn't claim a disclosure failure on a transcript it couldn't read", () => {
+    const r = analyzeCall({
+      transcript: "words with no speaker labels at all",
+      durationSec: 90,
+      expectsDisclosure: true,
+    });
+    expect(r.problems).toContain("unreadable");
+    expect(r.problems).not.toContain("disclosure_missing");
+  });
+});

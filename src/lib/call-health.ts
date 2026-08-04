@@ -36,7 +36,9 @@ export type CallProblem =
   /** Words that should never have reached a booking flow. */
   | "possible_emergency"
   /** We could not read this transcript, so we know nothing about this call. */
-  | "unreadable";
+  | "unreadable"
+  /** Disclosure is switched on for this business, but the agent didn't give it. */
+  | "disclosure_missing";
 
 export interface CallHealth {
   problems: CallProblem[];
@@ -65,6 +67,11 @@ export interface CallHealthInput {
   hasContact?: boolean;
   /** Did a transfer to a human actually connect? */
   transferConnected?: boolean;
+  /**
+   * Whether this business expects the agent to disclose that it's an AI and
+   * that the call may be recorded. When true, we check that it happened.
+   */
+  expectsDisclosure?: boolean;
 }
 
 /** Under this, the caller heard a greeting and left. */
@@ -86,6 +93,31 @@ const PROFANITY = /\b(fuck\w*|shit\w*|bullshit|goddamn|damn it|dammit|asshole|pi
  */
 const EMERGENCY =
   /\b(emergency|urgent|right now|gas (leak|smell)|smell(s|ing)? gas|no heat|no water|flood(ing|ed)?|burst|leak(ing)? everywhere|fire|smoke|chest pain|can'?t breathe|bleeding|unconscious|ambulance|911|locked out|break[- ]?in|brok(e|en) ?in(to)?|accident|hit by|injur(y|ed)|in pain|swelling|knocked out)\b/i;
+
+/**
+ * Did the agent actually say it was an AI, and that the call may be recorded?
+ *
+ * Checked as two separate claims rather than matching the configured sentence,
+ * because the agent paraphrases and a business can end up giving half the
+ * disclosure without anyone noticing.
+ *
+ * This is the cheapest legal insurance in the product. A business whose calls
+ * are transcribed and analyzed by third-party vendors, without the caller being
+ * told, is the exact fact pattern in the California wiretapping suits now
+ * running against AI call vendors — and it's the business that gets named
+ * first, not us. Utah requires an honest answer on request; Maine requires
+ * disclosure wherever a caller could reasonably think they're talking to a
+ * person. Knowing which calls carried it, and being able to show it, is worth
+ * more than any assurance we could write in a contract.
+ */
+export function disclosureGiven(agentSaid: string): { ai: boolean; recording: boolean } {
+  return {
+    ai: /\b(a\.?i\.?|artificial intelligence|virtual assistant|automated assistant|ai assistant|virtual receptionist|automated system)\b/i.test(
+      agentSaid,
+    ),
+    recording: /\b(record(ed|ing)?|monitored|transcri(bed|ption))\b/i.test(agentSaid),
+  };
+}
 
 /** Lines the agent spoke, lowercased and stripped of speaker labels. */
 function agentLines(transcript: string): string[] {
@@ -198,6 +230,23 @@ export function analyzeCall(input: CallHealthInput): CallHealth {
     notes.push("The caller used words that may signal an emergency — worth listening to.");
   }
 
+  // Disclosure only matters on a call long enough for anyone to have said it.
+  // A four-second hang-up already has its own flag; adding a second one would
+  // train the owner to ignore both.
+  if (input.expectsDisclosure && readable && duration >= EARLY_HANGUP_SEC && agentTurns.length) {
+    const given = disclosureGiven(agentTurns.join(" "));
+    if (!given.ai || !given.recording) {
+      problems.push("disclosure_missing");
+      notes.push(
+        !given.ai && !given.recording
+          ? "Your AI didn't say it was an AI or mention recording on this call."
+          : !given.ai
+            ? "Your AI mentioned recording but never said it was an AI."
+            : "Your AI said it was an AI but never mentioned that the call may be recorded.",
+      );
+    }
+  }
+
   // Only a failure if there was a real conversation to capture something from.
   if (
     input.hasContact === false &&
@@ -224,6 +273,8 @@ export interface CallHealthSummary {
   noContactCaptured: number;
   callerFrustrated: number;
   possibleEmergency: number;
+  /** Calls where the configured disclosure wasn't actually given. */
+  disclosureMissing: number;
 }
 
 /** Roll a period's calls up into the counts a business should actually see. */
@@ -240,5 +291,6 @@ export function summarize(results: CallHealth[]): CallHealthSummary {
     noContactCaptured: count("no_contact_captured"),
     callerFrustrated: count("caller_frustrated"),
     possibleEmergency: count("possible_emergency"),
+    disclosureMissing: count("disclosure_missing"),
   };
 }
