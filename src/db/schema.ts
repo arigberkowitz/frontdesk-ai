@@ -181,6 +181,13 @@ export const clients = pgTable(
         quietAlertAt?: string;
         /** Advisory notes from the AI setup review — suggestions, not blockers. */
         reviewNotes?: string[];
+        /**
+         * Numbers the owner has blocked, stored as last-ten-digits. Here rather
+         * than in its own table for the same reason as quietAlertAt: it needs no
+         * migration, it's per-client config rather than business records, and a
+         * blocklist that outgrows a jsonb array is a different problem.
+         */
+        blockedNumbers?: string[];
       }>()
       .notNull()
       .default({}),

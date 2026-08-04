@@ -16,6 +16,7 @@ import { MetricCard } from "@/components/metric-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { CallActivity } from "@/components/portal/call-activity";
 import { CallHealthPanel } from "@/components/portal/call-health-panel";
+import { BlockedCallers } from "@/components/portal/blocked-callers";
 import { RoiPanel } from "@/components/portal/roi-panel";
 import { SetupChecklist } from "@/components/portal/setup-checklist";
 import { WeeklyRecap } from "@/components/portal/weekly-recap";
@@ -188,6 +189,14 @@ export default async function PortalOverviewPage({
         waste={health.waste}
         medianReplyMs={health.medianReplyMs}
         latencySampleSize={health.latencySampleSize}
+        blockList={
+          <BlockedCallers
+            clientId={clientId}
+            blocked={health.blockedNumbers}
+            suggested={health.suggestedBlocks}
+            timeZone={tz}
+          />
+        }
         timeZone={tz}
       />
 

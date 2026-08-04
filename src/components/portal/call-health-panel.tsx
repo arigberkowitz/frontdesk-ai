@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, PhoneOff, Repeat, UserRound } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime, formatDuration, formatPhone } from "@/lib/format";
@@ -43,6 +44,7 @@ export function CallHealthPanel({
   waste,
   medianReplyMs,
   latencySampleSize,
+  blockList,
   timeZone,
 }: {
   summary: CallHealthSummary;
@@ -51,6 +53,8 @@ export function CallHealthPanel({
   /** Median time the AI took to start replying, or null if unknown. */
   medianReplyMs?: number | null;
   latencySampleSize?: number;
+  /** Rendered under the spam line — blocking is the point of counting. */
+  blockList?: ReactNode;
   timeZone?: string;
 }) {
   if (summary.total === 0) return null;
@@ -147,6 +151,8 @@ export function CallHealthPanel({
             pay for.
           </p>
         ) : null}
+
+        {blockList}
 
         {summary.unreadable > 0 ? (
           /* Never let an unreadable transcript round down to "fine". A clean

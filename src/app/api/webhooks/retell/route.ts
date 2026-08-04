@@ -7,6 +7,7 @@ import { verifyRetellSignature } from "@/lib/retell";
 import { getClientByRetellAgentId } from "@/lib/data/clients";
 import { upsertCallByRetellId } from "@/lib/data/calls";
 import { analyzeCall } from "@/lib/call-health";
+import { isBlocked, normalizeForBlock } from "@/lib/spam";
 import { notifyOwnerCallProblem } from "@/lib/notify";
 import {
   deleteWebhookEvent,
@@ -124,7 +125,26 @@ export async function POST(req: Request): Promise<Response> {
       rawPayload: payload,
     };
 
+    // A number the owner blocked is noise from here on. It still rings the
+    // line — we don't control the carrier — but it stops costing anyone
+    // attention: no lead, no alert, no place in the numbers we ask this
+    // business to trust. Counting robocalls and then doing nothing about them
+    // is the vendor behaviour that ends contracts.
+    const blockedNumbers = client.setupFlags?.blockedNumbers ?? [];
+    const callerBlocked = isBlocked(values.fromNumber, blockedNumbers);
+    if (callerBlocked) values.outcome = "spam";
+
     const row = await upsertCallByRetellId(values);
+
+    if (callerBlocked) {
+      logger.info("webhook.retell.blocked_caller", {
+        clientId: client.id,
+        callId,
+        phone: normalizeForBlock(values.fromNumber),
+      });
+      await markWebhookProcessed("retell", externalId, "processed");
+      return Response.json({ ok: true, blocked: true });
+    }
 
     // Classify only on terminal events (appointments/leads now exist).
     if ((event === "call_ended" || event === "call_analyzed") && row) {

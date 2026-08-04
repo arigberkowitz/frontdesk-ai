@@ -3,6 +3,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { calls, clients, type NewCall } from "@/db/schema";
 import { analyzeCall, summarize } from "@/lib/call-health";
+import { spamCandidates } from "@/lib/spam";
 
 /** Call data access + the idempotent webhook upsert. */
 
@@ -159,12 +160,27 @@ export async function getCallHealth(clientId: string, days = 30) {
 
   const latencies = rows.map((c) => latencyMsFrom(c.rawPayload)).filter((n): n is number => n != null);
 
+  // Repeat offenders the owner could block with one tap. Counting robocalls and
+  // offering nothing to do about them is the vendor behaviour this market
+  // cancels over.
+  const client = await db.query.clients.findFirst({
+    where: eq(clients.id, clientId),
+    columns: { setupFlags: true },
+  });
+  const blockedNumbers = client?.setupFlags?.blockedNumbers ?? [];
+  const suggestedBlocks = spamCandidates(
+    rows.map((c) => ({ fromNumber: c.fromNumber, outcome: c.outcome, startAt: c.startAt })),
+    blockedNumbers,
+  ).slice(0, 5);
+
   return {
     summary: summarize(scored.map((s) => s.health)),
     waste,
     /** Median time the AI took to start replying. Null when the vendor didn't say. */
     medianReplyMs: median(latencies),
     latencySampleSize: latencies.length,
+    blockedNumbers,
+    suggestedBlocks,
     // Worst first: the ones an owner should actually listen to.
     needsAttention: scored
       .filter((s) => !s.health.clean)
