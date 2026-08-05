@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeCall, repeatedTopics, summarize } from "./call-health";
+import { analyzeCall, repeatedTopics, summarize, transferReachedVoicemail } from "./call-health";
 
 /**
  * These encode the failures businesses actually cancel over, taken from real
@@ -324,5 +324,86 @@ describe("did the agent actually disclose", () => {
     });
     expect(r.problems).toContain("unreadable");
     expect(r.problems).not.toContain("disclosure_missing");
+  });
+});
+
+/**
+ * The first real call through the product, verbatim from the call log.
+ *
+ * It taught us two things no invented test would have. Retell uses a third
+ * speaker label — `Transfer Target:` — for whoever the call is handed to. And a
+ * transfer can "succeed" straight into a voicemail box, which the call record
+ * cannot distinguish from reaching a person.
+ */
+describe("the first real call", () => {
+  const REAL = t(
+    "Agent: Hi,",
+    "User: Hi.",
+    "Agent: thanks for calling Lawyers for justice! This is Riley, the AI assistant. How can I help you today?",
+    "User: Let me talk to a real person.",
+    "Agent: Connecting you to a team member now.",
+    "Transfer Target: Your call has been forwarded to voice mail.",
+    "Transfer Target: The person you're trying to reach is not available.",
+    "Transfer Target: At the tone,",
+    "Transfer Target: please record your message.",
+    "Transfer Target: When you have finished",
+    "Agent: Hello, is anyone there?",
+    "Transfer Target: recording",
+    "Agent: Sorry, they're not free right now. I can take your name and number and have someone call you right back, or I can keep helping you myself. What would you prefer?",
+  );
+
+  it("reads it — Agent and User labels parse as expected", () => {
+    expect(analyzeCall({ transcript: REAL, durationSec: 45 }).readable).toBe(true);
+  });
+
+  it("catches the caller asking for a person", () => {
+    expect(analyzeCall({ transcript: REAL, durationSec: 45 }).problems).toContain(
+      "asked_for_human",
+    );
+  });
+
+  it("knows the transfer hit voicemail, not a person", () => {
+    expect(transferReachedVoicemail(REAL)).toBe(true);
+    const r = analyzeCall({ transcript: REAL, durationSec: 45, hasContact: false });
+    expect(r.problems).toContain("transferred_to_voicemail");
+  });
+
+  // The bug this call exposed: `outcome === "escalated"` means we ATTEMPTED a
+  // transfer. Trusting it would have reported this caller as successfully
+  // handed to a human, when they got an answering machine and hung up.
+  it("still counts the caller as stranded even when the outcome says escalated", () => {
+    const r = analyzeCall({
+      transcript: REAL,
+      durationSec: 45,
+      outcome: "escalated",
+      hasContact: false,
+    });
+    expect(r.problems).toContain("stranded_asking_for_human");
+  });
+
+  it("notices the recording half of the disclosure was never given", () => {
+    // "This is Riley, the AI assistant" covers the AI half and nothing else.
+    const r = analyzeCall({ transcript: REAL, durationSec: 45, expectsDisclosure: true });
+    expect(r.problems).toContain("disclosure_missing");
+    expect(r.notes.join(" ")).toContain("never mentioned that the call may be recorded");
+  });
+
+  it("doesn't mistake the transfer target's words for the caller's", () => {
+    // "please record your message" must not read as the caller mentioning
+    // recording, and none of it should count as caller speech.
+    const r = analyzeCall({ transcript: REAL, durationSec: 45, hasContact: true });
+    expect(r.problems).not.toContain("caller_frustrated");
+  });
+
+  it("a transfer that actually reaches a person is not flagged", () => {
+    const good = t(
+      "User: Can I speak to someone?",
+      "Agent: Connecting you now.",
+      "Transfer Target: Hi, this is Dana, how can I help?",
+    );
+    expect(transferReachedVoicemail(good)).toBe(false);
+    const r = analyzeCall({ transcript: good, durationSec: 60, outcome: "escalated", hasContact: true });
+    expect(r.problems).not.toContain("transferred_to_voicemail");
+    expect(r.problems).not.toContain("stranded_asking_for_human");
   });
 });

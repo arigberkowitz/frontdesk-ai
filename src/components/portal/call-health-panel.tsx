@@ -20,6 +20,7 @@ const ICONS: Partial<Record<CallProblem, typeof UserRound>> = {
   early_hangup: PhoneOff,
   possible_emergency: AlertTriangle,
   disclosure_missing: ShieldAlert,
+  transferred_to_voicemail: PhoneOff,
 };
 
 export interface CallWaste {
@@ -102,6 +103,21 @@ export function CallHealthPanel({
                 tone={summary.noContactCaptured > 0 ? "warn" : "ok"}
               />
             </dl>
+
+            {summary.transferredToVoicemail > 0 ? (
+              /* Found on the very first real call: the transfer "succeeded"
+                 into a voicemail box. The caller heard a recorded greeting
+                 mid-call, which is worse than never being offered a person. */
+              <p className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <PhoneOff className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  <strong>{summary.transferredToVoicemail}</strong>{" "}
+                  {summary.transferredToVoicemail === 1 ? "transfer" : "transfers"} reached a
+                  voicemail box instead of a person. Check that the number your AI transfers to is
+                  one someone actually answers.
+                </span>
+              </p>
+            ) : null}
 
             {summary.disclosureMissing > 0 ? (
               /* A business whose calls are transcribed by third-party vendors

@@ -38,7 +38,9 @@ export type CallProblem =
   /** We could not read this transcript, so we know nothing about this call. */
   | "unreadable"
   /** Disclosure is switched on for this business, but the agent didn't give it. */
-  | "disclosure_missing";
+  | "disclosure_missing"
+  /** The transfer connected — to a voicemail box, not a person. */
+  | "transferred_to_voicemail";
 
 export interface CallHealth {
   problems: CallProblem[];
@@ -128,6 +130,38 @@ function agentLines(transcript: string): string[] {
     .map((l) => l.replace(/^\w+\s*[:\-]\s*/, "").toLowerCase());
 }
 
+/**
+ * Lines spoken by whoever the call was transferred TO.
+ *
+ * Retell labels these `Transfer Target:` — a third speaker I didn't know
+ * existed until a real call went through. They're neither agent nor caller, so
+ * they were being silently dropped, and dropping them hid the failure below.
+ */
+function transferLines(transcript: string): string[] {
+  return transcript
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => /^transfer\s*target\s*[:\-]/i.test(l))
+    .map((l) => l.replace(/^transfer\s*target\s*[:\-]\s*/i, ""));
+}
+
+/**
+ * Did the transfer reach a person, or a voicemail greeting?
+ *
+ * This is the difference between a saved customer and a lost one, and the call
+ * log cannot tell them apart on its own: a transfer that rings out to voicemail
+ * is recorded as a transfer that happened. The caller hears "the person you're
+ * trying to reach is not available", mid-call, from a machine — which is worse
+ * than never being offered a transfer at all.
+ */
+export function transferReachedVoicemail(transcript: string): boolean {
+  const spoken = transferLines(transcript).join(" ").toLowerCase();
+  if (!spoken) return false;
+  return /\b(voice ?mail|not available|record your message|leave a message|at the tone|after the beep|unavailable|please try (your call )?again)\b/.test(
+    spoken,
+  );
+}
+
 function callerLines(transcript: string): string[] {
   return transcript
     .split(/\r?\n/)
@@ -194,7 +228,18 @@ export function analyzeCall(input: CallHealthInput): CallHealth {
 
   const caller = callerTurns.join(" ");
   const askedForHuman = HUMAN_REQUEST.test(caller);
-  const reachedHuman = input.transferConnected === true || input.outcome === "escalated";
+  // A transfer landing in voicemail is not reaching a human, whatever the
+  // outcome says. `outcome === "escalated"` only means we tried.
+  const hitVoicemail = transferReachedVoicemail(transcript);
+  const reachedHuman =
+    !hitVoicemail && (input.transferConnected === true || input.outcome === "escalated");
+
+  if (hitVoicemail) {
+    problems.push("transferred_to_voicemail");
+    notes.push(
+      "The transfer went to voicemail — your caller heard a recorded greeting instead of a person.",
+    );
+  }
 
   if (askedForHuman) {
     problems.push("asked_for_human");
@@ -275,6 +320,8 @@ export interface CallHealthSummary {
   possibleEmergency: number;
   /** Calls where the configured disclosure wasn't actually given. */
   disclosureMissing: number;
+  /** Transfers that reached a voicemail box rather than a person. */
+  transferredToVoicemail: number;
 }
 
 /** Roll a period's calls up into the counts a business should actually see. */
@@ -292,5 +339,6 @@ export function summarize(results: CallHealth[]): CallHealthSummary {
     callerFrustrated: count("caller_frustrated"),
     possibleEmergency: count("possible_emergency"),
     disclosureMissing: count("disclosure_missing"),
+    transferredToVoicemail: count("transferred_to_voicemail"),
   };
 }
