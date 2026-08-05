@@ -10,6 +10,8 @@ import { matchService, serviceClarification } from "@/lib/service-match";
 import { parseInClientTimezone } from "@/lib/hours-util";
 import { toE164 } from "@/lib/format";
 import { notifyOwnerBooking } from "@/lib/notify";
+import { sendBookingConfirmation } from "@/lib/appointment-texts";
+import { after } from "next/server";
 import { logger } from "@/lib/logger";
 
 /**
@@ -237,6 +239,24 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   await notifyOwnerBooking(client, appt);
+
+  // The confirmation text the caller was asked about, and agreed to, moments
+  // ago. Until now the agent asked, they said yes, and nothing was ever sent.
+  // Sent inline so it lands while they're still holding the phone.
+  const consented = args.sms_consent === true || String(args.sms_consent) === "true";
+  if (consented) {
+    after(() =>
+      sendBookingConfirmation(client, appt, service.name).catch((err) =>
+        logger.error("agent-tools.book.confirmation_failed", {
+          clientId: client.id,
+          appointmentId: appt.id,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      ),
+    );
+  } else {
+    logger.info("agent-tools.book.no_sms_consent", { clientId: client.id, appointmentId: appt.id });
+  }
 
   return Response.json({
     success: true,
