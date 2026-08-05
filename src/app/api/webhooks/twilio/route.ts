@@ -79,6 +79,33 @@ function verifyTwilioSignature(
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+
+/**
+ * The opt-out keyword in a message, if there is one.
+ *
+ * This used to strip every non-letter from the WHOLE message and compare the
+ * result to a fixed list, which only ever matched a text containing exactly one
+ * word. "STOP please", "stop, start again", "Stop!" — all ignored. Meanwhile
+ * the carriers and Twilio's own opt-out handling are far more forgiving, so
+ * they would honour a STOP that we never recorded: our list would say the
+ * person is subscribed while their carrier silently drops everything we send.
+ * Divergence between our opt-out list and the real one is the worst outcome
+ * available here, because it looks like everything is working.
+ *
+ * So: match on the FIRST word. Someone who opens with "stop" means stop, no
+ * matter what follows — including "stop, start again", where the first word
+ * wins and they stay opted out until they send a clean START.
+ */
+export function optOutKeyword(body: string): string {
+  const words = body.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
+  if (!words.length) return "";
+  // "stop all" and "unsubscribe" are single tokens in our lists; two-word forms
+  // like "stop all" collapse to their first word, which is the intent anyway.
+  const [first, second] = words;
+  if (first === "stop" && second === "all") return "stopall";
+  return first;
+}
+
 export async function POST(req: Request): Promise<Response> {
   const form = await req.formData();
   const params: Record<string, string> = {};
@@ -114,7 +141,7 @@ export async function POST(req: Request): Promise<Response> {
 
   const from = params.From ?? "";
   const body = (params.Body ?? "").trim();
-  const keyword = body.toLowerCase().replace(/[^a-z]/g, "");
+  const keyword = optOutKeyword(body);
   if (!from) return twiml();
 
   try {
