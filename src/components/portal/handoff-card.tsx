@@ -123,8 +123,9 @@ export function HandoffCard({
         {/* The trap this setting exists to prevent, said out loud. */}
         {mode !== "never" && escalationNumber ? (
           <p className="pt-1 text-xs text-muted-foreground">
-            Make sure {formatPhone(escalationNumber)} isn&apos;t the same line you forward to your
-            AI — a call sent back to a forwarded number loops straight to voicemail.
+            Make sure {formatPhone(escalationNumber)}{" "}
+            isn&apos;t the same line you forward to your AI — a call sent back to a forwarded number
+            loops straight to voicemail.
           </p>
         ) : null}
       </CardContent>
