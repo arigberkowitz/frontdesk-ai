@@ -102,3 +102,39 @@ describe("defaultGreeting", () => {
     expect(g).toContain(DEFAULT_AGENT_NAME);
   });
 });
+
+/**
+ * When callers may reach a person. The wrong value here produces the worst call
+ * this product can make — "one moment while I connect you", then an answering
+ * machine — which is the second most common reason businesses cancel.
+ */
+describe("handoff mode", () => {
+  const build = (handoffMode: "always" | "open_hours" | "never") =>
+    buildGeneralPrompt({ ...input, client: { ...client, handoffMode } });
+
+  it("never: forbids promising a transfer at all", () => {
+    const p = build("never");
+    expect(p).toContain("There is NO ONE available to transfer to");
+    expect(p).toContain("take_message");
+    expect(p).not.toContain("Don't wait to be asked");
+  });
+
+  it("open_hours: allows it while open, forbids it after", () => {
+    const p = build("open_hours");
+    expect(p).toContain("ONLY during the opening hours");
+    expect(p).toContain("do not offer a transfer");
+    expect(p).toContain("transfer_to_human");
+  });
+
+  it("always: keeps the original behaviour", () => {
+    const p = build("always");
+    expect(p).toContain("use transfer_to_human to connect them to the team");
+    expect(p).not.toContain("There is NO ONE available");
+  });
+
+  it("defaults to always when nothing is set, so nothing changes silently", () => {
+    expect(buildGeneralPrompt(input)).toContain(
+      "use transfer_to_human to connect them to the team",
+    );
+  });
+});

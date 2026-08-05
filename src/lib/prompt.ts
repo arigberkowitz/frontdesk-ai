@@ -23,6 +23,13 @@ export interface PromptClient {
   answeringMode?: string | null;
   /** "Human touch": proactively offer a real person, not just on request. */
   humanHandoffEnabled?: boolean;
+  /**
+   * When a caller may be connected to a person. "open_hours" is the honest
+   * default for most businesses: outside opening hours there is nobody to
+   * transfer to, and offering anyway produces the worst call in this product —
+   * a caller who asked for a human and got an answering machine.
+   */
+  handoffMode?: "always" | "open_hours" | "never";
   /** Freeform note on when a human is actually reachable, e.g. "weekdays 9–5". */
   humanHoursNote?: string | null;
   /** Spoken languages: 'en' | 'en-es' (bilingual) | 'es'. */
@@ -128,7 +135,11 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
   const disclosure = resolveDisclosureLine(client);
   const guidance = client.guidance?.trim();
   const bookingInstructions = client.bookingInstructions?.trim();
-  const handoff = client.humanHandoffEnabled !== false; // default on
+  // Three states, stored as a mode. `humanHandoffEnabled` still governs whether
+  // the agent OFFERS a person unprompted; the mode governs whether it may
+  // connect one at all.
+  const handoffMode = client.handoffMode ?? "always";
+  const handoff = client.humanHandoffEnabled !== false && handoffMode !== "never";
   const humanHours = client.humanHoursNote?.trim();
   const language = languageRule(client.languages);
   const canBook = client.bookingEnabled !== false; // default on (preserves prior behavior)
@@ -179,7 +190,15 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     // the whole messaging program is misrepresented. Keep all three in step.
     "Before any confirmation or reminder text can be sent, you must get explicit permission, as its own question. First ask for the best mobile number. Then ask: \"Would you like me to text you the confirmation and a reminder? Message and data rates may apply, and you can reply STOP at any time to opt out.\" Only a clear yes counts. If they decline or hesitate, keep the number for a callback only and tell them you won't text. Never treat someone giving you their number as agreement to be texted.",
     "If the caller wants to cancel an appointment: use cancel_appointment (it finds the booking by their phone number — ask for the number it was booked under if it wasn't found). Read the appointment back and get a clear yes before cancelling, then confirm it's done and offer to rebook them for another time.",
-    "If the caller asks for a person, says 'agent' or 'representative', presses 0, or wants a human, use transfer_to_human to connect them to the team.",
+    handoffMode === "never"
+      ? // Nobody is reachable, so the agent must never imply otherwise. This is
+        // the setting a business uses when the alternative is a transfer that
+        // rings out — the second-biggest reason businesses fire an AI phone
+        // service is asking for a person and not getting one.
+        "There is NO ONE available to transfer to. If the caller asks for a person, don't promise a transfer and don't try one. Say plainly that you can take a message and have someone call them straight back, then capture their name, number and what they need with take_message. Never say \"let me connect you\" or \"one moment\"."
+      : handoffMode === "open_hours"
+        ? `You may connect a caller to a person ONLY during the opening hours listed below, and only in the caller's local business hours for ${client.name}. Outside those hours there is nobody there: do not offer a transfer, do not attempt one, and do not say you'll try. Instead say the team is out of hours and you'll take a message for a call back first thing, then use take_message. During opening hours, if the caller asks for a person, says 'agent' or 'representative', presses 0, or wants a human, use transfer_to_human.`
+        : "If the caller asks for a person, says 'agent' or 'representative', presses 0, or wants a human, use transfer_to_human to connect them to the team.",
     // The single most-cited reason businesses fire an AI receptionist is the
     // agent that cannot capture a name or an address and keeps asking. Ten
     // percent of callers give up after being asked once; sixty percent by the

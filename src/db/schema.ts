@@ -188,6 +188,14 @@ export const clients = pgTable(
          * blocklist that outgrows a jsonb array is a different problem.
          */
         blockedNumbers?: string[];
+        /**
+         * When the AI may hand a caller to a person: always, only while the
+         * business is open, or never. Off-hours transfers are the common case
+         * for wanting this — nobody wants the office line ringing their mobile
+         * at 11pm, and a transfer nobody answers is worse than a message taken
+         * properly.
+         */
+        handoffMode?: "always" | "open_hours" | "never";
       }>()
       .notNull()
       .default({}),

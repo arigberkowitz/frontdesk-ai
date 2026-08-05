@@ -9,6 +9,7 @@ import { assertClientInOrg } from "@/lib/data/clients";
 import { addBlocked, MAX_BLOCKED, normalizeForBlock, removeBlocked } from "@/lib/spam";
 import { formatPhone } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { type ActionState } from "./types";
 
 /**
@@ -86,4 +87,49 @@ export async function unblockNumberAction(
   revalidatePath("/portal");
   revalidatePath("/portal/settings");
   return { ok: true, message: `${formatPhone(phone)} can get through again.` };
+}
+
+/**
+ * When the AI may connect a caller to a person.
+ *
+ * Its own action rather than part of the settings form, because it's the one
+ * setting whose wrong value produces the worst call this product can make: a
+ * caller who asked for a human, was told "one moment", and got an answering
+ * machine at eleven at night.
+ */
+export async function setHandoffModeAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const raw = String(formData.get("mode") ?? "");
+  const mode = raw === "never" || raw === "open_hours" || raw === "always" ? raw : null;
+  if (!mode) return { ok: false, error: "Pick one of the three options." };
+
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  await assertClientInOrg(guard.user.orgId, clientId);
+
+  const client = await db.query.clients.findFirst({
+    where: eq(clients.id, clientId),
+    columns: { setupFlags: true },
+  });
+  await db
+    .update(clients)
+    .set({ setupFlags: { ...(client?.setupFlags ?? {}), handoffMode: mode } })
+    .where(eq(clients.id, clientId));
+
+  // The rule lives in the published prompt as well as in our transfer endpoint,
+  // so a change is only real once the agent has it.
+  const sync = await applyClientEdit(guard.user, clientId);
+  revalidatePath("/portal/settings");
+  revalidatePath("/portal");
+
+  const message =
+    mode === "never"
+      ? "Your AI will take a message instead of transferring anyone."
+      : mode === "open_hours"
+        ? "Your AI will only put callers through during your opening hours."
+        : "Your AI will put callers through whenever they ask.";
+  return { ok: true, message: withSyncNote(message, sync) };
 }

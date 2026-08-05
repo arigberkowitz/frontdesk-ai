@@ -115,6 +115,7 @@ async function runProvision(
       generalPrompt: prompt,
       beginMessage: greeting,
       escalationNumber: client.escalationNumber,
+      handoffMode: client.setupFlags?.handoffMode ?? "always",
       voiceId: client.voiceId,
       boostedKeywords: boosted,
       appUrl: env.APP_URL,

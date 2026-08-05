@@ -100,7 +100,12 @@ function agentToolUrl(appUrl: string, path: string, clientId: string): string {
 }
 
 /** The four custom function tools (§9.4) that POST to our agent-tool endpoints. */
-export function buildAgentTools(appUrl: string, clientId: string, escalationNumber?: string | null) {
+export function buildAgentTools(
+  appUrl: string,
+  clientId: string,
+  escalationNumber?: string | null,
+  handoffMode: "always" | "open_hours" | "never" = "always",
+) {
   const transferTo = toE164(escalationNumber);
   return [
     {
@@ -194,7 +199,11 @@ export function buildAgentTools(appUrl: string, clientId: string, escalationNumb
     // error message that blamed the receptionist instead of the phone field.
     // A number we can't normalize degrades to the message-taking fallback,
     // which is a worse experience for one caller rather than a dead business.
-    transferTo
+    // Handoff off, or restricted to opening hours: never attach Retell's native
+    // transfer tool. Native transfer dials immediately and there is no moment
+    // at which we could refuse it, so the restricted modes go through our own
+    // endpoint, which knows what time it is where the business is.
+    transferTo && handoffMode === "always"
       ? {
           type: "transfer_call" as const,
           name: AGENT_TOOL_NAMES.transferToHuman,
@@ -224,6 +233,8 @@ export interface ProvisionAgentInput {
   beginMessage?: string | null;
   /** Human teammate's number for warm-transfer (Retell transfer_call tool). */
   escalationNumber?: string | null;
+  /** When the agent may connect a caller to a person. */
+  handoffMode?: "always" | "open_hours" | "never";
   voiceId?: string | null;
   boostedKeywords?: string[];
   /** Base app URL for webhook + tool callbacks (e.g. a tunnel URL in dev). */
@@ -251,7 +262,12 @@ export async function provisionAgentForClient(
   input: ProvisionAgentInput,
 ): Promise<ProvisionAgentResult> {
   const client = getRetellClient();
-  const tools = buildAgentTools(input.appUrl, input.clientId, input.escalationNumber);
+  const tools = buildAgentTools(
+    input.appUrl,
+    input.clientId,
+    input.escalationNumber,
+    input.handoffMode ?? "always",
+  );
 
   // 1. LLM — create or update by stored id.
   let llmId = input.existingLlmId ?? null;

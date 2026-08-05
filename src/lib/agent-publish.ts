@@ -22,6 +22,7 @@ export function buildPromptForClient(client: ClientWithRelations): string {
       guidance: client.agentGuidance,
       bookingInstructions: client.bookingInstructions,
       humanHandoffEnabled: client.humanHandoffEnabled,
+      handoffMode: client.setupFlags?.handoffMode ?? "always",
       humanHoursNote: client.humanHoursNote,
       languages: client.languages,
       // Missed-only mode: the agent acknowledges the caller expected a person.

@@ -6,6 +6,7 @@ import { listAlertContacts } from "@/lib/data/alert-contacts";
 import { getClientSetupStatus } from "@/lib/data/setup";
 import { AiNumberCard } from "@/components/portal/ai-number-card";
 import { AlertRoster } from "@/components/portal/alert-roster";
+import { HandoffCard } from "@/components/portal/handoff-card";
 import { PageHeader } from "@/components/page-header";
 import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { PortalSettings } from "@/components/portal/portal-settings";
@@ -43,6 +44,13 @@ export default async function PortalSettingsPage() {
         forwardingDone={Boolean(client.setupFlags?.forwardingDone)}
         isAdmin={editAccess.isAdmin}
         canEdit={editAccess.canEdit}
+      />
+      {/* High in the page on purpose: the wrong value here is the worst call
+          this product can make. */}
+      <HandoffCard
+        clientId={clientId}
+        mode={client.setupFlags?.handoffMode ?? "always"}
+        escalationNumber={client.escalationNumber}
       />
       <PortalSettings client={client} isAdmin={editAccess.isAdmin} />
       <AlertRoster clientId={clientId} contacts={alertContacts} />
