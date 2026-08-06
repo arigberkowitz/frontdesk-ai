@@ -69,7 +69,12 @@ export function LeadFollowup({
   draft?: string | null;
 }) {
   const hasPhone = Boolean(phone && phone.trim());
-  const last = history[0];
+  // Only a send that actually left the building counts as contact. This took
+  // history[0] whatever its status, so a text that failed still read "Last
+  // texted 8:37 PM" — and a business that believes it already reached someone
+  // stops chasing them. A failure is worth showing, but as a failure.
+  const last = history.find((h) => h.status === "sent");
+  const lastFailure = last ? null : history.find((h) => h.status === "failed");
   return (
     <div className="space-y-2">
       {draft ? (
@@ -101,6 +106,11 @@ export function LeadFollowup({
       {last ? (
         <span className="text-xs text-muted-foreground">
           · Last {last.channel === "call" ? "called" : "texted"} {format(new Date(last.at), "MMM d, h:mm a")}
+        </span>
+      ) : lastFailure ? (
+        <span className="text-xs text-amber-600 dark:text-amber-500">
+          · Text didn&apos;t go through {format(new Date(lastFailure.at), "MMM d, h:mm a")} — they
+          haven&apos;t heard from you
         </span>
       ) : !hasPhone ? (
         <span className="text-xs text-muted-foreground">· no number on file</span>

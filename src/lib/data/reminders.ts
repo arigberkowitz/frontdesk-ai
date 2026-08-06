@@ -37,6 +37,33 @@ export async function remindersByLead(clientId: string): Promise<Record<string, 
   return map;
 }
 
+/**
+ * Texts we promised and didn't deliver, recently.
+ *
+ * A failed text is the quietest failure in this product. The caller agrees on a
+ * recorded line to be texted a confirmation, the send fails, a row is written
+ * with status "failed", and nobody ever looks at it. Production's Twilio
+ * credentials were being rejected for days and the only symptom anyone noticed
+ * was one person saying they never got a text. This is what makes it visible.
+ */
+export async function failedTextsSince(
+  clientId: string,
+  days = 7,
+): Promise<{ count: number; latestError: string | null; latestAt: Date | null }> {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const rows = await db.query.reminders.findMany({
+    where: (r, { and, eq: eqOp, gte }) =>
+      and(eqOp(r.clientId, clientId), eqOp(r.status, "failed"), gte(r.createdAt, since)),
+    orderBy: [desc(reminders.createdAt)],
+    limit: 50,
+  });
+  return {
+    count: rows.length,
+    latestError: rows[0]?.error ?? null,
+    latestAt: rows[0]?.createdAt ?? null,
+  };
+}
+
 export async function createReminder(
   clientId: string,
   input: Omit<NewReminder, "clientId" | "id">,

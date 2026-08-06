@@ -7,7 +7,7 @@ import { createReminder, getClientAppointment } from "@/lib/data/reminders";
 import { getClientLead } from "@/lib/data/leads";
 import { getInsightForCall } from "@/lib/data/insights";
 import { isOptedOut } from "@/lib/data/sms-optouts";
-import { notifier } from "@/lib/notifier";
+import { explainSmsError, notifier } from "@/lib/notifier";
 import { integrations } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
 import { logger } from "@/lib/logger";
@@ -82,7 +82,10 @@ export async function sendReminderAction(
     });
     revalidatePath("/portal/appointments");
     logger.warn("reminder.send.failed", { clientId, appointmentId, channel, error: result.error });
-    return { ok: false, error: "Couldn't send the reminder — please try again." };
+    return {
+      ok: false,
+      error: explainSmsError(result.code, "Couldn't send the reminder — please try again."),
+    };
   }
 
   await createReminder(clientId, { appointmentId, channel, status: "sent", sentAt: new Date(), error: null });
@@ -154,7 +157,10 @@ export async function sendLeadFollowupAction(
     });
     revalidatePath("/portal/leads");
     logger.warn("lead.followup.failed", { clientId, leadId, channel, error: result.error });
-    return { ok: false, error: "Couldn't send the follow-up — please try again." };
+    return {
+      ok: false,
+      error: explainSmsError(result.code, "Couldn't send the follow-up — please try again."),
+    };
   }
 
   await createReminder(clientId, { leadId, channel, status: "sent", sentAt: new Date(), error: null });

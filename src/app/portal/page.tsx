@@ -10,6 +10,7 @@ import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listAppointments } from "@/lib/data/appointments";
 import { getCallHealth, listCalls } from "@/lib/data/calls";
 import { getFollowUpsForClient } from "@/lib/data/follow-ups";
+import { failedTextsSince } from "@/lib/data/reminders";
 import { listProviders } from "@/lib/data/providers";
 import { PageHeader } from "@/components/page-header";
 import { MetricCard } from "@/components/metric-card";
@@ -17,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CallActivity } from "@/components/portal/call-activity";
 import { CallHealthPanel } from "@/components/portal/call-health-panel";
 import { BlockedCallers } from "@/components/portal/blocked-callers";
+import { TextingBrokenBanner } from "@/components/portal/texting-broken-banner";
 import { RoiPanel } from "@/components/portal/roi-panel";
 import { SetupChecklist } from "@/components/portal/setup-checklist";
 import { WeeklyRecap } from "@/components/portal/weekly-recap";
@@ -37,7 +39,7 @@ export default async function PortalOverviewPage({
 }) {
   const { onboarded } = await searchParams;
   const { clientId } = await resolvePortalClient();
-  const [client, m, appts, callsList, followUps, roi, setup, recap, activity, learnings, team, health] =
+  const [client, m, appts, callsList, followUps, roi, setup, recap, activity, learnings, team, health, failedTexts] =
     await Promise.all([
       getClientByIdUnsafe(clientId),
       getClientMetrics(clientId),
@@ -51,6 +53,7 @@ export default async function PortalOverviewPage({
       listOpenSuggestions(clientId),
       listProviders(clientId).catch(() => []),
       getCallHealth(clientId),
+      failedTextsSince(clientId),
     ]);
   const tz = client?.timezone;
   const v = vocabFor(client?.industry);
@@ -99,6 +102,11 @@ export default async function PortalOverviewPage({
       >
         <LiveAlerts />
       </PageHeader>
+
+      <TextingBrokenBanner
+        count={failedTexts.count}
+        ourFault={/Twilio 20003|Authenticate/i.test(failedTexts.latestError ?? "")}
+      />
 
       {m.newLeads > 0 ? (
         <Card className="border-amber-500/40 bg-amber-500/5">
