@@ -11,6 +11,7 @@ import { GuidelinesForm } from "@/components/portal/guidelines-form";
 import { VoicePicker } from "@/components/portal/voice-picker";
 import { ProvisionCard } from "@/components/portal/provision-card";
 import { TrialCodeCard } from "@/components/portal/trial-code-card";
+import { ChoosePlan } from "@/components/portal/choose-plan";
 import { clientMayActivate } from "@/lib/data/trial";
 import { TestCallButton } from "@/components/clients/test-call-button";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
@@ -72,7 +73,12 @@ export default async function PortalGuidelinesPage() {
       ) : null}
 
       {canManage && !mayActivate ? (
-        <TrialCodeCard clientId={client.id} requested={Boolean(client.trialRequestedAt)} />
+        // Plan first, code second. A business that arrived on its own can now
+        // finish on its own; the code box stays for the ones we hand a trial to.
+        <div className="space-y-4">
+          <ChoosePlan clientId={client.id} />
+          <TrialCodeCard clientId={client.id} requested={Boolean(client.trialRequestedAt)} />
+        </div>
       ) : canManage ? (
         <ProvisionCard
           clientId={client.id}

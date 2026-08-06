@@ -13,5 +13,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Linked because A2P/TCR reviewers are told to find it, and until now the
     // only route to it was two hops in from a legal page they never visit.
     { url: `${base}/sms-consent`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${base}/contact`, changeFrequency: "yearly", priority: 0.5 },
   ];
 }

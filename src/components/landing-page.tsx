@@ -115,7 +115,7 @@ export function LandingPage() {
               <div className="mt-7 flex flex-wrap justify-center gap-3 lg:justify-start">
                 <Button size="lg" nativeButton={false} render={<Link href="/sign-up" />}>
                   <ArrowRight className="size-4" />
-                  Get started free
+                  Get started
                 </Button>
                 <Button size="lg" variant="outline" nativeButton={false} render={<Link href="#how" />}>
                   See how it works
@@ -199,7 +199,12 @@ export function LandingPage() {
                 Simple, flat pricing
               </h2>
               <p className="mt-2 text-muted-foreground">
-                One price per location. A 14-day free trial — no charge until you go live.
+                One price per location, no setup fee when you set it up yourself. Want to try it
+                free first?{" "}
+                <Link href="/contact" className="underline underline-offset-2">
+                  Ask us for a trial
+                </Link>
+                .
               </p>
             </div>
             <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -224,11 +229,12 @@ export function LandingPage() {
                       </span>
                       <span className="text-sm text-muted-foreground">/mo</span>
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {plan.setupFeeCents > 0
-                        ? `+ ${formatCurrencyCents(plan.setupFeeCents)} one-time setup`
-                        : "No setup fee"}
-                    </p>
+                    {/* The setup fee is what we charge to set a business up. A
+                        business signing up here sets itself up, so it isn't
+                        charged one — and these cards used to advertise up to
+                        $1,500 of it against a checkout that no visitor could
+                        even reach. */}
+                    <p className="mt-1 text-xs text-muted-foreground">No setup fee</p>
                     <ul className="mt-4 space-y-2">
                       {plan.highlights.map((h) => (
                         <li key={h} className="flex items-start gap-2 text-sm">
@@ -263,7 +269,7 @@ export function LandingPage() {
             <div className="mt-7 flex justify-center">
               <Button size="lg" nativeButton={false} render={<Link href="/sign-up" />}>
                 <ArrowRight className="size-4" />
-                Get started free
+                Get started
               </Button>
             </div>
           </div>
@@ -301,6 +307,17 @@ export function LandingPage() {
               Get started
             </Link>
           </span>
+        </div>
+        {/* Paying is self-serve; a free trial isn't. That makes this the only
+            route to one, so it can't be buried in a row of small links. */}
+        <div className="border-t">
+          <p className="mx-auto max-w-5xl px-4 py-6 text-center text-sm text-muted-foreground sm:px-6">
+            Questions, or want a free trial before you pay?{" "}
+            <Link href="/contact" className="font-medium text-foreground underline underline-offset-4">
+              Get in touch
+            </Link>{" "}
+            — a real person reads every one.
+          </p>
         </div>
       </footer>
     </div>
