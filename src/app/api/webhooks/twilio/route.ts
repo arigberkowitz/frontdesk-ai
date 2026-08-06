@@ -3,7 +3,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { leads } from "@/db/schema";
 import { recordOptOut, removeOptOut, normalizePhone } from "@/lib/data/sms-optouts";
-import { findClientByPhone } from "@/lib/data/clients";
+import { findClientByPhone, findClientLastTexted } from "@/lib/data/clients";
 import { notifier } from "@/lib/notifier";
 import { env, webhookUrl } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -106,6 +106,62 @@ export function optOutKeyword(body: string): string {
   return first;
 }
 
+/** Did they say anything beyond the keyword itself? "STOP" vs "cancel my 2pm". */
+export function hasMoreThanKeyword(body: string): boolean {
+  return body.trim().replace(/[^a-z\s]/gi, " ").trim().split(/\s+/).filter(Boolean).length > 1;
+}
+
+const esc = (s: string) =>
+  s.replace(/[<>&]/g, (c) => (c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;"));
+
+/**
+ * A human texted back — get it to the business.
+ *
+ * Attributed to the tenant they were actually talking to, then attached to
+ * their most recent lead there so the recovery agent stands down and stops
+ * texting someone who has already answered.
+ */
+async function forwardReplyToOwner(
+  params: Record<string, string>,
+  from: string,
+  body: string,
+): Promise<void> {
+  const to = params.To ?? "";
+  const owner = (to ? await findClientByPhone(to) : null) ?? (await findClientLastTexted(from));
+  if (!owner) {
+    logger.warn("sms.reply.unknown_recipient", { to: normalizePhone(to) });
+    return;
+  }
+
+  const digits = normalizePhone(from);
+  const lead = await db.query.leads.findFirst({
+    where: and(
+      eq(leads.clientId, owner.id),
+      sql`regexp_replace(coalesce(${leads.phone}, ''), '[^0-9]', '', 'g') like ${"%" + digits.slice(-10)}`,
+      isNull(leads.deletedAt),
+    ),
+    orderBy: [desc(leads.createdAt)],
+  });
+
+  if (!lead) {
+    logger.info("sms.reply.no_lead", { clientId: owner.id, phone: digits });
+    return;
+  }
+
+  await db.update(leads).set({ lastReplyAt: new Date() }).where(eq(leads.id, lead.id));
+  const who = lead.name ?? "A lead";
+  const ownerEmail = owner.ownerEmail?.trim();
+  if (ownerEmail) {
+    await notifier.sendEmail({
+      to: ownerEmail,
+      subject: `${who} texted back: "${body.slice(0, 40)}"`,
+      html: `<p><strong>${esc(who)}</strong> (${esc(from)}) replied:</p><blockquote>${esc(body.slice(0, 500))}</blockquote><p>Automated follow-ups for this lead are paused — the conversation is yours now.</p>`,
+      text: `${who} (${from}) replied: ${body.slice(0, 500)}\n\nAutomated follow-ups are paused — the conversation is yours now.`,
+    });
+  }
+  logger.info("sms.reply.forwarded", { clientId: owner.id, leadId: lead.id });
+}
+
 export async function POST(req: Request): Promise<Response> {
   const form = await req.formData();
   const params: Record<string, string> = {};
@@ -148,16 +204,26 @@ export async function POST(req: Request): Promise<Response> {
     if (STOP_WORDS.has(keyword)) {
       await recordOptOut(from, keyword);
       logger.info("sms.optout", { phone: normalizePhone(from) });
+      // "Cancel my 2pm please" is a STOP keyword and also a human being asking
+      // for something. Honour the carrier rule — they are opted out, and we say
+      // nothing back — but don't let the message itself vanish: the business
+      // still has an appointment on the books that this person wants moved.
+      if (hasMoreThanKeyword(body)) await forwardReplyToOwner(params, from, body);
       // Twilio's own Advanced Opt-Out sends the confirmation; stay silent here.
       return twiml();
     }
     if (START_WORDS.has(keyword)) {
       await removeOptOut(from);
-      return twiml();
-    }
-    if (HELP_WORDS.has(keyword)) {
+      // Deliberately falls through to the reply handling below instead of
+      // returning. "YES" is a START keyword AND the answer we now explicitly
+      // ask for — "Reply YES to confirm or NO to reschedule". Returning here
+      // meant the single most likely reply to a confirmation text resubscribed
+      // someone who was never unsubscribed and told nobody anything.
+    } else if (HELP_WORDS.has(keyword)) {
+      // Brand, contact and the rates line are all standard 10DLC audit items,
+      // and /sms-consent tells people this reply will carry a number to reach.
       return twiml(
-        "This number sends appointment reminders and follow-ups on behalf of local businesses. Reply STOP to opt out.",
+        "FrontDesk AI: appointment confirmations, reminders and follow-ups sent on behalf of local businesses. Msg&data rates may apply. Reply STOP to opt out. Help: support@frontdeskai.company",
       );
     }
 
@@ -169,39 +235,14 @@ export async function POST(req: Request): Promise<Response> {
     // so a reply could stamp the wrong tenant's lead and email one business's
     // customer message to a different business. `To` is the number the
     // customer texted, which is the only trustworthy signal of who they meant.
-    const to = params.To ?? "";
-    const owner = to ? await findClientByPhone(to) : null;
-    if (!owner) {
-      logger.warn("sms.reply.unknown_recipient", { to: normalizePhone(to) });
-      return twiml();
-    }
-
-    const digits = normalizePhone(from);
-    const lead = await db.query.leads.findFirst({
-      where: and(
-        eq(leads.clientId, owner.id),
-        sql`regexp_replace(coalesce(${leads.phone}, ''), '[^0-9]', '', 'g') like ${"%" + digits.slice(-10)}`,
-        isNull(leads.deletedAt),
-      ),
-      orderBy: [desc(leads.createdAt)],
-    });
-
-    if (lead) {
-      await db.update(leads).set({ lastReplyAt: new Date() }).where(eq(leads.id, lead.id));
-      const ownerEmail = owner.ownerEmail?.trim();
-      if (ownerEmail) {
-        await notifier.sendEmail({
-          to: ownerEmail,
-          subject: `${lead.name ?? "A lead"} texted back`,
-          html: `<p><strong>${lead.name ?? "A lead"}</strong> (${from}) replied:</p><blockquote>${body
-            .slice(0, 500)
-            .replace(/[<>&]/g, (c) => (c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;"))}</blockquote><p>Automated follow-ups for this lead are paused — the conversation is yours now.</p>`,
-          text: `${lead.name ?? "A lead"} (${from}) replied: ${body.slice(0, 500)}\n\nAutomated follow-ups are paused — the conversation is yours now.`,
-        });
-      }
-    } else {
-      logger.info("sms.reply.no_lead", { clientId: owner.id, phone: digits });
-    }
+    //
+    // That reasoning holds — and it produced a dead end, because every outbound
+    // text leaves from one shared sending number, so `To` matched no business
+    // and every reply on the platform was dropped here with a log line. The
+    // fallback is whoever last texted this person, which answers the same
+    // question ("who were they talking to?") without depending on a per-tenant
+    // number we don't yet issue.
+    await forwardReplyToOwner(params, from, body);
     return twiml();
   } catch (err) {
     logger.error("webhook.twilio.failed", {

@@ -8,6 +8,11 @@ import { getClientLead } from "@/lib/data/leads";
 import { getInsightForCall } from "@/lib/data/insights";
 import { isOptedOut } from "@/lib/data/sms-optouts";
 import { explainSmsError, notifier } from "@/lib/notifier";
+import {
+  genericFollowUpText,
+  MAX_BODY_CHARS,
+  withOptOut,
+} from "@/lib/lead-followup-text";
 import { integrations } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
 import { logger } from "@/lib/logger";
@@ -124,13 +129,24 @@ export async function sendLeadFollowupAction(
   const business = client?.name ?? "us";
   const callbackNumber = client?.escalationNumber?.trim();
 
-  // Prefer the post-call agent's tailored draft (what the UI previews); fall
-  // back to the generic follow-up line when no insight exists for this call.
-  const insight = lead.callId ? await getInsightForCall(clientId, lead.callId) : null;
-  const body =
+  // What the owner actually typed in the composer wins. They've read it, which
+  // is more than could be said for the AI draft this used to send on one tap —
+  // in the business's name, to a real customer, sight unseen.
+  const typed = String(formData.get("body") ?? "").trim();
+  if (typed.length > MAX_BODY_CHARS) {
+    return { ok: false, error: `Keep it under ${MAX_BODY_CHARS} characters — that's four texts already.` };
+  }
+
+  const insight = typed ? null : lead.callId ? await getInsightForCall(clientId, lead.callId) : null;
+  const chosen =
+    typed ||
     insight?.followUpDraft?.trim() ||
-    `Hi${lead.name ? ` ${lead.name}` : ""}, this is ${business} following up on your recent call — when's a good time to connect?` +
-      (callbackNumber ? ` You can reach us at ${callbackNumber}.` : "");
+    genericFollowUpText({ businessName: business, customerName: lead.name }, callbackNumber);
+
+  // Appended here, not in the browser. The composer shows it as a fixed footer
+  // precisely so that "the owner deleted the opt-out line" isn't a thing that
+  // can happen — and so a hand-typed message is as compliant as a drafted one.
+  const body = withOptOut(chosen);
 
   // Same rule as appointment reminders: only a real send gets logged as one.
   if (channel === "call") {

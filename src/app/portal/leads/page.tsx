@@ -134,6 +134,13 @@ export default async function PortalLeadsPage() {
                     phone={l.phone}
                     history={history}
                     draft={l.callId ? insightMap[l.callId]?.followUpDraft : null}
+                    businessName={client?.name ?? "us"}
+                    customerName={l.name}
+                    // What they asked for and when, so the confirm template says
+                    // "your consultation tomorrow" rather than "your
+                    // appointment" — the caller told us both on the call.
+                    service={l.service}
+                    timing={l.urgency}
                   />
                 </div>
               </li>

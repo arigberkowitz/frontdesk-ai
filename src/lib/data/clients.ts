@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, type Client, type ClientStatus, type NewClient } from "@/db/schema";
 
@@ -112,6 +112,41 @@ export async function softDeleteClient(orgId: string, clientId: string): Promise
     .update(clients)
     .set({ deletedAt: new Date() })
     .where(and(eq(clients.id, clientId), eq(clients.orgId, orgId)));
+}
+
+/**
+ * Which business did this person last hear from?
+ *
+ * `findClientByPhone` below matches the number the customer texted against each
+ * business's own line, which is the right signal — when each business has its
+ * own line. Every outbound text actually leaves from one shared sending number,
+ * so that match never succeeded and every reply was dropped on the floor with a
+ * log line and nothing else. Ask a customer to "reply YES to confirm" and their
+ * YES went nowhere at all.
+ *
+ * The fallback is the last business that texted them, which keeps the property
+ * that mattered in the original: the same consumer can be a lead at a dentist
+ * and at a plumber, and their reply has to reach the one they were talking to —
+ * not both, and not the wrong one.
+ */
+export async function findClientLastTexted(phone: string) {
+  const digits = phone.replace(/\D/g, "").slice(-10);
+  if (digits.length < 10) return null;
+  const rows = await db.execute(sql`
+    select r.client_id
+    from reminders r
+    left join leads l on l.id = r.lead_id
+    left join appointments a on a.id = r.appointment_id
+    where r.status = 'sent'
+      and (
+        regexp_replace(coalesce(l.phone, ''), '[^0-9]', '', 'g') like ${"%" + digits}
+        or regexp_replace(coalesce(a.customer_phone, ''), '[^0-9]', '', 'g') like ${"%" + digits}
+      )
+    order by r.created_at desc
+    limit 1
+  `);
+  const clientId = (rows as unknown as Array<{ client_id?: string }>)[0]?.client_id;
+  return clientId ? getClientByIdUnsafe(clientId) : null;
 }
 
 /**
