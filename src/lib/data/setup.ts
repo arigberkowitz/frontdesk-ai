@@ -11,6 +11,8 @@ export interface SetupStep {
   href: string;
   done: boolean;
   hint?: string;
+  /** Shown once the step is ticked — for when "done" doesn't mean what it looks like. */
+  doneHint?: string;
   /** Can be resolved with "skip for now" (calendar). */
   skippable?: boolean;
   /** Resolved by the owner confirming they did it outside the app (forwarding). */
@@ -81,10 +83,14 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
       href: "/portal/appointments",
       done: calendar || Boolean(flags.calendarSkipped),
       skippable: true,
-      hint:
+      hint: "So the AI can book appointments — or skip for now and it takes messages.",
+      // A skipped calendar is a ticked step that means the opposite of what a
+      // tick usually means: your AI will never book anybody. Say so on the
+      // ticked row, where they'll actually read it.
+      doneHint:
         !calendar && flags.calendarSkipped
-          ? "Skipped — your AI takes messages instead of booking. Connect anytime."
-          : "So the AI can book appointments — or skip for now and it takes messages.",
+          ? "Skipped — your AI takes messages instead of booking anyone in. Connect anytime."
+          : undefined,
     },
     {
       key: "alerts",
@@ -97,15 +103,26 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
       key: "live",
       label: "Activate your receptionist",
       href: "/portal/guidelines",
-      done: Boolean(client?.retellAgentId),
-      hint: "Go live — this is when your business gets its own AI phone number.",
+      // An agent without a number cannot answer a phone. Provisioning the
+      // number is deliberately allowed to fail without losing the agent, which
+      // is right — but this step used to go green on the agent alone, so the
+      // one step that actually mattered showed a tick next to a receptionist
+      // no one could ring.
+      done: Boolean(client?.retellAgentId && aiNumber),
+      hint: client?.retellAgentId && !aiNumber
+        ? "Your AI is built but hasn't been given a phone number yet. Tell us and we'll sort it — nothing else here works until it has one."
+        : "Go live — this is when your business gets its own AI phone number.",
     },
     {
       key: "forwarding",
       label: "Forward your business line",
       href: "/portal/settings#forwarding",
       done: Boolean(flags.forwardingDone),
-      manual: true,
+      // "I've done this" only exists once there's a number to have forwarded
+      // to. It was clickable before then, and clicking it said "Forwarding
+      // confirmed — calls to your business line now reach your AI", which was
+      // a sentence about a phone number that did not exist.
+      manual: Boolean(aiNumber),
       // Every business gets its own dedicated AI number at activation — show
       // the real one here the moment it exists instead of "your AI number".
       hint: aiNumber

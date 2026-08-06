@@ -135,7 +135,10 @@ export function LandingPage() {
 
             <div className="relative">
               <p className="fd-section-label mb-3 text-center lg:text-left">
-                Here&apos;s a real call, start to finish
+                {/* It is a written sample, not a recording — and the panel's own
+                    chip says "sample" six lines below. Calling it real was the
+                    one unqualified factual claim on this page that wasn't. */}
+                Here&apos;s how a call goes, start to finish
               </p>
               <DemoCall />
             </div>
@@ -284,6 +287,12 @@ export function LandingPage() {
             </Link>
             <Link href="/privacy" className="hover:text-foreground">
               Privacy
+            </Link>
+            {/* The A2P campaign's call-to-action points reviewers here to check
+                how text consent is collected. It was reachable only from
+                another legal page — two hops from anywhere they'd land. */}
+            <Link href="/sms-consent" className="hover:text-foreground">
+              SMS consent
             </Link>
             <Link href="/sign-in" className="hover:text-foreground">
               Sign in

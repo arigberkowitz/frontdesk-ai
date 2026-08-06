@@ -42,7 +42,7 @@ export function VoicePicker({
   const [value, setValue] = useState<string>(current ?? "");
 
   useEffect(() => {
-    if (state.ok) toast.success("Voice updated — your receptionist now sounds different.");
+    if (state.ok) toast.success(state.message ?? "Voice updated — your receptionist now sounds different.");
     else if (state.error) toast.error(state.error);
   }, [state]);
 

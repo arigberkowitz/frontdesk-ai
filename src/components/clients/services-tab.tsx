@@ -43,7 +43,7 @@ function ServiceForm({
 
   useEffect(() => {
     if (state.ok) {
-      toast.success(service ? "Service updated" : "Service added");
+      toast.success(state.message ?? (service ? "Service updated" : "Service added"));
       onDone();
     } else if (state.error) {
       toast.error(state.error);

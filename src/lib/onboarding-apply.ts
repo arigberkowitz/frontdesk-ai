@@ -69,11 +69,11 @@ export async function applyWebsiteToClient(
   clientId: string,
   name: string,
   websiteUrl: string,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const scraped = await scrapeWebsite(websiteUrl);
     const draft = await structureBusinessProfile(name, scraped.combinedText);
-    if (!draft) return;
+    if (!draft) return false;
 
     const { profile, verified } = await verifyProfile(draft, scraped.combinedText);
     await applyProfile(orgId, clientId, profile);
@@ -102,10 +102,16 @@ export async function applyWebsiteToClient(
       services: profile.services.length,
       faq: profile.faq.length,
     });
+    // Nothing usable came back is not the same as success. A site that's all
+    // JavaScript, or behind a bot wall, structures into an empty profile —
+    // which used to leave the owner with an entirely blank portal under a
+    // banner reading "We drafted your receptionist from your website."
+    return profile.services.length > 0 || profile.faq.length > 0;
   } catch (err) {
     logger.error("onboard.failed", {
       clientId,
       error: err instanceof Error ? err.message : String(err),
     });
+    return false;
   }
 }

@@ -15,7 +15,7 @@ import type { BusinessHour } from "@/db/schema";
 export function HoursTab({ clientId, hours }: { clientId: string; hours: BusinessHour[] }) {
   const [state, action, pending] = useActionState(saveHoursAction, initialActionState);
   useEffect(() => {
-    if (state.ok) toast.success("Hours saved");
+    if (state.ok) toast.success(state.message ?? "Hours saved");
     else if (state.error) toast.error(state.error);
   }, [state]);
 

@@ -6,11 +6,24 @@ const TURNS: { who: "ai" | "caller"; text: string }[] = [
   { who: "caller", text: "Hi — do you have anything for a cleaning this week?" },
   { who: "ai", text: "We do! I have Thursday at 2:00 or Friday at 10:30. Which works better?" },
   { who: "caller", text: "Thursday at 2 is great." },
-  { who: "ai", text: "Perfect — can I grab your name and a good callback number?" },
-  { who: "caller", text: "Jordan Lee, 415-555-0148." },
+  // One question at a time, and permission asked before any text — because
+  // that's what the real agent is required to do, and the consent question is
+  // the opt-in workflow published on /sms-consent and registered with the
+  // carriers. A sample call on the homepage in which the AI announces "I'll
+  // text a confirmation" is the one place a reviewer can watch us describe
+  // ourselves skipping our own consent step.
+  { who: "ai", text: "Perfect — can I get your name?" },
+  { who: "caller", text: "Jordan Lee." },
+  { who: "ai", text: "Thanks Jordan. And the best number to reach you?" },
+  { who: "caller", text: "415-555-0148." },
   {
     who: "ai",
-    text: "You're all set, Jordan — Thursday at 2:00 for a cleaning. I'll text a confirmation. Anything else?",
+    text: "Would you like me to text you the confirmation and a reminder? You can reply STOP any time.",
+  },
+  { who: "caller", text: "Yes please." },
+  {
+    who: "ai",
+    text: "You're all set, Jordan — Thursday at 2:00 for a cleaning. That text is on its way.",
   },
 ];
 
@@ -28,7 +41,7 @@ export function DemoCall() {
         <span className="size-2 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
         Incoming call · sample
         <span className="ml-auto inline-flex items-center gap-1">
-          <Clock className="size-3.5" /> 0:38
+          <Clock className="size-3.5" /> 0:52
         </span>
       </div>
 

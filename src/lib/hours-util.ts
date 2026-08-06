@@ -8,6 +8,40 @@ export interface DayHours {
   closeTime?: string | null;
 }
 
+const DAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+/**
+ * Opening hours are not a label — they are the booking window.
+ *
+ * `checkSlot` refuses any appointment that doesn't fit entirely between open
+ * and close, and `isAfterHours` marks the whole day out of hours. So a day
+ * saved with close before open — "nine to five" typed as 09:00 to 05:00, which
+ * is the most likely way there is to get this wrong — turns booking off for
+ * that day, has the AI tell every caller the business is closed, and quietly
+ * inflates the after-hours figure on the dashboard. It saved cleanly and said
+ * "Hours saved." Nothing anywhere ever explained it.
+ *
+ * Returns the name of the first offending day, or null when the week is fine.
+ */
+export function firstDayClosingBeforeOpening(days: DayHours[]): string | null {
+  for (const d of days) {
+    if (d.isClosed || !d.openTime || !d.closeTime) continue;
+    // "HH:MM" strings compare correctly as text, which is why they're stored
+    // that way. Equal times are as broken as reversed ones — zero minutes open.
+    if (d.closeTime > d.openTime) continue;
+    return DAY_NAMES[d.dayOfWeek] ?? "One of your days";
+  }
+  return null;
+}
+
 const WEEKDAY_INDEX: Record<string, number> = {
   Sunday: 0,
   Monday: 1,

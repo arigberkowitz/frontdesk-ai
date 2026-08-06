@@ -7,6 +7,7 @@ import { clients, providers } from "@/db/schema";
 import { assertClientAccess, requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
+import { toE164 } from "@/lib/format";
 import { type ActionState } from "./types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -52,12 +53,19 @@ export async function addProviderAction(
   if (email && !EMAIL_RE.test(email)) {
     return { ok: false, fieldErrors: { email: ["Enter a valid email"] } };
   }
+  // An on-clock team member's phone joins the alert recipients, so a number we
+  // can't dial is a number that quietly swallows alerts. Email gets checked
+  // here; phone was going in raw.
+  const e164 = phone ? toE164(phone) : null;
+  if (phone && !e164) {
+    return { ok: false, fieldErrors: { phone: ["Enter a 10-digit US mobile number"] } };
+  }
 
   await db.insert(providers).values({
     clientId,
     name,
     email: email || null,
-    phone: phone || null,
+    phone: e164,
     onClock: false,
   });
   const sync = await applyClientEdit(user, clientId);

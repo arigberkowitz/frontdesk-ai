@@ -38,11 +38,21 @@ export async function submitIntakeAction(
   const ownerCell = String(formData.get("ownerCell") ?? "").trim();
   const instructions = String(formData.get("instructions") ?? "").trim();
 
+  // A blank or unparseable cell used to write null straight over a working
+  // escalation number — which turns off transfers to a person, strips the
+  // callback number out of every confirmation text, and disarms the emergency
+  // handoff. A form left blank should change nothing; a form filled in wrong
+  // should say so. Same for the other two: blank means "unchanged", not "erase".
+  const escalationNumber = ownerCell ? toE164(ownerCell) : null;
+  if (ownerCell && !escalationNumber) {
+    return { ok: false, fieldErrors: { ownerCell: ["Enter a 10-digit US mobile number"] } };
+  }
+
   await updateClient(client.orgId, clientId, {
     name,
-    websiteUrl: websiteUrl || null,
-    ownerEmail: ownerEmail || null,
-    escalationNumber: toE164(ownerCell),
+    websiteUrl: websiteUrl || client.websiteUrl,
+    ownerEmail: ownerEmail || client.ownerEmail,
+    escalationNumber: escalationNumber ?? client.escalationNumber,
     agentGuidance: instructions || client.agentGuidance,
   });
 

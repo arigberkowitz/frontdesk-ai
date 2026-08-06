@@ -127,7 +127,12 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
 
   const business = client.name;
   const callback = client.escalationNumber?.trim();
-  const signature = callback ? ` You can reach us at ${callback}.` : "";
+  // Every other text this product sends ends with the opt-out line. These two
+  // didn't — and they're the only ones the recipient never explicitly asked
+  // for, which makes them exactly the ones that need it. A carrier auditing
+  // the campaign reads the messages, not the intent behind them.
+  const signature =
+    (callback ? ` You can reach us at ${callback}.` : "") + " Reply STOP to opt out.";
 
   const touches: Touch[] = [];
 

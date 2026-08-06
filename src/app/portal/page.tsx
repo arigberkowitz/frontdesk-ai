@@ -135,12 +135,27 @@ export default async function PortalOverviewPage({
           <CardContent className="flex items-start gap-3 p-4 text-sm">
             <Sparkles className="mt-0.5 size-5 shrink-0 text-primary" />
             <div>
-              <p className="font-medium">We drafted your receptionist from your website.</p>
+              {/* Two different things happen here and they used to say the same
+                  sentence. Telling someone we read their website when we
+                  couldn't — or when they never gave us one — makes every
+                  number on the next screen look like it came from their
+                  business, and it didn't. */}
+              <p className="font-medium">
+                {onboarded === "website"
+                  ? "We drafted your receptionist from your website."
+                  : "We've started you off with a template for your industry."}
+              </p>
               <p className="text-muted-foreground">
+                {onboarded === "website" ? null : (
+                  <>
+                    The services, hours and answers below are examples, not yours yet —{" "}
+                    <strong>the prices especially</strong>.{" "}
+                  </>
+                )}
                 Review your <strong>Services</strong>, <strong>Hours</strong>, and{" "}
                 <strong>Knowledge</strong> tabs, set the greeting and voice under{" "}
-                <strong>Your AI</strong>, then activate it. Edit
-                anything that&apos;s off — nothing goes live until you activate.
+                <strong>Your AI</strong>, then activate it. Edit anything that&apos;s off —
+                nothing goes live until you activate.
               </p>
             </div>
           </CardContent>

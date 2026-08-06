@@ -44,10 +44,12 @@ async function runWebsiteOnboard(
   name: string,
   websiteUrl: string | null,
   timezone: string,
-): Promise<string> {
+): Promise<{ clientId: string; drafted: boolean }> {
   const client = await createClient(orgId, { name, websiteUrl, timezone });
-  if (websiteUrl) await applyWebsiteToClient(orgId, client.id, name, websiteUrl);
-  return client.id;
+  const drafted = websiteUrl
+    ? await applyWebsiteToClient(orgId, client.id, name, websiteUrl)
+    : false;
+  return { clientId: client.id, drafted };
 }
 
 /**
@@ -65,7 +67,7 @@ export async function onboardFromWebsiteAction(
   });
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
 
-  const clientId = await runWebsiteOnboard(
+  const { clientId } = await runWebsiteOnboard(
     user.orgId,
     parsed.data.name,
     parsed.data.websiteUrl,
@@ -90,7 +92,7 @@ export async function onboardFromWebsitePortalAction(
   });
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
 
-  const clientId = await runWebsiteOnboard(
+  const { clientId, drafted } = await runWebsiteOnboard(
     user.orgId,
     parsed.data.name,
     parsed.data.websiteUrl,
@@ -107,13 +109,25 @@ export async function onboardFromWebsitePortalAction(
     .set({ companySize, staffModeEnabled: companySize !== "solo", industry })
     .where(eq(clients.id, clientId));
 
-  // No website to draft from → don't leave them with a blank portal. Their
+  // Nothing to show them → don't leave them with a blank portal. Their
   // industry's starter pack pre-fills services, hours, and FAQ instead
   // (all editable; the checklist walks them through reviewing it).
-  if (!parsed.data.websiteUrl) {
+  //
+  // This used to run only when no website was given, so the owner who did the
+  // MORE thorough thing — pasted their URL — was the one who could end up with
+  // nothing. A site that's all JavaScript, or behind a bot wall, drafts into
+  // silence: empty Services, empty Hours, empty Knowledge, and a banner
+  // cheerfully saying we'd drafted it all from their website. The starter pack
+  // also carries the industry's safety guardrails, so skipping it meant a
+  // dental practice that pasted its website never got the swelling-and-911
+  // rule, while one that left the box blank did.
+  if (!drafted) {
     await seedClientFromPack(user.orgId, clientId, industry);
   }
 
   revalidatePath("/portal", "layout");
-  redirect("/portal?onboarded=1");
+  // Say which of the two things actually happened. The banner on the other end
+  // used to claim the website draft unconditionally, including to people who
+  // never entered one.
+  redirect(`/portal?onboarded=${drafted ? "website" : "template"}`);
 }

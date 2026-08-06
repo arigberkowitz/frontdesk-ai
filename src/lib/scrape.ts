@@ -14,7 +14,7 @@ const FETCH_TIMEOUT_MS = 10_000;
 const MAX_EXTRA_PAGES = 5;
 const MAX_TOTAL_CHARS = 40_000;
 const USER_AGENT =
-  "Mozilla/5.0 (compatible; FrontDeskAI-Onboarding/1.0; +https://frontdesk.ai/bot)";
+  "Mozilla/5.0 (compatible; FrontDeskAI-Onboarding/1.0; +https://frontdeskai.company)";
 
 const LINK_KEYWORDS = [
   "service",

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isAfterHours, parseInClientTimezone, wallClockToInstant } from "./hours-util";
+import {
+  firstDayClosingBeforeOpening,
+  isAfterHours,
+  parseInClientTimezone,
+  wallClockToInstant,
+} from "./hours-util";
 
 /** After-hours drives the "saves" metric and digest copy — timezone-sensitive. */
 
@@ -129,5 +134,37 @@ describe("wallClockToInstant", () => {
         hour12: false,
       }).format(at),
     ).toBe("09");
+  });
+});
+
+describe("hours that close before they open", () => {
+  const d = (dayOfWeek: number, openTime: string | null, closeTime: string | null) => ({
+    dayOfWeek,
+    isClosed: false,
+    openTime,
+    closeTime,
+  });
+
+  it("catches nine-to-five typed as 09:00 to 05:00", () => {
+    expect(firstDayClosingBeforeOpening([d(1, "09:00", "05:00")])).toBe("Monday");
+  });
+
+  // Zero minutes open is the same failure with a friendlier face.
+  it("catches a day that opens and closes at the same minute", () => {
+    expect(firstDayClosingBeforeOpening([d(3, "09:00", "09:00")])).toBe("Wednesday");
+  });
+
+  it("leaves a normal week alone", () => {
+    const week = [1, 2, 3, 4, 5].map((n) => d(n, "09:00", "17:00"));
+    expect(firstDayClosingBeforeOpening(week)).toBeNull();
+  });
+
+  it("ignores closed days and half-filled rows", () => {
+    expect(
+      firstDayClosingBeforeOpening([
+        { dayOfWeek: 0, isClosed: true, openTime: "17:00", closeTime: "09:00" },
+        d(6, "10:00", null),
+      ]),
+    ).toBeNull();
   });
 });

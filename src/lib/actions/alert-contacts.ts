@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
+import { toE164 } from "@/lib/format";
 import {
   addAlertContact,
   deleteAlertContact,
@@ -22,11 +23,19 @@ export async function addAlertContactAction(formData: FormData): Promise<void> {
 
   const name = String(formData.get("name") ?? "").trim().slice(0, 80);
   const email = String(formData.get("email") ?? "").trim().slice(0, 200);
-  const phone = String(formData.get("phone") ?? "").trim().slice(0, 40);
-  if (!name || (!email && !phone)) return;
+  const rawPhone = String(formData.get("phone") ?? "").trim().slice(0, 40);
+  if (!name || (!email && !rawPhone)) return;
   if (email && !EMAIL_RE.test(email)) return;
 
-  await addAlertContact(clientId, { name, email: email || null, phone: phone || null });
+  // A typo'd number here is worse than no number. The first roster entry with
+  // a phone becomes the ONLY SMS target — it displaces the fallback to the
+  // owner's own escalation number — so one unparseable digit string silently
+  // stops every booking alert, every message alert and every 🚨 emergency text
+  // from reaching anyone at all. Store E.164 or store nothing.
+  const phone = rawPhone ? toE164(rawPhone) : null;
+  if (rawPhone && !phone) return;
+
+  await addAlertContact(clientId, { name, email: email || null, phone });
   revalidatePath("/portal/settings");
 }
 

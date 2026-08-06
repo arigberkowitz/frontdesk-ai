@@ -45,19 +45,19 @@ export function PortalSettings({ client, isAdmin = true }: { client: Client; isA
   const helpFormRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    if (profile.ok) toast.success("Saved.");
+    if (profile.ok) toast.success(profile.message ?? "Saved.");
     else if (profile.error) toast.error(profile.error);
   }, [profile]);
   useEffect(() => {
-    if (alerts.ok) toast.success("Alert settings saved.");
+    if (alerts.ok) toast.success(alerts.message ?? "Alert settings saved.");
     else if (alerts.error) toast.error(alerts.error);
   }, [alerts]);
   useEffect(() => {
-    if (handoff.ok) toast.success("Human-handoff settings saved.");
+    if (handoff.ok) toast.success(handoff.message ?? "Human-handoff settings saved.");
     else if (handoff.error) toast.error(handoff.error);
   }, [handoff]);
   useEffect(() => {
-    if (recovery.ok) toast.success("Recovery settings saved.");
+    if (recovery.ok) toast.success(recovery.message ?? "Recovery settings saved.");
     else if (recovery.error) toast.error(recovery.error);
   }, [recovery]);
   useEffect(() => {

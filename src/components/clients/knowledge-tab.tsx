@@ -75,7 +75,7 @@ function KnowledgeForm({
   const [state, action, pending] = useActionState(createKnowledgeAction, initialActionState);
   useEffect(() => {
     if (state.ok) {
-      toast.success("Added to your knowledge base");
+      toast.success(state.message ?? "Added to your knowledge base");
       onDone();
     } else if (state.error) {
       toast.error(state.error);
@@ -106,7 +106,7 @@ function KnowledgeEditForm({ item, onDone }: { item: KnowledgeItem; onDone: () =
   const [state, action, pending] = useActionState(updateKnowledgeAction, initialActionState);
   useEffect(() => {
     if (state.ok) {
-      toast.success("Saved");
+      toast.success(state.message ?? "Saved");
       onDone();
     } else if (state.error) {
       toast.error(state.error);

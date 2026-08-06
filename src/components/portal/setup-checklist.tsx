@@ -21,6 +21,7 @@ interface SetupStepView {
   href: string;
   done: boolean;
   hint?: string;
+  doneHint?: string;
   skippable?: boolean;
   manual?: boolean;
 }
@@ -188,8 +189,20 @@ export function SetupChecklist({
                   <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
                     <Check className="size-3.5" />
                   </span>
-                  <span className="flex-1 text-sm text-muted-foreground line-through">
-                    {step.label}
+                  {/* A completed step still has something to say when "done"
+                      means "skipped". Dropping the hint here meant the carefully
+                      written line about skipping the calendar — your AI takes
+                      messages instead of booking — was never once displayed, and
+                      the owner read a green tick as "bookings reach my calendar". */}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm text-muted-foreground line-through">
+                      {step.label}
+                    </span>
+                    {step.doneHint ? (
+                      <span className="block text-xs text-muted-foreground no-underline">
+                        {step.doneHint}
+                      </span>
+                    ) : null}
                   </span>
                   <Link
                     href={step.href}

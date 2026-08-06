@@ -25,7 +25,7 @@ function GuidelineCard(props: {
 }) {
   const [state, action, pending] = useActionState(saveGuidelinesAction, initialActionState);
   useEffect(() => {
-    if (state.ok) toast.success("Saved — your AI was updated.");
+    if (state.ok) toast.success(state.message ?? "Saved — your AI was updated.");
     else if (state.error) toast.error(state.error);
   }, [state]);
 
