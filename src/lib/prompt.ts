@@ -93,6 +93,42 @@ function hoursBlock(hours: PromptHours[]): string {
   }).join("\n");
 }
 
+/**
+ * Opening hours as one short sentence — "Mon–Fri 9:00–17:00, Sat 10:00–14:00".
+ *
+ * The table above is right for the prompt body. This is for the places that
+ * need the hours inline, chiefly the description of the transfer tool, which is
+ * what the model actually reads at the moment it decides whether anyone is
+ * there to pick up.
+ */
+export function openHoursSummary(hours: PromptHours[]): string {
+  const byDay = new Map(hours.map((h) => [h.dayOfWeek, h]));
+  // Start at Monday: "Mon–Fri" is the run people expect to see, and a
+  // Sunday-first week splits it into "Mon–Fri" plus a stray Sunday.
+  const week = [1, 2, 3, 4, 5, 6, 0].map((value) => {
+    const h = byDay.get(value);
+    const open = h && !h.isClosed && h.openTime && h.closeTime ? `${h.openTime}–${h.closeTime}` : null;
+    return { short: DAYS.find((d) => d.value === value)!.short, open };
+  });
+
+  const runs: Array<{ from: string; to: string; open: string }> = [];
+  for (const day of week) {
+    if (!day.open) continue;
+    const last = runs[runs.length - 1];
+    // Only extend a run when the previous day was also open with identical
+    // times AND was genuinely adjacent — otherwise "Mon, Wed" reads as "Mon–Wed"
+    // and we've told the caller the business is open on a day it is closed.
+    const adjacent = last && week[week.findIndex((d) => d.short === last.to) + 1]?.short === day.short;
+    if (last && adjacent && last.open === day.open) last.to = day.short;
+    else runs.push({ from: day.short, to: day.short, open: day.open });
+  }
+
+  if (!runs.length) return "";
+  return runs
+    .map((r) => `${r.from === r.to ? r.from : `${r.from}–${r.to}`} ${r.open}`)
+    .join(", ");
+}
+
 function servicesBlock(services: PromptService[]): string {
   const active = services.filter((s) => s.isActive);
   if (!active.length) return "No bookable services configured yet.";
@@ -199,6 +235,14 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
       : handoffMode === "open_hours"
         ? `You may connect a caller to a person ONLY during the opening hours listed below, and only in the caller's local business hours for ${client.name}. Outside those hours there is nobody there: do not offer a transfer, do not attempt one, and do not say you'll try. Instead say the team is out of hours and you'll take a message for a call back first thing, then use take_message. During opening hours, if the caller asks for a person, says 'agent' or 'representative', presses 0, or wants a human, use transfer_to_human.`
         : "If the caller asks for a person, says 'agent' or 'representative', presses 0, or wants a human, use transfer_to_human to connect them to the team.",
+    // A transfer that doesn't connect is the moment this product is most likely
+    // to lose a customer for the business, and until now the agent had no
+    // instruction for it at all: on a real call the teammate's voicemail picked
+    // up, the caller was left talking to a recorded greeting, and the agent said
+    // nothing useful. Whatever the phone system does, the recovery is the same.
+    handoff
+      ? "If a transfer does not connect — it rings out, fails, or you reach a voicemail greeting or an automated message instead of a person — come straight back to the caller. Say once, plainly, that you couldn't reach anyone right now, then take a message with take_message: their name, their number, and what they need. Never leave the caller in silence, never keep waiting, and never try the transfer a second time."
+      : null,
     // The single most-cited reason businesses fire an AI receptionist is the
     // agent that cannot capture a name or an address and keeps asking. Ten
     // percent of callers give up after being asked once; sixty percent by the

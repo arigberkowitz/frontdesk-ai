@@ -40,7 +40,9 @@ export type CallProblem =
   /** Disclosure is switched on for this business, but the agent didn't give it. */
   | "disclosure_missing"
   /** The transfer connected — to a voicemail box, not a person. */
-  | "transferred_to_voicemail";
+  | "transferred_to_voicemail"
+  /** The transfer was attempted and the call died within seconds of it. */
+  | "transfer_dropped";
 
 export interface CallHealth {
   problems: CallProblem[];
@@ -81,8 +83,15 @@ const EARLY_HANGUP_SEC = 15;
 /** Asking twice is a stumble. Three times is the thing people cancel over. */
 const REPEAT_THRESHOLD = 3;
 
+// "Agent" was missing from this list, which is close to comical: it is the
+// single most common thing an American caller says to escape a phone system,
+// it is what our own transfer tool is named after, and it is the exact word
+// said on both of the real calls where the transfer then failed. Both were
+// reported as clean. "A person" and "customer service" were missing for the
+// same reason — the list was written from how people describe wanting a human,
+// not from what they actually say to a machine.
 const HUMAN_REQUEST =
-  /\b(real (person|human)|speak (to|with) (a|someone)|talk to (a|someone)|human|representative|receptionist|operator|manager|someone else|(is|are) (this|that|you) (a|an) ?(bot|robot|ai|recording|real person)?|am i talking to (a|an))\b/i;
+  /\b(real (person|human)|speak (to|with) (a|someone)|talk to (a|someone)|human|agent|a person|customer service|representative|receptionist|operator|supervisor|manager|someone else|(is|are) (this|that|you) (a|an) ?(bot|robot|ai|recording|real person)?|am i talking to (a|an))\b/i;
 
 const PROFANITY = /\b(fuck\w*|shit\w*|bullshit|goddamn|damn it|dammit|asshole|piss(ed)? off|stupid (bot|robot|machine|thing))\b/i;
 
@@ -162,6 +171,37 @@ export function transferReachedVoicemail(transcript: string): boolean {
   );
 }
 
+/**
+ * A transfer that connected and then died.
+ *
+ * Real call, and the reason this exists: the caller asked for a person, the
+ * teammate picked up and said "Hello?", and the line went dead — nineteen
+ * seconds, start to finish. Nothing in the log said anything was wrong. The
+ * summary called it "successfully handed off without any issues," because from
+ * the transcript's point of view a transfer did happen.
+ *
+ * The tell is arithmetic, not language: a handoff that worked is followed by an
+ * actual conversation, which takes time. A whole call that ends within
+ * `maxSec` of the teammate's first word is a call where nobody got to talk.
+ * This is a signal to show the owner, not a verdict — which is why the note
+ * says "may not have connected" and points them at the recording.
+ */
+export function transferDroppedImmediately(
+  transcript: string,
+  durationSec?: number | null,
+  maxSec = 30,
+): boolean {
+  const target = transferLines(transcript);
+  if (!target.length) return false;
+  // Voicemail is its own, more specific finding — don't report both.
+  if (transferReachedVoicemail(transcript)) return false;
+  if (durationSec == null) return false;
+  // More than a couple of turns from the other end means a real conversation
+  // was under way, however short the call was.
+  if (target.length > 2) return false;
+  return durationSec <= maxSec;
+}
+
 function callerLines(transcript: string): string[] {
   return transcript
     .split(/\r?\n/)
@@ -231,13 +271,25 @@ export function analyzeCall(input: CallHealthInput): CallHealth {
   // A transfer landing in voicemail is not reaching a human, whatever the
   // outcome says. `outcome === "escalated"` only means we tried.
   const hitVoicemail = transferReachedVoicemail(transcript);
+  // Nor is a transfer that connected and died two seconds later. Both of these
+  // get logged as transfers that happened; neither reached a person.
+  const droppedTransfer = transferDroppedImmediately(transcript, input.durationSec);
   const reachedHuman =
-    !hitVoicemail && (input.transferConnected === true || input.outcome === "escalated");
+    !hitVoicemail &&
+    !droppedTransfer &&
+    (input.transferConnected === true || input.outcome === "escalated");
 
   if (hitVoicemail) {
     problems.push("transferred_to_voicemail");
     notes.push(
       "The transfer went to voicemail — your caller heard a recorded greeting instead of a person.",
+    );
+  }
+
+  if (droppedTransfer) {
+    problems.push("transfer_dropped");
+    notes.push(
+      "This transfer may not have connected — the call ended seconds after it started. Worth a listen.",
     );
   }
 
@@ -322,6 +374,8 @@ export interface CallHealthSummary {
   disclosureMissing: number;
   /** Transfers that reached a voicemail box rather than a person. */
   transferredToVoicemail: number;
+  /** Transfers that appear to have dropped the moment they connected. */
+  transferDropped: number;
 }
 
 /** Roll a period's calls up into the counts a business should actually see. */
@@ -340,5 +394,6 @@ export function summarize(results: CallHealth[]): CallHealthSummary {
     possibleEmergency: count("possible_emergency"),
     disclosureMissing: count("disclosure_missing"),
     transferredToVoicemail: count("transferred_to_voicemail"),
+    transferDropped: count("transfer_dropped"),
   };
 }

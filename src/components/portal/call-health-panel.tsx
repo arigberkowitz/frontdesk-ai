@@ -21,6 +21,7 @@ const ICONS: Partial<Record<CallProblem, typeof UserRound>> = {
   possible_emergency: AlertTriangle,
   disclosure_missing: ShieldAlert,
   transferred_to_voicemail: PhoneOff,
+  transfer_dropped: PhoneOff,
 };
 
 export interface CallWaste {

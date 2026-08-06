@@ -5,10 +5,9 @@ import { requireClientEditor, requireOperator } from "@/lib/auth-guard";
 import { agentConfigSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg, getClient, updateClient } from "@/lib/data/clients";
 import { createAgentVersion } from "@/lib/data/agent-versions";
-import { defaultGreeting, DEFAULT_AGENT_NAME } from "@/lib/prompt";
-import { buildPromptForClient } from "@/lib/agent-publish";
+import { defaultGreeting, DEFAULT_AGENT_NAME, openHoursSummary } from "@/lib/prompt";
+import { agentToolsFor, buildPromptForClient } from "@/lib/agent-publish";
 import {
-  buildAgentTools,
   DEFAULT_VOICE_ID,
   getRetellClient,
   provisionAgentForClient,
@@ -116,6 +115,7 @@ async function runProvision(
       beginMessage: greeting,
       escalationNumber: client.escalationNumber,
       handoffMode: client.setupFlags?.handoffMode ?? "always",
+      openHoursNote: openHoursSummary(client.businessHours),
       voiceId: client.voiceId,
       boostedKeywords: boosted,
       appUrl: env.APP_URL,
@@ -220,7 +220,7 @@ export async function publishAgentAction(
         // Keep tools in lockstep with the prompt: a prompt that mentions
         // cancel_appointment (or a changed escalation number) must ship the
         // matching tool set, or agents provisioned earlier hallucinate calls.
-        general_tools: buildAgentTools(env.APP_URL, clientId, client.escalationNumber),
+        general_tools: agentToolsFor(client, clientId),
       });
     } catch (err) {
       return {

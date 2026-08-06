@@ -99,12 +99,66 @@ function agentToolUrl(appUrl: string, path: string, clientId: string): string {
   return `${base}/api/agent-tools/${path}?client=${clientId}&token=${encodeURIComponent(env.AGENT_TOOLS_SECRET)}`;
 }
 
+/**
+ * How long the teammate's phone rings before we give up and hand the caller
+ * back to the AI.
+ *
+ * This number is the whole ballgame for transfers. Mobile voicemail answers
+ * somewhere around 25–30 seconds, and voicemail *answering* looks exactly like
+ * a person answering: the call connects, the caller is bridged in, and they
+ * spend the next thirty seconds talking to a recorded greeting. Eighteen
+ * seconds is roughly four rings — long enough for someone who's near their
+ * phone, short enough that we fail back BEFORE the voicemail box picks up, so
+ * the AI can apologize and take a message instead.
+ */
+const TRANSFER_RING_MS = 18_000;
+
+/**
+ * Cold transfer, deliberately.
+ *
+ * We used to use `warm_transfer`, where the AI dials the teammate, speaks a
+ * handoff summary, and then bridges the two legs. It is the nicer idea and it
+ * does not work reliably: the bridge step fails intermittently even when a
+ * human answers, and when the destination is classified as voicemail the agent
+ * can go permanently silent while the caller listens to hold music. Both
+ * failures are open, acknowledged bugs at Retell, and both happened on real
+ * calls here — one caller was merged into a voicemail greeting, and the next
+ * one got "Connecting you…", a teammate saying "Hello?", and then a dead line.
+ *
+ * Cold transfer is the boring path that works: dial, ring for a bounded time,
+ * connect. `sip_invite` (rather than `sip_refer`) keeps Retell in the middle,
+ * which is what makes the ring timeout — and therefore the fallback to taking a
+ * message — possible at all.
+ */
+const COLD_TRANSFER = {
+  type: "cold_transfer" as const,
+  cold_transfer_mode: "sip_invite" as const,
+  transfer_ring_duration_ms: TRANSFER_RING_MS,
+} as const;
+
+/** What the model reads at the moment it decides whether to put someone through. */
+function transferToolDescription(
+  handoffMode: "always" | "open_hours" | "never",
+  openHoursNote?: string | null,
+): string {
+  const base =
+    "Put the caller through to a human teammate when they ask for a person, say 'agent' or 'representative', or raise something sensitive.";
+  if (handoffMode !== "open_hours") return base;
+  const hours = openHoursNote?.trim();
+  return (
+    `${base} ONLY use this during the business's opening hours` +
+    (hours ? ` (${hours})` : "") +
+    ". Outside those hours nobody is there to answer — do not use this tool; take a message instead."
+  );
+}
+
 /** The four custom function tools (§9.4) that POST to our agent-tool endpoints. */
 export function buildAgentTools(
   appUrl: string,
   clientId: string,
   escalationNumber?: string | null,
   handoffMode: "always" | "open_hours" | "never" = "always",
+  openHoursNote?: string | null,
 ) {
   const transferTo = toE164(escalationNumber);
   return [
@@ -204,26 +258,32 @@ export function buildAgentTools(
     // error message that blamed the receptionist instead of the phone field.
     // A number we can't normalize degrades to the message-taking fallback,
     // which is a worse experience for one caller rather than a dead business.
-    // Handoff off, or restricted to opening hours: never attach Retell's native
-    // transfer tool. Native transfer dials immediately and there is no moment
-    // at which we could refuse it, so the restricted modes go through our own
-    // endpoint, which knows what time it is where the business is.
-    transferTo && handoffMode === "always"
+    //
+    // Anything that can actually connect a caller to a person MUST be Retell's
+    // native transfer_call tool. A custom function tool cannot move a call: it
+    // returns text to the model, nothing more. The old code attached one in
+    // "only while you're open" mode, so the agent said "one moment while I
+    // connect you" and then nothing happened for the rest of the call. A
+    // transfer that silently does nothing is worse than no transfer at all,
+    // so the restricted mode now uses the real tool and is held to the hours by
+    // the prompt and by the tool description below.
+    transferTo && handoffMode !== "never"
       ? {
           type: "transfer_call" as const,
           name: AGENT_TOOL_NAMES.transferToHuman,
-          description:
-            "Warm-transfer the caller to a human teammate when they ask for a person, say 'agent'/'representative', or for sensitive matters.",
+          description: transferToolDescription(handoffMode, openHoursNote),
           transfer_destination: { type: "predefined" as const, number: transferTo },
-          transfer_option: { type: "warm_transfer" as const, agent_detection_timeout_ms: 20000 },
+          transfer_option: COLD_TRANSFER,
           speak_during_execution: true,
-          execution_message_description: "Briefly tell the caller you're connecting them to a teammate.",
+          execution_message_description:
+            "Briefly tell the caller you're connecting them to a teammate.",
         }
       : {
           type: "custom" as const,
           name: AGENT_TOOL_NAMES.transferToHuman,
           url: agentToolUrl(appUrl, "transfer", clientId),
-          description: "Transfer the call to a human when requested or for sensitive matters.",
+          description:
+            "Ask whether this caller may be put through to a person. It will answer no — use the reply it gives you and take a message instead.",
           speak_during_execution: true,
           parameters: { type: "object" as const, properties: {}, required: [] },
         },
@@ -236,10 +296,12 @@ export interface ProvisionAgentInput {
   generalPrompt: string;
   /** First line the agent speaks (Retell LLM begin_message). */
   beginMessage?: string | null;
-  /** Human teammate's number for warm-transfer (Retell transfer_call tool). */
+  /** Human teammate's number for the transfer (Retell transfer_call tool). */
   escalationNumber?: string | null;
   /** When the agent may connect a caller to a person. */
   handoffMode?: "always" | "open_hours" | "never";
+  /** Opening hours in one line, quoted in the transfer tool's description. */
+  openHoursNote?: string | null;
   voiceId?: string | null;
   boostedKeywords?: string[];
   /** Base app URL for webhook + tool callbacks (e.g. a tunnel URL in dev). */
@@ -272,6 +334,7 @@ export async function provisionAgentForClient(
     input.clientId,
     input.escalationNumber,
     input.handoffMode ?? "always",
+    input.openHoursNote,
   );
 
   // 1. LLM — create or update by stored id.

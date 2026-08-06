@@ -2,10 +2,34 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getClient, type ClientWithRelations } from "@/lib/data/clients";
 import { getBookingProviderForClient } from "@/lib/booking";
-import { buildGeneralPrompt, DEFAULT_AGENT_NAME, defaultGreeting } from "@/lib/prompt";
+import {
+  buildGeneralPrompt,
+  DEFAULT_AGENT_NAME,
+  defaultGreeting,
+  openHoursSummary,
+} from "@/lib/prompt";
 import { buildAgentTools, getRetellClient } from "@/lib/retell";
 import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
+
+/**
+ * The live agent's tools, built from what this business has actually chosen.
+ *
+ * Every call site used to build these WITHOUT the handoff mode, so it silently
+ * fell back to "always". A business could pick "never transfer" in Settings,
+ * get a prompt that promised to take a message, and still be published with a
+ * live transfer tool attached — the setting was half-wired, and the half that
+ * was wrong is the half that rings somebody's phone at eleven at night.
+ */
+export function agentToolsFor(client: ClientWithRelations, clientId: string) {
+  return buildAgentTools(
+    env.APP_URL,
+    clientId,
+    client.escalationNumber,
+    client.setupFlags?.handoffMode ?? "always",
+    openHoursSummary(client.businessHours),
+  );
+}
 
 /** Rebuild the Retell general prompt from a client's current data (§B5). */
 export function buildPromptForClient(client: ClientWithRelations): string {
@@ -57,7 +81,7 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
       // Message-taking only: strip the booking/cancel tools so a paused
       // business can't get a real booking row from an LLM that ignores the
       // prompt — keep take_message and the human-transfer path.
-      general_tools: buildAgentTools(env.APP_URL, clientId, client.escalationNumber).filter(
+      general_tools: agentToolsFor(client, clientId).filter(
         (t) => t.name === "take_message" || t.name === "transfer_to_human",
       ),
     });
@@ -70,9 +94,9 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
       client.greeting?.trim() ||
       defaultGreeting({ name: client.name }, client.agentName?.trim() || DEFAULT_AGENT_NAME),
     // Rebuild tools too: an escalation-number change swaps between the native
-    // warm-transfer tool and the message-taking fallback — without this, the
-    // live agent keeps the old transfer behavior until a full re-provision.
-    general_tools: buildAgentTools(env.APP_URL, clientId, client.escalationNumber),
+    // transfer tool and the message-taking fallback — without this, the live
+    // agent keeps the old transfer behavior until a full re-provision.
+    general_tools: agentToolsFor(client, clientId),
   });
   return true;
 }

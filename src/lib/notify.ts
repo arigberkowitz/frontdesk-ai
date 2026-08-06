@@ -246,7 +246,14 @@ export async function notifyOwnerCallProblem(
   health: { problems: string[]; notes: string[] },
 ): Promise<void> {
   const urgent = health.problems.includes("possible_emergency");
-  const stranded = health.problems.includes("stranded_asking_for_human");
+  // "Didn't get a person" has three shapes and they're all the same phone call
+  // from the caller's side: nobody picked up, a voicemail box picked up, or the
+  // line died the instant it connected. Alerting on only the first one meant
+  // the two worst-looking failures went out silently.
+  const stranded =
+    health.problems.includes("stranded_asking_for_human") ||
+    health.problems.includes("transferred_to_voicemail") ||
+    health.problems.includes("transfer_dropped");
   if (!urgent && !stranded) return;
 
   const phone = formatPhone(call.fromNumber);
