@@ -39,27 +39,32 @@ export default function ContactPage() {
       </p>
 
       <div className="space-y-4 text-sm leading-relaxed text-muted-foreground">
+        {/* Written before the trial became automatic, and left saying the
+            opposite of what now happens: it told people a free trial was
+            something they had to ask for, on the same day signing up started
+            granting one outright. */}
         <p>
-          <strong className="text-foreground">Want to try it free first?</strong> Say so and we&apos;ll
-          set you up with a trial code — the whole product, every feature, nothing to pay and no card
-          needed. It&apos;s not a button on the site because we&apos;d rather know who&apos;s using
-          it and help you get the first calls right.
-        </p>
-        <p>
-          <strong className="text-foreground">Ready to go?</strong> You don&apos;t need us for that.{" "}
+          <strong className="text-foreground">Want to try it first?</strong>{" "}
           <Link href="/sign-up" className="underline underline-offset-2">
             Sign up
-          </Link>
-          , build your receptionist, and pick a plan when you&apos;re ready to switch it on. There&apos;s
-          no setup fee when you set it up yourself.
+          </Link>{" "}
+          — three weeks free, every feature, and we don&apos;t ask for a card. Nothing to arrange
+          with us first.
         </p>
         <p>
-          <strong className="text-foreground">Something not working?</strong> Tell us what happened
+          <strong className="text-foreground">Need longer, or a question first?</strong> Say so
+          below. We can extend a trial or set you up for free outright — it depends on the business,
+          and we&apos;d rather hear about yours than guess.
+        </p>
+        <p>
+          <strong className="text-foreground">Something not working?</strong>{" "}
+          Tell us what happened
           and roughly when. If it was a phone call, the time and the number that called is enough for
           us to pull the recording and see it for ourselves.
         </p>
         <p>
-          <strong className="text-foreground">Stop receiving texts?</strong> Reply STOP to any message
+          <strong className="text-foreground">Stop receiving texts?</strong>{" "}
+          Reply STOP to any message
           and the carrier blocks it immediately — you don&apos;t need to email anyone for that. See{" "}
           <Link href="/sms-consent" className="underline underline-offset-2">
             SMS consent
