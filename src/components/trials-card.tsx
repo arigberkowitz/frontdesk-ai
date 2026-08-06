@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import {
   approveTrialAction,
   declineTrialAction,
+  compClientAction,
   endTrialAction,
   regenerateTrialCodeAction,
   setTrialCodeAction,
@@ -64,6 +65,7 @@ export function TrialsCard({
   const approve = useToastAction(approveTrialAction);
   const decline = useToastAction(declineTrialAction);
   const end = useToastAction(endTrialAction);
+  const comp = useToastAction(compClientAction);
   const regen = useToastAction(regenerateTrialCodeAction);
   const setCode = useToastAction(setTrialCodeAction);
   const [editing, setEditing] = useState(false);
@@ -231,14 +233,25 @@ export function TrialsCard({
                     </span>
                   ) : null}
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={end.pending}
-                  onClick={() => end.run({ clientId: c.id })}
-                >
-                  End trial
-                </Button>
+                <span className="flex gap-2">
+                  {/* No code to type and no env var to have remembered. */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={comp.pending}
+                    onClick={() => comp.run({ clientId: c.id })}
+                  >
+                    Put on the house
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={end.pending}
+                    onClick={() => end.run({ clientId: c.id })}
+                  >
+                    End trial
+                  </Button>
+                </span>
               </div>
             ))}
           </div>

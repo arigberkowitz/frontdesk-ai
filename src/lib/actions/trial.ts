@@ -57,12 +57,6 @@ export async function requestTrialAction(
     where: and(eq(clients.id, clientId), eq(clients.orgId, guard.user.orgId), isNull(clients.deletedAt)),
   });
   if (!client) return { ok: false, error: "Business not found." };
-  if (client.status === "trial" || client.status === "live") {
-    return { ok: true, message: "You're already active — no code needed." };
-  }
-  if (client.trialRequestedAt) {
-    return { ok: true, message: "Your trial request is in — you'll get an email once it's approved." };
-  }
 
   // Short hand-typed code — throttle so it can't be guessed in a loop.
   const throttleKey = `trialcode:${clientId}:${guard.user.id}`;
@@ -79,6 +73,13 @@ export async function requestTrialAction(
   // expiry, no approval step, no card. Held in an env var rather than the
   // database so it never turns up in a page, an export, or a backup — and so
   // revoking it is one edit in Vercel rather than a migration.
+  //
+  // Checked FIRST, before any "you're already sorted" shortcut below. Every new
+  // signup now starts on a 21-day trial, which means every single person this
+  // code is meant for arrives already status = "trial" — and the shortcut used
+  // to catch them and answer "You're already active, no code needed." The one
+  // code that grants free service forever was unreachable by everybody it was
+  // written for.
   const comp = env.COMP_ACCESS_CODE.trim().toUpperCase();
   if (comp && code === comp) {
     clearAttempts(throttleKey);
@@ -98,6 +99,15 @@ export async function requestTrialAction(
       ok: true,
       message: "You're in — the full product, on us, for as long as you want it. Go and activate it.",
     };
+  }
+
+  // Past the comp code, the shortcuts apply again: a business already trialing
+  // or paying has nothing to gain from the ordinary trial code.
+  if (client.status === "trial" || client.status === "live") {
+    return { ok: true, message: "You're already active — no code needed." };
+  }
+  if (client.trialRequestedAt) {
+    return { ok: true, message: "Your trial request is in — you'll get an email once it's approved." };
   }
 
   const org = await db.query.organizations.findFirst({
@@ -206,6 +216,41 @@ export async function declineTrialAction(
 }
 
 /** Operator: end a running trial — pauses the receptionist immediately. */
+/**
+ * Put a business on the house, from your side of the desk.
+ *
+ * The comp code covers someone you want to hand something to before they sign
+ * up. This covers the other half — they're already in front of you, on a trial,
+ * and you've decided. One click, no code to type, no environment variable to
+ * have remembered to set.
+ */
+export async function compClientAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireOperator();
+  const clientId = String(formData.get("clientId") ?? "");
+  await assertClientInOrg(user.orgId, clientId);
+
+  const client = await db.query.clients.findFirst({ where: eq(clients.id, clientId) });
+  if (!client) return { ok: false, error: "Client not found." };
+
+  await db
+    .update(clients)
+    .set({
+      status: "live",
+      trialEndsAt: null,
+      trialRequestedAt: null,
+      setupFlags: { ...(client.setupFlags ?? {}), comped: true },
+    })
+    .where(eq(clients.id, clientId));
+
+  logger.info("trial.comped.by_operator", { clientId });
+  revalidatePath("/dashboard");
+  revalidatePath("/portal", "layout");
+  return { ok: true, message: `${client.name} is on the house — no clock, no card, no nagging.` };
+}
+
 export async function endTrialAction(
   _prev: ActionState,
   formData: FormData,

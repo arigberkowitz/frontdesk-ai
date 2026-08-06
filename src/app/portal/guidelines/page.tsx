@@ -12,7 +12,7 @@ import { VoicePicker } from "@/components/portal/voice-picker";
 import { ProvisionCard } from "@/components/portal/provision-card";
 import { TrialCodeCard } from "@/components/portal/trial-code-card";
 import { ChoosePlan } from "@/components/portal/choose-plan";
-import { clientMayActivate } from "@/lib/data/trial";
+import { clientMayActivate, getTrialState } from "@/lib/data/trial";
 import { TestCallButton } from "@/components/clients/test-call-button";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import {
@@ -34,6 +34,7 @@ export default async function PortalGuidelinesPage() {
   // can actually provision depends on plan/trial state (checked below + in the action).
   const canManage = me.role === "operator" || me.role === "client_admin";
   const mayActivate = me.role === "operator" ? true : await clientMayActivate(clientId);
+  const trial = await getTrialState(clientId);
   const retellReady = integrations.retell();
   const agentName = client.agentName?.trim() || DEFAULT_AGENT_NAME;
 
@@ -72,22 +73,32 @@ export default async function PortalGuidelinesPage() {
         <EditLockBanner clientId={clientId} hasCode={editAccess.hasCode} />
       ) : null}
 
-      {canManage && !mayActivate ? (
-        // Plan first, code second. A business that arrived on its own can now
-        // finish on its own; the code box stays for the ones we hand a trial to.
+      {canManage ? (
         <div className="space-y-4">
-          <ChoosePlan clientId={client.id} />
-          <TrialCodeCard clientId={client.id} requested={Boolean(client.trialRequestedAt)} />
+          {/* Activation comes first for anyone entitled to it — which, now that
+              every signup starts on a free trial, is almost everybody. */}
+          {mayActivate ? (
+            <ProvisionCard
+              clientId={client.id}
+              hasAgent={Boolean(client.retellAgentId)}
+              phoneNumber={client.retellPhoneNumber}
+              agentName={agentName}
+              retellReady={retellReady}
+              onTrial={client.status === "trial"}
+            />
+          ) : null}
+
+          {/* Plans and the code box stay reachable throughout the trial. They
+              used to render only when a business COULDN'T activate — so the
+              moment auto-trials arrived, the one screen holding the code box
+              stopped appearing for every person a code was meant for. */}
+          {!trial.comped && !trial.subscribed ? (
+            <>
+              <ChoosePlan clientId={client.id} />
+              <TrialCodeCard clientId={client.id} requested={Boolean(client.trialRequestedAt)} />
+            </>
+          ) : null}
         </div>
-      ) : canManage ? (
-        <ProvisionCard
-          clientId={client.id}
-          hasAgent={Boolean(client.retellAgentId)}
-          phoneNumber={client.retellPhoneNumber}
-          agentName={agentName}
-          retellReady={retellReady}
-          onTrial={client.status === "trial"}
-        />
       ) : client.retellAgentId ? (
         <Card>
           <CardHeader>
