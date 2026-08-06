@@ -206,24 +206,38 @@ export function LandingPage() {
                 </Link>
               </p>
             </div>
-            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {/*
+              Three columns, because there are three plans. The grid was still
+              built for four, so on a wide screen the cards were squeezed into
+              three quarters of the row with a hole at the end — and each card
+              stopped wherever its own feature list ran out, leaving the buttons
+              at three different heights. Equal-height cards with the CTA pinned
+              to the bottom is the whole fix: prices line up, feature lists line
+              up, buttons line up, and the eye can compare across a row instead
+              of hunting.
+            */}
+            <div className="mx-auto mt-12 grid max-w-4xl items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {planList().map((plan) => {
                 const featured = plan.key === "pro";
                 return (
                   <div
                     key={plan.key}
-                    className={`rounded-xl border bg-card p-6 ${featured ? "shadow-lg ring-2 ring-indigo-500" : ""}`}
+                    className={`relative flex flex-col rounded-2xl border bg-card p-7 ${
+                      featured ? "border-indigo-500/60 shadow-lg ring-1 ring-indigo-500/30" : ""
+                    }`}
                   >
+                    {/* Lifted out of the flow so the featured card's heading sits
+                        level with the other two instead of an eyebrow's height
+                        lower — the thing that made the row look crooked. */}
                     {featured ? (
-                      <span className="inline-block rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-primary-foreground">
+                      <span className="absolute -top-3 left-7 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow-sm">
                         Most popular
                       </span>
                     ) : null}
-                    <p className={`font-heading text-xl font-semibold ${featured ? "mt-2" : ""}`}>
-                      {plan.name}
-                    </p>
-                    <p className="mt-2">
-                      <span className="font-heading text-3xl font-semibold tracking-tight">
+
+                    <p className="font-heading text-xl font-semibold">{plan.name}</p>
+                    <p className="mt-3 flex items-baseline gap-1">
+                      <span className="font-heading text-4xl font-semibold tracking-tight">
                         {formatCurrencyCents(plan.monthlyPriceCents)}
                       </span>
                       <span className="text-sm text-muted-foreground">/mo</span>
@@ -233,27 +247,44 @@ export function LandingPage() {
                         charged one — and these cards used to advertise up to
                         $1,500 of it against a checkout that no visitor could
                         even reach. */}
-                    <p className="mt-1 text-xs text-muted-foreground">No setup fee</p>
-                    <ul className="mt-4 space-y-2">
+                    <p className="mt-1.5 text-sm text-muted-foreground">
+                      No setup fee · 3 weeks free
+                    </p>
+
+                    <p className="mt-5 border-t pt-5 text-sm text-muted-foreground">
+                      {plan.description}
+                    </p>
+
+                    <ul className="mt-5 space-y-2.5">
                       {plan.highlights.map((h) => (
-                        <li key={h} className="flex items-start gap-2 text-sm">
+                        <li key={h} className="flex items-start gap-2.5 text-sm leading-snug">
                           <Check className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                           {h}
                         </li>
                       ))}
                     </ul>
-                    <Button
-                      className="mt-6 w-full"
-                      variant={featured ? "default" : "outline"}
-                      nativeButton={false}
-                      render={<Link href="/sign-up" />}
-                    >
-                      Get started
-                    </Button>
+
+                    {/* mt-auto on the wrapper is what keeps all three buttons on
+                        one line no matter how many features each plan lists. */}
+                    <div className="mt-auto pt-8">
+                      <Button
+                        className="w-full"
+                        size="lg"
+                        variant={featured ? "default" : "outline"}
+                        nativeButton={false}
+                        render={<Link href="/sign-up" />}
+                      >
+                        Get started
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
             </div>
+
+            <p className="mt-8 text-center text-sm text-muted-foreground">
+              Every plan starts with three weeks free. No card until you decide.
+            </p>
           </div>
         </section>
 
