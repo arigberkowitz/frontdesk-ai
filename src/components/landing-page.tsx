@@ -199,12 +199,11 @@ export function LandingPage() {
                 Simple, flat pricing
               </h2>
               <p className="mt-2 text-muted-foreground">
-                One price per location, no setup fee when you set it up yourself. Want to try it
-                free first?{" "}
+                Three weeks free, no card. One price per location after that, and no setup fee —
+                ever.{" "}
                 <Link href="/contact" className="underline underline-offset-2">
-                  Ask us for a trial
+                  Questions?
                 </Link>
-                .
               </p>
             </div>
             <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -264,7 +263,7 @@ export function LandingPage() {
               Stop sending customers <em className="font-medium">to voicemail.</em>
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-balance text-muted-foreground">
-              Set up your AI receptionist today — most businesses are live the same afternoon.
+              Three weeks free, no card. Most businesses are live the same afternoon.
             </p>
             <div className="mt-7 flex justify-center">
               <Button size="lg" nativeButton={false} render={<Link href="/sign-up" />}>

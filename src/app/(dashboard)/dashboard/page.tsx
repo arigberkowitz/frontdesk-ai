@@ -3,6 +3,7 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { Building2, MessageSquare, Plus } from "lucide-react";
 import { requireOperator } from "@/lib/auth-guard";
+import { env } from "@/lib/env";
 import { getOrgCallQuality, getPortfolioMetrics } from "@/lib/data/metrics";
 import { getAgentActivity } from "@/lib/data/agent-runs";
 import { countOpenGrades } from "@/lib/agents/qa";
@@ -119,6 +120,7 @@ export default async function DashboardPage() {
 
       <TrialsCard
         code={org?.trialAccessCode ?? null}
+        compCode={env.COMP_ACCESS_CODE || null}
         pending={trialPending}
         active={trialActive}
       />

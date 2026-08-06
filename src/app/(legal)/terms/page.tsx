@@ -85,9 +85,10 @@ export default function TermsPage() {
             Paid plans are billed monthly (or yearly) per business location. When you sign up and
             subscribe yourself, the first period is charged at checkout and there is no setup fee.
             A one-time setup fee applies only where we set the service up for you, and is shown at
-            purchase before you pay. Free trials are granted by invitation, are free for the stated
-            period, and are never charged; a trial does not convert to a paid plan unless you choose
-            one. Fees are non-refundable except where required by law. You can cancel at any time and
+            purchase before you pay. Every new account starts with a 21-day free trial: we do
+            not ask for a card during it, it is never charged, and it does not become a paid plan
+            unless you choose one — if you do nothing, it simply ends. We may also grant free access
+            for a longer or unlimited period at our discretion. Fees are non-refundable except where required by law. You can cancel at any time and
             keep the service until the end of the period you have paid for. We may change pricing
             with at least 30 days&rsquo; notice, effective at your next billing cycle.
           </p>

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { TRIAL_DAYS } from "@/config/plans";
 import { clients } from "@/db/schema";
 import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "@/lib/auth-guard";
 import { createClient } from "@/lib/data/clients";
@@ -106,7 +107,17 @@ export async function onboardFromWebsitePortalAction(
   const industry = safeIndustry(formData.get("industry"));
   await db
     .update(clients)
-    .set({ companySize, staffModeEnabled: companySize !== "solo", industry })
+    .set({
+      companySize,
+      staffModeEnabled: companySize !== "solo",
+      industry,
+      // Three weeks, starting now, no card, no code, no approval queue. The
+      // whole point of a trial is that someone can find out whether this works
+      // for their business before they decide — and the previous arrangement
+      // made that conditional on a human being awake to approve it.
+      status: "trial",
+      trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+    })
     .where(eq(clients.id, clientId));
 
   // Nothing to show them → don't leave them with a blank portal. Their

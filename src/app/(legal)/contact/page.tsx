@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Mail } from "lucide-react";
+import { ContactForm } from "@/components/contact-form";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -27,15 +28,15 @@ export default function ContactPage() {
         </p>
       </div>
 
-      <div className="rounded-xl border bg-card p-5">
-        <a
-          href={`mailto:${EMAIL}?subject=FrontDesk%20AI`}
-          className="inline-flex items-center gap-2 text-lg font-medium underline underline-offset-4"
-        >
-          <Mail className="size-5 shrink-0" />
+      <ContactForm ownerEmail={EMAIL} />
+
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Mail className="size-4 shrink-0" />
+        Or write to{" "}
+        <a href={`mailto:${EMAIL}?subject=FrontDesk%20AI`} className="underline underline-offset-2">
           {EMAIL}
         </a>
-      </div>
+      </p>
 
       <div className="space-y-4 text-sm leading-relaxed text-muted-foreground">
         <p>

@@ -3,6 +3,7 @@
 import { useActionState, startTransition } from "react";
 import Link from "next/link";
 import { Check, RefreshCw, Ticket, X } from "lucide-react";
+import { TRIAL_DAYS } from "@/config/plans";
 import { toast } from "sonner";
 import {
   approveTrialAction,
@@ -50,10 +51,13 @@ export interface TrialRow {
  */
 export function TrialsCard({
   code,
+  compCode,
   pending,
   active,
 }: {
   code: string | null;
+  /** The unlimited-access code, from the environment. Null when none is set. */
+  compCode: string | null;
   pending: TrialRow[];
   active: TrialRow[];
 }) {
@@ -72,8 +76,8 @@ export function TrialsCard({
           <Ticket className="size-4" /> Free trials
         </CardTitle>
         <CardDescription>
-          Give a business your code — they enter it on their Your AI page, you approve it here, and
-          they get the full product free.
+          Everyone who signs up already gets {TRIAL_DAYS} days free with no card. These codes are for
+          the exceptions: extending someone, or putting a business you know on the house for good.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -104,6 +108,37 @@ export function TrialsCard({
             <RefreshCw className="size-3.5" />
             {code ? "New code" : "Generate code"}
           </Button>
+        </div>
+
+        {/* Unlimited access, for a business you know. Lives in an env var, not
+            the database — nothing that grants free service forever belongs in a
+            table that gets exported or rendered by accident — so it's read-only
+            here and changed in Vercel. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">Unlimited code:</span>
+          {compCode ? (
+            <button
+              type="button"
+              className="rounded-md border border-emerald-500/40 bg-emerald-500/5 px-2.5 py-1 font-mono text-sm font-semibold tracking-wide hover:bg-emerald-500/10"
+              title="Click to copy"
+              onClick={() => {
+                navigator.clipboard?.writeText(compCode);
+                toast.success("Unlimited code copied.");
+              }}
+            >
+              {compCode}
+            </button>
+          ) : (
+            <span className="text-sm text-muted-foreground">
+              not set — add COMP_ACCESS_CODE in Vercel
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground">
+            Full product, free, no expiry, no approval needed.
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
@@ -114,7 +149,7 @@ export function TrialsCard({
             }}
           >
             <Pencil className="size-3.5" />
-            {editing ? "Cancel" : "Set my own"}
+            {editing ? "Cancel" : "Set my own trial code"}
           </Button>
         </div>
 

@@ -75,6 +75,31 @@ export async function requestTrialAction(
     };
   }
 
+  // The code you hand to someone you actually know: the full product, free, no
+  // expiry, no approval step, no card. Held in an env var rather than the
+  // database so it never turns up in a page, an export, or a backup — and so
+  // revoking it is one edit in Vercel rather than a migration.
+  const comp = env.COMP_ACCESS_CODE.trim().toUpperCase();
+  if (comp && code === comp) {
+    clearAttempts(throttleKey);
+    await db
+      .update(clients)
+      .set({
+        status: "live",
+        trialEndsAt: null,
+        trialRequestedAt: null,
+        setupFlags: { ...(client.setupFlags ?? {}), comped: true },
+      })
+      .where(eq(clients.id, clientId));
+    logger.info("trial.comped", { clientId });
+    revalidatePath("/portal", "layout");
+    revalidatePath("/dashboard");
+    return {
+      ok: true,
+      message: "You're in — the full product, on us, for as long as you want it. Go and activate it.",
+    };
+  }
+
   const org = await db.query.organizations.findFirst({
     where: eq(organizations.id, client.orgId),
   });

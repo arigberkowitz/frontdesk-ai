@@ -34,6 +34,10 @@ const isPublicRoute = createRouteMatcher([
   "/terms",
   "/privacy",
   "/sms-consent",
+  // The one route a stranger takes to ask for a trial. Leaving it off this list
+  // sent everyone who clicked "Ask us for a trial" to a sign-in wall — asking
+  // people to create an account before they're allowed to ask a question.
+  "/contact",
   "/api/webhooks(.*)",
   "/api/agent-tools(.*)",
   "/api/cron(.*)",

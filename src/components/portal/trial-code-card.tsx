@@ -62,8 +62,8 @@ export function TrialCodeCard({
             className="space-y-3"
           >
             <p className="text-sm text-muted-foreground">
-              Activation starts with a plan — or a <strong>free trial</strong>: the full product,
-              every feature, nothing to pay. Got a trial code from us? Enter it here.
+              Been given a code? Enter it here — it either extends your free trial or puts you on
+              the house entirely, depending on which one you were given.
             </p>
             <input type="hidden" name="clientId" value={clientId} />
             <div className="flex gap-2">
@@ -84,11 +84,11 @@ export function TrialCodeCard({
                 actually handles support and arrives with the business already
                 attached. */}
             <p className="text-xs text-muted-foreground">
-              No code?{" "}
-              <Link href="/portal/settings#help" className="underline underline-offset-2">
-                Ask us about a trial
+              No code? You don&apos;t need one — pick a plan above.{" "}
+              <Link href="/contact" className="underline underline-offset-2">
+                Get in touch
               </Link>{" "}
-              — or just reply to your welcome email.
+              if you&apos;d rather talk to someone first.
             </p>
           </form>
         )}

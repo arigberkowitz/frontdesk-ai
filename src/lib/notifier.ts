@@ -15,6 +15,8 @@ export interface EmailMessage {
   subject: string;
   html?: string;
   text?: string;
+  /** Who a reply goes to — used by the contact form so hitting Reply reaches them. */
+  replyTo?: string;
 }
 
 export interface SmsMessage {
@@ -38,7 +40,12 @@ async function sendEmail(msg: EmailMessage): Promise<SendResult> {
   }
   try {
     const resend = new Resend(env.RESEND_API_KEY);
-    const base = { from: env.RESEND_FROM, to: msg.to, subject: msg.subject };
+    const base = {
+      from: env.RESEND_FROM,
+      to: msg.to,
+      subject: msg.subject,
+      ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+    };
     const options = msg.html
       ? { ...base, html: msg.html, text: msg.text }
       : { ...base, text: msg.text ?? "" };

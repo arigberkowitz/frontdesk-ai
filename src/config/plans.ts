@@ -3,9 +3,13 @@
  * without touching billing/margin logic. All money is in integer cents.
  *
  * Business defaults from the PRD:
- *   Setup fee:  $750–$1,500 one-time (collected at go-live)
- *   Monthly:    $300–$600 flat per client
- *   Trial:      14-day free pilot, no charge until conversion
+ *   Setup fee:  none. It existed to cover setting a business up, and businesses
+ *               now set themselves up. Charging it at the end of a free trial —
+ *               the first bill someone sees — is how a conversion becomes a
+ *               refund request. Kept on the type at 0 so a hand-sold deal can
+ *               still carry one through the operator checkout.
+ *   Monthly:    $149–$500 flat per client
+ *   Trial:      21 days free, no card, then pick a plan
  */
 export type PlanKey = "backup" | "starter" | "pro" | "scale";
 
@@ -14,8 +18,10 @@ export interface Plan {
   name: string;
   /** Flat monthly subscription, cents. */
   monthlyPriceCents: number;
-  /** One-time setup fee charged at go-live, cents. */
+  /** One-time setup fee, cents. Zero on every self-serve plan — see below. */
   setupFeeCents: number;
+  /** Shown on the pricing page and offered at checkout. */
+  listed: boolean;
   /** Soft cap surfaced to operator; v1 is flat-rate (usage shown, not billed). */
   includedMinutes: number | null;
   description: string;
@@ -28,6 +34,7 @@ export const PLANS: Record<PlanKey, Plan> = {
     name: "Missed-Call Rescue",
     monthlyPriceCents: 14_900, // $149
     setupFeeCents: 0,
+    listed: true,
     includedMinutes: 200,
     description: "You answer when you can — the AI catches every call you miss.",
     highlights: [
@@ -41,7 +48,8 @@ export const PLANS: Record<PlanKey, Plan> = {
     key: "starter",
     name: "Starter",
     monthlyPriceCents: 30_000, // $300
-    setupFeeCents: 75_000, // $750
+    setupFeeCents: 0,
+    listed: true,
     includedMinutes: 500,
     description: "Single-location businesses getting started with 24/7 coverage.",
     highlights: ["24/7 AI receptionist", "Appointment booking", "Lead capture", "Instant owner alerts"],
@@ -49,25 +57,36 @@ export const PLANS: Record<PlanKey, Plan> = {
   pro: {
     key: "pro",
     name: "Pro",
-    monthlyPriceCents: 45_000, // $450
-    setupFeeCents: 100_000, // $1,000
-    includedMinutes: 1_500,
-    description: "Busy businesses that want richer reporting and faster handling.",
-    highlights: ["Everything in Starter", "Daily & weekly digests", "ROI dashboard", "Priority prompt tuning"],
+    monthlyPriceCents: 50_000, // $500
+    setupFeeCents: 0,
+    listed: true,
+    includedMinutes: null,
+    description: "High call volume, richer reporting, and someone who answers when you write in.",
+    highlights: [
+      "Everything in Starter",
+      "Daily & weekly digests",
+      "ROI dashboard",
+      "Custom escalation rules",
+      "Priority support & prompt tuning",
+    ],
   },
+  // Retired: folded into Pro. Kept defined, and only defined, so any
+  // subscription already carrying this key still resolves to a name and a
+  // price instead of crashing a billing page. Never listed, never sold.
   scale: {
     key: "scale",
-    name: "Scale",
+    name: "Scale (legacy)",
     monthlyPriceCents: 60_000, // $600
-    setupFeeCents: 150_000, // $1,500
+    setupFeeCents: 0,
+    listed: false,
     includedMinutes: null,
-    description: "High call volume with custom workflows and integrations.",
-    highlights: ["Everything in Pro", "Unlimited minutes", "Custom escalation rules", "Dedicated support"],
+    description: "Folded into Pro.",
+    highlights: [],
   },
 };
 
 export const DEFAULT_PLAN: PlanKey = "pro";
-export const TRIAL_DAYS = 14;
+export const TRIAL_DAYS = 21;
 
 /**
  * Operator margin inputs (§10, EPIC A4). Cents. Tune to actual vendor costs.
@@ -79,4 +98,5 @@ export const COST_ASSUMPTIONS = {
   overheadPerClientCents: 2_000, // $20/mo: Cal.com, Resend, misc.
 } as const;
 
-export const planList = (): Plan[] => Object.values(PLANS);
+/** The plans a customer can actually see and buy. */
+export const planList = (): Plan[] => Object.values(PLANS).filter((p) => p.listed);

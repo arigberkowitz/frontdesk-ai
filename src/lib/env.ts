@@ -57,6 +57,12 @@ export const env = {
     (process.env.NODE_ENV === "production" ? "" : "dev-agent-tools-secret"),
   // Secret protecting the digest cron endpoint (digests disabled until set).
   CRON_SECRET: process.env.CRON_SECRET ?? "",
+  // The comp code: hand it to a business you know and they get the full
+  // product free, indefinitely, with no card and no approval step. Deliberately
+  // not in the database — nothing that grants free access forever should sit in
+  // a table that gets exported, backed up, or rendered onto a page by mistake.
+  // Unset means no such code exists, and the check below fails closed.
+  COMP_ACCESS_CODE: process.env.COMP_ACCESS_CODE ?? "",
 } as const;
 
 /** Runtime guards — true only when an integration has the keys it needs. */

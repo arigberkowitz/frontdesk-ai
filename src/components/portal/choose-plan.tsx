@@ -6,13 +6,14 @@ import { Check, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { startSelfServeCheckoutAction } from "@/lib/actions/billing";
 import { initialActionState, type ActionState } from "@/lib/actions/types";
-import { PLANS, type PlanKey } from "@/config/plans";
+import { planList, PLANS, type PlanKey } from "@/config/plans";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrencyCents } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const ORDER: PlanKey[] = ["backup", "starter", "pro", "scale"];
+// Whatever is actually on sale, in the order the pricing page shows it.
+const ORDER: PlanKey[] = planList().map((p) => p.key);
 
 /**
  * Pick a plan, pay, go live — without anybody at FrontDesk touching anything.

@@ -189,6 +189,12 @@ export const clients = pgTable(
          */
         blockedNumbers?: string[];
         /**
+         * Comped: someone we know, on the full product for free, indefinitely.
+         * Set by redeeming the comp code. No trial clock, no plan, no card —
+         * so nothing that chases a business for payment should chase this one.
+         */
+        comped?: boolean;
+        /**
          * When the AI may hand a caller to a person: always, only while the
          * business is open, or never. Off-hours transfers are the common case
          * for wanting this — nobody wants the office line ringing their mobile
