@@ -75,11 +75,13 @@ function IndustrySelect() {
 /** ONE form, one name field: the primary button drafts from the website (or a
  *  blank manual setup), the secondary starts from an editable template. After
  *  either, the portal checklist walks the owner through the rest step by step. */
-function SetupForm() {
+function SetupForm({ plan }: { plan: string | null }) {
   const [state, action] = useActionState(onboardFromWebsitePortalAction, initialActionState);
   return (
     <form action={action} className="space-y-3 text-left">
       <TimezoneField />
+      {/* The pricing card they clicked, still travelling with them. */}
+      {plan ? <input type="hidden" name="plan" value={plan} /> : null}
       <Field label="Business name" error={state.fieldErrors?.name}>
         <Input name="name" placeholder="Bright Smile Dental" required />
       </Field>
@@ -132,7 +134,13 @@ function SetupForm() {
 }
 
 /** First screen a brand-new company sees (empty workspace) — guided setup, not a blank dashboard. */
-export function OnboardingWelcome({ aiReady }: { aiReady: boolean }) {
+export function OnboardingWelcome({
+  aiReady,
+  plan,
+}: {
+  aiReady: boolean;
+  plan?: string | null;
+}) {
   return (
     <div className="mx-auto max-w-2xl space-y-8 py-6 text-center">
       <div className="space-y-3">
@@ -155,7 +163,7 @@ export function OnboardingWelcome({ aiReady }: { aiReady: boolean }) {
             <Globe className="size-5 text-primary" />
             <p className="font-medium">Tell us about your business — under a minute</p>
           </div>
-          <SetupForm />
+          <SetupForm plan={plan ?? null} />
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3">

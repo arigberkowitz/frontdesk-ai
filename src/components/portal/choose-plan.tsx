@@ -26,8 +26,23 @@ const ORDER: PlanKey[] = planList().map((p) => p.key);
  * No setup fee here, and it says so — they're doing the setup themselves, which
  * is precisely what the fee covers when we do it.
  */
-export function ChoosePlan({ clientId }: { clientId: string }) {
-  const [selected, setSelected] = useState<PlanKey>("starter");
+export function ChoosePlan({
+  clientId,
+  cardsReady,
+  testMode,
+  preselect,
+}: {
+  clientId: string;
+  /** The plan they picked on the pricing page, if they came that way. */
+  preselect?: string | null;
+  /** Is Stripe actually configured on the server? */
+  cardsReady: boolean;
+  /** True on a Stripe test key — say so, loudly, so nobody thinks they paid. */
+  testMode: boolean;
+}) {
+  const [selected, setSelected] = useState<PlanKey>(
+    ORDER.includes(preselect as PlanKey) ? (preselect as PlanKey) : "starter",
+  );
   const [yearly, setYearly] = useState(false);
   const [, action, pending] = useActionState(
     async (prev: ActionState, formData: FormData) => {
@@ -124,16 +139,41 @@ export function ChoosePlan({ clientId }: { clientId: string }) {
           <input type="hidden" name="clientId" value={clientId} />
           <input type="hidden" name="plan" value={selected} />
           <input type="hidden" name="interval" value={yearly ? "year" : "month"} />
-          <Button type="submit" size="lg" className="w-full" disabled={pending}>
+          {/* A Continue button that can only ever produce an error is worse than
+              no button. When card payments aren't switched on, say so here
+              rather than after they've picked a plan and pressed it. */}
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full"
+            disabled={pending || !cardsReady}
+          >
             <CreditCard className="size-4" />
-            {pending
-              ? "Opening payment…"
-              : `Continue — ${formatCurrencyCents(price(selected))}/${yearly ? "yr" : "mo"}`}
+            {!cardsReady
+              ? "Card payments aren't switched on yet"
+              : pending
+                ? "Opening payment…"
+                : `Continue — ${formatCurrencyCents(price(selected))}/${yearly ? "yr" : "mo"}`}
           </Button>
-          <p className="text-xs text-muted-foreground">
-            No setup fee — you&apos;ve done the setup yourself. Cancel anytime from Settings; you
-            keep your number until the end of the period you&apos;ve paid for.
-          </p>
+          {!cardsReady ? (
+            <p className="text-xs text-muted-foreground">
+              Nothing wrong on your end — we haven&apos;t finished switching card payments on.{" "}
+              <Link href="/contact" className="underline underline-offset-2">
+                Tell us
+              </Link>{" "}
+              and we&apos;ll sort your plan out by hand.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {testMode ? (
+                <span className="font-medium text-amber-600 dark:text-amber-500">
+                  Test mode — no real money moves.{" "}
+                </span>
+              ) : null}
+              No setup fee — you&apos;ve done the setup yourself. Cancel anytime from Settings; you
+              keep your number until the end of the period you&apos;ve paid for.
+            </p>
+          )}
         </form>
       </CardContent>
     </Card>

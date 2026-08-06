@@ -4,6 +4,7 @@ import { getCurrentDbUser, getPortalEditAccess, resolvePortalClient } from "@/li
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listRetellVoices } from "@/lib/retell";
 import { integrations } from "@/lib/env";
+import { isStripeTestMode } from "@/lib/stripe";
 import { PageHeader } from "@/components/page-header";
 import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +25,12 @@ import {
 
 export const metadata: Metadata = { title: "Your AI" };
 
-export default async function PortalGuidelinesPage() {
+export default async function PortalGuidelinesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ billing?: string }>;
+}) {
+  const { billing } = await searchParams;
   const { clientId } = await resolvePortalClient();
   const editAccess = await getPortalEditAccess(clientId);
   const [client, me] = await Promise.all([getClientByIdUnsafe(clientId), getCurrentDbUser()]);
@@ -69,6 +75,26 @@ export default async function PortalGuidelinesPage() {
         title="Your AI"
         description="Set what your receptionist says and how it books — then hear it. Changes go live right away."
       />
+      {/* Coming back from Stripe. Without this the customer lands on the same
+          page they left, with no acknowledgement that they just paid. */}
+      {billing === "success" ? (
+        <Card className="border-emerald-500/40 bg-emerald-500/5">
+          <CardContent className="py-4 text-sm">
+            <span className="font-medium">You&apos;re subscribed — thank you.</span>{" "}
+            <span className="text-muted-foreground">
+              Your receipt is on its way by email. Activate below and your AI takes its first call.
+            </span>
+          </CardContent>
+        </Card>
+      ) : billing === "cancel" ? (
+        <Card>
+          <CardContent className="py-4 text-sm text-muted-foreground">
+            No payment was taken and nothing changed. Everything you set up is still here whenever
+            you want to pick a plan.
+          </CardContent>
+        </Card>
+      ) : null}
+
       {!editAccess.canEdit ? (
         <EditLockBanner clientId={clientId} hasCode={editAccess.hasCode} />
       ) : null}
@@ -94,7 +120,12 @@ export default async function PortalGuidelinesPage() {
               stopped appearing for every person a code was meant for. */}
           {!trial.comped && !trial.subscribed ? (
             <>
-              <ChoosePlan clientId={client.id} />
+              <ChoosePlan
+                clientId={client.id}
+                cardsReady={integrations.stripe()}
+                preselect={client.setupFlags?.intendedPlan ?? null}
+                testMode={isStripeTestMode()}
+              />
               <TrialCodeCard clientId={client.id} requested={Boolean(client.trialRequestedAt)} />
             </>
           ) : null}

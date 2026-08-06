@@ -8,7 +8,12 @@ import { OnboardingWelcome } from "@/components/onboarding-welcome";
 export const metadata = { title: "Get started" };
 
 /** First-run setup for a self-serve business owner whose workspace has no business yet. */
-export default async function WelcomePage() {
+export default async function WelcomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string }>;
+}) {
+  const { plan } = await searchParams;
   const user = await getCurrentDbUser();
   // Already attached to a business → nothing to set up here.
   if (user.clientId) redirect("/portal");
@@ -30,7 +35,7 @@ export default async function WelcomePage() {
         <span className="font-heading font-semibold tracking-tight">FrontDesk AI</span>
       </header>
       <main className="flex flex-1 items-center justify-center p-6">
-        <OnboardingWelcome aiReady={integrations.anthropic()} />
+        <OnboardingWelcome aiReady={integrations.anthropic()} plan={plan ?? null} />
       </main>
     </div>
   );

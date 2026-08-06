@@ -194,6 +194,8 @@ export const clients = pgTable(
          * so nothing that chases a business for payment should chase this one.
          */
         comped?: boolean;
+        /** The pricing card they clicked before signing up. Preselects checkout. */
+        intendedPlan?: string;
         /**
          * When the AI may hand a caller to a person: always, only while the
          * business is open, or never. Off-hours transfers are the common case

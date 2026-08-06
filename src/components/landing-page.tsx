@@ -272,7 +272,11 @@ export function LandingPage() {
                         size="lg"
                         variant={featured ? "default" : "outline"}
                         nativeButton={false}
-                        render={<Link href="/sign-up" />}
+                        // Carries the card they clicked all the way to
+                        // checkout. Every button here used to be the same
+                        // link, so picking Pro on the pricing page and picking
+                        // Missed-Call Rescue were literally the same click.
+                        render={<Link href={`/sign-up?plan=${plan.key}`} />}
                       >
                         Get started
                       </Button>

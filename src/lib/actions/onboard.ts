@@ -105,10 +105,15 @@ export async function onboardFromWebsitePortalAction(
   const sizeRaw = String(formData.get("companySize") ?? "solo");
   const companySize = ["solo", "team", "big"].includes(sizeRaw) ? sizeRaw : "solo";
   const industry = safeIndustry(formData.get("industry"));
+  // Which pricing card brought them here, so checkout opens on that plan
+  // instead of making them choose a second time.
+  const wanted = String(formData.get("plan") ?? "").trim();
+  const intendedPlan = ["backup", "starter", "pro"].includes(wanted) ? wanted : undefined;
   await db
     .update(clients)
     .set({
       companySize,
+      ...(intendedPlan ? { setupFlags: { intendedPlan } } : {}),
       staffModeEnabled: companySize !== "solo",
       industry,
       // Three weeks, starting now, no card, no code, no approval queue. The
