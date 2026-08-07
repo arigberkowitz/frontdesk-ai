@@ -96,7 +96,7 @@ function SetupForm({ plan }: { plan: string | null }) {
         hint="Have one? We'll read it and draft your services, hours, and FAQ for you."
         error={state.fieldErrors?.websiteUrl}
       >
-        <Input name="websiteUrl" type="url" placeholder="https://yourbusiness.com" />
+        <Input name="websiteUrl" type="text" inputMode="url" placeholder="yourbusiness.com" />
       </Field>
       <Field
         label="Who's answering the phones?"

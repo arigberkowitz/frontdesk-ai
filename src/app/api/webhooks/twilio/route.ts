@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { leads } from "@/db/schema";
 import { recordOptOut, removeOptOut, normalizePhone } from "@/lib/data/sms-optouts";
 import { findClientByPhone, findClientLastTexted } from "@/lib/data/clients";
+import { reminders } from "@/db/schema";
+import { explainSmsError } from "@/lib/notifier";
 import { notifier } from "@/lib/notifier";
 import { env, webhookUrl } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -193,6 +195,29 @@ export async function POST(req: Request): Promise<Response> {
       params: Object.keys(params).sort(),
     });
     return new Response("Invalid signature", { status: 401 });
+  }
+
+  // Delivery status callbacks arrive at this same URL (we set statusCallback on
+  // every send). They carry MessageStatus and no meaningful Body, and they are
+  // the only place the CARRIER'S verdict ever reaches us: our send call only
+  // hears that Twilio accepted the message. Without this branch a text bounced
+  // by the carrier stays recorded as "sent" forever — the quietest lie in the
+  // product, discovered when a customer says nobody ever told them anything.
+  const messageStatus = params.MessageStatus ?? "";
+  if (messageStatus) {
+    const sid = params.MessageSid ?? params.SmsSid ?? "";
+    if (sid && (messageStatus === "failed" || messageStatus === "undelivered")) {
+      const code = Number(params.ErrorCode ?? "") || undefined;
+      await db
+        .update(reminders)
+        .set({
+          status: "failed",
+          error: explainSmsError(code, `Carrier reported ${messageStatus}${code ? ` (Twilio ${code})` : ""}.`),
+        })
+        .where(eq(reminders.providerSid, sid));
+      logger.warn("sms.delivery.failed", { sid, status: messageStatus, code });
+    }
+    return twiml();
   }
 
   const from = params.From ?? "";

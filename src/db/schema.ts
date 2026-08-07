@@ -531,6 +531,11 @@ export const reminders = pgTable(
     status: reminderStatus("status").notNull().default("queued"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     error: text("error"),
+    // Twilio's message SID. "Sent" below means Twilio ACCEPTED the message —
+    // the carrier can still bounce it minutes later, and without this id the
+    // status callback that says so has no row to correct. A reminder marked
+    // sent that was never delivered is the quietest possible failure.
+    providerSid: text("provider_sid"),
     ...timestamps,
   },
   (t) => [

@@ -61,23 +61,34 @@ export default async function PortalOverviewPage({
   const tz = client?.timezone;
   const v = vocabFor(client?.industry);
   const showTeamNudge = Boolean(client?.staffModeEnabled) && team.length === 0;
-  const answered = Math.max(0, m.totalCalls - m.bookings - m.leads);
   const afterHours = callsList.filter((c) => c.isAfterHours && c.startAt);
 
+  // The tile shows earned revenue — completed appointments only. This
+  // breakdown used to render "bookings × avg price = total" with numbers that
+  // essentially never multiplied to the total, because the left side counted
+  // future appointments and the right side counted finished ones. A visible
+  // equation that doesn't hold poisons trust in every other number on the page.
   const revenueBreakdown = [
-    `Estimated value of the ${v.appointments} your AI booked.`,
-    ...(m.bookings > 0 && m.avgServicePriceCents != null
-      ? [
-          `${m.bookings} booking${m.bookings === 1 ? "" : "s"} × ${formatCurrencyCents(m.avgServicePriceCents)} avg service price`,
-          `= ${formatCurrencyCents(m.estRevenueCents)}`,
-        ]
-      : ["No bookings yet this period."]),
+    `What your AI's ${v.appointments} have earned — counted when the appointment happens, not when it's booked.`,
+    ...(m.completedBookings > 0
+      ? [`${formatCurrencyCents(m.estRevenueCents)} from ${m.completedBookings} completed ${m.completedBookings === 1 ? v.appointment : v.appointments}`]
+      : [`Nothing completed yet.`]),
+    ...(m.upcomingBookings > 0
+      ? [`Plus ${formatCurrencyCents(m.upcomingRevenueCents)} booked and coming up (${m.upcomingBookings} ${m.upcomingBookings === 1 ? v.appointment : v.appointments})`]
+      : []),
   ];
+  // Per-call outcomes, from the calls themselves. The old version subtracted
+  // the APPOINTMENTS table from the calls count, so three walk-ins added by
+  // hand made "got a question answered" go negative-then-clamped — the tile
+  // and its own breakdown disagreed.
+  const outcomeCount = (key: string) => m.outcomes.find((o) => o.outcome === key)?.count ?? 0;
   const callsBreakdown = [
     "Every call your AI answered, by what happened on it.",
-    `${m.bookings} booked ${/^[aeiou]/.test(v.appointment) ? "an" : "a"} ${v.appointment}`,
-    `${m.leads} left a message`,
-    `${answered} got a question answered`,
+    `${outcomeCount("booked")} booked ${/^[aeiou]/.test(v.appointment) ? "an" : "a"} ${v.appointment}`,
+    `${outcomeCount("lead")} left a message`,
+    `${outcomeCount("faq_answered")} got a question answered`,
+    ...(outcomeCount("escalated") > 0 ? [`${outcomeCount("escalated")} reached a person`] : []),
+    ...(outcomeCount("spam") > 0 ? [`${outcomeCount("spam")} were spam`] : []),
   ];
   // Match the tile's number: cancelled / no-show bookings don't count there,
   // so they don't belong in its breakdown list either.

@@ -19,11 +19,13 @@ const onboardSchema = z.object({
   name: z.string().trim().min(1, "Business name is required").max(120),
   // No website is a first-class path (plenty of local businesses have none) —
   // they set up services/hours/FAQ by hand in the portal instead.
+  // "brightsmile.com" is what a business owner types; requiring the scheme
+  // rejected the most natural possible input with a lecture about https://.
   websiteUrl: z
     .string()
     .trim()
-    .url("Enter a valid URL (including https://)")
-    .or(z.literal(""))
+    .transform((v) => (v && !/^https?:\/\//i.test(v) ? `https://${v}` : v))
+    .pipe(z.string().url("Enter your website, like yourbusiness.com").or(z.literal("")))
     .transform((v) => v || null),
 });
 

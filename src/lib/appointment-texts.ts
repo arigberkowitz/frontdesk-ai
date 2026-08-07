@@ -63,6 +63,7 @@ export async function sendBookingConfirmation(
     status: result.ok ? "sent" : "failed",
     sentAt: result.ok ? new Date() : null,
     error: result.ok ? null : (result.error ?? "Send failed"),
+    providerSid: result.id ?? null,
   });
   logger.info("appointment.confirmation.sent", { appointmentId: appt.id, ok: result.ok });
 }
@@ -145,6 +146,7 @@ export async function sendAppointmentReminders(now: Date = new Date()): Promise<
           status: result.ok ? "sent" : "failed",
           sentAt: result.ok ? new Date() : null,
           error: result.ok ? null : (result.error ?? "Send failed"),
+          providerSid: result.id ?? null,
         });
         if (result.ok) sent += 1;
         else failed += 1;

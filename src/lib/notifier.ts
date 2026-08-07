@@ -1,7 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 import twilio from "twilio";
-import { env, integrations } from "./env";
+import { env, integrations, webhookUrl } from "./env";
 import { logger } from "./logger";
 
 /**
@@ -112,6 +112,10 @@ async function sendSms(msg: SmsMessage): Promise<SendResult> {
       from: env.TWILIO_FROM_NUMBER,
       to: msg.to,
       body: msg.body,
+      // "ok" from this call means Twilio accepted the message, nothing more.
+      // The carrier's verdict arrives minutes later at this callback — without
+      // it, a text bounced by the carrier stays recorded as sent forever.
+      statusCallback: webhookUrl("/api/webhooks/twilio"),
     });
     return { ok: true, id: res.sid };
   } catch (err) {

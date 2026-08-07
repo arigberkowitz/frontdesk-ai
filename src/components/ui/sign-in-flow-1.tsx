@@ -613,9 +613,12 @@ export const SignInPage = ({ className }: SignInPageProps) => {
           </div>
         )}
 
-        {/* White vignette + top fade keep the form area clean. */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,1)_0%,_transparent_100%)]" />
-        <div className="absolute top-0 left-0 right-0 h-1/3 bg-gradient-to-b from-white to-transparent" />
+        {/* Vignette + top fade keep the form area clean. These were hardcoded
+            white, which in dark mode painted an opaque white wash under
+            near-white text — "Welcome back" was invisible to anyone whose OS
+            prefers dark, on the second page a prospect ever sees. */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--color-background)_0%,_transparent_100%)]" />
+        <div className="absolute top-0 left-0 right-0 h-1/3 bg-gradient-to-b from-background to-transparent" />
       </div>
 
       <div className="relative z-10 flex flex-col flex-1">
@@ -650,10 +653,10 @@ export const SignInPage = ({ className }: SignInPageProps) => {
                         type="button"
                         onClick={handleGoogle}
                         disabled={!ready}
-                        className="w-full flex items-center justify-center gap-3 bg-white hover:bg-muted text-foreground border border-border rounded-full py-3 px-4 transition-colors disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-3 bg-background hover:bg-muted text-foreground border border-border rounded-full py-3 px-4 transition-colors disabled:opacity-50"
                       >
                         <GoogleIcon />
-                        <span>Sign in with Google</span>
+                        <span>{authView === "signup" ? "Continue with Google" : "Sign in with Google"}</span>
                       </button>
 
                       <div className="flex items-center gap-4">
@@ -697,6 +700,23 @@ export const SignInPage = ({ className }: SignInPageProps) => {
                     <p className="text-xs text-neutral-400 pt-6">
                       We&apos;ll email you a 6-digit code — no password needed.
                     </p>
+                    {/* The Terms open with "by creating an account you accept
+                        these terms" — an assent nobody creating an account
+                        through THIS page was ever shown. The arbitration clause
+                        is only worth what this line makes it. */}
+                    {authView === "signup" ? (
+                      <p className="text-xs text-neutral-400">
+                        By creating an account you agree to our{" "}
+                        <a href="/terms" className="underline underline-offset-2 hover:text-foreground">
+                          Terms
+                        </a>{" "}
+                        and{" "}
+                        <a href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+                          Privacy Policy
+                        </a>
+                        .
+                      </p>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => setAuthView((v) => (v === "signup" ? "signin" : "signup"))}

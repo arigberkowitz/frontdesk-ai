@@ -93,7 +93,14 @@ export async function sendReminderAction(
     };
   }
 
-  await createReminder(clientId, { appointmentId, channel, status: "sent", sentAt: new Date(), error: null });
+  await createReminder(clientId, {
+    appointmentId,
+    channel,
+    status: "sent",
+    sentAt: new Date(),
+    error: null,
+    providerSid: result.id ?? null,
+  });
   revalidatePath("/portal/appointments");
   return { ok: true, message: "Text reminder sent." };
 }
@@ -179,7 +186,14 @@ export async function sendLeadFollowupAction(
     };
   }
 
-  await createReminder(clientId, { leadId, channel, status: "sent", sentAt: new Date(), error: null });
+  await createReminder(clientId, {
+    leadId,
+    channel,
+    status: "sent",
+    sentAt: new Date(),
+    error: null,
+    providerSid: result.id ?? null,
+  });
   revalidatePath("/portal/leads");
   return { ok: true, message: "Text follow-up sent." };
 }
