@@ -3,9 +3,10 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { MessageSquare, Phone } from "lucide-react";
+import { Copy, MessageSquare, PhoneOutgoing } from "lucide-react";
 import { toast } from "sonner";
 import { sendLeadFollowupAction } from "@/lib/actions/reminders";
+import { callLeadWithAiAction } from "@/lib/actions/outbound";
 import { initialActionState } from "@/lib/actions/types";
 import {
   confirmReplyText,
@@ -14,7 +15,7 @@ import {
   OPT_OUT_LINE,
   smsSegments,
 } from "@/lib/lead-followup-text";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -133,6 +134,46 @@ function Composer({
   );
 }
 
+/**
+ * "Have your AI call them."
+ *
+ * The receptionist rings the lead from the business's own number, using the
+ * agent they already trained — so the person sees the business calling back,
+ * not an unknown mobile.
+ */
+function AiCallButton({
+  clientId,
+  leadId,
+  disabled,
+}: {
+  clientId: string;
+  leadId: string;
+  disabled?: boolean;
+}) {
+  const router = useRouter();
+  const [state, action, pending] = useActionState(callLeadWithAiAction, initialActionState);
+
+  useEffect(() => {
+    if (state.ok) {
+      toast.success(state.message ?? "Calling now.");
+      router.refresh();
+    } else if (state.error) {
+      toast.error(state.error);
+    }
+  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <form action={action}>
+      <input type="hidden" name="clientId" value={clientId} />
+      <input type="hidden" name="leadId" value={leadId} />
+      <Button type="submit" variant="outline" size="sm" disabled={disabled || pending}>
+        <PhoneOutgoing className="size-3.5" />
+        {pending ? "Dialing…" : "AI calls them"}
+      </Button>
+    </form>
+  );
+}
+
 /** One-click outbound follow-up (text/call) for a captured lead, with last-contacted note. */
 export function LeadFollowup({
   clientId,
@@ -201,20 +242,24 @@ export function LeadFollowup({
           <MessageSquare className="size-3.5" />
           {draft ? "Write the text" : "Text"}
         </Button>
-        {/* Opens the owner's own dialer — the app can't place this call, and
-          logging one it didn't place is how a lead ends up marked "contacted"
-          by nobody. */}
-        <a
-          href={hasPhone ? `tel:${phone!.replace(/[^\d+]/g, "")}` : undefined}
-          aria-disabled={!hasPhone}
-          className={cn(
-            buttonVariants({ variant: "outline", size: "sm" }),
-            !hasPhone && "pointer-events-none opacity-50",
-          )}
+        {/* Was a tel: link, which on a laptop opens a dialog offering to launch
+            an app that isn't installed, and never placed a call anywhere. Two
+            honest options instead: the AI rings them, or you take the number
+            and ring them yourself. */}
+        <AiCallButton clientId={clientId} leadId={leadId} disabled={!hasPhone} />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!hasPhone}
+          onClick={() => {
+            navigator.clipboard?.writeText(phone!.replace(/[^\d+]/g, ""));
+            toast.success(`Copied ${phone} — dial it from your phone.`);
+          }}
         >
-          <Phone className="size-3.5" />
-          Call
-        </a>
+          <Copy className="size-3.5" />
+          I&apos;ll call
+        </Button>
         {last ? (
           <span className="text-xs text-muted-foreground">
             · Last {last.channel === "call" ? "called" : "texted"}{" "}

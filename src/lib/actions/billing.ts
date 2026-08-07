@@ -10,6 +10,16 @@ import { PLANS, type PlanKey } from "@/config/plans";
 import { type ActionState } from "./types";
 
 /**
+ * Stripe's tax code for business-use SaaS.
+ *
+ * Stripe Tax is on by default for accounts created now, and it refuses any
+ * inline price whose product has no tax code: "Invalid line_items[0]: the
+ * product tax code is missing." Every checkout attempt came back 400 and the
+ * customer saw "Couldn't open the payment page", which describes nothing.
+ */
+const SAAS_TAX_CODE = "txcd_10103001";
+
+/**
  * Start a Stripe Checkout for a client: the monthly (or yearly) subscription plus
  * the one-time setup fee, with promo codes enabled so a 100%-off code makes it
  * free. Redirects to Stripe's hosted checkout. The webhook records the result.
@@ -47,7 +57,10 @@ export async function startCheckoutAction(
             currency: "usd",
             unit_amount: recurringAmount,
             recurring: { interval },
-            product_data: { name: `FrontDesk AI — ${plan.name} (${interval}ly)` },
+            product_data: {
+              name: `FrontDesk AI — ${plan.name} (${interval}ly)`,
+              tax_code: SAAS_TAX_CODE,
+            },
           },
         },
         ...(plan.setupFeeCents > 0
@@ -57,7 +70,7 @@ export async function startCheckoutAction(
                 price_data: {
                   currency: "usd",
                   unit_amount: plan.setupFeeCents,
-                  product_data: { name: "One-time setup fee" },
+                  product_data: { name: "One-time setup fee", tax_code: SAAS_TAX_CODE },
                 },
               },
             ]
@@ -137,7 +150,10 @@ export async function startSelfServeCheckoutAction(
             currency: "usd",
             unit_amount: recurringAmount,
             recurring: { interval },
-            product_data: { name: `FrontDesk AI — ${plan.name} (${interval}ly)` },
+            product_data: {
+              name: `FrontDesk AI — ${plan.name} (${interval}ly)`,
+              tax_code: SAAS_TAX_CODE,
+            },
           },
         },
       ],
