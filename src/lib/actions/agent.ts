@@ -116,6 +116,7 @@ async function runProvision(
       escalationNumber: client.escalationNumber,
       handoffMode: client.setupFlags?.handoffMode ?? "always",
       openHoursNote: openHoursSummary(client.businessHours),
+      languages: client.languages,
       voiceId: client.voiceId,
       boostedKeywords: boosted,
       appUrl: env.APP_URL,

@@ -12,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { DemoCall } from "@/components/demo-call";
 import { planList } from "@/config/plans";
-import { formatCurrencyCents } from "@/lib/format";
+import { formatCurrencyCents, formatPhone } from "@/lib/format";
+import { env } from "@/lib/env";
 
 const VALUE = [
   { icon: Clock, chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400", title: "Answers 24/7", body: "Every call picked up on the first ring — nights, weekends, lunch rushes." },
@@ -121,6 +122,25 @@ export function LandingPage() {
                   See how it works
                 </Button>
               </div>
+              {/* The one thing no competitor's landing page can fake: a number
+                  that answers. Renders only when DEMO_PHONE_NUMBER is set — a
+                  dead number in the hero would be worse than none. */}
+              {env.DEMO_PHONE_NUMBER ? (
+                <a
+                  href={`tel:${env.DEMO_PHONE_NUMBER.replace(/[^\d+]/g, "")}`}
+                  className="fd-lift mt-6 inline-flex items-center gap-3 rounded-full border bg-card py-2.5 pl-4 pr-5 text-sm shadow-sm"
+                >
+                  <span className="fd-live-dot" aria-hidden="true" />
+                  <span>
+                    <span className="text-muted-foreground">Don&apos;t take our word for it — </span>
+                    <span className="font-semibold">
+                      call {formatPhone(env.DEMO_PHONE_NUMBER)}
+                    </span>
+                    <span className="text-muted-foreground"> and talk to it now</span>
+                  </span>
+                </a>
+              ) : null}
+
               <ul className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-2 border-t pt-5 text-sm text-muted-foreground lg:justify-start">
                 {["Picks up on the first ring", "Books on the call", "English y Español"].map(
                   (item) => (

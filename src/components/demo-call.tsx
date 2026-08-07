@@ -12,10 +12,8 @@ const TURNS: { who: "ai" | "caller"; text: string }[] = [
   // carriers. A sample call on the homepage in which the AI announces "I'll
   // text a confirmation" is the one place a reviewer can watch us describe
   // ourselves skipping our own consent step.
-  { who: "ai", text: "Perfect — can I get your name?" },
-  { who: "caller", text: "Jordan Lee." },
-  { who: "ai", text: "Thanks Jordan. And the best number to reach you?" },
-  { who: "caller", text: "415-555-0148." },
+  { who: "ai", text: "Perfect — what name should I put it under?" },
+  { who: "caller", text: "Jordan Lee — 415-555-0148." },
   {
     who: "ai",
     text: "Would you like me to text you the confirmation and a reminder? You can reply STOP any time.",

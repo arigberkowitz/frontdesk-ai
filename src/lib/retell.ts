@@ -302,6 +302,8 @@ export interface ProvisionAgentInput {
   handoffMode?: "always" | "open_hours" | "never";
   /** Opening hours in one line, quoted in the transfer tool's description. */
   openHoursNote?: string | null;
+  /** Client languages setting — "en" or "en-es". Decides the agent's speech model. */
+  languages?: string | null;
   voiceId?: string | null;
   boostedKeywords?: string[];
   /** Base app URL for webhook + tool callbacks (e.g. a tunnel URL in dev). */
@@ -322,6 +324,11 @@ export interface ProvisionAgentResult {
   phoneNumber: string | null;
   /** Friendly reason a number wasn't provisioned (shown to the operator), else null. */
   phoneError?: string | null;
+}
+
+/** "en" stays on the US English model; anything bilingual gets auto-detection. */
+function agentLanguage(languages?: string | null): "en-US" | "multi" {
+  return languages && languages !== "en" ? "multi" : "en-US";
 }
 
 /** Create or update the Retell LLM + agent + phone number for a client (§9.1). */
@@ -362,7 +369,13 @@ export async function provisionAgentForClient(
     agent_name: input.agentName,
     webhook_url: input.webhookUrl,
     boosted_keywords: input.boostedKeywords?.length ? input.boostedKeywords : null,
-    language: "en-US" as const,
+    // The homepage's headline claim — "switches to fluent Spanish the second a
+    // caller speaks it" — was sitting above an agent hard-coded to en-US. The
+    // Settings toggle changed prompt text and nothing else, so the one thing
+    // that decides what the caller can actually speak never moved. "multi" is
+    // Retell's auto-detecting mode; the prompt already carries the language
+    // rule that tells the model when to switch.
+    language: agentLanguage(input.languages),
     // End dead-air calls (butt dials / fake numbers) instead of holding the line
     // open for 10 minutes, with one reminder so real callers who paused aren't cut off.
     end_call_after_silence_ms: END_CALL_AFTER_SILENCE_MS,

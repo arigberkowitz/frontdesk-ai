@@ -33,7 +33,7 @@ export function HoursTab({ clientId, hours }: { clientId: string; hours: Busines
     <form action={action} className="space-y-4">
       <input type="hidden" name="clientId" value={clientId} />
       <p className="text-sm text-muted-foreground">
-        Used to flag after-hours calls (the AI answers 24/7 regardless).
+        Your AI answers 24/7 either way — these hours decide when it can book appointments, and which calls count as after-hours saves.
       </p>
       <div className="divide-y rounded-xl border">
         {DAYS.map((d) => {

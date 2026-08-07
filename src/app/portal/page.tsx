@@ -190,6 +190,21 @@ export default async function PortalOverviewPage({
         </Card>
       ) : null}
 
+      {/* Before the first call there is nothing to report, and a dashboard of
+          zeros reports it anyway — four empty tiles and a stack of blank
+          analytics panels telling a brand-new owner "nothing is happening"
+          when the truth is "nothing has started". Until a call exists, the
+          checklist is the product. */}
+      {m.totalCalls === 0 ? (
+        <Card>
+          <CardContent className="py-5 text-sm text-muted-foreground">
+            Your numbers start with your first call. The moment your AI picks up, this page fills
+            in — revenue captured, calls answered, {v.appointments} booked, after-hours saves, and a
+            recording of every conversation.
+          </CardContent>
+        </Card>
+      ) : (
+        <>
       <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
         <MetricCard icon="calls" label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} spark={m.callsByDay.map((d) => d.calls)} sparkColor="#0ea5e9" />
@@ -236,9 +251,12 @@ export default async function PortalOverviewPage({
         tz={tz}
       />
 
-      <CopilotChat />
 
-      <ActivityFeed items={activity} />
+          <ActivityFeed items={activity} />
+        </>
+      )}
+
+      <CopilotChat />
     </div>
   );
 }

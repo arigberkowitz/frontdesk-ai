@@ -88,6 +88,14 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
     return true;
   }
 
+  // Language lives on the AGENT, not the LLM — without this line the Spanish
+  // toggle edits the prompt while the speech model stays English-only.
+  if (client.retellAgentId) {
+    await getRetellClient().agent.update(client.retellAgentId, {
+      language: client.languages && client.languages !== "en" ? "multi" : "en-US",
+    });
+  }
+
   await getRetellClient().llm.update(client.retellLlmId, {
     general_prompt: buildPromptForClient(client),
     begin_message:

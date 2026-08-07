@@ -205,3 +205,28 @@
     transform: none;
   }
 }
+/* The "it's answering right now" dot in the hero. A static dot claims nothing;
+   the pulse is the claim. */
+.fd-live-dot {
+  position: relative;
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--color-emerald-500, #10b981);
+}
+.fd-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: inherit;
+  animation: fd-live-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes fd-live-ping {
+  0% { transform: scale(1); opacity: 0.6; }
+  75%, 100% { transform: scale(2.6); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fd-live-dot::after { animation: none; }
+}
