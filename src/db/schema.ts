@@ -525,6 +525,34 @@ export const smsOptOuts = pgTable(
  * is to a specific ask — if the registered script ever changes, old rows still
  * say what those people actually agreed to.
  */
+/**
+ * Receipts for consequential actions — who did what, to which business, when.
+ *
+ * The pattern this closes: something goes wrong on a phone line, and the
+ * question "who changed the handoff mode last Tuesday?" has no answer because
+ * the change was a row UPDATE and the previous value is simply gone. Rows
+ * here are written best-effort and never read on any hot path; they exist to
+ * be grepped after the fact, which is the whole job of a receipt.
+ */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: pk(),
+    /** Null for platform-level events with no single business. */
+    clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
+    /** User id, or "system" / "webhook:stripe" style tags for machine actors. */
+    actor: text("actor").notNull(),
+    /** Dotted verb, e.g. "handoff.set", "trial.comped", "call.outbound_placed". */
+    action: text("action").notNull(),
+    /** What changed — old/new values, targets, message text. Shape varies by action. */
+    detail: jsonb("detail").$type<Record<string, unknown>>(),
+    ...timestamps,
+  },
+  (t) => [index("audit_log_client_id_idx").on(t.clientId), index("audit_log_created_at_idx").on(t.createdAt)],
+);
+
+export type AuditEntry = typeof auditLog.$inferSelect;
+
 export const smsConsents = pgTable(
   "sms_consents",
   {

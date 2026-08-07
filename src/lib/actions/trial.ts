@@ -8,6 +8,7 @@ import {
   requireClientEditor,
   requireOperator,
 } from "@/lib/auth-guard";
+import { audit } from "@/lib/data/audit";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { syncAgentPrompt } from "@/lib/agent-publish";
 import { notifier } from "@/lib/notifier";
@@ -93,6 +94,7 @@ export async function requestTrialAction(
       })
       .where(eq(clients.id, clientId));
     logger.info("trial.comped", { clientId });
+    void audit({ clientId, actor: guard.user.id, action: "trial.comped", detail: { via: "code" } });
     revalidatePath("/portal", "layout");
     revalidatePath("/dashboard");
     return {
@@ -195,6 +197,7 @@ export async function approveTrialAction(
   }
 
   logger.info("trial.approved", { clientId, trialEndsAt: trialEndsAt.toISOString() });
+  void audit({ clientId, actor: user.id, action: "trial.approved", detail: { trialEndsAt: trialEndsAt.toISOString() } });
   revalidatePath("/dashboard");
   revalidatePath("/portal", "layout");
   revalidatePath(`/clients/${clientId}`);
@@ -246,6 +249,7 @@ export async function compClientAction(
     .where(eq(clients.id, clientId));
 
   logger.info("trial.comped.by_operator", { clientId });
+  void audit({ clientId, actor: user.id, action: "trial.comped", detail: { via: "operator" } });
   revalidatePath("/dashboard");
   revalidatePath("/portal", "layout");
   return { ok: true, message: `${client.name} is on the house — no clock, no card, no nagging.` };

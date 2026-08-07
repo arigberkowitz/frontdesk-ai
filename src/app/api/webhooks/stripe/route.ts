@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { getStripe, subscriptionPeriodEnd } from "@/lib/stripe";
+import { markWebhookProcessed, recordWebhookEvent } from "@/lib/data/webhook-events";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { PLANS, type PlanKey } from "@/config/plans";
@@ -72,6 +73,18 @@ export async function POST(req: Request): Promise<Response> {
     return new Response("Invalid signature", { status: 400 });
   }
 
+  // Same ledger the Retell webhook keeps: one row per event, replays
+  // short-circuited. These events decide whether a business is paying — the
+  // one category of webhook where "we have no record of receiving it" is an
+  // unacceptable answer during a billing dispute.
+  const { isNew } = await recordWebhookEvent({
+    source: "stripe",
+    externalId: event.id,
+    eventType: event.type,
+    payload: event,
+  });
+  if (!isNew) return new Response("ok (already processed)", { status: 200 });
+
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
@@ -100,5 +113,6 @@ export async function POST(req: Request): Promise<Response> {
     return new Response("Handler failed", { status: 500 });
   }
 
+  await markWebhookProcessed("stripe", event.id, "processed");
   return new Response("ok", { status: 200 });
 }

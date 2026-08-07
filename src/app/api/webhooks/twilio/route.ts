@@ -6,6 +6,7 @@ import { recordOptOut, removeOptOut, normalizePhone } from "@/lib/data/sms-optou
 import { findClientByPhone, findClientLastTexted } from "@/lib/data/clients";
 import { reminders } from "@/db/schema";
 import { explainSmsError } from "@/lib/notifier";
+import { audit } from "@/lib/data/audit";
 import { notifier } from "@/lib/notifier";
 import { env, webhookUrl } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -151,6 +152,14 @@ async function forwardReplyToOwner(
   }
 
   await db.update(leads).set({ lastReplyAt: new Date() }).where(eq(leads.id, lead.id));
+  // The email below is a notification; this row is the record. If the email
+  // bounces or gets deleted, what the customer actually said still exists.
+  void audit({
+    clientId: owner.id,
+    actor: "webhook:twilio",
+    action: "sms.reply_received",
+    detail: { leadId: lead.id, from: normalizePhone(from), body: body.slice(0, 500) },
+  });
   const who = lead.name ?? "A lead";
   const ownerEmail = owner.ownerEmail?.trim();
   if (ownerEmail) {

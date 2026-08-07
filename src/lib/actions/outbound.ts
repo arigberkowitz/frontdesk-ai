@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { audit } from "@/lib/data/audit";
 import { requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg, getClientByIdUnsafe } from "@/lib/data/clients";
 import { getClientLead } from "@/lib/data/leads";
@@ -90,6 +91,12 @@ export async function callLeadWithAiAction(
       metadata: { clientId, leadId, direction: "outbound", placedBy: guard.user.id },
     });
     logger.info("outbound.lead_call.placed", { clientId, leadId, callId: call.call_id });
+    void audit({
+      clientId,
+      actor: guard.user.id,
+      action: "call.outbound_placed",
+      detail: { leadId, to, retellCallId: call.call_id },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error("outbound.lead_call.failed", { clientId, leadId, error: message });

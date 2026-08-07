@@ -36,6 +36,7 @@ interface RetellCall {
     custom_analysis_data?: Record<string, unknown>;
   };
   call_cost?: { combined_cost?: number };
+  metadata?: { direction?: string };
 }
 interface RetellWebhook {
   event?: string;
@@ -109,7 +110,10 @@ export async function POST(req: Request): Promise<Response> {
     const values: NewCall & { retellCallId: string } = {
       clientId: client.id,
       retellCallId: callId,
-      direction: "inbound",
+      // We stamp direction into metadata when WE place the call. Hardcoding
+      // "inbound" here filed every AI callback as a call the customer made —
+      // wrong in the call log, and wrong in every metric built on it.
+      direction: call.metadata?.direction === "outbound" ? "outbound" : "inbound",
       fromNumber: call.from_number ?? null,
       toNumber: call.to_number ?? null,
       startAt,

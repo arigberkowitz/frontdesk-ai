@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { audit } from "@/lib/data/audit";
 import { requireClientEditor, requireOperator } from "@/lib/auth-guard";
 import { assertClientInOrg, getClient } from "@/lib/data/clients";
 import { getStripe } from "@/lib/stripe";
@@ -165,6 +166,7 @@ export async function startSelfServeCheckoutAction(
       subscription_data: { metadata: { clientId, plan: planKey } },
     });
     url = session.url;
+    void audit({ clientId, actor: guard.user.id, action: "billing.checkout_opened", detail: { plan: planKey, interval } });
   } catch (err) {
     logger.error("billing.self_serve_checkout.failed", {
       clientId,

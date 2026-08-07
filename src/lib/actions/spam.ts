@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
+import { audit } from "@/lib/data/audit";
 import { requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { addBlocked, MAX_BLOCKED, normalizeForBlock, removeBlocked } from "@/lib/spam";
@@ -64,6 +65,7 @@ export async function blockNumberAction(
   }
 
   await saveBlocked(clientId, addBlocked(phone, current));
+  void audit({ clientId, actor: guard.user.id, action: "caller.blocked", detail: { phone: normalizeForBlock(phone) } });
   logger.info("spam.blocked", { clientId, phone: normalizeForBlock(phone) });
   revalidatePath("/portal");
   revalidatePath("/portal/calls");
@@ -83,6 +85,7 @@ export async function unblockNumberAction(
   await assertClientInOrg(guard.user.orgId, clientId);
 
   await saveBlocked(clientId, removeBlocked(phone, await loadBlocked(clientId)));
+  void audit({ clientId, actor: guard.user.id, action: "caller.unblocked", detail: { phone: normalizeForBlock(phone) } });
   logger.info("spam.unblocked", { clientId, phone: normalizeForBlock(phone) });
   revalidatePath("/portal");
   revalidatePath("/portal/settings");
@@ -119,6 +122,12 @@ export async function setHandoffModeAction(
     .set({ setupFlags: { ...(client?.setupFlags ?? {}), handoffMode: mode } })
     .where(eq(clients.id, clientId));
 
+  void audit({
+    clientId,
+    actor: guard.user.id,
+    action: "handoff.set",
+    detail: { mode, previous: client?.setupFlags?.handoffMode ?? "always" },
+  });
   // The rule lives in the published prompt as well as in our transfer endpoint,
   // so a change is only real once the agent has it.
   const sync = await applyClientEdit(guard.user, clientId);

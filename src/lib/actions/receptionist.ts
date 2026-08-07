@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
+import { audit } from "@/lib/data/audit";
 import { assertClientAccess } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { syncAgentPrompt } from "@/lib/agent-publish";
@@ -55,6 +56,7 @@ export async function setReceptionistPowerAction(
   }
 
   logger.info("receptionist.power", { clientId, on: turnOn });
+  void audit({ clientId, actor: user.id, action: "receptionist.power", detail: { on: turnOn } });
   revalidatePath("/portal", "layout");
   revalidatePath(`/clients/${clientId}`);
   return turnOn
