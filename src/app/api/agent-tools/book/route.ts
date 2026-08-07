@@ -11,6 +11,7 @@ import { parseInClientTimezone } from "@/lib/hours-util";
 import { toE164 } from "@/lib/format";
 import { notifyOwnerBooking } from "@/lib/notify";
 import { sendBookingConfirmation } from "@/lib/appointment-texts";
+import { recordSmsConsent } from "@/lib/data/sms-consents";
 import { after } from "next/server";
 import { logger } from "@/lib/logger";
 
@@ -245,6 +246,13 @@ export async function POST(req: Request): Promise<Response> {
   // Sent inline so it lands while they're still holding the phone.
   const consented = args.sms_consent === true || String(args.sms_consent) === "true";
   if (consented) {
+    // The receipt the privacy policy promises: who said yes, when, on which
+    // call, to which version of the ask. Until now the yes lived for
+    // milliseconds as a tool argument and vanished — the one fact a business
+    // needs if a text is ever disputed, and we were throwing it away.
+    after(() =>
+      recordSmsConsent({ clientId: client.id, phone: customerPhone, callId: callRow?.id }),
+    );
     after(() =>
       sendBookingConfirmation(client, appt, service.name).catch((err) =>
         logger.error("agent-tools.book.confirmation_failed", {

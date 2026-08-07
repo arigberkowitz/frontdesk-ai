@@ -512,6 +512,39 @@ export const smsOptOuts = pgTable(
   (t) => [uniqueIndex("sms_opt_outs_phone_idx").on(t.phone)],
 );
 
+/**
+ * Proof of texting consent, one row per yes.
+ *
+ * The privacy policy has promised this record since it was written — "the fact
+ * that you consented on the call and when" — while the actual consent lived
+ * for milliseconds as a tool-call argument and was gone. If a customer ever
+ * disputes a text, this row (when, on which call, under which wording) is the
+ * business's whole defense; without it the recorded promise pointed at nothing.
+ *
+ * `wording` pins the version of the question the agent asked, because consent
+ * is to a specific ask — if the registered script ever changes, old rows still
+ * say what those people actually agreed to.
+ */
+export const smsConsents = pgTable(
+  "sms_consents",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    /** E.164 of the number that consented. */
+    phone: text("phone").notNull(),
+    /** The call it happened on, when we have it — the recording is the receipt. */
+    callId: uuid("call_id").references(() => calls.id, { onDelete: "set null" }),
+    /** Which consent script was in force, e.g. "booking-v1". */
+    wording: text("wording").notNull(),
+    ...timestamps,
+  },
+  (t) => [index("sms_consents_client_id_idx").on(t.clientId), index("sms_consents_phone_idx").on(t.phone)],
+);
+
+export type SmsConsent = typeof smsConsents.$inferSelect;
+
 /** Appointment reminder log: one row per call/text reminder a business sends a
  *  customer about an upcoming appointment, so the portal can show exactly when
  *  each customer was pinged (and whether it went through). */
