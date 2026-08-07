@@ -9,7 +9,10 @@ export default defineConfig({
       // Some modules under test import @/db, whose client requires a URL at
       // module init. The driver never connects unless a query runs — and unit
       // tests never query — so a placeholder satisfies it.
-      DATABASE_URL: "postgresql://test:test@localhost:5432/test",
+      // Placeholder only when nothing real is set. It used to be
+      // unconditional, which silently overrode a genuine DATABASE_URL and made
+      // it impossible to point a test at an actual database.
+      DATABASE_URL: process.env.DATABASE_URL ?? "postgresql://test:test@localhost:5432/test",
     },
   },
   resolve: {
