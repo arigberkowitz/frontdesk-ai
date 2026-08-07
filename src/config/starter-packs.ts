@@ -223,6 +223,129 @@ export const STARTER_PACKS: StarterPack[] = [
       "Collect the vehicle's year, make, and model plus the caller's name and phone number. Confirm the " +
       "service and the drop-off date and time, then read the booking back.",
   },
+  {
+    industry: "HVAC",
+    services: [
+      { name: "Service call & diagnostic", durationMin: 60, priceCents: 9900, description: "A technician diagnoses your heating or cooling problem. Fee applied toward the repair if you go ahead." },
+      { name: "AC tune-up", durationMin: 90, priceCents: 12900, description: "Pre-season inspection, coil clean, and refrigerant check." },
+      { name: "Furnace tune-up", durationMin: 90, priceCents: 12900, description: "Pre-winter safety and efficiency check, including heat exchanger inspection." },
+      { name: "Replacement estimate", durationMin: 45, priceCents: 0, description: "Free in-home estimate for a new system, with financing options." },
+    ],
+    faq: [
+      { question: "My AC stopped working — how fast can someone come out?", answer: "We keep same-day slots for no-cool and no-heat calls whenever we can. Tell me what's happening and I'll get you the first available visit." },
+      { question: "How much does a new system cost?", answer: "It depends on the size of your home and the equipment — that's why the estimate is free and in person. Ballparks over the phone tend to be wrong in both directions." },
+      { question: "Do you service all brands?", answer: "Yes — our technicians work on all major makes and models." },
+      { question: "Is there a fee for the visit?", answer: "The diagnostic fee covers the technician's visit and applies toward the repair if you go ahead with it." },
+    ],
+    hours: week("07:00", "18:00", [0]),
+    guardrails:
+      BASE_GUARDRAILS +
+      " If a caller smells gas: tell them to leave the building NOW, then call 911 or their gas company " +
+      "from outside — before giving you any details. Do not book anything on that call; a leak is not an " +
+      "appointment. No heat in freezing weather, no cooling in extreme heat, or a home with an infant or " +
+      "elderly resident is an emergency: flag it, collect address and callback number, and say the team " +
+      "will be told immediately. Never quote repair or install prices beyond the listed fees.",
+    booking:
+      "Always collect the service address, what the system is doing in the caller's words, and roughly " +
+      "how old the equipment is. Read the booking back, including the address.",
+  },
+  {
+    industry: "Veterinary",
+    services: [
+      { name: "Wellness exam", durationMin: 30, priceCents: 6500, description: "Routine check-up, including weight, teeth, and vaccination review." },
+      { name: "Sick visit", durationMin: 30, priceCents: 7500, description: "For a pet that's off its food, limping, scratching, or just not right." },
+      { name: "Vaccination visit", durationMin: 15, priceCents: null, description: "Boosters and required shots — price depends on what's due." },
+      { name: "Dental cleaning", durationMin: 120, priceCents: null, description: "Under anesthesia, with a pre-exam required first. We'll quote after the exam." },
+    ],
+    faq: [
+      { question: "Is this an emergency? My pet ate something.", answer: "If your pet ate chocolate, grapes, xylitol gum, medication, or anything toxic, call the ASPCA Poison Control line at (888) 426-4435 right away — they're the fastest experts. We can see your pet as soon as possible afterward." },
+      { question: "Do you see exotic pets?", answer: "Our doctors primarily see dogs and cats — call it a message and the team will confirm whether we can see your specific pet." },
+      { question: "How much is an exam?", answer: "A routine wellness exam is $65; treatment costs depend on what the doctor finds, and you'll get an estimate before anything is done." },
+      { question: "Can I get my pet's records sent somewhere?", answer: "Of course — leave your name, your pet's name, and where the records should go, and the front desk will send them over." },
+    ],
+    hours: [
+      ...week("08:00", "18:00", [0]).slice(0, 6),
+      { dayOfWeek: 6, isClosed: false, openTime: "09:00", closeTime: "13:00" },
+    ],
+    guardrails:
+      BASE_GUARDRAILS +
+      " Never give medical advice about an animal — no doses, no \"wait and see\", no diagnosis. If a pet " +
+      "is having trouble breathing, seizing, bleeding heavily, unable to stand, or was hit by a car, tell " +
+      "the caller to go to the nearest emergency animal hospital immediately rather than book anything. " +
+      "For suspected poisoning, give the ASPCA Poison Control number, (888) 426-4435, before taking a message.",
+    booking:
+      "Collect the pet's name, species and breed, what's going on in the owner's words, and the owner's " +
+      "name and phone number. Read the booking back.",
+  },
+  {
+    industry: "Chiropractic",
+    services: [
+      { name: "New patient exam & adjustment", durationMin: 45, priceCents: 9500, description: "Consultation, exam, and your first adjustment if appropriate." },
+      { name: "Adjustment", durationMin: 15, priceCents: 5500, description: "Standard adjustment for established patients." },
+      { name: "Adjustment + soft tissue work", durationMin: 30, priceCents: 8500, description: "Adjustment with targeted muscle work for stubborn areas." },
+    ],
+    faq: [
+      { question: "Do you take insurance?", answer: "We work with most major plans — bring your card to your first visit and the front desk will verify your coverage before you're seen." },
+      { question: "Does an adjustment hurt?", answer: "Most patients find it relieving rather than painful. The doctor always examines first and only adjusts what's appropriate for you." },
+      { question: "How many visits will I need?", answer: "That's genuinely case-by-case — the doctor will lay out a plan at your first exam and you'll never be locked into anything." },
+      { question: "Can you help with headaches or sciatica?", answer: "Those are two of the most common things we treat. The first exam will tell us whether your case is one we can help with." },
+    ],
+    hours: week("09:00", "18:00", [0, 6]),
+    guardrails:
+      BASE_GUARDRAILS +
+      " Never give medical advice or promise treatment outcomes. If a caller describes numbness in the " +
+      "groin or inner thighs, loss of bladder or bowel control, or sudden severe weakness in the legs, " +
+      "treat it as an emergency: tell them to seek immediate medical care rather than book an adjustment.",
+    booking:
+      "Ask whether they're a new or returning patient — new patients get the longer first visit. Collect " +
+      "name, phone number, and what's bothering them, then read the booking back.",
+  },
+  {
+    industry: "Fitness",
+    services: [
+      { name: "Intro session & tour", durationMin: 45, priceCents: 0, description: "Free first visit: see the space, talk goals, try a workout." },
+      { name: "Personal training session", durationMin: 60, priceCents: 8500, description: "One-on-one session tailored to your goals." },
+      { name: "Small group class", durationMin: 60, priceCents: 2500, description: "Coached group session — all levels welcome, drop-ins allowed." },
+    ],
+    faq: [
+      { question: "How much is a membership?", answer: "Plans vary by how often you want to come and whether you want coaching — the free intro visit is the easiest way to get exact numbers for what you actually need." },
+      { question: "I'm a complete beginner. Is that okay?", answer: "That's who the intro session is for — every program scales down as well as up, and nobody's thrown into anything." },
+      { question: "Can I freeze or cancel my membership?", answer: "Yes — leave your name and number and the front desk will walk you through the options for your plan." },
+      { question: "Do you have showers and lockers?", answer: "Yes, both — bring a lock, or grab one at the front desk." },
+    ],
+    hours: [
+      ...week("06:00", "21:00", []).slice(0, 6),
+      { dayOfWeek: 6, isClosed: false, openTime: "08:00", closeTime: "16:00" },
+    ],
+    guardrails:
+      BASE_GUARDRAILS +
+      " Never give training, nutrition, or injury advice on the phone — book them with a coach instead. " +
+      "Don't quote membership prices beyond the listed sessions; pricing conversations happen at the " +
+      "intro visit where someone can match a plan to the person.",
+    booking:
+      "Steer new callers to the free intro session first. Collect name, phone number, and what they're " +
+      "hoping to work on, then read the booking back.",
+  },
+  {
+    industry: "Other",
+    services: [
+      { name: "Consultation", durationMin: 30, priceCents: null, description: "A conversation about what you need and how we can help." },
+      { name: "Standard appointment", durationMin: 60, priceCents: null, description: "Our regular service visit." },
+      { name: "Follow-up visit", durationMin: 30, priceCents: null, description: "A shorter return visit for existing customers." },
+    ],
+    faq: [
+      { question: "How much do you charge?", answer: "It depends on the job — leave your name and number with a quick description and we'll come back to you with a real number instead of a guess." },
+      { question: "What areas do you serve?", answer: "Tell me where you are and I'll take a message so the team can confirm we cover you." },
+      { question: "When are you open?", answer: "Our regular hours are listed here — and if you can't make them, leave a message and we'll try to work something out." },
+    ],
+    hours: week("09:00", "17:00", [0, 6]),
+    guardrails:
+      BASE_GUARDRAILS +
+      " These services and hours are placeholders the owner hasn't finished editing — if a caller asks " +
+      "about something not listed, take a message rather than improvise.",
+    booking:
+      "Collect the caller's name, phone number, and what they need, then read the booking back.",
+  },
 ];
 
 /** Validate a form-supplied industry against the known list; anything else → null. */

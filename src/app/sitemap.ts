@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { env } from "@/lib/env";
 
-const SITE_URL = process.env.APP_URL || "https://frontdesk-ai-alpha.vercel.app";
+const SITE_URL = env.APP_URL;
 
 /** Public pages only — the app surfaces are auth-gated and excluded in robots. */
 export default function sitemap(): MetadataRoute.Sitemap {

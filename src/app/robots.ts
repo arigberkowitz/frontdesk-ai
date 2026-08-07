@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { env } from "@/lib/env";
 
-const SITE_URL = process.env.APP_URL || "https://frontdesk-ai-alpha.vercel.app";
+const SITE_URL = env.APP_URL;
 
 /** Index the marketing surface; keep every tenant/app surface out of search. */
 export default function robots(): MetadataRoute.Robots {

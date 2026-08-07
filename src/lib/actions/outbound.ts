@@ -69,10 +69,22 @@ export async function callLeadWithAiAction(
     };
   }
 
+  // The agent's prompt is written for answering, so left alone it would open a
+  // call it just PLACED with "thanks for calling". Overriding the first
+  // utterance reframes the whole conversation: the model sees itself mid-call
+  // having already said it's ringing them back, and behaves accordingly.
+  const firstName = (lead.name ?? "").trim().split(/\s+/)[0];
+  const about = lead.service?.trim() || lead.reason?.trim();
+  const beginMessage =
+    `Hi${firstName ? ` ${firstName}` : ""}, this is ${client.agentName?.trim() || "the assistant"} calling back from ${client.name}` +
+    (about ? ` about the ${about.toLowerCase()} you asked about` : " — you called us earlier") +
+    `. Is now an okay time?`;
+
   try {
     const call = await getRetellClient().call.createPhoneCall({
       from_number: from,
       to_number: to,
+      agent_override: { retell_llm: { begin_message: beginMessage, start_speaker: "agent" } },
       // Read back by the post-call pipeline; also how this call is told apart
       // from one the customer placed.
       metadata: { clientId, leadId, direction: "outbound", placedBy: guard.user.id },

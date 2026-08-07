@@ -13,6 +13,19 @@ const ALL_PACKS: StarterPack[] = [DEFAULT_PACK, ...STARTER_PACKS];
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 describe("starter pack integrity", () => {
+  // The onboarding form promises "real services, hours, and FAQs for your
+  // industry" next to a dropdown of every industry. Five of the eleven fell
+  // through to the generic pack — an HVAC company got "Standard appointment
+  // $120" and none of the gas-leak guardrails written for exactly that trade.
+  it("every industry in the dropdown has its own pack", () => {
+    for (const industry of INDUSTRIES) {
+      expect(packForIndustry(industry), `${industry} falls back to the generic pack`).not.toBe(
+        DEFAULT_PACK,
+      );
+    }
+  });
+
+
   it("every pack industry is a known INDUSTRIES option, with no duplicates", () => {
     const seen = new Set<string>();
     for (const p of STARTER_PACKS) {
@@ -86,7 +99,9 @@ describe("packForIndustry", () => {
     expect(packForIndustry(null)).toBe(DEFAULT_PACK);
     expect(packForIndustry("")).toBe(DEFAULT_PACK);
     expect(packForIndustry("Space tourism")).toBe(DEFAULT_PACK);
-    expect(packForIndustry("Other")).toBe(DEFAULT_PACK);
+    // "Other" has its own pack now — one that tells the agent its content is
+    // placeholder, which the generic default never did.
+    expect(packForIndustry("Other")).not.toBe(DEFAULT_PACK);
   });
 });
 

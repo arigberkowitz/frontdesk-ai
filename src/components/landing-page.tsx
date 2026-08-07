@@ -42,8 +42,15 @@ function jsonLd() {
     offers: plans.map((p) => ({
       "@type": "Offer",
       name: p.name,
-      price: (p.monthlyPriceCents / 100).toFixed(0),
       priceCurrency: "USD",
+      // Without the billing period, search engines surfaced "$149" as the
+      // price of the product rather than the price of a month.
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        price: (p.monthlyPriceCents / 100).toFixed(0),
+        priceCurrency: "USD",
+        unitText: "MONTH",
+      },
     })),
   };
 }
