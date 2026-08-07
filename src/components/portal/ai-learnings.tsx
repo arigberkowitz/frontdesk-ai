@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Check, GraduationCap, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,13 @@ export function AiLearnings({
   canEdit?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  // Three at a time. The nightly agent can pile up a dozen of these, and a
+  // dozen approval rows shoved the actual numbers below the fold — homework
+  // before breakfast. The count in the title still says how many are waiting.
+  const [showAll, setShowAll] = useState(false);
   if (suggestions.length === 0) return null;
+  const visible = showAll ? suggestions : suggestions.slice(0, 3);
+  const hidden = suggestions.length - 3;
 
   const act = (action: (fd: FormData) => Promise<void>, suggestionId: string) => {
     const fd = new FormData();
@@ -43,7 +49,7 @@ export function AiLearnings({
         />
 
         <ul className="mt-4">
-          {suggestions.map((s) => {
+          {visible.map((s) => {
             const evidence = (s.evidence ?? {}) as { excerpt?: string };
             return (
               <li key={s.id} className="border-t py-4 first:border-t-0 first:pt-3 last:pb-0">
@@ -99,6 +105,17 @@ export function AiLearnings({
             );
           })}
         </ul>
+
+        {hidden > 0 && !showAll ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 w-full text-muted-foreground"
+            onClick={() => setShowAll(true)}
+          >
+            Show {hidden} more
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );

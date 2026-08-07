@@ -12,6 +12,7 @@ import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { PortalSettings } from "@/components/portal/portal-settings";
 import { ReceptionistPower } from "@/components/portal/receptionist-power";
 import { SetupChecklist } from "@/components/portal/setup-checklist";
+import { SupportCard } from "@/components/portal/support-card";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -60,6 +61,7 @@ export default async function PortalSettingsPage() {
         canEdit={editAccess.canEdit}
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
       />
+      <SupportCard />
     </div>
   );
 }

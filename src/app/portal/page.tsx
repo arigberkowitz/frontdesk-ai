@@ -190,27 +190,27 @@ export default async function PortalOverviewPage({
         </Card>
       ) : null}
 
-      {/* Before the first call there is nothing to report, and a dashboard of
-          zeros reports it anyway — four empty tiles and a stack of blank
-          analytics panels telling a brand-new owner "nothing is happening"
-          when the truth is "nothing has started". Until a call exists, the
-          checklist is the product. */}
-      {m.totalCalls === 0 ? (
-        <Card>
-          <CardContent className="py-5 text-sm text-muted-foreground">
-            Your numbers start with your first call. The moment your AI picks up, this page fills
-            in — revenue captured, calls answered, {v.appointments} booked, after-hours saves, and a
-            recording of every conversation.
-          </CardContent>
-        </Card>
-      ) : (
-        <>
+      {/* The tiles stay even at zero — they're the promise, the picture of
+          where the money will show up once the phone rings. What waits for the
+          first call is the analytics stack below them: ROI, recaps, call
+          health, activity. Ten blank panels don't say "coming soon", they say
+          "broken". */}
       <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
         <MetricCard icon="calls" label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} spark={m.callsByDay.map((d) => d.calls)} sparkColor="#0ea5e9" />
         <MetricCard icon="bookings" label={`${capVocab(v.appointments)} booked`} value={String(m.bookings)} href="/portal/appointments" breakdown={apptBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
         <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} className="sm:col-span-2 lg:col-span-1" />
       </div>
+
+      {m.totalCalls === 0 ? (
+        <Card>
+          <CardContent className="py-5 text-sm text-muted-foreground">
+            These fill in from your first call — every conversation adds to them, and each one comes
+            with a recording and a summary so you can hear exactly what your AI said.
+          </CardContent>
+        </Card>
+      ) : (
+        <>
 
       <AiLearnings
         clientId={clientId}

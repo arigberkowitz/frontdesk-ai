@@ -24,6 +24,27 @@ const ICONS: Partial<Record<CallProblem, typeof UserRound>> = {
   transfer_dropped: PhoneOff,
 };
 
+function HealthRow({ item, timeZone }: { item: CallHealthItem; timeZone?: string }) {
+  const lead = item.problems[0];
+  const Icon = (lead && ICONS[lead]) ?? AlertTriangle;
+  return (
+    <li>
+      <Link
+        href={`/portal/calls/${item.id}`}
+        className="flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-muted/50"
+      >
+        <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm">{item.notes[0]}</p>
+          <p className="text-xs text-muted-foreground">
+            {formatPhone(item.fromNumber)} · {formatDateTime(item.startAt, timeZone)}
+          </p>
+        </div>
+      </Link>
+    </li>
+  );
+}
+
 export interface CallWaste {
   calls: number;
   seconds: number;
@@ -147,28 +168,27 @@ export function CallHealthPanel({
               </p>
             ) : null}
 
+            {/* Three calls, then a fold. On a rough week this list ran the
+                whole page — and a wall of failures reads as "it's all broken"
+                when the count above already tells the true story. */}
             <ul className="divide-y rounded-lg border">
-              {items.map((item) => {
-                const lead = item.problems[0];
-                const Icon = (lead && ICONS[lead]) ?? AlertTriangle;
-                return (
-                  <li key={item.id}>
-                    <Link
-                      href={`/portal/calls/${item.id}`}
-                      className="flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-muted/50"
-                    >
-                      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm">{item.notes[0]}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatPhone(item.fromNumber)} · {formatDateTime(item.startAt, timeZone)}
-                        </p>
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
+              {items.slice(0, 3).map((item) => (
+                <HealthRow key={item.id} item={item} timeZone={timeZone} />
+              ))}
             </ul>
+            {items.length > 3 ? (
+              <details className="group">
+                <summary className="cursor-pointer list-none py-1 text-center text-sm text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+                  <span className="group-open:hidden">Show {items.length - 3} more</span>
+                  <span className="hidden group-open:inline">Show fewer</span>
+                </summary>
+                <ul className="divide-y rounded-lg border">
+                  {items.slice(3).map((item) => (
+                    <HealthRow key={item.id} item={item} timeZone={timeZone} />
+                  ))}
+                </ul>
+              </details>
+            ) : null}
           </>
         )}
 
