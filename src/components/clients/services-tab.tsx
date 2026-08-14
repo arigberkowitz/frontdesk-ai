@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Clock, Pencil, Plus, Users, Video } from "lucide-react";
 import { toast } from "sonner";
 import {
   createServiceAction,
@@ -133,10 +133,33 @@ function ServiceDialog({ clientId, service }: { clientId: string; service?: Serv
   );
 }
 
+/** "$1,000" reads as a fee; "Free" reads as an invitation. Render the price
+ *  the way the AI quotes it on a call. */
+function PriceTag({ cents }: { cents: number | null }) {
+  if (cents == null) return null;
+  if (cents === 0) {
+    return (
+      <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+        Free
+      </span>
+    );
+  }
+  return (
+    <span className="font-heading text-xl font-semibold tracking-tight">
+      {formatCurrencyCents(cents)}
+    </span>
+  );
+}
+
 export function ServicesTab({ clientId, services }: { clientId: string; services: Service[] }) {
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {services.length > 0
+            ? `${services.length} service${services.length === 1 ? "" : "s"} — your AI offers these and quotes these prices on every call.`
+            : ""}
+        </p>
         <ServiceDialog clientId={clientId} />
       </div>
       {services.length === 0 ? (
@@ -146,32 +169,69 @@ export function ServicesTab({ clientId, services }: { clientId: string; services
           description="Add the services callers can book so the AI can offer and schedule them."
         />
       ) : (
-        <ul className="divide-y rounded-xl border">
+        <ul className="grid gap-4 sm:grid-cols-2">
           {services.map((s) => (
-            <li key={s.id} className="flex items-center justify-between gap-3 p-4">
-              <div className="min-w-0">
-                <p className="font-medium">
+            <li
+              key={s.id}
+              className={`fd-lift group flex flex-col rounded-2xl border bg-card p-5 ${
+                !s.isActive ? "opacity-60" : ""
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="min-w-0 truncate font-medium text-base">
                   {s.name}
-                  {!s.isActive ? <span className="ml-2 text-xs text-muted-foreground">(inactive)</span> : null}
+                  {!s.isActive ? (
+                    <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 align-middle text-xs font-medium text-amber-600 dark:text-amber-400">
+                      Paused
+                    </span>
+                  ) : null}
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  {s.durationMin} min{s.priceCents != null ? ` · ${formatCurrencyCents(s.priceCents)}` : ""}
-                  {s.description ? ` · ${s.description}` : ""}
-                </p>
+                {/* Quiet until you look at the card — the page is for reading
+                    your menu, not for staring at rows of pencils. */}
+                <div className="flex shrink-0 items-center gap-0.5 opacity-45 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  <ServiceDialog clientId={clientId} service={s} />
+                  <ConfirmDelete
+                    title={`Delete ${s.name}?`}
+                    description="Your receptionist will stop offering this service and quoting its price. Existing appointments keep it."
+                    triggerLabel={`Delete ${s.name}`}
+                  >
+                    <form action={deleteServiceAction}>
+                      <input type="hidden" name="clientId" value={clientId} />
+                      <input type="hidden" name="serviceId" value={s.id} />
+                      <ConfirmDeleteAction type="submit">Delete</ConfirmDeleteAction>
+                    </form>
+                  </ConfirmDelete>
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <ServiceDialog clientId={clientId} service={s} />
-                <ConfirmDelete
-                  title={`Delete ${s.name}?`}
-                  description="Your receptionist will stop offering this service and quoting its price. Existing appointments keep it."
-                  triggerLabel={`Delete ${s.name}`}
-                >
-                  <form action={deleteServiceAction}>
-                    <input type="hidden" name="clientId" value={clientId} />
-                    <input type="hidden" name="serviceId" value={s.id} />
-                    <ConfirmDeleteAction type="submit">Delete</ConfirmDeleteAction>
-                  </form>
-                </ConfirmDelete>
+
+              {s.description ? (
+                <p className="mb-4 mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                  {s.description}
+                </p>
+              ) : (
+                <div className="mb-4" />
+              )}
+
+              <div className="mt-auto flex items-center justify-between gap-2 border-t pt-4">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                    <Clock className="size-3.5" />
+                    {s.durationMin} min
+                  </span>
+                  {s.virtualOk ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-600 dark:text-sky-400">
+                      <Video className="size-3.5" />
+                      Video OK
+                    </span>
+                  ) : null}
+                  {(s.providerCount ?? 1) > 1 ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                      <Users className="size-3.5" />
+                      {s.providerCount} at once
+                    </span>
+                  ) : null}
+                </div>
+                <PriceTag cents={s.priceCents} />
               </div>
             </li>
           ))}
