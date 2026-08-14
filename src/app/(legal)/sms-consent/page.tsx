@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${env.APP_URL.replace(/\/$/, "")}/sms-consent` },
 };
 
-const UPDATED = "July 30, 2026";
+const UPDATED = "August 14, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -61,7 +61,9 @@ export default function SmsConsentPage() {
             The caller provides their number and agrees on the call before any message is sent.
             A caller who texts the business&rsquo;s number first also consents to receive a reply
             to that message. Consent is collected per business — opting in with one business does
-            not opt you in with any other.
+            not opt you in with any other. Messages are delivered from a FrontDesk AI messaging
+            number operated on behalf of the business, and every message names the business it is
+            sent for.
           </p>
         </Section>
 
@@ -83,7 +85,10 @@ export default function SmsConsentPage() {
           <p>
             Reply <strong>STOP</strong> to any message to opt out — you&rsquo;ll receive one final
             confirmation that you&rsquo;ve been unsubscribed, and no further messages will be sent.
-            Reply <strong>START</strong> to re-subscribe. Reply <strong>HELP</strong> for help, or
+            Because messages for participating businesses are delivered from a shared FrontDesk AI
+            messaging number, replying STOP stops texts sent through that number on behalf of{" "}
+            <strong>any</strong> participating business, until you reply START. Reply{" "}
+            <strong>START</strong> to re-subscribe. Reply <strong>HELP</strong> for help, or
             contact the business directly at the number shown in the message.
           </p>
         </Section>
