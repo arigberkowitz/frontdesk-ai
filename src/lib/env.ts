@@ -57,6 +57,10 @@ export const env = {
     (process.env.NODE_ENV === "production" ? "" : "dev-agent-tools-secret"),
   // Secret protecting the digest cron endpoint (digests disabled until set).
   CRON_SECRET: process.env.CRON_SECRET ?? "",
+  // Where the morning health check sends its "something is wrong" email. The
+  // default is the operator's real inbox on purpose: an alert address that
+  // needs configuring before it works is itself a silent failure.
+  ALERT_EMAIL: process.env.ALERT_EMAIL ?? "arigberkowitz@gmail.com",
   // The comp code: hand it to a business you know and they get the full
   // product free, indefinitely, with no card and no approval step. Deliberately
   // not in the database — nothing that grants free access forever should sit in
