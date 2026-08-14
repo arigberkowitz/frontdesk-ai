@@ -176,10 +176,11 @@ export default function PrivacyPage() {
         <Section title="7. Retention">
           <p>
             We keep call recordings, transcripts, and business data while the business&rsquo;s
-            account is active and for a reasonable period afterwards, after which they are deleted
-            or de-identified. Businesses can delete individual records (leads, knowledge, and so
-            on) from their dashboard at any time; deleted records are removed from active systems
-            promptly and from backups on a rolling basis.
+            account is active. Once an account closes or is deleted, its remaining records —
+            including call transcripts, leads, and appointment history — are deleted by an
+            automated job after a 90-day grace period. Businesses can delete individual records
+            (leads, knowledge, and so on) from their dashboard at any time; deleted records are
+            removed from active systems promptly and from backups on a rolling basis.
           </p>
         </Section>
 
