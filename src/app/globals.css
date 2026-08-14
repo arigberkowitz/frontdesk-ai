@@ -230,3 +230,130 @@
 @media (prefers-reduced-motion: reduce) {
   .fd-live-dot::after { animation: none; }
 }
+
+/* ----------------------------------------------------------------------------
+ * The dark stage — hero + closing CTA render inside a deep-navy rounded panel
+ * so the page opens and closes with drama while the sticky header and the
+ * reading sections stay light. Aurora blobs drift behind the content; a faint
+ * dot grid gives the surface texture. Everything decorative animates slowly
+ * and switches off under prefers-reduced-motion.
+ * ------------------------------------------------------------------------- */
+.fd-stage {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(80rem 40rem at 70% -10%, rgb(99 102 241 / 0.28), transparent 60%),
+    radial-gradient(60rem 32rem at 8% 108%, rgb(16 185 129 / 0.18), transparent 60%),
+    linear-gradient(165deg, #0b1120 0%, #101830 55%, #0b1120 100%);
+  color: #f6f7fb;
+}
+.fd-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgb(255 255 255 / 0.055) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, black 30%, transparent 75%);
+}
+.fd-stage .fd-section-label { color: rgb(226 230 245 / 0.55); }
+
+.fd-aurora {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  pointer-events: none;
+  animation: fd-aurora-drift 16s ease-in-out infinite alternate;
+}
+@keyframes fd-aurora-drift {
+  from { transform: translate3d(-4%, -2%, 0) scale(1); }
+  to { transform: translate3d(4%, 5%, 0) scale(1.12); }
+}
+
+/* Big gradient CTA — the one button on the page allowed to glow. */
+.fd-cta-glow {
+  background: linear-gradient(120deg, #6366f1, #8b5cf6 55%, #6366f1) !important;
+  background-size: 180% 100% !important;
+  color: #fff !important;
+  border: 0 !important;
+  box-shadow: 0 8px 30px rgb(99 102 241 / 0.45);
+  transition: background-position 0.4s ease, box-shadow 0.3s ease, transform 0.2s ease;
+}
+.fd-cta-glow:hover {
+  background-position: 100% 0 !important;
+  box-shadow: 0 10px 38px rgb(99 102 241 / 0.6);
+  transform: translateY(-1px);
+}
+
+/* Ghost button that reads on the dark stage. */
+.fd-cta-ghost {
+  background: rgb(255 255 255 / 0.07) !important;
+  color: #f6f7fb !important;
+  border: 1px solid rgb(255 255 255 / 0.18) !important;
+  backdrop-filter: blur(6px);
+}
+.fd-cta-ghost:hover { background: rgb(255 255 255 / 0.14) !important; }
+
+/* Headline accent — ink turning to signal. */
+.fd-gradient-text {
+  background: linear-gradient(100deg, #818cf8 0%, #a78bfa 45%, #34d399 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Value cards: the border itself lights up on hover. */
+.fd-card-glow {
+  position: relative;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.fd-card-glow::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgb(99 102 241 / 0.55), rgb(16 185 129 / 0.45));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.fd-card-glow:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgb(79 70 229 / 0.12);
+}
+.fd-card-glow:hover::after { opacity: 1; }
+
+/* The featured pricing card wears a standing gradient ring + soft halo. */
+.fd-ring-gradient {
+  border-color: transparent !important;
+  background:
+    linear-gradient(var(--color-card), var(--color-card)) padding-box,
+    linear-gradient(150deg, #6366f1, #8b5cf6 50%, #10b981) border-box !important;
+  border-width: 1.5px;
+  box-shadow: 0 12px 44px rgb(99 102 241 / 0.22);
+}
+
+/* Step numbers: gradient coins with a connector rail behind them. */
+.fd-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 1.125rem;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  box-shadow: 0 6px 18px rgb(99 102 241 / 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-aurora { animation: none; }
+  .fd-cta-glow, .fd-cta-ghost, .fd-card-glow { transition: none; }
+  .fd-card-glow:hover { transform: none; }
+}
