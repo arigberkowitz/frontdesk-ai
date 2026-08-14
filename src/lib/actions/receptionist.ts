@@ -7,6 +7,7 @@ import { clients } from "@/db/schema";
 import { audit } from "@/lib/data/audit";
 import { assertClientAccess } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
+import { planAccessFor, UPGRADE_MESSAGES } from "@/lib/plan-access";
 import { syncAgentPrompt } from "@/lib/agent-publish";
 import { logger } from "@/lib/logger";
 import { type ActionState } from "./types";
@@ -87,6 +88,15 @@ export async function setAnsweringModeAction(
     return { ok: false, error: "Only your admin can change how calls are answered." };
   }
   await assertClientInOrg(user.orgId, clientId);
+
+  // 24/7 answering is what Starter and up buy; Missed-Call Rescue is the
+  // missed-calls tier by definition.
+  if (mode === "all_calls") {
+    const existing = await db.query.clients.findFirst({ where: eq(clients.id, clientId) });
+    if (existing && !(await planAccessFor(existing)).has("all_calls")) {
+      return { ok: false, error: UPGRADE_MESSAGES.all_calls };
+    }
+  }
 
   await db.update(clients).set({ answeringMode: mode }).where(eq(clients.id, clientId));
 

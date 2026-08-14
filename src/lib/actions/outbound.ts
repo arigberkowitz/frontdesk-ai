@@ -7,6 +7,7 @@ import { assertClientInOrg, getClientByIdUnsafe } from "@/lib/data/clients";
 import { getClientLead } from "@/lib/data/leads";
 import { createReminder } from "@/lib/data/reminders";
 import { getRetellClient } from "@/lib/retell";
+import { planAccessFor, UPGRADE_MESSAGES } from "@/lib/plan-access";
 import { withinTextingHours } from "@/lib/appointment-messages";
 import { integrations } from "@/lib/env";
 import { toE164, formatPhone } from "@/lib/format";
@@ -50,6 +51,10 @@ export async function callLeadWithAiAction(
 
   const client = await getClientByIdUnsafe(clientId);
   if (!client) return { ok: false, error: "Business not found." };
+
+  if (!(await planAccessFor(client)).has("outbound_ai_calls")) {
+    return { ok: false, error: UPGRADE_MESSAGES.outbound_ai_calls };
+  }
 
   // Your AI calls from your number, so their phone shows the business they
   // rang — and a callback to it reaches the receptionist rather than nothing.

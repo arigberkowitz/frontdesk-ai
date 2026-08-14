@@ -7,6 +7,7 @@ import { clients, providers } from "@/db/schema";
 import { assertClientAccess, requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
+import { planAccessFor, UPGRADE_MESSAGES } from "@/lib/plan-access";
 import { toE164 } from "@/lib/format";
 import { type ActionState } from "./types";
 
@@ -24,6 +25,12 @@ export async function setStaffModeAction(
     return { ok: false, error: "Only your admin can change staff mode." };
   }
   await assertClientInOrg(user.orgId, clientId);
+  if (enabled) {
+    const client = await db.query.clients.findFirst({ where: eq(clients.id, clientId) });
+    if (client && !(await planAccessFor(client)).has("staff_mode")) {
+      return { ok: false, error: UPGRADE_MESSAGES.staff_mode };
+    }
+  }
   await db.update(clients).set({ staffModeEnabled: enabled }).where(eq(clients.id, clientId));
   await applyClientEdit(user, clientId); // the live agent starts/stops offering "who would you like to see?"
   return {

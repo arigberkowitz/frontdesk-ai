@@ -52,7 +52,12 @@ export const PLANS: Record<PlanKey, Plan> = {
     listed: true,
     includedMinutes: 500,
     description: "Single-location businesses getting started with 24/7 coverage.",
-    highlights: ["24/7 AI receptionist", "Appointment booking", "Lead capture", "Instant owner alerts"],
+    highlights: [
+      "24/7 AI receptionist — every call answered",
+      "Appointment booking + confirmation texts",
+      "Lead capture & instant owner alerts",
+      "English & Spanish, automatically",
+    ],
   },
   pro: {
     key: "pro",
@@ -61,13 +66,13 @@ export const PLANS: Record<PlanKey, Plan> = {
     setupFeeCents: 0,
     listed: true,
     includedMinutes: null,
-    description: "High call volume, richer reporting, and someone who answers when you write in.",
+    description: "The receptionist that calls back, books by team member, and tunes itself nightly.",
     highlights: [
       "Everything in Starter",
-      "Daily & weekly digests",
-      "ROI dashboard",
-      "Custom escalation rules",
-      "Priority support & prompt tuning",
+      "AI calls your leads back",
+      "Staff mode — team members with their own calendars",
+      "Nightly AI self-review & tuning of your receptionist",
+      "Priority support",
     ],
   },
   // Retired: folded into Pro. Kept defined, and only defined, so any

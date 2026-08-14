@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { agentRuns, calls, callGrades, clients, users, type Client } from "@/db/schema";
 import { CRITIC_MODEL, getAnthropic, toolInput } from "./anthropic";
 import { clientsAlreadyRun, mapLimit, outOfBudget } from "./util";
+import { filterByFeature } from "@/lib/plan-access";
 import { notifyOperatorComplianceRisk } from "@/lib/notify";
 import { logger } from "@/lib/logger";
 
@@ -228,9 +229,11 @@ export async function qaReviewClient(client: Client, sinceHours = 24): Promise<Q
  *  where they left off on the next trigger. */
 export async function runQaReview(sinceHours = 24, budgetMs = 240_000): Promise<QaResult[]> {
   const deadline = Date.now() + budgetMs;
-  const active = await db.query.clients.findMany({
+  const candidates = await db.query.clients.findMany({
     where: and(inArray(clients.status, ["live", "trial"]), isNull(clients.deletedAt)),
   });
+  // Batch QA grading rides with nightly improvement: a Pro-tier feature.
+  const active = await filterByFeature(candidates, "ai_improvement");
   const done = await clientsAlreadyRun(active.map((c) => c.id), "qa_review");
   return mapLimit(active, 3, async (client) => {
     const base: QaResult = { clientId: client.id, clientName: client.name, graded: 0, flagged: 0 };

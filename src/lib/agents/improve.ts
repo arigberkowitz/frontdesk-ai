@@ -14,6 +14,7 @@ import {
 } from "@/db/schema";
 import { CRITIC_MODEL, DRAFT_MODEL, getAnthropic, toolInput } from "./anthropic";
 import { clientsAlreadyRun, mapLimit, outOfBudget } from "./util";
+import { filterByFeature } from "@/lib/plan-access";
 import { notifyOwnerLearnings } from "@/lib/notify";
 import { logger } from "@/lib/logger";
 
@@ -385,9 +386,11 @@ export async function runNightlyImprovement(
   budgetMs = 240_000,
 ): Promise<ImproveResult[]> {
   const deadline = Date.now() + budgetMs;
-  const active = await db.query.clients.findMany({
+  const candidates = await db.query.clients.findMany({
     where: and(inArray(clients.status, ["live", "trial"]), isNull(clients.deletedAt)),
   });
+  // Nightly self-improvement is part of what Pro buys (trials/comps included).
+  const active = await filterByFeature(candidates, "ai_improvement");
   const done = await clientsAlreadyRun(active.map((c) => c.id), "nightly_improve");
   return mapLimit(active, 3, async (client) => {
     const base: ImproveResult = {
