@@ -159,10 +159,47 @@ export function issuesFromCalls(rows: CallRow[]): HealthIssue[] {
   });
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/[<>&]/g, (c) => (c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;"));
+}
+
+/** The same shell every other operator email wears — dark brand bar, readable
+ *  sections, one button. A watcher that emails in bare monospace reads like a
+ *  crash log; this reads like the product checking in. */
+function healthEmailHtml(opts: {
+  critical: HealthIssue[];
+  warnings: HealthIssue[];
+  now: Date;
+  appUrl: string;
+}): string {
+  const section = (title: string, color: string, items: HealthIssue[]) =>
+    items.length === 0
+      ? ""
+      : `<p style="margin:18px 0 6px;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:${color}">${title}</p>
+  ${items
+    .map(
+      (i) =>
+        `<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#1f2937">• ${escapeHtml(i.line)}</p>`,
+    )
+    .join("\n  ")}`;
+  return `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto">
+  <div style="background:#0b1120;border-radius:12px 12px 0 0;padding:16px 24px">
+    <span style="color:#fff;font-size:16px;font-weight:600">FrontDesk AI</span>
+    <span style="color:#8b95ad;font-size:13px"> · morning health check</span>
+  </div>
+  <div style="border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;padding:20px 24px 24px">
+    ${section("Needs fixing today", "#dc2626", opts.critical)}
+    ${section("Worth a look", "#d97706", opts.warnings)}
+    <a href="${opts.appUrl}/dashboard" style="display:inline-block;margin-top:16px;background:#0b1120;color:#fff;text-decoration:none;font-size:14px;font-weight:500;padding:10px 18px;border-radius:8px">Open dashboard</a>
+    <p style="color:#9ca3af;font-size:12px;margin:20px 0 0">${opts.now.toISOString().slice(0, 10)} — you only get this email when something needs attention, plus a Monday all-clear.</p>
+  </div>
+</div>`;
+}
+
 export function renderHealthEmail(
   issues: HealthIssue[],
   opts: { now: Date; appUrl: string },
-): { subject: string; text: string } {
+): { subject: string; text: string; html: string } {
   const critical = issues.filter((i) => i.severity === "critical");
   const warnings = issues.filter((i) => i.severity === "warning");
   const subject =
@@ -184,7 +221,11 @@ export function renderHealthEmail(
   lines.push(
     `— automated morning health check, ${opts.now.toISOString().slice(0, 10)}. You only get this email when something needs attention (plus a Monday all-clear).`,
   );
-  return { subject, text: lines.join("\n") };
+  return {
+    subject,
+    text: lines.join("\n"),
+    html: healthEmailHtml({ critical, warnings, now: opts.now, appUrl: opts.appUrl }),
+  };
 }
 
 /* ------------------------------ the sweep ------------------------------- */
@@ -252,15 +293,26 @@ export async function runHealthCheck(now = new Date()): Promise<HealthCheckResul
   let emailed = false;
   let emailError: string | undefined;
   if (issues.length > 0) {
-    const { subject, text } = renderHealthEmail(issues, { now, appUrl: env.APP_URL });
-    const sent = await notifier.sendEmail({ to: env.ALERT_EMAIL, subject, text });
+    const { subject, text, html } = renderHealthEmail(issues, { now, appUrl: env.APP_URL });
+    const sent = await notifier.sendEmail({ to: env.ALERT_EMAIL, subject, text, html });
     emailed = sent.ok;
     if (!sent.ok && !sent.skipped) emailError = sent.error;
   } else if (mondayAllClear) {
+    const allClearText = `Nothing needed your attention this week — texts sending, webhooks processing, calls healthy, no trials expiring.\n\n— automated morning health check, ${now.toISOString().slice(0, 10)}.`;
     const sent = await notifier.sendEmail({
       to: env.ALERT_EMAIL,
       subject: "FrontDesk AI: all clear",
-      text: `Nothing needed your attention this week — texts sending, webhooks processing, calls healthy, no trials expiring.\n\n— automated morning health check, ${now.toISOString().slice(0, 10)}.`,
+      text: allClearText,
+      html: `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto">
+  <div style="background:#0b1120;border-radius:12px 12px 0 0;padding:16px 24px">
+    <span style="color:#fff;font-size:16px;font-weight:600">FrontDesk AI</span>
+    <span style="color:#8b95ad;font-size:13px"> · morning health check</span>
+  </div>
+  <div style="border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px;padding:20px 24px 24px">
+    <p style="margin:0;font-size:15px;line-height:1.5;color:#1f2937"><strong style="color:#059669">All clear.</strong> Nothing needed your attention this week — texts sending, webhooks processing, calls healthy, no trials expiring.</p>
+    <p style="color:#9ca3af;font-size:12px;margin:20px 0 0">${now.toISOString().slice(0, 10)} — weekly proof-of-life from your morning health check.</p>
+  </div>
+</div>`,
     });
     emailed = sent.ok;
     if (!sent.ok && !sent.skipped) emailError = sent.error;

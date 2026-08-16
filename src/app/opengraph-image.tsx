@@ -17,7 +17,12 @@ export default function OgImage() {
           flexDirection: "column",
           justifyContent: "space-between",
           padding: 72,
-          backgroundColor: "#11131c",
+          // The landing page's dark stage: navy base with the same indigo and
+          // emerald aurora glows, so the link preview and the page it opens
+          // are recognizably one thing.
+          backgroundColor: "#0b1120",
+          backgroundImage:
+            "radial-gradient(900px 500px at 75% -10%, rgba(99,102,241,0.35), transparent 60%), radial-gradient(700px 400px at 5% 110%, rgba(16,185,129,0.22), transparent 60%)",
           color: "#fff",
           fontFamily: "Georgia, serif",
         }}
@@ -62,8 +67,31 @@ export default function OgImage() {
           </div>
         </div>
 
-        <div style={{ fontSize: 30, color: "#9ca3af", fontFamily: "Arial, sans-serif" }}>
-          The AI receptionist for local business — answers, books, and captures leads 24/7.
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontFamily: "Arial, sans-serif",
+          }}
+        >
+          <div style={{ fontSize: 28, color: "#9ca3af", maxWidth: 720 }}>
+            The AI receptionist for local business — answers, books, and captures leads 24/7.
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              fontSize: 22,
+              color: "#c7d2fe",
+              border: "1px solid rgba(255,255,255,0.18)",
+              backgroundColor: "rgba(255,255,255,0.06)",
+              borderRadius: 999,
+              padding: "12px 24px",
+            }}
+          >
+            3 weeks free · no card
+          </div>
         </div>
       </div>
     ),
