@@ -357,3 +357,42 @@
   .fd-cta-glow, .fd-cta-ghost, .fd-card-glow { transition: none; }
   .fd-card-glow:hover { transform: none; }
 }
+
+/* ----------------------------------------------------------------------------
+ * Finish work — the details that separate "styled" from "finished".
+ * ------------------------------------------------------------------------- */
+
+/* Anchor links (#how, #pricing) glide instead of jumping. */
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* Slim, quiet scrollbars on long transcripts and tables — the default chunky
+   gutter is the loudest unstyled element left in any app. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* The expandable rows (calls, trials, "show more") are native <summary>
+   elements — keyboard users get the same focus ring buttons have, instead of
+   the browser's default outline or, worse, nothing. */
+summary:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+  border-radius: 0.75rem;
+}
