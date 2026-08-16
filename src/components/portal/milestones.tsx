@@ -80,7 +80,7 @@ export function Milestones({
                 <span>
                   {r.achieved ? (
                     <span className="font-medium text-amber-600 dark:text-amber-400">
-                      🏆 {r.achieved}
+                      {r.achieved}
                     </span>
                   ) : (
                     "first milestone ahead"

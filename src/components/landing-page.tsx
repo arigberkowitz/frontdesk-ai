@@ -7,7 +7,6 @@ import {
   Languages,
   MessageSquare,
   Phone,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DemoCall } from "@/components/demo-call";
@@ -117,7 +116,7 @@ export function LandingPage() {
             <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-5 pb-16 pt-14 sm:px-8 lg:grid-cols-[1.05fr_1fr] lg:gap-14 lg:pb-20 lg:pt-24">
               <div className="text-center lg:text-left">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs font-medium text-indigo-200 backdrop-blur">
-                  <Sparkles className="size-3.5" /> AI receptionist for local business
+                  <Phone className="size-3.5" /> AI receptionist for local business
                 </span>
                 <h1 className="mt-5 font-heading text-5xl font-semibold leading-[1.02] tracking-[-0.025em] text-white sm:text-6xl lg:text-7xl">
                   Never miss

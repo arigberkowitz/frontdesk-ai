@@ -35,6 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { formatPhone } from "@/lib/format";
 import {
   tzDateLong,
   tzDateTime,
@@ -360,7 +361,7 @@ export function AppointmentsView({
                   <p className="text-sm text-muted-foreground">
                     {a.serviceName ? `${a.serviceName} · ` : ""}
                     {tzDateTime(a.date, timeZone)}
-                    {a.customerPhone ? ` · ${a.customerPhone}` : ""}
+                    {a.customerPhone ? ` · ${formatPhone(a.customerPhone)}` : ""}
                   </p>
                 </div>
                 <Badge variant="secondary" className="capitalize">
@@ -398,7 +399,9 @@ export function AppointmentsView({
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-muted-foreground">Phone</dt>
-                  <dd className="font-medium tabular-nums">{selected.customerPhone ?? "—"}</dd>
+                  <dd className="font-medium tabular-nums">
+                    {selected.customerPhone ? formatPhone(selected.customerPhone) : "—"}
+                  </dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-muted-foreground">Status</dt>
