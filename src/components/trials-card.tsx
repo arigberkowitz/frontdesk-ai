@@ -2,7 +2,7 @@
 
 import { useActionState, startTransition } from "react";
 import Link from "next/link";
-import { Check, RefreshCw, Ticket, X } from "lucide-react";
+import { Check, ChevronDown, RefreshCw, Ticket, X } from "lucide-react";
 import { TRIAL_DAYS } from "@/config/plans";
 import { toast } from "sonner";
 import {
@@ -14,7 +14,6 @@ import {
   setTrialCodeAction,
 } from "@/lib/actions/trial";
 import { initialActionState, type ActionState } from "@/lib/actions/types";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
@@ -71,18 +70,40 @@ export function TrialsCard({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
 
+  // The card earns the top of the dashboard only when something in it needs a
+  // decision. The rest of the time it folds to one line — this page is for
+  // the numbers, not for re-reading your own trial code every morning.
+  const needsAttention = pending.length > 0;
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Ticket className="size-4" /> Free trials
-        </CardTitle>
-        <CardDescription>
-          Everyone who signs up already gets {TRIAL_DAYS} days free with no card. These codes are for
-          the exceptions: extending someone, or putting a business you know on the house for good.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <details
+      open={needsAttention}
+      className="group rounded-xl border bg-card text-card-foreground shadow-sm"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-2.5 px-6 py-4 [&::-webkit-details-marker]:hidden">
+        <Ticket className="size-4" />
+        <span className="font-heading font-semibold">Free trials</span>
+        {needsAttention ? (
+          <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+            {pending.length} request{pending.length === 1 ? "" : "s"} waiting
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">
+            {active.length > 0
+              ? `${active.length} on trial`
+              : code
+                ? "codes & approvals"
+                : "no code yet"}
+          </span>
+        )}
+        <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="space-y-4 border-t px-6 py-5">
+        <p className="text-sm text-muted-foreground">
+          Everyone who signs up already gets {TRIAL_DAYS} days free with no card. These codes are
+          for the exceptions: extending someone, or putting a business you know on the house for
+          good.
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">Your code:</span>
           {code ? (
@@ -262,7 +283,7 @@ export function TrialsCard({
             No requests yet. Share the code with a business you want to win over.
           </p>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </details>
   );
 }

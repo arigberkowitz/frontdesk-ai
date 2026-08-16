@@ -178,6 +178,20 @@ export default async function PortalOverviewPage({
         </Card>
       ) : null}
 
+      {/* The tiles stay even at zero — they're the promise, the picture of
+          where the money will show up once the phone rings. What waits for the
+          first call is the analytics stack below them: ROI, recaps, call
+          health, activity. Ten blank panels don't say "coming soon", they say
+          "broken". The numbers also come BEFORE the advisory cards now — a
+          returning owner opens this page to see what happened, not to be
+          re-shown suggestions they've already scrolled past twice. */}
+      <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
+        <MetricCard icon="calls" label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} spark={m.callsByDay.map((d) => d.calls)} sparkColor="#0ea5e9" />
+        <MetricCard icon="bookings" label={`${capVocab(v.appointments)} booked`} value={String(m.bookings)} href="/portal/appointments" breakdown={apptBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
+        <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} className="sm:col-span-2 lg:col-span-1" />
+      </div>
+
       <SetupChecklist
         clientId={clientId}
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
@@ -200,18 +214,6 @@ export default async function PortalOverviewPage({
           </CardContent>
         </Card>
       ) : null}
-
-      {/* The tiles stay even at zero — they're the promise, the picture of
-          where the money will show up once the phone rings. What waits for the
-          first call is the analytics stack below them: ROI, recaps, call
-          health, activity. Ten blank panels don't say "coming soon", they say
-          "broken". */}
-      <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
-        <MetricCard icon="calls" label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} spark={m.callsByDay.map((d) => d.calls)} sparkColor="#0ea5e9" />
-        <MetricCard icon="bookings" label={`${capVocab(v.appointments)} booked`} value={String(m.bookings)} href="/portal/appointments" breakdown={apptBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
-        <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} className="sm:col-span-2 lg:col-span-1" />
-      </div>
 
       {m.totalCalls === 0 ? (
         <Card>

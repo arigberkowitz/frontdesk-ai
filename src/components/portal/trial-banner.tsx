@@ -18,18 +18,15 @@ export function TrialBanner({ state }: { state: TrialState }) {
   if (state.subscribed) return null;
 
   if (state.comped) {
+    // Permanent good news doesn't need a billboard. One quiet line, forever.
     return (
-      <Card className="border-emerald-500/40 bg-emerald-500/5">
-        <CardContent className="flex items-start gap-3 py-4">
-          <Gift className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-          <p className="text-sm">
-            <span className="font-medium">You&apos;re on the house.</span>{" "}
-            <span className="text-muted-foreground">
-              Full product, no time limit, nothing to pay. Nobody is going to ask you for a card.
-            </span>
-          </p>
-        </CardContent>
-      </Card>
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Gift className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+        <span>
+          <span className="font-medium text-foreground">You&apos;re on the house</span> — full
+          product, nothing to pay, nobody will ask for a card.
+        </span>
+      </p>
     );
   }
 

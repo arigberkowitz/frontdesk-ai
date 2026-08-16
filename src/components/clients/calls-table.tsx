@@ -1,13 +1,5 @@
 import Link from "next/link";
-import { Moon, Phone } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ChevronDown, Moon, Phone, PhoneOutgoing } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { formatDateTime, formatDuration, formatPhone } from "@/lib/format";
@@ -26,6 +18,22 @@ const OUTCOME_COLOR: Record<CallOutcome, string> = {
   other: CHART_COLORS.other,
 };
 
+const SENTIMENT: Record<string, { label: string; dot: string }> = {
+  positive: { label: "Happy caller", dot: "bg-emerald-500" },
+  neutral: { label: "Neutral", dot: "bg-slate-400" },
+  negative: { label: "Frustrated caller", dot: "bg-rose-500" },
+};
+
+/**
+ * The call log, readable without leaving it.
+ *
+ * This was a four-column gray table where every row was a date and a phone
+ * number, and finding out what actually HAPPENED on a call meant clicking
+ * through to a detail page and back, once per call. Each row now expands in
+ * place — the AI's one-line summary, the recording playable right there, and
+ * the full transcript a link away. Rows stay scannable when closed: time,
+ * caller, length, outcome, and how the caller felt.
+ */
 export function CallsTable({
   clientId,
   calls,
@@ -49,51 +57,106 @@ export function CallsTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>When</TableHead>
-            <TableHead className="hidden sm:table-cell">From</TableHead>
-            <TableHead className="hidden md:table-cell">Length</TableHead>
-            <TableHead>Outcome</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {calls.map((c) => (
-            <TableRow key={c.id}>
-              <TableCell>
-                <Link href={hrefFor(c.id)} className="hover:underline">
-                  {formatDateTime(c.startAt, timezone)}
-                </Link>
-                {c.isAfterHours ? (
-                  <Moon className="ml-1 inline size-3.5 text-muted-foreground" aria-label="After hours" />
-                ) : null}
-              </TableCell>
-              <TableCell className="hidden text-muted-foreground sm:table-cell">
-                {formatPhone(c.fromNumber)}
-              </TableCell>
-              <TableCell className="hidden text-muted-foreground md:table-cell">
-                {formatDuration(c.durationSec)}
-              </TableCell>
-              <TableCell>
-                {c.outcome ? (
-                  <Badge variant="outline" className="gap-1.5">
-                    <span
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ background: OUTCOME_COLOR[c.outcome] }}
-                      aria-hidden="true"
-                    />
-                    {CALL_OUTCOME_LABELS[c.outcome]}
-                  </Badge>
+    <ul className="space-y-2">
+      {calls.map((c) => {
+        const sentiment = c.sentiment ? SENTIMENT[c.sentiment] : null;
+        const hasBody = Boolean(c.summary || c.recordingUrl);
+        const header = (
+          <>
+            <span className="min-w-0">
+              <span className="font-medium">{formatDateTime(c.startAt, timezone)}</span>
+              {c.isAfterHours ? (
+                <Moon
+                  className="ml-1.5 inline size-3.5 text-indigo-500/70"
+                  aria-label="After hours"
+                />
+              ) : null}
+              <span className="ml-2 hidden text-muted-foreground sm:inline">
+                {c.direction === "outbound" ? (
+                  <span className="inline-flex items-center gap-1">
+                    <PhoneOutgoing className="size-3.5" aria-hidden />
+                    AI called {formatPhone(c.toNumber) || "them"}
+                  </span>
                 ) : (
-                  <span className="text-muted-foreground">—</span>
+                  formatPhone(c.fromNumber) || "Unknown caller"
                 )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+              </span>
+            </span>
+            <span className="ml-auto flex shrink-0 items-center gap-2.5">
+              <span className="hidden text-sm text-muted-foreground md:inline">
+                {formatDuration(c.durationSec)}
+              </span>
+              {sentiment ? (
+                <span
+                  className="hidden items-center gap-1.5 text-xs text-muted-foreground lg:flex"
+                  title={sentiment.label}
+                >
+                  <span className={`size-2 rounded-full ${sentiment.dot}`} aria-hidden />
+                  {sentiment.label}
+                </span>
+              ) : null}
+              {c.outcome ? (
+                <Badge variant="outline" className="gap-1.5">
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ background: OUTCOME_COLOR[c.outcome] }}
+                    aria-hidden="true"
+                  />
+                  {CALL_OUTCOME_LABELS[c.outcome]}
+                </Badge>
+              ) : (
+                <span className="text-sm text-muted-foreground">—</span>
+              )}
+            </span>
+          </>
+        );
+
+        // A call with nothing to expand (no summary, no recording yet) links
+        // straight to its detail page instead of opening an empty drawer.
+        if (!hasBody) {
+          return (
+            <li key={c.id}>
+              <Link
+                href={hrefFor(c.id)}
+                className="flex items-center gap-2 rounded-xl border bg-card px-4 py-3 text-sm transition-colors hover:bg-muted/40"
+              >
+                {header}
+                <ChevronDown className="size-4 -rotate-90 text-muted-foreground/60" aria-hidden />
+              </Link>
+            </li>
+          );
+        }
+
+        return (
+          <li key={c.id}>
+            <details className="group rounded-xl border bg-card">
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
+                {header}
+                <ChevronDown
+                  className="size-4 shrink-0 text-muted-foreground/60 transition-transform group-open:rotate-180"
+                  aria-hidden
+                />
+              </summary>
+              <div className="space-y-3 border-t px-4 py-4">
+                {c.summary ? (
+                  <p className="text-sm leading-relaxed text-muted-foreground">{c.summary}</p>
+                ) : null}
+                {c.recordingUrl ? (
+                  <audio controls preload="none" src={c.recordingUrl} className="h-9 w-full" />
+                ) : null}
+                <p className="text-sm">
+                  <Link
+                    href={hrefFor(c.id)}
+                    className="font-medium underline underline-offset-2 hover:text-foreground"
+                  >
+                    Full transcript & details →
+                  </Link>
+                </p>
+              </div>
+            </details>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
