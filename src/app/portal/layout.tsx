@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Phone } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
-import { PortalNav } from "@/components/portal/portal-nav";
+import { PortalNav, PortalTabBar } from "@/components/portal/portal-nav";
 import { UserMenuButton } from "@/components/user-menu-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
@@ -50,9 +50,12 @@ export default async function PortalLayout({ children }: { children: React.React
           <UserMenuButton />
         </div>
       </header>
-      <main className="flex-1 p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 p-4 pb-24 sm:p-6 sm:pb-24 md:pb-6 lg:p-8">
         <div className="fd-fade-up mx-auto w-full max-w-5xl">{children}</div>
       </main>
+      <PortalTabBar
+        showTeam={Boolean(client && (client.staffModeEnabled || client.companySize !== "solo"))}
+      />
       <footer className="border-t px-4 py-4 text-center text-xs text-muted-foreground sm:px-6">
         FrontDesk AI ·{" "}
         <Link

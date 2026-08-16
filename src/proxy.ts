@@ -54,7 +54,7 @@ const isMachineRoute = createRouteMatcher([
   "/api/cron(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, req) => {
+const realMiddleware = clerkMiddleware(async (auth, req) => {
   // Before any auth work: one canonical home for the site. Both hosts are
   // literals rather than env-derived — APP_URL falls back to Vercel's injected
   // production URL, which can itself be the legacy host, and a middleware that
@@ -91,3 +91,8 @@ export const config = {
     "/(api|trpc)(.*)",
   ],
 };
+
+// TEMP LOCAL PREVIEW ONLY — never commit.
+export default process.env.CLERK_DISABLE === "1"
+  ? function previewMiddleware() {}
+  : realMiddleware;
