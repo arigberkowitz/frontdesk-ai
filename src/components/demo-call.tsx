@@ -43,7 +43,7 @@ interface Scenario {
 const SCENARIOS: Scenario[] = [
   {
     key: "booking",
-    tab: "Book a job",
+    tab: "Book a service",
     duration: "0:52",
     turns: [
       { who: "ai", text: "Thanks for calling! This is Riley, your front desk. How can I help?" },
