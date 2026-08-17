@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CalendarCheck,
   Check,
+  ChevronDown,
   Clock,
   Languages,
   MessageSquare,
@@ -25,6 +26,34 @@ const STEPS = [
   { n: "1", title: "Set it up in minutes", body: "Paste your website — we draft your services, hours, and FAQs. Review and tweak." },
   { n: "2", title: "It answers every call", body: "Your AI greets callers, answers questions, books appointments, and takes messages 24/7." },
   { n: "3", title: "You see everything", body: "Bookings hit your calendar; leads, recordings, and summaries land in one dashboard." },
+];
+
+/**
+ * The five questions every skeptical owner is already asking by the time they
+ * reach the pricing cards. Each answer is a fact about how the product
+ * actually works — nothing here promises anything the agent doesn't do.
+ */
+const FAQ = [
+  {
+    q: "Do I keep my phone number?",
+    a: "Yes. Your existing business number forwards to your AI — you dial *72 from your phone to turn it on. Dial *73 and forwarding is off, and calls ring your phone exactly like before. No new number, no new hardware.",
+  },
+  {
+    q: "What happens when it can't answer something?",
+    a: "It never guesses. It takes the caller's name, number, and what they needed, and texts you right away so you can follow up. Anything urgent — or anyone who asks for a person — gets transferred live to your cell.",
+  },
+  {
+    q: "Am I locked into a contract?",
+    a: "No. Every plan is month to month with no setup fee, and the trial is three weeks with no card. If you leave, your phone works the way it did before you found us.",
+  },
+  {
+    q: "Will callers know they're talking to an AI?",
+    a: "It introduces itself by name as your AI assistant and never pretends to be a person. What callers remember is that someone answered on the first ring at 9pm — not who.",
+  },
+  {
+    q: "What about Spanish-speaking customers?",
+    a: "The moment a caller speaks Spanish, it answers in fluent Spanish — every plan, no extra cost, no setup.",
+  },
 ];
 
 /** Structured data so search engines understand the product + pricing. */
@@ -339,7 +368,44 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-4xl px-4 py-20 sm:px-6">
+        <section id="faq" className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
+          <div className="text-center">
+            <p className="fd-section-label">Questions</p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+              The things owners ask us first
+            </h2>
+          </div>
+          {/* Search engines get the same answers via FAQPage markup below. */}
+          <div className="fd-stagger mt-10 space-y-3">
+            {FAQ.map((item) => (
+              <details key={item.q} className="group rounded-xl border bg-card">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-medium [&::-webkit-details-marker]:hidden">
+                  {item.q}
+                  <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                </summary>
+                <p className="border-t px-5 py-4 text-sm leading-relaxed text-muted-foreground">
+                  {item.a}
+                </p>
+              </details>
+            ))}
+          </div>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                mainEntity: FAQ.map((item) => ({
+                  "@type": "Question",
+                  name: item.q,
+                  acceptedAnswer: { "@type": "Answer", text: item.a },
+                })),
+              }),
+            }}
+          />
+        </section>
+
+        <section className="mx-auto max-w-4xl px-4 pb-20 pt-4 sm:px-6">
           {/* The closing act matches the opening one: back onto the dark stage. */}
           <div className="fd-stage rounded-3xl px-6 py-16 text-center sm:px-12">
             <div
