@@ -34,7 +34,12 @@ const OUTCOMES = [
 /** Animated "what a call sounds like" sample — bubbles play in one by one (CSS only). */
 export function DemoCall() {
   return (
-    <div className="rounded-xl border bg-card p-4 text-left sm:p-5">
+    // text-card-foreground is load-bearing: this card sits inside the hero's
+    // dark stage, which sets its text white. Without the reset, the card
+    // inherits white — and the AI's half of the conversation becomes white
+    // text on a light-gray bubble. The product's own lines, invisible on the
+    // one card whose whole job is showing the product talk.
+    <div className="rounded-xl border bg-card p-4 text-left text-card-foreground sm:p-5">
       <div className="mb-3 flex items-center gap-2 border-b pb-3 text-xs text-muted-foreground">
         <span className="size-2 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
         Incoming call · sample
@@ -44,19 +49,35 @@ export function DemoCall() {
       </div>
 
       <div className="flex flex-col gap-2">
-        {TURNS.map((t, i) => (
-          <div
-            key={i}
-            className={
-              t.who === "ai"
-                ? "fd-fade-up max-w-[85%] self-start rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-sm"
-                : "fd-fade-up max-w-[85%] self-end rounded-2xl rounded-br-sm bg-indigo-600 px-3 py-2 text-sm text-white"
-            }
-            style={{ animationDelay: `${0.15 + i * 0.4}s` }}
-          >
-            {t.text}
-          </div>
-        ))}
+        {TURNS.map((t, i) => {
+          const payoff = i === TURNS.length - 1;
+          return (
+            <div key={i} className="contents">
+              {/* Name the gray side once — a visitor should never have to
+                  deduce which speaker is the product. */}
+              {i === 0 ? (
+                <span
+                  className="fd-fade-up text-[11px] font-medium text-muted-foreground"
+                  style={{ animationDelay: "0.15s" }}
+                >
+                  Riley · AI receptionist
+                </span>
+              ) : null}
+              <div
+                className={
+                  t.who === "ai"
+                    ? payoff
+                      ? "fd-fade-up max-w-[85%] self-start rounded-2xl rounded-bl-sm border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm"
+                      : "fd-fade-up max-w-[85%] self-start rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-sm"
+                    : "fd-fade-up max-w-[85%] self-end rounded-2xl rounded-br-sm bg-indigo-600 px-3 py-2 text-sm text-white"
+                }
+                style={{ animationDelay: `${0.15 + i * 0.4}s` }}
+              >
+                {t.text}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-3">
