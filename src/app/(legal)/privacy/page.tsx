@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${env.APP_URL.replace(/\/$/, "")}/privacy` },
 };
 
-const UPDATED = "July 30, 2026";
+const UPDATED = "August 18, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -184,7 +184,29 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="8. Security">
+        <Section title="8. Google user data">
+          <p>
+            When a business connects its Google Calendar, the Service accesses calendar data for
+            exactly two purposes: reading free/busy availability so the AI offers callers only
+            genuinely open appointment times, and creating or removing calendar events when an
+            appointment is booked or cancelled. FrontDesk AI&rsquo;s use and transfer of
+            information received from Google APIs adheres to the{" "}
+            <a
+              href="https://developers.google.com/terms/api-services-user-data-policy"
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2"
+            >
+              Google API Services User Data Policy
+            </a>
+            , including the Limited Use requirements. Google calendar data is never sold, never
+            used for advertising, never used to train AI models, and never shared except as needed
+            to provide scheduling for the business that connected it. Disconnecting the calendar in
+            the dashboard revokes our access; stored credentials are deleted.
+          </p>
+        </Section>
+
+        <Section title="9. Security">
           <p>
             Data is encrypted in transit, access is limited by role and tenant (a business can only
             ever see its own data), calendar credentials are stored encrypted, and webhooks are
@@ -193,7 +215,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="9. Your rights">
+        <Section title="10. Your rights">
           <p>
             Depending on where you live (for example under the CCPA or GDPR), you may have rights
             to access, correct, delete, or export personal information, and to object to certain
@@ -204,7 +226,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="10. Changes and contact">
+        <Section title="11. Changes and contact">
           <p>
             We will post any changes to this policy here and notify customers of material changes
             by email or in-product. Questions or requests:{" "}
