@@ -1,6 +1,7 @@
 import { Mail, MessageSquare, Phone } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPhone } from "@/lib/format";
+import { SUPPORT_EMAIL } from "@/config/contact";
 
 /**
  * A person to reach, at the bottom of Settings.
@@ -13,7 +14,7 @@ import { formatPhone } from "@/lib/format";
 const SUPPORT = {
   name: "Ari",
   phone: "+14157475690",
-  email: "arigberkowitz@gmail.com",
+  email: SUPPORT_EMAIL,
 };
 
 export function SupportCard() {

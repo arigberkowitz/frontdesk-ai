@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { env } from "@/lib/env";
+import { SUPPORT_EMAIL, supportMailto } from "@/config/contact";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -173,11 +174,8 @@ export default function TermsPage() {
             in-product at least 14 days before taking effect, and continued use after that
             constitutes acceptance. If any provision is unenforceable, the rest remains in effect.
             Questions:{" "}
-            <a
-              href="mailto:arigberkowitz@gmail.com"
-              className="text-foreground underline underline-offset-2"
-            >
-              arigberkowitz@gmail.com
+            <a href={supportMailto()} className="text-foreground underline underline-offset-2">
+              {SUPPORT_EMAIL}
             </a>
             .
           </p>

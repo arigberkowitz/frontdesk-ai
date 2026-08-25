@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { env } from "@/lib/env";
+import { SUPPORT_EMAIL, supportMailto } from "@/config/contact";
 
 /**
  * One canonical policy, always. The app answers on both the production domain
@@ -230,11 +231,8 @@ export default function PrivacyPage() {
           <p>
             We will post any changes to this policy here and notify customers of material changes
             by email or in-product. Questions or requests:{" "}
-            <a
-              href="mailto:arigberkowitz@gmail.com"
-              className="text-foreground underline underline-offset-2"
-            >
-              arigberkowitz@gmail.com
+            <a href={supportMailto()} className="text-foreground underline underline-offset-2">
+              {SUPPORT_EMAIL}
             </a>
             .
           </p>

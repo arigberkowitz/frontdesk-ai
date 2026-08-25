@@ -1,4 +1,4 @@
-import { getCurrentDbUserSafe } from "@/lib/auth-guard";
+import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { listCalls } from "@/lib/data/calls";
 import { listAppointments } from "@/lib/data/appointments";
@@ -14,8 +14,14 @@ export async function GET(
 ): Promise<Response> {
   const { id } = await params;
 
+  // Operator-only was the wrong gate. This is the export a customer is told
+  // they have — the privacy policy promises they can take their data "directly
+  // in the product" — and it was reachable only by the one person who doesn't
+  // need it. `userMayAccessClient` is the single tenant rule: operators reach
+  // any client in their org, everyone else reaches only their own, so widening
+  // the role check here does not widen who can read whose data.
   const user = await getCurrentDbUserSafe();
-  if (!user || user.role !== "operator") {
+  if (!user || !userMayAccessClient(user, id)) {
     return new Response("Unauthorized", { status: 401 });
   }
   try {

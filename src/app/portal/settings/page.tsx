@@ -13,6 +13,7 @@ import { PortalSettings } from "@/components/portal/portal-settings";
 import { ReceptionistPower } from "@/components/portal/receptionist-power";
 import { SetupChecklist } from "@/components/portal/setup-checklist";
 import { SupportCard } from "@/components/portal/support-card";
+import { DangerZone } from "@/components/portal/danger-zone";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -62,6 +63,11 @@ export default async function PortalSettingsPage() {
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
       />
       <SupportCard />
+      <DangerZone
+        clientId={clientId}
+        businessName={client.name}
+        isAdmin={editAccess.isAdmin}
+      />
     </div>
   );
 }

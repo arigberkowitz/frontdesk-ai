@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Mail } from "lucide-react";
 import { ContactForm } from "@/components/contact-form";
+import { SUPPORT_EMAIL } from "@/config/contact";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
  * way to ask — and until now the only route was a code box asking for a code
  * nobody had been given.
  */
-const EMAIL = "arigberkowitz@gmail.com";
+const EMAIL = SUPPORT_EMAIL;
 
 export default function ContactPage() {
   return (
