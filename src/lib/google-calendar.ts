@@ -16,7 +16,29 @@ import {
 
 // Must point at the public app URL in production (baked into the OAuth round-trip).
 export const GOOGLE_REDIRECT_URI = `${env.APP_URL.replace(/\/$/, "")}/api/calendar/google/callback`;
-const SCOPES = ["openid", "email", "https://www.googleapis.com/auth/calendar"].join(" ");
+/**
+ * Ask for exactly what the product does, and nothing more.
+ *
+ * This used to request `auth/calendar` — the full-access scope, which Google
+ * describes to the business owner as "See, edit, share, and permanently
+ * delete all the calendars you can access." That is a frightening sentence to
+ * read at the exact moment someone is deciding whether to trust a stranger's
+ * software with their day, and it was never true of what we do.
+ *
+ * The three calls this app actually makes are freeBusy.query, events.insert,
+ * and events.delete. Those need:
+ *   calendar.freebusy — "View your availability in your calendar"
+ *   calendar.events   — "View and edit events on your calendars"
+ *
+ * Existing connections keep working: a token granted the broader scope still
+ * satisfies these. Only new consents get the narrower ask.
+ */
+const SCOPES = [
+  "openid",
+  "email",
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.freebusy",
+].join(" ");
 
 export function googleConfigured(): boolean {
   return integrations.google();
