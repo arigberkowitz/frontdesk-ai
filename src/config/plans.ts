@@ -41,6 +41,7 @@ export const PLANS: Record<PlanKey, Plan> = {
       "Answers missed & after-hours calls only",
       "Books appointments & captures leads on those calls",
       "Instant owner alerts",
+      "Spam & robocall screening",
       "Upgrade to 24/7 coverage anytime",
     ],
   },
@@ -57,6 +58,7 @@ export const PLANS: Record<PlanKey, Plan> = {
       "Appointment booking + confirmation texts",
       "Lead capture & instant owner alerts",
       "English & Spanish, automatically",
+      "Spam & robocall screening",
     ],
   },
   pro: {
@@ -102,6 +104,23 @@ export const COST_ASSUMPTIONS = {
   smsPerMessageCents: 1, // ~$0.0079/segment Twilio, rounded up
   overheadPerClientCents: 2_000, // $20/mo: Cal.com, Resend, misc.
 } as const;
+
+/**
+ * What a card should say about minutes.
+ *
+ * The pricing cards used to show a price and a feature list and nothing about
+ * volume, which loses the comparison twice over: a shopper can't tell what
+ * they're buying, and the flat-rate promise — the one thing this pricing does
+ * that the category mostly doesn't — never gets made. Rosie bills overages,
+ * Abby Connect bills $2.99 a minute past the bundle, Smith.ai bills $3 a
+ * handoff. Here `includedMinutes` is a soft cap we watch, not a meter we bill,
+ * so say so on the card where it can do some work.
+ */
+export function minutesLabel(plan: Plan): string {
+  return plan.includedMinutes === null
+    ? "Unlimited minutes \u00b7 no overage charges"
+    : `${plan.includedMinutes} minutes included \u00b7 no overage charges`;
+}
 
 /** The plans a customer can actually see and buy. */
 export const planList = (): Plan[] => Object.values(PLANS).filter((p) => p.listed);

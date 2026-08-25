@@ -6,7 +6,7 @@ import { Check, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { startSelfServeCheckoutAction } from "@/lib/actions/billing";
 import { initialActionState, type ActionState } from "@/lib/actions/types";
-import { planList, PLANS, type PlanKey } from "@/config/plans";
+import { planList, minutesLabel, PLANS, type PlanKey } from "@/config/plans";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrencyCents } from "@/lib/format";
@@ -113,6 +113,12 @@ export function ChoosePlan({
                   </span>
                 </span>
                 <span className="mt-1 block text-xs text-muted-foreground">{plan.description}</span>
+                {/* The same volume-and-no-overage line the public cards carry.
+                    Somebody about to enter a card number is the last person who
+                    should have to wonder what happens on a busy month. */}
+                <span className="mt-1 block text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                  {minutesLabel(plan)}
+                </span>
                 {active ? (
                   <span className="mt-2 block space-y-0.5">
                     {plan.highlights.map((h) => (

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DemoCall } from "@/components/demo-call";
-import { planList } from "@/config/plans";
+import { planList, minutesLabel } from "@/config/plans";
 import { formatCurrencyCents, formatPhone } from "@/lib/format";
 import { env } from "@/lib/env";
 
@@ -325,6 +325,13 @@ export function LandingPage() {
                         even reach. */}
                     <p className="mt-1.5 text-sm text-muted-foreground">
                       No setup fee · 3 weeks free
+                    </p>
+                    {/* Volume, and the flat-rate promise. Every AI receptionist
+                        priced near this one meters minutes and bills the
+                        overage; this one doesn't, and a card that says only a
+                        price loses that argument by never making it. */}
+                    <p className="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                      {minutesLabel(plan)}
                     </p>
 
                     <p className="mt-5 border-t pt-5 text-sm text-muted-foreground">
