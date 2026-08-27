@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { emitWebhook } from "@/lib/webhooks-emit";
+import { offerFreedSlot } from "@/lib/agents/waitlist-backfill";
 import { assertClientAccess } from "@/lib/auth-guard";
 import { assertClientInOrg, getClientByIdUnsafe } from "@/lib/data/clients";
 import {
@@ -142,6 +143,15 @@ export async function cancelAppointmentAction(
 
   const cancelled = await cancelAppointment(clientId, appointmentId);
   if (!cancelled) return { ok: false, error: `That ${v.appointment} no longer exists.` };
+
+  // A slot freed by hand is exactly as free as one freed by the AI. Wiring only
+  // the AI path would make this feature work half the time, for a reason no
+  // owner could ever guess from the outside.
+  void offerFreedSlot(client, {
+    startAt: cancelled.startAt,
+    endAt: cancelled.endAt,
+    serviceId: cancelled.serviceId,
+  });
 
   // Cancelling on the real calendar can fail — an expired token, Google down —
   // and that failure used to be logged and then contradicted by a cheerful "the

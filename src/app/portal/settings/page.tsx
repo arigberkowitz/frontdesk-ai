@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listServices } from "@/lib/data/services";
+import { listWaiting } from "@/lib/data/waitlist";
 import { listAlertContacts } from "@/lib/data/alert-contacts";
 import { getClientSetupStatus } from "@/lib/data/setup";
 import { AiNumberCard } from "@/components/portal/ai-number-card";
@@ -17,6 +18,7 @@ import { SupportCard } from "@/components/portal/support-card";
 import { WebhookCard } from "@/components/portal/webhook-card";
 import { ReviewRequestsCard } from "@/components/portal/review-requests-card";
 import { RecallCard } from "@/components/portal/recall-card";
+import { WaitlistCard } from "@/components/portal/waitlist-card";
 import { DangerZone } from "@/components/portal/danger-zone";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -30,6 +32,7 @@ export default async function PortalSettingsPage() {
   const setup = await getClientSetupStatus(clientId);
   const clientServices = await listServices(clientId).catch(() => []);
   const recallServiceCount = clientServices.filter((s) => s.recallIntervalDays).length;
+  const waitingCount = client.waitlistEnabled ? (await listWaiting(clientId).catch(() => [])).length : 0;
 
   return (
     <div className="space-y-6">
@@ -78,6 +81,12 @@ export default async function PortalSettingsPage() {
         clientId={clientId}
         enabled={client.recallEnabled}
         recallServiceCount={recallServiceCount}
+        isAdmin={editAccess.isAdmin}
+      />
+      <WaitlistCard
+        clientId={clientId}
+        enabled={client.waitlistEnabled}
+        waitingCount={waitingCount}
         isAdmin={editAccess.isAdmin}
       />
       <WebhookCard

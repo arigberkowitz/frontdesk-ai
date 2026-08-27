@@ -28,6 +28,7 @@ export function agentToolsFor(client: ClientWithRelations, clientId: string) {
     client.escalationNumber,
     client.setupFlags?.handoffMode ?? "always",
     openHoursSummary(client.businessHours),
+    client.waitlistEnabled,
   );
 }
 

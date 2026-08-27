@@ -97,6 +97,14 @@ export const reminderKind = pgEnum("reminder_kind", [
   "recovery_no_show",
   "review_request",
   "recall",
+  "waitlist_offer",
+]);
+export const waitlistStatus = pgEnum("waitlist_status", [
+  "waiting",
+  "notified",
+  "booked",
+  "expired",
+  "cancelled",
 ]);
 export const notificationChannel = pgEnum("notification_channel", ["email", "sms"]);
 export const notificationType = pgEnum("notification_type", [
@@ -275,6 +283,9 @@ export const clients = pgTable(
     // Recall: text a past customer when they're due for their next visit. Off
     // by default like everything else that texts a real person unprompted.
     recallEnabled: boolean("recall_enabled").notNull().default(false),
+    // Waitlist: when a booking is cancelled, text the people who wanted that
+    // window. Off by default like every other unprompted outbound.
+    waitlistEnabled: boolean("waitlist_enabled").notNull().default(false),
     // Hash of the admin-chosen edit code. When set, staff (client_viewer) can
     // unlock AI-configuration editing by entering it. Null = staff can't edit.
     editCodeHash: text("edit_code_hash"),
@@ -486,6 +497,49 @@ export const appointments = pgTable(
   (t) => [
     index("appointments_client_id_start_at_idx").on(t.clientId, t.startAt),
     index("appointments_call_id_idx").on(t.callId),
+  ],
+);
+
+/**
+ * People who wanted a time we couldn't give them.
+ *
+ * Until now that caller became a lead or nothing at all, and the slot they
+ * wanted quietly died when somebody else cancelled it. A cancellation is the
+ * most perishable inventory a service business has: Thursday at 2 is worth
+ * something on Wednesday and nothing on Friday.
+ *
+ * The window is stored as a range rather than an exact time on purpose —
+ * "sometime next week" and "Thursday afternoon" are both real answers, and a
+ * waitlist that only matches exact times matches almost nothing.
+ */
+export const waitlistEntries = pgTable(
+  "waitlist_entries",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    callId: uuid("call_id").references(() => calls.id, { onDelete: "set null" }),
+    serviceId: uuid("service_id").references(() => services.id, { onDelete: "set null" }),
+    customerName: text("customer_name"),
+    customerPhone: text("customer_phone").notNull(),
+    /** Earliest time they'd accept. */
+    earliestAt: timestamp("earliest_at", { withTimezone: true }).notNull(),
+    /** Latest time they'd accept. Past this the entry expires on its own. */
+    latestAt: timestamp("latest_at", { withTimezone: true }).notNull(),
+    /** Anything they said about the timing, in their words. */
+    note: text("note"),
+    status: waitlistStatus("status").notNull().default("waiting"),
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+    /** How many openings we've offered this person. Capped, so a bad week of
+     *  cancellations doesn't turn into six texts. */
+    notifyCount: integer("notify_count").notNull().default(0),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => [
+    index("waitlist_client_status_idx").on(t.clientId, t.status),
+    index("waitlist_client_window_idx").on(t.clientId, t.earliestAt, t.latestAt),
   ],
 );
 
@@ -946,6 +1000,12 @@ export const remindersRelations = relations(reminders, ({ one }) => ({
   lead: one(leads, { fields: [reminders.leadId], references: [leads.id] }),
 }));
 
+export const waitlistEntriesRelations = relations(waitlistEntries, ({ one }) => ({
+  client: one(clients, { fields: [waitlistEntries.clientId], references: [clients.id] }),
+  call: one(calls, { fields: [waitlistEntries.callId], references: [calls.id] }),
+  service: one(services, { fields: [waitlistEntries.serviceId], references: [services.id] }),
+}));
+
 export const leadsRelations = relations(leads, ({ one }) => ({
   client: one(clients, { fields: [leads.clientId], references: [clients.id] }),
   call: one(calls, { fields: [leads.callId], references: [calls.id] }),
@@ -1004,6 +1064,8 @@ export type Appointment = typeof appointments.$inferSelect;
 export type NewAppointment = typeof appointments.$inferInsert;
 export type Lead = typeof leads.$inferSelect;
 export type NewLead = typeof leads.$inferInsert;
+export type WaitlistEntry = typeof waitlistEntries.$inferSelect;
+export type NewWaitlistEntry = typeof waitlistEntries.$inferInsert;
 export type Reminder = typeof reminders.$inferSelect;
 export type NewReminder = typeof reminders.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;

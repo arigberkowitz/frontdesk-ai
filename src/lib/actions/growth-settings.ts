@@ -8,6 +8,7 @@ import { audit } from "@/lib/data/audit";
 import { assertClientAccess } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { isDeliverableUrl } from "@/lib/webhooks-out";
+import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { type ActionState } from "./types";
 
 /**
@@ -114,5 +115,44 @@ export async function saveRecallSettingsAction(
     message: enabled
       ? "On. We'll invite past customers back when they're due."
       : "Off. No rebooking texts will be sent.",
+  };
+}
+
+/**
+ * Waitlist on or off.
+ *
+ * This one changes what the AI says on live calls, not just what gets texted
+ * later: the `join_waitlist` tool is only attached to the agent when this is
+ * on, so the receptionist never offers a waitlist a business doesn't keep.
+ * That means the agent has to be republished, which `applyClientEdit` does.
+ */
+export async function saveWaitlistSettingsAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const enabled = String(formData.get("enabled") ?? "") === "on";
+
+  const user = await assertClientAccess(clientId);
+  if (user.role !== "operator" && user.role !== "client_admin") {
+    return { ok: false, error: "Only your account admin can change this." };
+  }
+  await assertClientInOrg(user.orgId, clientId);
+
+  await db.update(clients).set({ waitlistEnabled: enabled }).where(eq(clients.id, clientId));
+  void audit({ clientId, actor: user.id, action: "settings.waitlist", detail: { enabled } });
+
+  // Without this the database says yes and the live agent keeps the old tool
+  // list — the exact half-wired state that has bitten this codebase before.
+  const sync = await applyClientEdit(user, clientId);
+  revalidatePath("/portal/settings");
+  return {
+    ok: true,
+    message: withSyncNote(
+      enabled
+        ? "On. Callers who can't get the time they want will be offered a spot on the list."
+        : "Off. The AI will stop offering a waitlist.",
+      sync,
+    ),
   };
 }

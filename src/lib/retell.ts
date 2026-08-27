@@ -28,6 +28,7 @@ export const AGENT_TOOL_NAMES = {
   bookAppointment: "book_appointment",
   cancelAppointment: "cancel_appointment",
   takeMessage: "take_message",
+  joinWaitlist: "join_waitlist",
   transferToHuman: "transfer_to_human",
 } as const;
 
@@ -159,9 +160,13 @@ export function buildAgentTools(
   escalationNumber?: string | null,
   handoffMode: "always" | "open_hours" | "never" = "always",
   openHoursNote?: string | null,
+  /** Only attach the waitlist tool when the business actually keeps one. The
+   *  endpoint refuses either way, but an AI that offers a waitlist and then
+   *  can't deliver one has already made a promise on the business's behalf. */
+  waitlistEnabled = false,
 ) {
   const transferTo = toE164(escalationNumber);
-  return [
+  const tools = [
     {
       type: "custom" as const,
       name: AGENT_TOOL_NAMES.checkAvailability,
@@ -252,6 +257,36 @@ export function buildAgentTools(
         required: ["name", "phone"],
       },
     },
+    {
+      type: "custom" as const,
+      name: AGENT_TOOL_NAMES.joinWaitlist,
+      url: agentToolUrl(appUrl, "waitlist", clientId),
+      description:
+        "Offer this ONLY after check_availability could not give the caller a time that works for them. Ask if they'd like a text when something opens up, and call this if they say yes. Capture the RANGE of times they'd accept, not one exact time.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          name: { type: "string" },
+          phone: { type: "string" },
+          service: { type: "string", description: "The service they were trying to book." },
+          earliest_datetime: {
+            type: "string",
+            description:
+              "ISO 8601. The earliest time they'd take. Omit if they'd take anything from now on.",
+          },
+          latest_datetime: {
+            type: "string",
+            description:
+              "ISO 8601. The latest time they'd take, e.g. the end of the week they named. Omit if they're flexible.",
+          },
+          note: {
+            type: "string",
+            description: "What they said about timing, in their own words. e.g. 'mornings only'.",
+          },
+        },
+        required: ["name", "phone"],
+      },
+    },
     // E.164 or nothing. Retell rejects anything else with a 400, and because
     // this is built during provisioning, one badly-formatted escalation number
     // used to fail the ENTIRE publish — no agent, no phone binding, and an
@@ -288,6 +323,9 @@ export function buildAgentTools(
           parameters: { type: "object" as const, properties: {}, required: [] },
         },
   ];
+  return waitlistEnabled
+    ? tools
+    : tools.filter((t) => t.name !== AGENT_TOOL_NAMES.joinWaitlist);
 }
 
 export interface ProvisionAgentInput {

@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { authenticateAgentTool, readToolArgs } from "@/lib/agent-tools-auth";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { getCallByRetellId } from "@/lib/data/calls";
@@ -7,6 +8,7 @@ import { parseInClientTimezone } from "@/lib/hours-util";
 import { notifyOwnerCancellation } from "@/lib/notify";
 import { formatDateTime } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { offerFreedSlot } from "@/lib/agents/waitlist-backfill";
 
 export const runtime = "nodejs";
 
@@ -87,6 +89,17 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const cancelled = await cancelAppointment(client.id, target.id);
+  if (cancelled) {
+    // The slot is perishable. Tell the people who wanted it — after the
+    // response, because the caller who just cancelled is still on the line.
+    after(() =>
+      offerFreedSlot(client, {
+        startAt: cancelled.startAt,
+        endAt: cancelled.endAt,
+        serviceId: cancelled.serviceId,
+      }),
+    );
+  }
   if (!cancelled) {
     return Response.json({
       success: false,
