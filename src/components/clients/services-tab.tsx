@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Clock, Pencil, Plus, Users, Video } from "lucide-react";
+import { Clock, Pencil, Plus, RotateCcw, Users, Video } from "lucide-react";
 import { toast } from "sonner";
 import {
   createServiceAction,
@@ -83,6 +83,20 @@ function ServiceForm({
           min={1}
           max={50}
           defaultValue={service?.providerCount ?? 1}
+        />
+      </Field>
+      <Field
+        label="Book them again after (days)"
+        hint="Leave empty for one-off work. A dental cleaning is 180, a haircut around 28, a furnace service 180 — when it comes due we can text the customer and offer to rebook."
+        error={state.fieldErrors?.recallIntervalDays}
+      >
+        <Input
+          name="recallIntervalDays"
+          type="number"
+          min={1}
+          max={730}
+          defaultValue={service?.recallIntervalDays ?? ""}
+          placeholder="180"
         />
       </Field>
       <Field label="Description">
@@ -222,6 +236,12 @@ export function ServicesTab({ clientId, services }: { clientId: string; services
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-600 dark:text-sky-400">
                       <Video className="size-3.5" />
                       Video OK
+                    </span>
+                  ) : null}
+                  {s.recallIntervalDays ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                      <RotateCcw className="size-3.5" />
+                      Rebook after {s.recallIntervalDays}d
                     </span>
                   ) : null}
                   {(s.providerCount ?? 1) > 1 ? (

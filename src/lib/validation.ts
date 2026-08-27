@@ -40,6 +40,10 @@ export const serviceSchema = z.object({
   description: optionalString,
   // Bookable by video: Google/Microsoft calendars attach a Meet/Teams link.
   virtualOk: z.coerce.boolean().default(false),
+  // How long until this customer is due again, in days. Empty means "one-off" —
+  // a consultation, a repair — and one-offs must never trigger a recall text.
+  // Capped at two years: past that it isn't a recall, it's a cold list.
+  recallIntervalDays: z.coerce.number().int().min(1).max(730).optional(),
   isActive: z.coerce.boolean().default(true),
 });
 export type ServiceInput = z.infer<typeof serviceSchema>;

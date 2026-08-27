@@ -96,6 +96,7 @@ export const reminderKind = pgEnum("reminder_kind", [
   "recovery_lead",
   "recovery_no_show",
   "review_request",
+  "recall",
 ]);
 export const notificationChannel = pgEnum("notification_channel", ["email", "sms"]);
 export const notificationType = pgEnum("notification_type", [
@@ -122,6 +123,7 @@ export const agentRunKind = pgEnum("agent_run_kind", [
   // One row per portal-copilot exchange: durable rate limiting + usage analytics.
   "copilot_chat",
   "review_request",
+  "recall",
 ]);
 export const agentRunStatus = pgEnum("agent_run_status", ["running", "succeeded", "failed"]);
 export const suggestionType = pgEnum("suggestion_type", ["knowledge", "guidance"]);
@@ -270,6 +272,9 @@ export const clients = pgTable(
     // Where to send them: the business's Google review link, or Yelp, or
     // anything else they'd rather collect on.
     reviewUrl: text("review_url"),
+    // Recall: text a past customer when they're due for their next visit. Off
+    // by default like everything else that texts a real person unprompted.
+    recallEnabled: boolean("recall_enabled").notNull().default(false),
     // Hash of the admin-chosen edit code. When set, staff (client_viewer) can
     // unlock AI-configuration editing by entering it. Null = staff can't edit.
     editCodeHash: text("edit_code_hash"),
@@ -348,6 +353,11 @@ export const services = pgTable(
     // "Can be done by video": bookings on a connected Google/Microsoft calendar
     // get a Meet/Teams link attached automatically.
     virtualOk: boolean("virtual_ok").notNull().default(false),
+    // How long until this customer is due again. A dental cleaning is 6 months,
+    // a fade is 4 weeks, a furnace service is 6 months. Null means "this isn't
+    // a repeat service" — a consultation, a one-off repair — and those must
+    // never generate a "time for your next visit" text.
+    recallIntervalDays: integer("recall_interval_days"),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps,
     ...softDelete,

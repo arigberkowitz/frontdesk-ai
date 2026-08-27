@@ -15,6 +15,7 @@ function parseService(formData: FormData) {
     providerCount: formData.get("providerCount") || 1,
     description: formData.get("description"),
     virtualOk: formData.get("virtualOk") !== null,
+    recallIntervalDays: formData.get("recallIntervalDays") || undefined,
     isActive: formData.get("isActive") !== null,
   });
 }
@@ -39,6 +40,7 @@ export async function createServiceAction(
     providerCount: d.providerCount,
     description: emptyToNull(d.description),
     virtualOk: d.virtualOk,
+    recallIntervalDays: d.recallIntervalDays ?? null,
     isActive: d.isActive,
   });
   const sync = await applyClientEdit(user, clientId);
@@ -66,6 +68,7 @@ export async function updateServiceAction(
     providerCount: d.providerCount,
     description: emptyToNull(d.description),
     virtualOk: d.virtualOk,
+    recallIntervalDays: d.recallIntervalDays ?? null,
     isActive: d.isActive,
   });
   const sync = await applyClientEdit(user, clientId);
