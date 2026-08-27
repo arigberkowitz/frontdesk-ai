@@ -50,6 +50,8 @@ export default async function PortalAppointmentsPage({
     endAt: a.endAt,
     status: a.status,
     serviceName: a.service?.name ?? null,
+    depositStatus: a.depositStatus,
+    depositAmountCents: a.depositAmountCents,
   }));
   // Serialize reminder rows to the lightweight shape the client view needs.
   const reminders: Record<string, { channel: string; status: string; at: string }[]> = {};

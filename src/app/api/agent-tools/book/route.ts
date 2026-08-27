@@ -15,6 +15,7 @@ import { recordSmsConsent } from "@/lib/data/sms-consents";
 import { after } from "next/server";
 import { logger } from "@/lib/logger";
 import { emitWebhook } from "@/lib/webhooks-emit";
+import { requestDeposit } from "@/lib/deposit-request";
 
 /**
  * Take a calendar event back off when the booking behind it never happened.
@@ -241,6 +242,17 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   await notifyOwnerBooking(client, appt);
+
+  // The deposit goes out while they still have the appointment in mind. Asked
+  // for three days later it just gets ignored.
+  after(() =>
+    requestDeposit({
+      client,
+      appointment: appt,
+      serviceDepositCents: service.depositCents,
+      smsConsent: consented,
+    }),
+  );
 
   after(() =>
     emitWebhook(client.id, "appointment.booked", {

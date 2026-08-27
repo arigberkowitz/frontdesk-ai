@@ -16,6 +16,7 @@ function parseService(formData: FormData) {
     description: formData.get("description"),
     virtualOk: formData.get("virtualOk") !== null,
     recallIntervalDays: formData.get("recallIntervalDays") || undefined,
+    depositDollars: formData.get("depositDollars") || undefined,
     isActive: formData.get("isActive") !== null,
   });
 }
@@ -41,6 +42,7 @@ export async function createServiceAction(
     description: emptyToNull(d.description),
     virtualOk: d.virtualOk,
     recallIntervalDays: d.recallIntervalDays ?? null,
+    depositCents: d.depositDollars ? Math.round(d.depositDollars * 100) : null,
     isActive: d.isActive,
   });
   const sync = await applyClientEdit(user, clientId);
@@ -69,6 +71,7 @@ export async function updateServiceAction(
     description: emptyToNull(d.description),
     virtualOk: d.virtualOk,
     recallIntervalDays: d.recallIntervalDays ?? null,
+    depositCents: d.depositDollars ? Math.round(d.depositDollars * 100) : null,
     isActive: d.isActive,
   });
   const sync = await applyClientEdit(user, clientId);

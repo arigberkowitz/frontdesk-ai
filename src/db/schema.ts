@@ -98,6 +98,20 @@ export const reminderKind = pgEnum("reminder_kind", [
   "review_request",
   "recall",
   "waitlist_offer",
+  "deposit_request",
+]);
+/**
+ * Where a booking's deposit stands.
+ *
+ * `not_required` is the overwhelming default and the only value most rows will
+ * ever hold. `requested` means we sent the link; it does NOT mean anyone owes
+ * us anything — the money is between the customer and the business.
+ */
+export const depositStatus = pgEnum("deposit_status", [
+  "not_required",
+  "requested",
+  "paid",
+  "waived",
 ]);
 export const waitlistStatus = pgEnum("waitlist_status", [
   "waiting",
@@ -286,6 +300,20 @@ export const clients = pgTable(
     // Waitlist: when a booking is cancelled, text the people who wanted that
     // window. Off by default like every other unprompted outbound.
     waitlistEnabled: boolean("waitlist_enabled").notNull().default(false),
+    depositsEnabled: boolean("deposits_enabled").notNull().default(false),
+    /**
+     * THE BUSINESS'S OWN payment link — their Stripe Payment Link, Square
+     * checkout, whatever they already use.
+     *
+     * Deliberately not a checkout we run. Our Stripe account belongs to the
+     * operator, so collecting a dentist's deposits through it would put us in
+     * the middle of money that isn't ours — holding customer funds on a
+     * business's behalf is a regulated thing to do, not a feature flag. Doing
+     * it properly means Stripe Connect and each business onboarding its own
+     * account. Until then the honest version is: they bring the link, we send
+     * it at the right moment, and the money never touches us.
+     */
+    depositLinkUrl: text("deposit_link_url"),
     // Hash of the admin-chosen edit code. When set, staff (client_viewer) can
     // unlock AI-configuration editing by entering it. Null = staff can't edit.
     editCodeHash: text("edit_code_hash"),
@@ -369,6 +397,9 @@ export const services = pgTable(
     // a repeat service" — a consultation, a one-off repair — and those must
     // never generate a "time for your next visit" text.
     recallIntervalDays: integer("recall_interval_days"),
+    // Deposit to hold this slot, in cents. Null = no deposit, which is right
+    // for most services. Only worth it where a no-show costs real money.
+    depositCents: integer("deposit_cents"),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps,
     ...softDelete,
@@ -491,6 +522,13 @@ export const appointments = pgTable(
     externalBookingId: text("external_booking_id"),
     // Video-visit link (Google Meet / Teams) when the service allows video.
     meetingUrl: text("meeting_url"),
+    depositStatus: depositStatus("deposit_status").notNull().default("not_required"),
+    // What we asked for, in cents, captured at booking time. Stored on the
+    // appointment rather than read back off the service, because a business
+    // that changes its deposit next month must not retroactively change what
+    // it asked this customer for.
+    depositAmountCents: integer("deposit_amount_cents"),
+    depositMarkedAt: timestamp("deposit_marked_at", { withTimezone: true }),
     ...timestamps,
     ...softDelete,
   },

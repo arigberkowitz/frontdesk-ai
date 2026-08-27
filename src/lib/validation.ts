@@ -44,6 +44,9 @@ export const serviceSchema = z.object({
   // a consultation, a repair — and one-offs must never trigger a recall text.
   // Capped at two years: past that it isn't a recall, it's a cold list.
   recallIntervalDays: z.coerce.number().int().min(1).max(730).optional(),
+  // Deposit to hold the slot, entered in dollars. Empty = no deposit, which is
+  // right for most services.
+  depositDollars: z.coerce.number().min(0).max(500).optional(),
   isActive: z.coerce.boolean().default(true),
 });
 export type ServiceInput = z.infer<typeof serviceSchema>;

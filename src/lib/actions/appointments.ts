@@ -1,5 +1,12 @@
 "use server";
 
+import { db } from "@/db";
+import { and, eq } from "drizzle-orm";
+import { appointments as appointmentsTable } from "@/db/schema";
+import { audit } from "@/lib/data/audit";
+import { getClientAppointment } from "@/lib/data/reminders";
+import { requireClientEditor } from "@/lib/auth-guard";
+
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { emitWebhook } from "@/lib/webhooks-emit";
@@ -184,5 +191,50 @@ export async function cancelAppointmentAction(
     message: calendarStillHolds
       ? `${noun} cancelled here, but we couldn't remove it from your calendar — please delete that event yourself.`
       : `${noun} cancelled — the slot is open again.`,
+  };
+}
+
+/**
+ * Mark a deposit paid, or waive it.
+ *
+ * Manual because we don't run the checkout — the money went straight to the
+ * business's own Stripe or Square, so this app never sees it land. That is the
+ * honest cost of staying out of other people's money, and the honest fix is
+ * Stripe Connect, not a webhook we can't receive.
+ */
+export async function setDepositStatusAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const appointmentId = String(formData.get("appointmentId") ?? "");
+  const next = String(formData.get("depositStatus") ?? "");
+  if (next !== "paid" && next !== "waived" && next !== "requested") {
+    return { ok: false, error: "Unknown deposit status." };
+  }
+
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  await assertClientInOrg(guard.user.orgId, clientId);
+
+  const appt = await getClientAppointment(clientId, appointmentId);
+  if (!appt) return { ok: false, error: "That appointment no longer exists." };
+
+  await db
+    .update(appointmentsTable)
+    .set({ depositStatus: next, depositMarkedAt: new Date() })
+    .where(and(eq(appointmentsTable.id, appointmentId), eq(appointmentsTable.clientId, clientId)));
+
+  void audit({
+    clientId,
+    actor: guard.user.id,
+    action: "appointment.deposit_status",
+    detail: { appointmentId, status: next },
+  });
+  revalidatePath("/portal/appointments");
+  revalidatePath(`/clients/${clientId}`);
+  return {
+    ok: true,
+    message: next === "paid" ? "Marked paid." : next === "waived" ? "Deposit waived." : "Reset.",
   };
 }

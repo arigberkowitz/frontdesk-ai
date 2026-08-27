@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Clock, Pencil, Plus, RotateCcw, Users, Video } from "lucide-react";
+import { Banknote, Clock, Pencil, Plus, RotateCcw, Users, Video } from "lucide-react";
 import { toast } from "sonner";
 import {
   createServiceAction,
@@ -97,6 +97,21 @@ function ServiceForm({
           max={730}
           defaultValue={service?.recallIntervalDays ?? ""}
           placeholder="180"
+        />
+      </Field>
+      <Field
+        label="Deposit to hold the slot ($)"
+        hint="Leave empty for no deposit. Worth setting where a no-show costs you real money — we text your payment link right after the booking, while they still have it in mind."
+        error={state.fieldErrors?.depositDollars}
+      >
+        <Input
+          name="depositDollars"
+          type="number"
+          min={0}
+          max={500}
+          step="1"
+          defaultValue={service?.depositCents != null ? service.depositCents / 100 : ""}
+          placeholder="25"
         />
       </Field>
       <Field label="Description">
@@ -236,6 +251,12 @@ export function ServicesTab({ clientId, services }: { clientId: string; services
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-600 dark:text-sky-400">
                       <Video className="size-3.5" />
                       Video OK
+                    </span>
+                  ) : null}
+                  {s.depositCents ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      <Banknote className="size-3.5" />
+                      {formatCurrencyCents(s.depositCents)} deposit
                     </span>
                   ) : null}
                   {s.recallIntervalDays ? (

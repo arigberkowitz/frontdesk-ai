@@ -156,3 +156,76 @@ export async function saveWaitlistSettingsAction(
     ),
   };
 }
+
+/**
+ * Deposits on or off, plus the link the money actually goes to.
+ *
+ * The link is THEIRS. We never run the checkout, because the Stripe account in
+ * this codebase belongs to the operator and routing a dentist's deposits
+ * through it would mean holding customer money on a business's behalf — a
+ * regulated activity, not a feature flag. The right version of that is Stripe
+ * Connect with each business onboarding its own account; until then this sends
+ * their link at the moment it does the most good and stays out of the money.
+ */
+export async function saveDepositSettingsAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const enabled = String(formData.get("enabled") ?? "") === "on";
+  const linkUrl = String(formData.get("depositLinkUrl") ?? "").trim();
+
+  const user = await assertClientAccess(clientId);
+  if (user.role !== "operator" && user.role !== "client_admin") {
+    return { ok: false, error: "Only your account admin can change this." };
+  }
+  await assertClientInOrg(user.orgId, clientId);
+
+  if (linkUrl && !isDeliverableUrl(linkUrl)) {
+    return {
+      ok: false,
+      fieldErrors: {
+        depositLinkUrl: [
+          "Needs to be a full https:// payment link — from Stripe, Square, or whatever you already use to take card payments.",
+        ],
+      },
+    };
+  }
+  if (enabled && !linkUrl) {
+    return {
+      ok: false,
+      fieldErrors: {
+        depositLinkUrl: ["Add your payment link first — a deposit text with nowhere to pay is worse than no text."],
+      },
+    };
+  }
+  if (enabled) {
+    const withDeposit = await db.query.services.findFirst({
+      where: and(
+        eq(services.clientId, clientId),
+        isNotNull(services.depositCents),
+        isNull(services.deletedAt),
+      ),
+    });
+    if (!withDeposit) {
+      return {
+        ok: false,
+        error:
+          "No service asks for a deposit yet, so nothing would be sent. Set a deposit amount on a service first.",
+      };
+    }
+  }
+
+  await db
+    .update(clients)
+    .set({ depositsEnabled: enabled, depositLinkUrl: linkUrl || null })
+    .where(eq(clients.id, clientId));
+  void audit({ clientId, actor: user.id, action: "settings.deposits", detail: { enabled } });
+  revalidatePath("/portal/settings");
+  return {
+    ok: true,
+    message: enabled
+      ? "On. We'll text your payment link right after a booking that needs a deposit."
+      : "Off. No deposit texts will be sent.",
+  };
+}

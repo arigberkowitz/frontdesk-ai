@@ -46,6 +46,7 @@ import {
   zoneAbbrev,
 } from "@/lib/tz";
 import { AppointmentReminders, type ReminderLog } from "@/components/portal/appointment-reminders";
+import { DepositRow } from "@/components/portal/deposit-row";
 
 export interface CalendarAppointment {
   id: string;
@@ -56,6 +57,8 @@ export interface CalendarAppointment {
   endAt: string | Date | null;
   status: string;
   serviceName: string | null;
+  depositStatus?: string;
+  depositAmountCents?: number | null;
 }
 
 type Item = CalendarAppointment & { date: Date; endDate: Date | null };
@@ -453,6 +456,15 @@ export function AppointmentsView({
                   />
                 ) : null}
               </div>
+              {clientId && selected.depositStatus && selected.depositStatus !== "not_required" ? (
+                <DepositRow
+                  key={`dep-${selected.id}`}
+                  clientId={clientId}
+                  appointmentId={selected.id}
+                  status={selected.depositStatus}
+                  amountCents={selected.depositAmountCents ?? null}
+                />
+              ) : null}
               {clientId && selected.status !== "cancelled" && selected.status !== "no_show" ? (
                 <AppointmentReminders
                   clientId={clientId}

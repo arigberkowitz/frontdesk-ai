@@ -19,6 +19,7 @@ import { WebhookCard } from "@/components/portal/webhook-card";
 import { ReviewRequestsCard } from "@/components/portal/review-requests-card";
 import { RecallCard } from "@/components/portal/recall-card";
 import { WaitlistCard } from "@/components/portal/waitlist-card";
+import { DepositsCard } from "@/components/portal/deposits-card";
 import { DangerZone } from "@/components/portal/danger-zone";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -32,6 +33,7 @@ export default async function PortalSettingsPage() {
   const setup = await getClientSetupStatus(clientId);
   const clientServices = await listServices(clientId).catch(() => []);
   const recallServiceCount = clientServices.filter((s) => s.recallIntervalDays).length;
+  const depositServiceCount = clientServices.filter((s) => s.depositCents).length;
   const waitingCount = client.waitlistEnabled ? (await listWaiting(clientId).catch(() => [])).length : 0;
 
   return (
@@ -87,6 +89,13 @@ export default async function PortalSettingsPage() {
         clientId={clientId}
         enabled={client.waitlistEnabled}
         waitingCount={waitingCount}
+        isAdmin={editAccess.isAdmin}
+      />
+      <DepositsCard
+        clientId={clientId}
+        enabled={client.depositsEnabled}
+        depositLinkUrl={client.depositLinkUrl}
+        depositServiceCount={depositServiceCount}
         isAdmin={editAccess.isAdmin}
       />
       <WebhookCard
