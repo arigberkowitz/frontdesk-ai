@@ -16,6 +16,7 @@ import {
 } from "@/lib/data/webhook-events";
 import { isAfterHours } from "@/lib/hours-util";
 import { logger } from "@/lib/logger";
+import { emitWebhook } from "@/lib/webhooks-emit";
 
 // node:crypto (signature verify) — force the Node runtime.
 export const runtime = "nodejs";
@@ -186,6 +187,29 @@ export async function POST(req: Request): Promise<Response> {
     if (event === "call_analyzed" && row && values.transcript) {
       const callDbId = row.id;
       after(() => extractCallInsights(callDbId));
+    }
+
+    // `call_analyzed`, not `call_ended`: this is the event that carries the
+    // transcript and summary, and a CRM row with neither is a row somebody has
+    // to come back to. Retell is waiting on this response, so it goes after.
+    if (event === "call_analyzed" && row) {
+      const callDbId = row.id;
+      after(() =>
+        emitWebhook(client.id, "call.completed", {
+          callId: callDbId,
+          retellCallId: callId,
+          fromNumber: values.fromNumber ?? null,
+          toNumber: values.toNumber ?? null,
+          startAt: values.startAt?.toISOString() ?? null,
+          durationSec: values.durationSec ?? null,
+          direction: values.direction ?? null,
+          outcome: values.outcome ?? null,
+          sentiment: values.sentiment ?? null,
+          summary: values.summary ?? null,
+          transcript: values.transcript ?? null,
+          recordingUrl: values.recordingUrl ?? null,
+        }),
+      );
     }
 
     await markWebhookProcessed("retell", externalId, "processed");

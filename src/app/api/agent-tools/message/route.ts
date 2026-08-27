@@ -4,6 +4,8 @@ import { toE164 } from "@/lib/format";
 import { getCallByRetellId } from "@/lib/data/calls";
 import { createLead } from "@/lib/data/leads";
 import { notifyOwnerLead } from "@/lib/notify";
+import { emitWebhook } from "@/lib/webhooks-emit";
+import { after } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -41,6 +43,23 @@ export async function POST(req: Request): Promise<Response> {
   });
 
   await notifyOwnerLead(client, lead);
+
+  // The caller is still on the line, so this goes after the response. A CRM
+  // that is slow, or down, must never become dead air on a phone call.
+  after(() =>
+    emitWebhook(client.id, "lead.created", {
+      leadId: lead.id,
+      name: lead.name,
+      phone: lead.phone,
+      reason: lead.reason,
+      message: lead.message,
+      service: lead.service,
+      urgency: lead.urgency,
+      budget: lead.budget,
+      callId: lead.callId,
+      createdAt: lead.createdAt.toISOString(),
+    }),
+  );
 
   return Response.json({
     success: true,

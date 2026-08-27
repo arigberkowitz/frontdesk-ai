@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { emitWebhook } from "@/lib/webhooks-emit";
 import { assertClientAccess } from "@/lib/auth-guard";
 import { assertClientInOrg, getClientByIdUnsafe } from "@/lib/data/clients";
 import {
@@ -87,7 +88,7 @@ export async function createManualAppointmentAction(
     }
   }
 
-  await createAppointment(clientId, {
+  const created = await createAppointment(clientId, {
     callId: null,
     customerName: d.customerName || null,
     customerPhone: d.customerPhone || null,
@@ -97,6 +98,21 @@ export async function createManualAppointmentAction(
     endAt,
     status: "booked",
     externalBookingId: null,
+  });
+
+  // A booking typed in by hand is still a booking the CRM wants. Firing only
+  // from the AI path would leave a business's records half-synced in a way
+  // nobody would ever guess from the settings screen.
+  void emitWebhook(clientId, "appointment.booked", {
+    appointmentId: created.id,
+    customerName: created.customerName,
+    customerPhone: created.customerPhone,
+    service: service?.name ?? null,
+    startAt: created.startAt.toISOString(),
+    endAt: created.endAt?.toISOString() ?? null,
+    status: created.status,
+    source: "manual",
+    callId: null,
   });
 
   revalidatePath("/portal/appointments");

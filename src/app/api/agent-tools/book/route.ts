@@ -14,6 +14,7 @@ import { sendBookingConfirmation } from "@/lib/appointment-texts";
 import { recordSmsConsent } from "@/lib/data/sms-consents";
 import { after } from "next/server";
 import { logger } from "@/lib/logger";
+import { emitWebhook } from "@/lib/webhooks-emit";
 
 /**
  * Take a calendar event back off when the booking behind it never happened.
@@ -240,6 +241,20 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   await notifyOwnerBooking(client, appt);
+
+  after(() =>
+    emitWebhook(client.id, "appointment.booked", {
+      appointmentId: appt.id,
+      customerName: appt.customerName,
+      customerPhone: appt.customerPhone,
+      service: service.name,
+      startAt: appt.startAt.toISOString(),
+      endAt: appt.endAt?.toISOString() ?? null,
+      status: appt.status,
+      source: "ai_call",
+      callId: callRow?.id ?? null,
+    }),
+  );
 
   // The confirmation text the caller was asked about, and agreed to, moments
   // ago. Until now the agent asked, they said yes, and nothing was ever sent.
