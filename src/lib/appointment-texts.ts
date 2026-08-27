@@ -60,6 +60,7 @@ export async function sendBookingConfirmation(
   await createReminder(client.id, {
     appointmentId: appt.id,
     channel: "sms",
+    kind: "appointment_reminder",
     status: result.ok ? "sent" : "failed",
     sentAt: result.ok ? new Date() : null,
     error: result.ok ? null : (result.error ?? "Send failed"),
@@ -143,6 +144,7 @@ export async function sendAppointmentReminders(now: Date = new Date()): Promise<
         await createReminder(client.id, {
           appointmentId: a.id,
           channel: "sms",
+          kind: "appointment_reminder",
           status: result.ok ? "sent" : "failed",
           sentAt: result.ok ? new Date() : null,
           error: result.ok ? null : (result.error ?? "Send failed"),

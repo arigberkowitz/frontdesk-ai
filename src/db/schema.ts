@@ -77,6 +77,26 @@ export const appointmentStatus = pgEnum("appointment_status", [
 export const leadStatus = pgEnum("lead_status", ["new", "contacted", "won", "lost"]);
 export const reminderChannel = pgEnum("reminder_channel", ["call", "sms"]);
 export const reminderStatus = pgEnum("reminder_status", ["queued", "sent", "failed"]);
+/**
+ * What a given outbound text WAS.
+ *
+ * Every message this product sends already landed in `reminders`, but they were
+ * indistinguishable once there — which is fine while there is one kind of
+ * follow-up and wrong the moment there are several. Dedupe is the reason: "have
+ * we already asked this customer for a review?" and "have we already nudged
+ * this no-show?" are different questions about the same appointment, and
+ * without a kind the first one answers the second by accident.
+ *
+ * `other` is the backfill value for every row written before this existed. It
+ * means "we don't know", not "none of the above".
+ */
+export const reminderKind = pgEnum("reminder_kind", [
+  "other",
+  "appointment_reminder",
+  "recovery_lead",
+  "recovery_no_show",
+  "review_request",
+]);
 export const notificationChannel = pgEnum("notification_channel", ["email", "sms"]);
 export const notificationType = pgEnum("notification_type", [
   "booking",
@@ -101,6 +121,7 @@ export const agentRunKind = pgEnum("agent_run_kind", [
   "outbound_recovery",
   // One row per portal-copilot exchange: durable rate limiting + usage analytics.
   "copilot_chat",
+  "review_request",
 ]);
 export const agentRunStatus = pgEnum("agent_run_status", ["running", "succeeded", "failed"]);
 export const suggestionType = pgEnum("suggestion_type", ["knowledge", "guidance"]);
@@ -241,6 +262,14 @@ export const clients = pgTable(
     // Agent #5 opt-in: the recovery loop may text this client's cold leads and
     // no-shows. Off by default — outbound to real customers is opt-in only.
     outboundRecoveryEnabled: boolean("outbound_recovery_enabled").notNull().default(false),
+    // Review requests: after a visit that happened, text the customer a link and
+    // ask. Off by default and useless without `reviewUrl` — both on purpose. A
+    // business that hasn't chosen where reviews should go has not agreed to ask
+    // its customers for them, and this product texts from THEIR number.
+    reviewRequestsEnabled: boolean("review_requests_enabled").notNull().default(false),
+    // Where to send them: the business's Google review link, or Yelp, or
+    // anything else they'd rather collect on.
+    reviewUrl: text("review_url"),
     // Hash of the admin-chosen edit code. When set, staff (client_viewer) can
     // unlock AI-configuration editing by entering it. Null = staff can't edit.
     editCodeHash: text("edit_code_hash"),
@@ -589,6 +618,7 @@ export const reminders = pgTable(
     // Set when the outreach is a follow-up to a captured lead (vs. an appointment).
     leadId: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
     channel: reminderChannel("channel").notNull(),
+    kind: reminderKind("kind").notNull().default("other"),
     status: reminderStatus("status").notNull().default("queued"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     error: text("error"),

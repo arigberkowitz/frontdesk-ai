@@ -161,10 +161,15 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
     });
     for (const appt of noShows) {
       if (!appt.customerPhone?.trim()) continue;
+      // Narrowed to no-show nudges specifically. It used to match ANY reminder
+      // for this appointment, which was correct while this was the only thing
+      // writing them — and would now let a review request silently cancel a
+      // no-show follow-up, or the reverse.
       const nudged = await db.query.reminders.findFirst({
         where: and(
           eq(reminders.clientId, client.id),
           eq(reminders.appointmentId, appt.id),
+          eq(reminders.kind, "recovery_no_show"),
           gte(reminders.createdAt, appt.startAt),
         ),
       });
@@ -212,6 +217,7 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
         leadId: t.leadId ?? null,
         appointmentId: t.appointmentId ?? null,
         channel: "sms",
+        kind: t.kind === "lead" ? "recovery_lead" : "recovery_no_show",
         status: failed ? "failed" : "sent",
         sentAt: failed ? null : new Date(),
         error: failed ? (result.error ?? "Send failed") : null,

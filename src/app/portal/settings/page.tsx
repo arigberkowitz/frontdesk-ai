@@ -14,6 +14,7 @@ import { ReceptionistPower } from "@/components/portal/receptionist-power";
 import { SetupChecklist } from "@/components/portal/setup-checklist";
 import { SupportCard } from "@/components/portal/support-card";
 import { WebhookCard } from "@/components/portal/webhook-card";
+import { ReviewRequestsCard } from "@/components/portal/review-requests-card";
 import { DangerZone } from "@/components/portal/danger-zone";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -62,6 +63,12 @@ export default async function PortalSettingsPage() {
         variant="settings"
         canEdit={editAccess.canEdit}
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
+      />
+      <ReviewRequestsCard
+        clientId={clientId}
+        enabled={client.reviewRequestsEnabled}
+        reviewUrl={client.reviewUrl}
+        isAdmin={editAccess.isAdmin}
       />
       <WebhookCard
         clientId={clientId}
