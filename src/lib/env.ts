@@ -18,12 +18,19 @@ export const env = {
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ?? "",
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET ?? "",
   RESEND_API_KEY: process.env.RESEND_API_KEY ?? "",
-  // frontdesk.ai is somebody else's domain. The old fallback pointed there, so
-  // a missing RESEND_FROM didn't fail — it asked Resend to send as a domain we
-  // have no DKIM key for, which either bounces or lands in spam, silently, for
-  // every confirmation and reminder. The verified sending domain is
-  // send.frontdeskai.company (SPF + DKIM live there); default to it.
-  RESEND_FROM: process.env.RESEND_FROM ?? "FrontDesk AI <notifications@send.frontdeskai.company>",
+  // frontdesk.ai is somebody else's domain. The original fallback pointed there,
+  // so a missing RESEND_FROM didn't fail loudly — it asked Resend to send as a
+  // domain nobody here controls, which bounces or lands in spam, silently, for
+  // every confirmation and reminder.
+  //
+  // The verified domain is frontdeskai.company, and that is what the From
+  // header must use. `send.frontdeskai.company` is NOT a second sending
+  // identity — it is the custom MAIL FROM subdomain Resend uses for the
+  // envelope, which is why the SPF record lives there while the DKIM key
+  // (resend._domainkey) sits on the root. Production really does send as
+  // notifications@frontdeskai.company; a From on the send. subdomain would be
+  // rejected as an unverified domain.
+  RESEND_FROM: process.env.RESEND_FROM ?? "FrontDesk AI <notifications@frontdeskai.company>",
   TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID ?? "",
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN ?? "",
   TWILIO_FROM_NUMBER: process.env.TWILIO_FROM_NUMBER ?? "",
