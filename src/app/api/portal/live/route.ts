@@ -4,6 +4,8 @@ import { calls } from "@/db/schema";
 import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { LIVE_MAX_AGE_MS, isLive } from "@/lib/live-call";
+import { getCallerContext } from "@/lib/data/callers";
+import { otherParty } from "@/lib/callers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,17 +45,21 @@ export async function GET(req: Request): Promise<Response> {
       gte(calls.startAt, since),
     ),
     orderBy: [desc(calls.startAt)],
-    columns: { id: true, fromNumber: true, startAt: true, endAt: true, direction: true },
+    columns: { id: true, fromNumber: true, toNumber: true, startAt: true, endAt: true, direction: true },
   });
 
   if (open && isLive(open, now)) {
+    // "On a call with Sam Rivera (3rd call)" beats a bare number.
+    const caller = await getCallerContext(clientId, otherParty(open), open.startAt);
     return Response.json(
       {
         live: {
           id: open.id,
-          fromNumber: open.fromNumber,
+          fromNumber: otherParty(open),
           startAt: open.startAt!.toISOString(),
           direction: open.direction,
+          name: caller.name,
+          priorCalls: caller.priorCalls,
         },
         ended: null,
       },

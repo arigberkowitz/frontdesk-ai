@@ -5,12 +5,15 @@ import Link from "next/link";
 import { PhoneCall, PhoneIncoming, PhoneOutgoing } from "lucide-react";
 import { formatPhone } from "@/lib/format";
 import { elapsed } from "@/lib/live-call";
+import { ordinal } from "@/lib/callers";
 
 interface Live {
   id: string;
   fromNumber: string | null;
   startAt: string;
   direction: string;
+  name?: string | null;
+  priorCalls?: number;
 }
 interface Ended {
   id: string;
@@ -93,7 +96,8 @@ export function LiveCallStrip({ clientId }: { clientId: string }) {
   if (!live && !showEnded) return null;
 
   if (live) {
-    const who = live.fromNumber ? formatPhone(live.fromNumber) : "a caller";
+    const who = live.name ?? (live.fromNumber ? formatPhone(live.fromNumber) : "a caller");
+    const again = live.priorCalls ? ` (${ordinal(live.priorCalls + 1)} call)` : "";
     const Icon = live.direction === "outbound" ? PhoneOutgoing : PhoneIncoming;
     return (
       <div
@@ -108,7 +112,11 @@ export function LiveCallStrip({ clientId }: { clientId: string }) {
         <Icon className="size-4 text-emerald-600 dark:text-emerald-400" />
         <span>
           <span className="font-medium">On a call right now</span>
-          <span className="text-muted-foreground"> with {who}</span>
+          <span className="text-muted-foreground">
+            {" "}
+            with {who}
+            {again}
+          </span>
         </span>
         <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
           {elapsed(new Date(live.startAt), new Date(now || Date.parse(live.startAt)))}

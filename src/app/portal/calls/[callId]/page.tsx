@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarCheck, Clock, Smile, Sparkles, User } from "lucide-react";
+import { ArrowLeft, CalendarCheck, Clock, Repeat, Smile, Sparkles, User } from "lucide-react";
 import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getCallForClient, getCallGrade } from "@/lib/data/calls";
 import { getInsightForCall } from "@/lib/data/insights";
 import { listSuggestionsForCall } from "@/lib/data/suggestions";
+import { getCallerContext } from "@/lib/data/callers";
+import { ordinal, otherParty } from "@/lib/callers";
 import { analyzeCall } from "@/lib/call-health";
 import { findMoments, turnsForCall } from "@/lib/call-moment";
 import { PageHeader } from "@/components/page-header";
@@ -32,11 +34,13 @@ export default async function PortalCallPage({
   const { clientId } = await resolvePortalClient();
   const call = await getCallForClient(clientId, callId);
   if (!call) notFound();
-  const [insight, grade, suggestions, access] = await Promise.all([
+  const party = otherParty(call);
+  const [insight, grade, suggestions, access, caller] = await Promise.all([
     getInsightForCall(clientId, callId),
     getCallGrade(clientId, callId),
     listSuggestionsForCall(clientId, callId),
     getPortalEditAccess(clientId),
+    getCallerContext(clientId, party, call.startAt),
   ]);
   const entities = (insight?.entities ?? {}) as Record<string, string>;
 
@@ -82,8 +86,22 @@ export default async function PortalCallPage({
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">From</p>
-            <p className="font-medium">{formatPhone(call.fromNumber)}</p>
+            <p className="text-xs text-muted-foreground">
+              {call.direction === "outbound" ? "AI called" : "From"}
+            </p>
+            <p className="font-medium">{caller.name ?? formatPhone(party)}</p>
+            {caller.name ? (
+              <p className="text-xs text-muted-foreground">{formatPhone(party)}</p>
+            ) : null}
+            {caller.priorCalls > 0 ? (
+              <Link
+                href={`/portal/calls?from=${encodeURIComponent(party ?? "")}`}
+                className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400"
+              >
+                <Repeat className="size-3" aria-hidden />
+                {ordinal(caller.priorCalls + 1)} call from this number
+              </Link>
+            ) : null}
           </CardContent>
         </Card>
         <Card>

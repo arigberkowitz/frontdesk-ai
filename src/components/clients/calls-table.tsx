@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { ChevronDown, Moon, Phone, PhoneOutgoing } from "lucide-react";
+import { ChevronDown, Moon, Phone, PhoneOutgoing, Repeat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { formatDateTime, formatDuration, formatPhone } from "@/lib/format";
 import { CALL_OUTCOME_LABELS } from "@/config/options";
 import { CHART_COLORS } from "@/components/charts/theme";
 import type { Call, CallOutcome } from "@/db/schema";
+import { callerName, ordinal, otherParty, priorCalls, type CallerIndex } from "@/lib/callers";
 
 // Same palette as the outcomes donut, so an outcome reads identically everywhere.
 const OUTCOME_COLOR: Record<CallOutcome, string> = {
@@ -39,11 +40,14 @@ export function CallsTable({
   calls,
   callHref,
   timezone,
+  callers,
 }: {
   clientId: string;
   calls: Call[];
   callHref?: (id: string) => string;
   timezone?: string;
+  /** When given, rows show the caller's name and how many times they've called before. */
+  callers?: CallerIndex;
 }) {
   const hrefFor = callHref ?? ((id: string) => `/clients/${clientId}/calls/${id}`);
   if (!calls.length) {
@@ -61,6 +65,12 @@ export function CallsTable({
       {calls.map((c) => {
         const sentiment = c.sentiment ? SENTIMENT[c.sentiment] : null;
         const hasBody = Boolean(c.summary || c.recordingUrl);
+        const party = otherParty(c);
+        const name = callers ? callerName(callers, party) : null;
+        const before = callers ? priorCalls(callers, c) : 0;
+        const who = name
+          ? `${name} · ${formatPhone(party)}`
+          : formatPhone(party) || (c.direction === "outbound" ? "them" : "Unknown caller");
         const header = (
           <>
             <span className="min-w-0">
@@ -75,12 +85,21 @@ export function CallsTable({
                 {c.direction === "outbound" ? (
                   <span className="inline-flex items-center gap-1">
                     <PhoneOutgoing className="size-3.5" aria-hidden />
-                    AI called {formatPhone(c.toNumber) || "them"}
+                    AI called {who}
                   </span>
                 ) : (
-                  formatPhone(c.fromNumber) || "Unknown caller"
+                  who
                 )}
               </span>
+              {before > 0 ? (
+                <span
+                  className="ml-2 inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-[11px] font-medium text-indigo-600 dark:text-indigo-400"
+                  title={`This number has called ${before} time${before === 1 ? "" : "s"} before`}
+                >
+                  <Repeat className="size-3" aria-hidden />
+                  {ordinal(before + 1)} call
+                </span>
+              ) : null}
             </span>
             <span className="ml-auto flex shrink-0 items-center gap-2.5">
               <span className="hidden text-sm text-muted-foreground md:inline">
