@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { HoursTab } from "@/components/clients/hours-tab";
 import { TimeOffCard } from "@/components/portal/time-off-card";
+import { WeekGrid } from "@/components/portal/week-grid";
 import { TimezoneCard } from "@/components/portal/timezone-card";
 
 export const metadata: Metadata = { title: "Hours" };
@@ -55,6 +56,27 @@ export default async function PortalHoursPage() {
         <EditLockBanner clientId={clientId} hasCode={editAccess.hasCode} />
       ) : null}
       <HoursTab clientId={clientId} hours={hours} />
+      <WeekGrid
+        clientId={clientId}
+        hours={hours.map((h) => ({
+          dayOfWeek: h.dayOfWeek,
+          openTime: h.openTime,
+          closeTime: h.closeTime,
+          isClosed: h.isClosed,
+        }))}
+        blocks={timeOff
+          .filter((b) => b.startTime && b.endTime && !b.windowLabel)
+          .map((b) => ({
+            id: b.id,
+            label: b.label,
+            dayOfWeek: b.dayOfWeek,
+            startTime: b.startTime!,
+            endTime: b.endTime!,
+            providerName: b.providerName,
+          }))}
+        providers={team.filter((p) => p.isActive).map((p) => ({ id: p.id, name: p.name }))}
+        canEdit={editAccess.canEdit}
+      />
       <TimeOffCard
         clientId={clientId}
         blocks={timeOff}
