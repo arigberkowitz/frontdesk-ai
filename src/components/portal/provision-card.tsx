@@ -8,6 +8,7 @@ import { initialActionState } from "@/lib/actions/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SubmitButton } from "@/components/form/submit-button";
 import { TestCallButton } from "@/components/clients/test-call-button";
+import { CallMeNow } from "@/components/portal/call-me-now";
 import { formatPhone } from "@/lib/format";
 
 /**
@@ -22,6 +23,7 @@ export function ProvisionCard({
   agentName,
   retellReady,
   onTrial = false,
+  ownerPhone = null,
 }: {
   clientId: string;
   hasAgent: boolean;
@@ -30,6 +32,8 @@ export function ProvisionCard({
   retellReady: boolean;
   /** Approved free trial — full access, shown as a friendly badge. */
   onTrial?: boolean;
+  /** The owner's alert phone (E.164), prefilled into "Call my phone". */
+  ownerPhone?: string | null;
 }) {
   const [state, action, pending] = useActionState(provisionAgentPortalAction, initialActionState);
 
@@ -82,10 +86,21 @@ export function ProvisionCard({
           </div>
         ) : null}
 
-        {/* Anchor: the setup checklist's "make a test call" step links here. */}
-        <div id="test-call" className="scroll-mt-24">
-          {hasAgent ? <TestCallButton clientId={clientId} agentName={agentName} /> : null}
-        </div>
+        {/* Anchor: the setup checklist's "make a test call" step links here.
+            Two ways to hear it: in the browser, or on your own phone from the
+            AI's real number — the one that proves the line, not just the AI. */}
+        {hasAgent ? (
+          <div id="test-call" className="scroll-mt-24 space-y-4">
+            <div>
+              <p className="mb-2 text-sm font-medium">In your browser</p>
+              <TestCallButton clientId={clientId} agentName={agentName} />
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-medium">On your phone</p>
+              <CallMeNow clientId={clientId} defaultPhone={ownerPhone} hasNumber={Boolean(phoneNumber)} />
+            </div>
+          </div>
+        ) : null}
 
         {!retellReady ? (
           <p className="text-sm text-amber-600 dark:text-amber-400">

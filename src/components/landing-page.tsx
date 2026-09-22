@@ -44,7 +44,7 @@ const FAQ = [
   },
   {
     q: "Am I locked into a contract?",
-    a: "No. Every plan is month to month with no setup fee, and the trial is three weeks with no card. If you leave, your phone works the way it did before you found us.",
+    a: "No. Every plan is month to month with no setup fee, and the trial is two weeks with no card. If you leave, your phone works the way it did before you found us.",
   },
   {
     q: "Will callers know they're talking to an AI?",
@@ -275,7 +275,7 @@ export function LandingPage() {
                 Simple, flat pricing
               </h2>
               <p className="mt-2 text-muted-foreground">
-                Three weeks free, no card. One price per location after that, and no setup fee —
+                Two weeks free, no card. One price per location after that, and no setup fee —
                 ever.{" "}
                 <Link href="/contact" className="underline underline-offset-2">
                   Questions?
@@ -370,7 +370,7 @@ export function LandingPage() {
             </div>
 
             <p className="mt-8 text-center text-sm text-muted-foreground">
-              Every plan starts with three weeks free. No card until you decide.
+              Every plan starts with two weeks free. No card until you decide.
             </p>
           </div>
         </section>
@@ -423,7 +423,7 @@ export function LandingPage() {
               Stop sending customers <em className="fd-gradient-text font-medium">to voicemail.</em>
             </h2>
             <p className="relative mx-auto mt-3 max-w-lg text-balance text-slate-300">
-              Three weeks free, no card. Most businesses are live the same afternoon.
+              Two weeks free, no card. Most businesses are live the same afternoon.
             </p>
             <div className="relative mt-8 flex justify-center">
               <Button

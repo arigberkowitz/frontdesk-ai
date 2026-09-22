@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 /**
  * "Been given a code?" — one quiet row on the Your AI page.
  *
- * Everyone gets three weeks free just by signing up, so a code is the
+ * Everyone gets two weeks free just by signing up, so a code is the
  * exception: an extension, or the on-the-house code for someone we know.
  */
 export function TrialCodeCard({
@@ -34,7 +34,7 @@ export function TrialCodeCard({
   );
   const waiting = requested || Boolean(state.ok && state.message);
 
-  // The common case has no code — everyone gets three weeks free just by
+  // The common case has no code — everyone gets two weeks free just by
   // signing up. A full card headed "Your AI receptionist" for the exception
   // made the exception look like the main event, sitting under the plans at
   // full height for every single person. A closed <details> is one quiet line.

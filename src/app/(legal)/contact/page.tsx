@@ -49,7 +49,7 @@ export default function ContactPage() {
           <Link href="/sign-up" className="underline underline-offset-2">
             Sign up
           </Link>{" "}
-          — three weeks free, every feature, and we don&apos;t ask for a card. Nothing to arrange
+          — two weeks free, every feature, and we don&apos;t ask for a card. Nothing to arrange
           with us first.
         </p>
         <p>

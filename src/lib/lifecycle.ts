@@ -14,7 +14,7 @@ import { logger } from "@/lib/logger";
  *
  * A signup who closes the tab used to hear nothing from the product until
  * a call happened — and a business that hasn't forwarded its line has no
- * calls, so it heard nothing at all, for three weeks, and then found its
+ * calls, so it heard nothing at all, for two weeks, and then found its
  * trial had ended. Three emails, none of them clever:
  *
  *   welcome   — the moment signup finishes: your number, call it, forward
@@ -142,7 +142,7 @@ export async function runTrialReminders(now = new Date()): Promise<TrialReminder
   let failed = 0;
   for (const c of rows) {
     if (c.setupFlags?.comped || !c.trialEndsAt || !c.ownerEmail) continue;
-    const daysLeft = Math.floor((c.trialEndsAt.getTime() - now.getTime()) / DAY);
+    const daysLeft = Math.ceil((c.trialEndsAt.getTime() - now.getTime()) / DAY);
     const done = c.setupFlags?.trialEmails ?? {};
     // Windows, not exact days: a cron that ran late or skipped a night still
     // sends once, never twice.

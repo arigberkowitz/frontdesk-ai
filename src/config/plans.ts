@@ -9,7 +9,7 @@
  *               refund request. Kept on the type at 0 so a hand-sold deal can
  *               still carry one through the operator checkout.
  *   Monthly:    $149–$500 flat per client
- *   Trial:      21 days free, no card, then pick a plan
+ *   Trial:      14 days free, no card, then pick a plan
  */
 export type PlanKey = "backup" | "starter" | "pro" | "scale";
 
@@ -93,7 +93,7 @@ export const PLANS: Record<PlanKey, Plan> = {
 };
 
 export const DEFAULT_PLAN: PlanKey = "pro";
-export const TRIAL_DAYS = 21;
+export const TRIAL_DAYS = 14;
 
 /**
  * Operator margin inputs (§10, EPIC A4). Cents. Tune to actual vendor costs.

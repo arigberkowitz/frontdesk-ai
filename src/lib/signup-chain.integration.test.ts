@@ -62,9 +62,9 @@ describe.skipIf(!RUN)("a business signing itself up", () => {
   // The exact write onboardFromWebsitePortalAction performs after creating the
   // business. If this drifts from the action, the test is worthless — so it is
   // deliberately the same three fields, in the same shape.
-  it("is put on a 21-day trial by finishing onboarding", async () => {
+  it("is put on a 14-day trial by finishing onboarding", async () => {
     const { TRIAL_DAYS } = await import("@/config/plans");
-    expect(TRIAL_DAYS).toBe(21);
+    expect(TRIAL_DAYS).toBe(14);
     await db
       .update(schema.clients)
       .set({
@@ -82,7 +82,7 @@ describe.skipIf(!RUN)("a business signing itself up", () => {
     expect(state.comped).toBe(false);
     expect(state.subscribed).toBe(false);
     // Twenty full days remaining on day one — the twenty-first is today.
-    expect(state.daysLeft).toBe(TRIAL_DAYS - 1);
+    expect(state.daysLeft).toBe(TRIAL_DAYS);
   });
 
   // The failure this catches is the one that cost a whole evening: everyone

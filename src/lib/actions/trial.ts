@@ -76,7 +76,7 @@ export async function requestTrialAction(
   // revoking it is one edit in Vercel rather than a migration.
   //
   // Checked FIRST, before any "you're already sorted" shortcut below. Every new
-  // signup now starts on a 21-day trial, which means every single person this
+  // signup now starts on a 14-day trial, which means every single person this
   // code is meant for arrives already status = "trial" — and the shortcut used
   // to catch them and answer "You're already active, no code needed." The one
   // code that grants free service forever was unreachable by everybody it was

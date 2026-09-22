@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getCurrentDbUser, getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
-import { listRetellVoices } from "@/lib/retell";
+import { DEFAULT_VOICE_ID, listRetellVoices } from "@/lib/retell";
 import { integrations } from "@/lib/env";
 import { isStripeTestMode } from "@/lib/stripe";
 import { PageHeader } from "@/components/page-header";
@@ -61,7 +61,7 @@ export default async function PortalGuidelinesPage({
   }
   // De-duping can drop the exact saved voice id; re-add it so the dropdown shows
   // its real name (not a generic fallback) for the currently selected voice.
-  const cur = client.voiceId;
+  const cur = client.voiceId ?? DEFAULT_VOICE_ID;
   if (cur && ![...women, ...men].some((v) => v.voiceId === cur)) {
     const meta = voices.find((v) => v.voiceId === cur);
     if (meta) {
@@ -112,6 +112,7 @@ export default async function PortalGuidelinesPage({
               agentName={agentName}
               retellReady={retellReady}
               onTrial={client.status === "trial"}
+              ownerPhone={client.escalationNumber}
             />
           ) : null}
 
@@ -120,7 +121,7 @@ export default async function PortalGuidelinesPage({
               moment auto-trials arrived, the one screen holding the code box
               stopped appearing for every person a code was meant for. */}
           {!trial.comped && !trial.subscribed ? (
-            trial.expired || trial.daysLeft <= 7 ? (
+            trial.expired || trial.daysLeft <= 3 ? (
               // The decision is due: plans open, and the code box for anyone
               // we've promised a longer look.
               <div id="plans" className="scroll-mt-24 space-y-4">
@@ -140,8 +141,8 @@ export default async function PortalGuidelinesPage({
                 <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 text-sm [&::-webkit-details-marker]:hidden">
                   <span className="font-medium">Free trial</span>
                   <span className="text-muted-foreground">
-                    {trial.daysLeft} day{trial.daysLeft === 1 ? "" : "s"} left — everything&apos;s on, nothing to
-                    set up. Plans start at the end.
+                    {`${trial.daysLeft} day${trial.daysLeft === 1 ? "" : "s"} left`} — everything&apos;s on,
+                    nothing to set up. Plans start at the end.
                   </span>
                   <span className="ml-auto text-xs font-medium underline underline-offset-2 group-open:hidden">
                     See plans
@@ -196,7 +197,9 @@ export default async function PortalGuidelinesPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <VoicePicker clientId={client.id} current={client.voiceId} women={women} men={men} />
+          {/* A business that never chose a voice is speaking as the default one,
+              not "no voice yet" — the agent was provisioned with it. */}
+          <VoicePicker clientId={client.id} current={client.voiceId ?? DEFAULT_VOICE_ID} women={women} men={men} />
         </CardContent>
       </Card>
 

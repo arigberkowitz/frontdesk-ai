@@ -35,7 +35,7 @@ export async function finishSignup(
       ...(opts.intendedPlan ? { setupFlags: { intendedPlan: opts.intendedPlan } } : {}),
       staffModeEnabled: opts.companySize !== "solo",
       industry: opts.industry,
-      // Three weeks, starting now, no card, no code, no approval queue.
+      // Two weeks, starting now, no card, no code, no approval queue.
       status: "trial",
       trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
     })

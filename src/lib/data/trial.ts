@@ -8,7 +8,7 @@ export interface TrialState {
   active: boolean;
   /** Was on a free trial, and it has. */
   expired: boolean;
-  /** Full days left, floor. Zero on the last day. */
+  /** Days left, counting today: 14 on the day you sign up, 1 on the last day, 0 once it's over. */
   daysLeft: number;
   endsAt: Date | null;
   /** Someone we know, free indefinitely — no clock, no nagging. */
@@ -47,7 +47,7 @@ export async function getTrialState(clientId: string): Promise<TrialState> {
   return {
     active: msLeft > 0,
     expired: msLeft <= 0,
-    daysLeft: Math.max(0, Math.floor(msLeft / DAY)),
+    daysLeft: Math.max(0, Math.ceil(msLeft / DAY)),
     endsAt,
     comped,
     subscribed,

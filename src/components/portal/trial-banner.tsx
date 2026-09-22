@@ -52,7 +52,7 @@ export function TrialBanner({ state }: { state: TrialState }) {
   if (!state.active) return null;
 
   // The last week is when someone decides. Before that, a quiet line is plenty.
-  const urgent = state.daysLeft <= 7;
+  const urgent = state.daysLeft <= 3;
   return (
     <Card className={urgent ? "border-amber-500/40 bg-amber-500/5" : undefined}>
       <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
