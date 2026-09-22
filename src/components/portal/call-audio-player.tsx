@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pause, Play } from "lucide-react";
 
 function fmt(s: number): string {
@@ -12,6 +12,17 @@ function fmt(s: number): string {
 
 const SPEEDS = [1, 1.25, 1.5, 2] as const;
 
+/** Name of the window event other parts of the page use to scrub this player:
+ *  `new CustomEvent(SEEK_EVENT, { detail: { sec } })`. The transcript and the
+ *  "what went wrong" card sit in different cards from the player, and a DOM
+ *  event is the lightest way to let them drive it without lifting state to
+ *  the server page. */
+export const SEEK_EVENT = "frontdesk:seek";
+
+export function seekRecording(sec: number): void {
+  window.dispatchEvent(new CustomEvent(SEEK_EVENT, { detail: { sec } }));
+}
+
 /** Styled audio player for a call recording — play/pause, seekable progress bar,
  *  and a playback-speed cycler (1× → 1.25× → 1.5× → 2×) for skimming calls. */
 export function CallAudioPlayer({ src }: { src: string }) {
@@ -20,6 +31,21 @@ export function CallAudioPlayer({ src }: { src: string }) {
   const [cur, setCur] = useState(0);
   const [dur, setDur] = useState(0);
   const [speedIdx, setSpeedIdx] = useState(0);
+
+  // "Jump to this moment": land a second early so the line isn't clipped,
+  // and start playing — the person asked to hear it, not to cue it.
+  useEffect(() => {
+    const onSeek = (e: Event) => {
+      const a = ref.current;
+      const sec = (e as CustomEvent<{ sec: number }>).detail?.sec;
+      if (!a || typeof sec !== "number") return;
+      a.currentTime = Math.max(0, sec - 1);
+      void a.play();
+      a.closest("[data-slot=card]")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    };
+    window.addEventListener(SEEK_EVENT, onSeek);
+    return () => window.removeEventListener(SEEK_EVENT, onSeek);
+  }, []);
 
   function toggle() {
     const a = ref.current;

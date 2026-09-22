@@ -90,10 +90,10 @@ const REPEAT_THRESHOLD = 3;
 // reported as clean. "A person" and "customer service" were missing for the
 // same reason — the list was written from how people describe wanting a human,
 // not from what they actually say to a machine.
-const HUMAN_REQUEST =
+export const HUMAN_REQUEST =
   /\b(real (person|human)|speak (to|with) (a|someone)|talk to (a|someone)|human|agent|a person|customer service|representative|receptionist|operator|supervisor|manager|someone else|(is|are) (this|that|you) (a|an) ?(bot|robot|ai|recording|real person)?|am i talking to (a|an))\b/i;
 
-const PROFANITY = /\b(fuck\w*|shit\w*|bullshit|goddamn|damn it|dammit|asshole|piss(ed)? off|stupid (bot|robot|machine|thing))\b/i;
+export const PROFANITY = /\b(fuck\w*|shit\w*|bullshit|goddamn|damn it|dammit|asshole|piss(ed)? off|stupid (bot|robot|machine|thing))\b/i;
 
 /**
  * Words that mean "stop taking a booking and get a person now."
@@ -102,7 +102,7 @@ const PROFANITY = /\b(fuck\w*|shit\w*|bullshit|goddamn|damn it|dammit|asshole|pi
  * negative is the call that ends with somebody's pipes flooded, or worse, and
  * it never shows up in a review — it shows up in a lawsuit.
  */
-const EMERGENCY =
+export const EMERGENCY =
   /\b(emergency|urgent|right now|gas (leak|smell)|smell(s|ing)? gas|no heat|no water|flood(ing|ed)?|burst|leak(ing)? everywhere|fire|smoke|chest pain|can'?t breathe|bleeding|unconscious|ambulance|911|locked out|break[- ]?in|brok(e|en) ?in(to)?|accident|hit by|injur(y|ed)|in pain|swelling|knocked out)\b/i;
 
 /**
@@ -215,7 +215,7 @@ function callerLines(transcript: string): string[] {
  * "sorry, could I get your name again?" are the same question, and the caller
  * experiences them as the same question, so they have to count as one.
  */
-function questionTopic(line: string): string | null {
+export function questionTopic(line: string): string | null {
   if (!line.includes("?")) return null;
   if (/\b(name)\b/.test(line)) return "name";
   if (/\b(address|street|where.*(located|live)|zip|postcode)\b/.test(line)) return "address";
@@ -240,7 +240,7 @@ export function repeatedTopics(transcript: string, threshold = REPEAT_THRESHOLD)
     .map(([topic]) => topic);
 }
 
-const TOPIC_LABEL: Record<string, string> = {
+export const TOPIC_LABEL: Record<string, string> = {
   name: "their name",
   address: "their address",
   phone: "their phone number",

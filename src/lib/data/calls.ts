@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { calls, clients, type NewCall } from "@/db/schema";
+import { callGrades, calls, clients, type NewCall } from "@/db/schema";
 import { analyzeCall, summarize } from "@/lib/call-health";
 import { spamCandidates } from "@/lib/spam";
 
@@ -32,6 +32,19 @@ export async function getCallForClient(clientId: string, callId: string) {
     with: { client: true, appointments: true, leads: true },
   });
   return call ?? null;
+}
+
+/** The QA supervisor's grade for one call, if it has been graded. Fail-soft:
+ *  a lagging agent-layer migration hides the grade, not the page. */
+export async function getCallGrade(clientId: string, callId: string) {
+  try {
+    const row = await db.query.callGrades.findFirst({
+      where: and(eq(callGrades.clientId, clientId), eq(callGrades.callId, callId)),
+    });
+    return row ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Find a call by Retell id within a client (used by agent-tool callbacks). */

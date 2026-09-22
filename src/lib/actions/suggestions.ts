@@ -44,6 +44,8 @@ export async function approveSuggestionAction(formData: FormData): Promise<void>
   await markSuggestion(clientId, suggestionId, "applied", user.id);
   await applyClientEdit(user, clientId);
   revalidatePath("/portal");
+  // Approvable from the call it came from, too.
+  revalidatePath("/portal/calls", "layout");
 }
 
 export async function dismissSuggestionAction(formData: FormData): Promise<void> {
@@ -55,4 +57,5 @@ export async function dismissSuggestionAction(formData: FormData): Promise<void>
   await assertClientInOrg(user.orgId, clientId);
   await markSuggestion(clientId, suggestionId, "dismissed", user.id);
   revalidatePath("/portal");
+  revalidatePath("/portal/calls", "layout");
 }

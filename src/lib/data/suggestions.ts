@@ -18,6 +18,22 @@ export async function listOpenSuggestions(clientId: string): Promise<AgentSugges
   }
 }
 
+/**
+ * Open suggestions the nightly loop drew from THIS call. Evidence is
+ * `{ callIds: string[] }`; filtered in memory because it's jsonb and the open
+ * list is short by construction.
+ */
+export async function listSuggestionsForCall(
+  clientId: string,
+  callId: string,
+): Promise<AgentSuggestion[]> {
+  const open = await listOpenSuggestions(clientId);
+  return open.filter((s) => {
+    const ev = s.evidence as { callIds?: unknown } | null;
+    return Array.isArray(ev?.callIds) && ev.callIds.includes(callId);
+  });
+}
+
 /** Recently reviewed (applied or dismissed) suggestions — the learning archive. */
 export async function listReviewedSuggestions(
   clientId: string,
