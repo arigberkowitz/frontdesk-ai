@@ -1,6 +1,7 @@
 import { runRetention } from "@/lib/retention";
 import { runWaitlistHousekeeping } from "@/lib/agents/waitlist-housekeeping";
 import { runTrialLapse } from "@/lib/trial-lapse";
+import { runTrialReminders } from "@/lib/lifecycle";
 import { authorizeCron } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
@@ -23,6 +24,8 @@ export async function GET(req: Request): Promise<Response> {
   // Free trials that ended unpaid hand their phone number back — the one
   // thing a lapsed signup would otherwise keep costing. Same daily slot.
   const lapsed = await runTrialLapse();
+  // And the two check-in emails before that point (7 days out, 1 day out).
+  const reminders = await runTrialReminders();
   return Response.json({
     ok: true,
     clientsPurged: result.clientsPurged,
@@ -31,5 +34,7 @@ export async function GET(req: Request): Promise<Response> {
     waitlistRequeued: waitlist.requeued,
     trialNumbersReleased: lapsed.released,
     trialReleaseFailed: lapsed.failed,
+    trialRemindersSent: reminders.sent,
+    trialRemindersFailed: reminders.failed,
   });
 }

@@ -12,6 +12,8 @@ import { createClient } from "@/lib/data/clients";
 import { applyWebsiteToClient } from "@/lib/onboarding-apply";
 import { seedClientFromPack } from "@/lib/starter-seed";
 import { runProvision } from "@/lib/provision";
+import { sendWelcomeEmail } from "@/lib/lifecycle";
+import { after } from "next/server";
 import { integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { safeIndustry } from "@/config/starter-packs";
@@ -165,6 +167,17 @@ export async function onboardFromWebsitePortalAction(
       });
     }
   }
+
+  // The welcome email carries the number and the dial code, so it goes after
+  // provisioning — and after the response, so signup isn't waiting on Resend.
+  after(() =>
+    sendWelcomeEmail(clientId).catch((err) =>
+      logger.warn("onboard.welcome_email_failed", {
+        clientId,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    ),
+  );
 
   revalidatePath("/portal", "layout");
   // Say which of the two things actually happened. The banner on the other end

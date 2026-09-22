@@ -249,6 +249,8 @@ export const clients = pgTable(
          * properly.
          */
         handoffMode?: "always" | "open_hours" | "never";
+        /** When each trial-lifecycle email went out (ISO). Dedupe state, not business data. */
+        trialEmails?: { welcome?: string; d7?: string; d1?: string };
       }>()
       .notNull()
       .default({}),
