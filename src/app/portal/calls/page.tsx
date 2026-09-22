@@ -8,6 +8,9 @@ import { formatPhone } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { CallsTable } from "@/components/clients/calls-table";
+import { EmptyState } from "@/components/empty-state";
+import { CallMeNow } from "@/components/portal/call-me-now";
+import { Phone } from "lucide-react";
 import Link from "next/link";
 
 export const metadata: Metadata = { title: "Calls" };
@@ -48,13 +51,34 @@ export default async function PortalCallsPage({
           </Button>
         ) : null}
       </PageHeader>
-      <CallsTable
-        clientId={clientId}
-        calls={shown}
-        callHref={(id) => `/portal/calls/${id}`}
-        timezone={client?.timezone}
-        callers={callers}
-      />
+      {calls.length === 0 && client ? (
+        // A brand-new business has no calls because nobody has rung yet — so
+        // say the number and offer to ring them, instead of describing what
+        // a call log would look like if it had anything in it.
+        <EmptyState
+          icon={Phone}
+          title="No calls yet"
+          description={
+            client.retellPhoneNumber
+              ? `Your AI answers at ${formatPhone(client.retellPhoneNumber)}. Call it from any phone — or have it call you — and the call shows up here with its recording and summary a minute after you hang up.`
+              : "Answered calls will appear here with recordings and summaries."
+          }
+        >
+          {client.retellPhoneNumber ? (
+            <div className="mx-auto max-w-md text-left">
+              <CallMeNow clientId={clientId} defaultPhone={client.escalationNumber} hasNumber />
+            </div>
+          ) : null}
+        </EmptyState>
+      ) : (
+        <CallsTable
+          clientId={clientId}
+          calls={shown}
+          callHref={(id) => `/portal/calls/${id}`}
+          timezone={client?.timezone}
+          callers={callers}
+        />
+      )}
     </div>
   );
 }

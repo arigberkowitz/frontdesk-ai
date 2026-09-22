@@ -175,10 +175,16 @@ export function WeekGrid({
               <div
                 key={d.value}
                 className={cn(
-                  "relative border-l bg-muted/30 touch-none",
+                  "relative border-l bg-muted/60 touch-none",
                   canEdit && "cursor-crosshair",
                 )}
-                style={{ height: `${rows * 1.1}rem` }}
+                // Closed time is hatched, not merely a shade greyer: at
+                // muted/30 Sunday looked the same as Monday.
+                style={{
+                  height: `${rows * 1.1}rem`,
+                  backgroundImage:
+                    "repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in oklab, var(--border) 70%, transparent) 6px 7px)",
+                }}
                 onPointerDown={(e) => onDown(d.value, e)}
                 onPointerMove={onMove}
                 onPointerUp={onUp}
@@ -326,7 +332,7 @@ export function WeekGrid({
         ) : null}
 
         <p className="mt-3 text-xs text-muted-foreground">
-          Shaded is closed. <span className="rounded bg-indigo-500/20 px-1">Blue</span> blocks are one
+          Hatched is closed. <span className="rounded bg-indigo-500/20 px-1">Blue</span> blocks are one
           day a week; <span className="rounded bg-amber-500/20 px-1">amber</span> ones repeat every day.
         </p>
       </CardContent>
