@@ -31,6 +31,8 @@ export type VoiceMeta = {
   gender?: string;
   accent?: string;
   provider?: string;
+  /** A short sample clip from the voice vendor, when they offer one. */
+  previewUrl?: string;
 };
 
 /**

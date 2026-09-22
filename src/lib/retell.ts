@@ -472,6 +472,7 @@ export interface RetellVoice {
   provider?: string;
   gender?: string;
   accent?: string;
+  previewUrl?: string;
 }
 
 /** List available Retell voices for the voice picker (§B3). */
@@ -484,5 +485,6 @@ export async function listRetellVoices(): Promise<RetellVoice[]> {
     provider: v.provider,
     gender: v.gender ?? undefined,
     accent: v.accent ?? undefined,
+    previewUrl: v.preview_audio_url ?? undefined,
   }));
 }
