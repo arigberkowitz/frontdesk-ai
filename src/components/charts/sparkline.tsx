@@ -61,7 +61,19 @@ export function Sparkline({
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
       />
-      <circle cx={lastX} cy={lastY} r={2.6} fill={color} vectorEffect="non-scaling-stroke" />
+      {/* The dot on today. The SVG stretches to the card (preserveAspectRatio
+          none), which turns a <circle> into a wide ellipse; a zero-length line
+          with round caps and a non-scaling stroke stays a round 6px dot. */}
+      <line
+        x1={lastX}
+        y1={lastY}
+        x2={lastX + 0.001}
+        y2={lastY}
+        stroke={color}
+        strokeWidth={6}
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
       {labels
         ? coords.map(([x], i) => (
             // Wide invisible hit targets so the tooltip lands wherever the

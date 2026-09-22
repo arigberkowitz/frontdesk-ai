@@ -10,7 +10,7 @@ describe("Sparkline", () => {
     );
     expect(html).toContain("<polygon");
     expect(html).toContain("<polyline");
-    expect(html).toContain("<circle");
+    expect(html).toContain('stroke-linecap="round" vector-effect="non-scaling-stroke"');
     expect((html.match(/<title>/g) ?? []).length).toBe(4);
   });
 
