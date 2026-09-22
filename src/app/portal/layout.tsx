@@ -7,6 +7,7 @@ import { UserMenuButton } from "@/components/user-menu-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
 import { ChatBubble } from "@/components/portal/chat-bubble";
+import { LiveCallStrip } from "@/components/portal/live-call-strip";
 import { env } from "@/lib/env";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -52,6 +53,7 @@ export default async function PortalLayout({ children }: { children: React.React
           <UserMenuButton />
         </div>
       </header>
+      <LiveCallStrip clientId={clientId} />
       <main className="flex-1 p-4 pb-24 sm:p-6 sm:pb-24 md:pb-6 lg:p-8">
         <div className="fd-fade-up mx-auto w-full max-w-5xl">{children}</div>
       </main>
