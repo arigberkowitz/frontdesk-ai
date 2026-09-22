@@ -15,6 +15,7 @@ import { TrialCodeCard } from "@/components/portal/trial-code-card";
 import { ChoosePlan } from "@/components/portal/choose-plan";
 import { clientMayActivate, getTrialState } from "@/lib/data/trial";
 import { TestCallButton } from "@/components/clients/test-call-button";
+import { CallMeNow } from "@/components/portal/call-me-now";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import {
   groupVoicesByGender,
@@ -135,11 +136,23 @@ export default async function PortalGuidelinesPage({
           <CardHeader>
             <CardTitle>Hear your receptionist</CardTitle>
             <CardDescription>
-              Talk to your AI right in your browser to check how it sounds — no phone needed.
+              Two ways to try it: talk to your AI in your browser, or have it ring your phone from
+              its own number so you hear exactly what a caller hears.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <TestCallButton clientId={client.id} agentName={agentName} />
+          <CardContent className="space-y-5">
+            <div>
+              <p className="mb-2 text-sm font-medium">In your browser</p>
+              <TestCallButton clientId={client.id} agentName={agentName} />
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-medium">On your phone</p>
+              <CallMeNow
+                clientId={client.id}
+                defaultPhone={client.escalationNumber}
+                hasNumber={Boolean(client.retellPhoneNumber)}
+              />
+            </div>
           </CardContent>
         </Card>
       ) : null}
