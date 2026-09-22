@@ -11,12 +11,12 @@ import { saveChatWidgetSettingsAction } from "@/lib/actions/growth-settings";
 import { initialActionState } from "@/lib/actions/types";
 
 /**
- * The same receptionist, on the business's website.
+ * The same receptionist, on the business's website — and in this portal.
  *
- * The card's job is to make "put this on my site" a copy-paste, and to let
- * the owner talk to their own receptionist right here before a customer
- * does. The preview mounts the real widget script pointing at this business,
- * so what they see is exactly what a visitor gets — not a mock.
+ * One switch. On: the bubble sits in the corner of every portal page (mounted
+ * by the layout, so it survives navigation) and answers on the business's
+ * website wherever the snippet is pasted. Off: gone from both. The card's
+ * other job is making "put this on my site" a copy-paste.
  */
 export function ChatWidgetCard({
   clientId,
@@ -31,26 +31,11 @@ export function ChatWidgetCard({
 }) {
   const [state, action, pending] = useActionState(saveChatWidgetSettingsAction, initialActionState);
   const [on, setOn] = useState(enabled);
-  const [previewing, setPreviewing] = useState(false);
 
   useEffect(() => {
     if (state.ok && state.message) toast.success(state.message);
     else if (state.error) toast.error(state.error);
   }, [state]);
-
-  // Mount the real widget on demand, and take it down with the toggle.
-  useEffect(() => {
-    if (!previewing) return;
-    const s = document.createElement("script");
-    s.src = `${appUrl}/widget.js`;
-    s.async = true;
-    s.setAttribute("data-client", clientId);
-    document.body.appendChild(s);
-    return () => {
-      s.remove();
-      document.getElementById("frontdesk-chat")?.remove();
-    };
-  }, [previewing, appUrl, clientId]);
 
   if (!isAdmin) return null;
 
@@ -69,9 +54,15 @@ export function ChatWidgetCard({
           <input type="hidden" name="clientId" value={clientId} />
 
           <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
-            <label htmlFor="chat-enabled" className="text-sm font-medium">
-              Answer chats from my website
-            </label>
+            <div>
+              <label htmlFor="chat-enabled" className="text-sm font-medium">
+                Turn the chat bubble on
+              </label>
+              <p className="text-xs text-muted-foreground">
+                It appears in the corner of every page here, so you can talk to it yourself —
+                and on your website once the snippet below is in place.
+              </p>
+            </div>
             <Switch
               id="chat-enabled"
               name="enabled"
@@ -114,17 +105,7 @@ export function ChatWidgetCard({
             <li>· Bookings and messages from chat show up on your Appointments and Leads pages like any other.</li>
           </ul>
 
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={!enabled}
-              onClick={() => setPreviewing((v) => !v)}
-              title={enabled ? undefined : "Save it on first, then try it here"}
-            >
-              {previewing ? "Hide the preview" : "Try it here"}
-            </Button>
+          <div className="flex justify-end">
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? "Saving…" : "Save"}
             </Button>

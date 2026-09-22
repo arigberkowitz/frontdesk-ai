@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { chatChannelPreamble, nowLine } from "./prompt";
+import { chatChannelPreamble, chatGreeting, nowLine } from "./prompt";
 
 describe("chatChannelPreamble", () => {
   const p = chatChannelPreamble({ businessName: "Bright Smile Dental", agentName: "Riley" });
@@ -35,5 +35,14 @@ describe("nowLine", () => {
   });
   it("survives a bad timezone", () => {
     expect(nowLine("Not/AZone", new Date("2026-09-22T19:30:00Z"))).toContain("2026");
+  });
+});
+
+describe("chatGreeting", () => {
+  it("never says 'calling' — that's the phone line", () => {
+    const g = chatGreeting({ businessName: "Bright Smile Dental", agentName: "Riley" });
+    expect(g).toContain("Riley");
+    expect(g).toContain("Bright Smile Dental");
+    expect(g).not.toMatch(/calling/i);
   });
 });

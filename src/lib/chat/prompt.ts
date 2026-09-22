@@ -41,3 +41,12 @@ export function nowLine(timezone: string | null, now = new Date()): string {
     return `CURRENT DATE AND TIME: ${now.toISOString()} (UTC).`;
   }
 }
+
+/**
+ * The first thing a visitor sees. The phone greeting says "thanks for
+ * calling", which is exactly wrong in a chat bubble. Short, names who's
+ * answering, and says what it can do so nobody has to guess.
+ */
+export function chatGreeting(input: { businessName: string; agentName: string }): string {
+  return `Hi! I'm ${input.agentName}, the AI receptionist for ${input.businessName}. I can answer questions or book you a visit \u2014 what can I help with?`;
+}

@@ -6,6 +6,8 @@ import { PortalNav, PortalTabBar } from "@/components/portal/portal-nav";
 import { UserMenuButton } from "@/components/user-menu-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
+import { ChatBubble } from "@/components/portal/chat-bubble";
+import { env } from "@/lib/env";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const { clientId, preview } = await resolvePortalClient();
@@ -56,6 +58,9 @@ export default async function PortalLayout({ children }: { children: React.React
       <PortalTabBar
         showTeam={Boolean(client && (client.staffModeEnabled || client.companySize !== "solo"))}
       />
+      {client?.chatWidgetEnabled ? (
+        <ChatBubble clientId={clientId} appUrl={env.APP_URL.replace(/\/$/, "")} />
+      ) : null}
       <footer className="border-t px-4 py-4 text-center text-xs text-muted-foreground sm:px-6">
         FrontDesk AI ·{" "}
         <Link

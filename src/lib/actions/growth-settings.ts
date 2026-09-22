@@ -257,7 +257,7 @@ export async function saveChatWidgetSettingsAction(
   return {
     ok: true,
     message: enabled
-      ? "On. Paste the snippet into your website and the chat bubble appears."
-      : "Off. The chat bubble will stop answering; remove the snippet when you get a chance.",
+      ? "On. The chat bubble is in the corner now — and on your website once the snippet is in."
+      : "Off. The chat bubble is gone; remove the snippet from your website when you get a chance.",
   };
 }

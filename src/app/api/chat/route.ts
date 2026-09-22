@@ -3,11 +3,11 @@ import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { getClientForChat } from "@/lib/data/clients";
 import { buildPromptForClient } from "@/lib/agent-publish";
-import { DEFAULT_AGENT_NAME, defaultGreeting } from "@/lib/prompt";
+import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { agentToolUrl } from "@/lib/retell";
 import { CHAT_MODEL, getAnthropic } from "@/lib/agents/anthropic";
 import { consumeAttempt } from "@/lib/rate-limit";
-import { chatChannelPreamble, nowLine } from "@/lib/chat/prompt";
+import { chatChannelPreamble, chatGreeting, nowLine } from "@/lib/chat/prompt";
 import { chatTools } from "@/lib/chat/tools";
 import { MAX_TOOL_ROUNDS, corsHeaders, sanitizeTurns, type ChatTurn } from "@/lib/chat/session";
 
@@ -79,7 +79,7 @@ export async function POST(req: Request): Promise<Response> {
   const agentName = client.agentName?.trim() || DEFAULT_AGENT_NAME;
   if (!turns) {
     return json({
-      reply: defaultGreeting({ name: client.name }, agentName),
+      reply: chatGreeting({ businessName: client.name, agentName }),
       messages: [],
       // The widget titles itself from this so the embed needs nothing but an id.
       business: { name: client.name, agent: agentName },
