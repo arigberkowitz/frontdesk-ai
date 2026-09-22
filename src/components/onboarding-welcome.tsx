@@ -114,7 +114,7 @@ function SetupForm({ plan }: { plan: string | null }) {
       </Field>
       <SubmitButton
         idle="Set up my receptionist"
-        busy="Setting up — reading your website, takes up to a minute…"
+        busy="Building your receptionist — reading your website and getting its phone number, up to a minute…"
       />
       <Button
         type="submit"

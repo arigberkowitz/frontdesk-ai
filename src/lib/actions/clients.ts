@@ -8,7 +8,7 @@ import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "
 import { toE164 } from "@/lib/format";
 import { clientCreateSchema, clientProfileSchema, emptyToNull } from "@/lib/validation";
 import * as clientsData from "@/lib/data/clients";
-import { seedClientFromPack } from "@/lib/starter-seed";
+import { finishSignup } from "@/lib/signup";
 import { safeIndustry } from "@/config/starter-packs";
 import { env } from "@/lib/env";
 import { DEFAULT_TIMEZONE } from "@/config/app";
@@ -76,10 +76,14 @@ export async function createStarterClientAction(formData: FormData): Promise<voi
     staffModeEnabled: companySize !== "solo",
   });
   await attachCreatorToClient(user, client.id);
-  await seedClientFromPack(user.orgId, client.id, industry);
+  // Trial, starter pack, the receptionist and its number, welcome email —
+  // the same finish as the website path. This used to stop at the pack, so
+  // a template signup landed in `draft` with no trial and an Activate button
+  // that refused them.
+  await finishSignup(user, client.id, { industry, seedFromPack: true, companySize });
 
-  revalidatePath("/portal");
-  redirect("/portal");
+  revalidatePath("/portal", "layout");
+  redirect("/portal?onboarded=template");
 }
 
 export async function updateClientProfileAction(

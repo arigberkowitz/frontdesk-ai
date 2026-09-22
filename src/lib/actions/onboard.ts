@@ -3,19 +3,10 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { TRIAL_DAYS } from "@/config/plans";
-import { clients } from "@/db/schema";
 import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "@/lib/auth-guard";
 import { createClient } from "@/lib/data/clients";
 import { applyWebsiteToClient } from "@/lib/onboarding-apply";
-import { seedClientFromPack } from "@/lib/starter-seed";
-import { runProvision } from "@/lib/provision";
-import { sendWelcomeEmail } from "@/lib/lifecycle";
-import { after } from "next/server";
-import { integrations } from "@/lib/env";
-import { logger } from "@/lib/logger";
+import { finishSignup } from "@/lib/signup";
 import { safeIndustry } from "@/config/starter-packs";
 import { DEFAULT_TIMEZONE } from "@/config/app";
 import { type ActionState, fieldErrorsOf } from "./types";
@@ -116,68 +107,15 @@ export async function onboardFromWebsitePortalAction(
   // instead of making them choose a second time.
   const wanted = String(formData.get("plan") ?? "").trim();
   const intendedPlan = ["backup", "starter", "pro"].includes(wanted) ? wanted : undefined;
-  await db
-    .update(clients)
-    .set({
-      companySize,
-      ...(intendedPlan ? { setupFlags: { intendedPlan } } : {}),
-      staffModeEnabled: companySize !== "solo",
-      industry,
-      // Three weeks, starting now, no card, no code, no approval queue. The
-      // whole point of a trial is that someone can find out whether this works
-      // for their business before they decide — and the previous arrangement
-      // made that conditional on a human being awake to approve it.
-      status: "trial",
-      trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
-    })
-    .where(eq(clients.id, clientId));
 
-  // Nothing to show them → don't leave them with a blank portal. Their
-  // industry's starter pack pre-fills services, hours, and FAQ instead
-  // (all editable; the checklist walks them through reviewing it).
+  // Trial, starter pack when the website drafted nothing, the receptionist
+  // and its number, the welcome email — the same finish as the template path.
   //
-  // This used to run only when no website was given, so the owner who did the
-  // MORE thorough thing — pasted their URL — was the one who could end up with
-  // nothing. A site that's all JavaScript, or behind a bot wall, drafts into
-  // silence: empty Services, empty Hours, empty Knowledge, and a banner
-  // cheerfully saying we'd drafted it all from their website. The starter pack
-  // also carries the industry's safety guardrails, so skipping it meant a
-  // dental practice that pasted its website never got the swelling-and-911
-  // rule, while one that left the box blank did.
-  if (!drafted) {
-    await seedClientFromPack(user.orgId, clientId, industry);
-  }
-
-  // Live before they see the portal. The old flow ended signup on a page with
-  // an "Activate my receptionist" button under a pricing card — one more thing
-  // to understand before hearing it work. Now the agent and its phone number
-  // are built here, during the same spinner, and the first screen already
-  // says "your number is (628) 500-7282". If the voice vendor is down the
-  // button is still there as the fallback; onboarding never fails on this.
-  if (integrations.retell()) {
-    try {
-      const provisioned = await runProvision(user, clientId);
-      if (!provisioned.ok) {
-        logger.warn("onboard.auto_provision_declined", { clientId, error: provisioned.error });
-      }
-    } catch (err) {
-      logger.warn("onboard.auto_provision_failed", {
-        clientId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
-  // The welcome email carries the number and the dial code, so it goes after
-  // provisioning — and after the response, so signup isn't waiting on Resend.
-  after(() =>
-    sendWelcomeEmail(clientId).catch((err) =>
-      logger.warn("onboard.welcome_email_failed", {
-        clientId,
-        error: err instanceof Error ? err.message : String(err),
-      }),
-    ),
-  );
+  // The pack used to run only when no website was given, so the owner who did
+  // the MORE thorough thing — pasted their URL — was the one who could end up
+  // with nothing: a site that's all JavaScript, or behind a bot wall, drafts
+  // into silence, and the pack also carries the industry's safety guardrails.
+  await finishSignup(user, clientId, { industry, seedFromPack: !drafted, intendedPlan, companySize });
 
   revalidatePath("/portal", "layout");
   // Say which of the two things actually happened. The banner on the other end
