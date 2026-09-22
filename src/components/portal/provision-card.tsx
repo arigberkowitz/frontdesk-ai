@@ -74,8 +74,8 @@ export function ProvisionCard({
                 </p>
               ) : (
                 <p>
-                  Ready to talk to in your browser. A dedicated phone number is added once billing
-                  is set up.
+                  Ready to talk to in your browser. Its own phone number is on the way — if this
+                  still says so tomorrow, press Re-sync below or send us a note from Settings.
                 </p>
               )}
             </div>

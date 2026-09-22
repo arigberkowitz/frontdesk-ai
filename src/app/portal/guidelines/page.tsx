@@ -120,15 +120,46 @@ export default async function PortalGuidelinesPage({
               moment auto-trials arrived, the one screen holding the code box
               stopped appearing for every person a code was meant for. */}
           {!trial.comped && !trial.subscribed ? (
-            <>
-              <ChoosePlan
-                clientId={client.id}
-                cardsReady={integrations.stripe()}
-                preselect={client.setupFlags?.intendedPlan ?? null}
-                testMode={isStripeTestMode()}
-              />
-              <TrialCodeCard clientId={client.id} requested={Boolean(client.trialRequestedAt)} />
-            </>
+            trial.expired || trial.daysLeft <= 7 ? (
+              // The decision is due: plans open, and the code box for anyone
+              // we've promised a longer look.
+              <div id="plans" className="scroll-mt-24 space-y-4">
+                <ChoosePlan
+                  clientId={client.id}
+                  cardsReady={integrations.stripe()}
+                  preselect={client.setupFlags?.intendedPlan ?? null}
+                  testMode={isStripeTestMode()}
+                />
+                <TrialCodeCard clientId={client.id} requested={Boolean(client.trialRequestedAt)} />
+              </div>
+            ) : (
+              // Mid-trial, pricing is one line that opens on request — not a
+              // wall of cards between a new owner and the thing they came to
+              // hear. The Overview banner counts the days.
+              <details id="plans" className="group scroll-mt-24 rounded-xl border bg-card">
+                <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 text-sm [&::-webkit-details-marker]:hidden">
+                  <span className="font-medium">Free trial</span>
+                  <span className="text-muted-foreground">
+                    {trial.daysLeft} day{trial.daysLeft === 1 ? "" : "s"} left — everything&apos;s on, nothing to
+                    set up. Plans start at the end.
+                  </span>
+                  <span className="ml-auto text-xs font-medium underline underline-offset-2 group-open:hidden">
+                    See plans
+                  </span>
+                  <span className="ml-auto hidden text-xs font-medium underline underline-offset-2 group-open:inline">
+                    Hide
+                  </span>
+                </summary>
+                <div className="space-y-4 border-t p-4">
+                  <ChoosePlan
+                    clientId={client.id}
+                    cardsReady={integrations.stripe()}
+                    preselect={client.setupFlags?.intendedPlan ?? null}
+                    testMode={isStripeTestMode()}
+                  />
+                </div>
+              </details>
+            )
           ) : null}
         </div>
       ) : client.retellAgentId ? (

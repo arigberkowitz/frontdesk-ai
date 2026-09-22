@@ -11,6 +11,9 @@ import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "
 import { createClient } from "@/lib/data/clients";
 import { applyWebsiteToClient } from "@/lib/onboarding-apply";
 import { seedClientFromPack } from "@/lib/starter-seed";
+import { runProvision } from "@/lib/provision";
+import { integrations } from "@/lib/env";
+import { logger } from "@/lib/logger";
 import { safeIndustry } from "@/config/starter-packs";
 import { DEFAULT_TIMEZONE } from "@/config/app";
 import { type ActionState, fieldErrorsOf } from "./types";
@@ -141,6 +144,26 @@ export async function onboardFromWebsitePortalAction(
   // rule, while one that left the box blank did.
   if (!drafted) {
     await seedClientFromPack(user.orgId, clientId, industry);
+  }
+
+  // Live before they see the portal. The old flow ended signup on a page with
+  // an "Activate my receptionist" button under a pricing card — one more thing
+  // to understand before hearing it work. Now the agent and its phone number
+  // are built here, during the same spinner, and the first screen already
+  // says "your number is (628) 500-7282". If the voice vendor is down the
+  // button is still there as the fallback; onboarding never fails on this.
+  if (integrations.retell()) {
+    try {
+      const provisioned = await runProvision(user, clientId);
+      if (!provisioned.ok) {
+        logger.warn("onboard.auto_provision_declined", { clientId, error: provisioned.error });
+      }
+    } catch (err) {
+      logger.warn("onboard.auto_provision_failed", {
+        clientId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   revalidatePath("/portal", "layout");

@@ -100,18 +100,40 @@ export default async function PortalSettingsPage() {
         depositServiceCount={depositServiceCount}
         isAdmin={editAccess.isAdmin}
       />
-      <ChatWidgetCard
-        clientId={clientId}
-        enabled={client.chatWidgetEnabled}
-        appUrl={env.APP_URL.replace(/\/$/, "")}
-        isAdmin={editAccess.isAdmin}
-      />
-      <WebhookCard
-        clientId={clientId}
-        url={(client.setupFlags as { webhookUrl?: string }).webhookUrl ?? null}
-        secret={(client.setupFlags as { webhookSecret?: string }).webhookSecret ?? null}
-        isAdmin={editAccess.isAdmin}
-      />
+      {/* The two cards that hand you a <script> tag or a JSON endpoint live
+          behind one line. Most owners never need either; the ones who do
+          usually have a web person, and this is the line to point them at. */}
+      {editAccess.isAdmin ? (
+        <details id="advanced" className="group scroll-mt-24 rounded-xl border bg-card">
+          <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 text-sm [&::-webkit-details-marker]:hidden">
+            <span className="font-medium">For your website &amp; other tools</span>
+            <span className="text-muted-foreground">
+              Chat bubble for your site, and sending leads to a CRM or Zapier. Optional — hand this
+              to whoever runs your website.
+            </span>
+            <span className="ml-auto shrink-0 text-xs font-medium underline underline-offset-2 group-open:hidden">
+              Show
+            </span>
+            <span className="ml-auto hidden shrink-0 text-xs font-medium underline underline-offset-2 group-open:inline">
+              Hide
+            </span>
+          </summary>
+          <div className="space-y-6 border-t p-4">
+            <ChatWidgetCard
+              clientId={clientId}
+              enabled={client.chatWidgetEnabled}
+              appUrl={env.APP_URL.replace(/\/$/, "")}
+              isAdmin={editAccess.isAdmin}
+            />
+            <WebhookCard
+              clientId={clientId}
+              url={(client.setupFlags as { webhookUrl?: string }).webhookUrl ?? null}
+              secret={(client.setupFlags as { webhookSecret?: string }).webhookSecret ?? null}
+              isAdmin={editAccess.isAdmin}
+            />
+          </div>
+        </details>
+      ) : null}
       <SupportCard />
       <DangerZone
         clientId={clientId}

@@ -41,7 +41,7 @@ export function TrialBanner({ state }: { state: TrialState }) {
               keep it that way and to make any more changes.
             </span>
           </p>
-          <Link href="/portal/guidelines" className={cn(buttonVariants({ size: "sm" }))}>
+          <Link href="/portal/guidelines#plans" className={cn(buttonVariants({ size: "sm" }))}>
             Choose a plan
           </Link>
         </CardContent>
@@ -75,7 +75,7 @@ export function TrialBanner({ state }: { state: TrialState }) {
           </span>
         </p>
         <Link
-          href="/portal/guidelines"
+          href="/portal/guidelines#plans"
           className={cn(buttonVariants({ size: "sm", variant: urgent ? "default" : "outline" }))}
         >
           {urgent ? "Choose a plan" : "See plans"}

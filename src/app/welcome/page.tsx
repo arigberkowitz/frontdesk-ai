@@ -6,6 +6,9 @@ import { integrations } from "@/lib/env";
 import { OnboardingWelcome } from "@/components/onboarding-welcome";
 
 export const metadata = { title: "Get started" };
+// Signup now drafts from the website AND builds the receptionist (agent +
+// phone number) in one go; give the action room beyond the 10s default.
+export const maxDuration = 60;
 
 /** First-run setup for a self-serve business owner whose workspace has no business yet. */
 export default async function WelcomePage({

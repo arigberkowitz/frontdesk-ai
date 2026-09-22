@@ -105,7 +105,7 @@ export function issuesFromTrials(rows: TrialClientRow[], now: Date): HealthIssue
     if (msLeft <= 0) {
       issues.push({
         severity: "critical",
-        line: `${c.name}'s free trial has EXPIRED. Their receptionist still answers, but they can't activate — put them on the house or send them to checkout today.`,
+        line: `${c.name}'s free trial has EXPIRED. It keeps answering for 3 more days, then its number is released automatically — comp them now if you want to keep it.`,
       });
     } else if (msLeft <= TRIAL_WARN_DAYS * DAY_MS) {
       const days = Math.ceil(msLeft / DAY_MS);
