@@ -37,6 +37,10 @@ interface ShaderProps {
 
 interface SignInPageProps {
   className?: string;
+  /** Which framing to open on. The email flow auto-detects either way. */
+  initialView?: "signin" | "signup";
+  /** Where to land once signed in. Defaults to "/", which routes by role. */
+  afterUrl?: string;
 }
 
 export const CanvasRevealEffect = ({
@@ -364,7 +368,7 @@ function firstClerkMessage(err: unknown): string | null {
   return null;
 }
 
-export const SignInPage = ({ className }: SignInPageProps) => {
+export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER_AUTH_URL }: SignInPageProps) => {
   const router = useRouter();
   const signInHook = useSignIn();
   const signUpHook = useSignUp();
@@ -374,7 +378,7 @@ export const SignInPage = ({ className }: SignInPageProps) => {
   const [step, setStep] = useState<"email" | "code" | "success">("email");
   const [mode, setMode] = useState<"signIn" | "signUp">("signIn");
   // Cosmetic sign-in vs sign-up framing (the email flow auto-detects either way).
-  const [authView, setAuthView] = useState<"signin" | "signup">("signin");
+  const [authView, setAuthView] = useState<"signin" | "signup">(initialView);
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -401,10 +405,10 @@ export const SignInPage = ({ className }: SignInPageProps) => {
   // After the success animation, land on the dashboard.
   useEffect(() => {
     if (step === "success") {
-      const t = setTimeout(() => router.push(AFTER_AUTH_URL), 1600);
+      const t = setTimeout(() => router.push(afterUrl), 1600);
       return () => clearTimeout(t);
     }
-  }, [step, router]);
+  }, [step, router, afterUrl]);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -538,7 +542,7 @@ export const SignInPage = ({ className }: SignInPageProps) => {
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: SSO_CALLBACK_URL,
-        redirectUrlComplete: AFTER_AUTH_URL,
+        redirectUrlComplete: afterUrl,
       });
     } catch (err) {
       setError(firstClerkMessage(err) ?? "Couldn't start Google sign-in.");
@@ -864,7 +868,7 @@ export const SignInPage = ({ className }: SignInPageProps) => {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 1 }}
-                      onClick={() => router.push(AFTER_AUTH_URL)}
+                      onClick={() => router.push(afterUrl)}
                       className="w-full rounded-full bg-primary text-primary-foreground font-medium py-3 hover:bg-primary/90 transition-colors"
                     >
                       Continue to dashboard
