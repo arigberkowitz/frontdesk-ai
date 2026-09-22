@@ -21,6 +21,10 @@ export interface DayPoint {
   date: string; // YYYY-MM-DD
   calls: number;
   bookings: number;
+  /** Calls caught outside open hours that day. */
+  afterHours: number;
+  /** Revenue EARNED that day — completed appointments at their booked price. */
+  revenueCents: number;
 }
 
 export interface ClientMetrics {
@@ -47,11 +51,13 @@ export interface ClientMetrics {
 }
 
 function fillDays(
-  rows: { date: string; calls: number; bookings: number }[],
+  rows: { date: string; calls: number; bookings: number; afterHours?: number }[],
   days: number,
   timeZone: string,
+  revenueRows: { date: string; cents: number }[] = [],
 ): DayPoint[] {
   const byDate = new Map(rows.map((r) => [r.date, r]));
+  const revenueByDate = new Map(revenueRows.map((r) => [r.date, r.cents]));
   // en-CA formats as YYYY-MM-DD; format in the client's tz so the fill keys match
   // the tz-bucketed SQL below (a call near midnight lands on the right local day).
   const fmt = new Intl.DateTimeFormat("en-CA", {
@@ -65,7 +71,13 @@ function fillDays(
   for (let i = days - 1; i >= 0; i--) {
     const key = fmt.format(new Date(now - i * 86_400_000));
     const row = byDate.get(key);
-    out.push({ date: key, calls: row?.calls ?? 0, bookings: row?.bookings ?? 0 });
+    out.push({
+      date: key,
+      calls: row?.calls ?? 0,
+      bookings: row?.bookings ?? 0,
+      afterHours: row?.afterHours ?? 0,
+      revenueCents: revenueByDate.get(key) ?? 0,
+    });
   }
   return out;
 }
@@ -138,12 +150,35 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
       date: sql<string>`to_char(date_trunc('day', ${calls.startAt} AT TIME ZONE ${timeZone}), 'YYYY-MM-DD')`,
       calls: sql<number>`count(*)::int`,
       bookings: sql<number>`count(*) filter (where ${calls.outcome} = 'booked')::int`,
+      afterHours: sql<number>`count(*) filter (where ${calls.isAfterHours})::int`,
     })
     .from(calls)
     .where(and(scope, sql`${calls.startAt} >= now() - interval '13 days'`))
     // Group by the SELECT's first column (the tz-bucketed date). Re-stating the
     // AT TIME ZONE expression here would bind the timezone as a *second* parameter,
     // which Postgres treats as a different expression → "must appear in GROUP BY".
+    .groupBy(sql`1`);
+
+  // Revenue by the day it was EARNED — the appointment's day, not the call's,
+  // with the same "it has to have happened" rule as the headline number. The
+  // revenue tile's trend line used to be the bookings count wearing a green
+  // coat; a line that claims to be money should be money.
+  const revenueByDayRows = await db
+    .select({
+      date: sql<string>`to_char(date_trunc('day', ${appointments.startAt} AT TIME ZONE ${timeZone}), 'YYYY-MM-DD')`,
+      cents: sql<number>`coalesce(sum(${services.priceCents}), 0)::int`,
+    })
+    .from(appointments)
+    .leftJoin(services, eq(appointments.serviceId, services.id))
+    .where(
+      and(
+        eq(appointments.clientId, clientId),
+        isNull(appointments.deletedAt),
+        sql`${appointments.status} not in ('cancelled','no_show')`,
+        sql`${appointments.startAt} <= now()`,
+        sql`${appointments.startAt} >= now() - interval '13 days'`,
+      ),
+    )
     .groupBy(sql`1`);
 
   const outcomes = await db
@@ -175,7 +210,7 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
     completedBookings,
     upcomingBookings,
     upcomingRevenueCents: upcomingRevenue,
-    callsByDay: fillDays(byDayRows, 14, timeZone),
+    callsByDay: fillDays(byDayRows, 14, timeZone, revenueByDayRows),
     outcomes,
   };
 }

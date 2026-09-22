@@ -5,6 +5,8 @@ import { MetricBreakdown } from "@/components/metric-breakdown";
 import { MetricIconChip, type MetricIcon } from "@/components/metric-accent";
 import { CountUp } from "@/components/count-up";
 import { Sparkline } from "@/components/charts/sparkline";
+import type { Trend } from "@/lib/trend";
+import { TrendLine } from "@/components/trend-line";
 
 export type MetricSize = "hero" | "default" | "sm";
 
@@ -35,13 +37,17 @@ interface MetricCardProps {
   /** Optional 14-day trend series rendered as a sparkline under the number. */
   spark?: number[];
   sparkColor?: string;
+  /** Per-point tooltip labels for the sparkline. */
+  sparkLabels?: string[];
+  /** This week vs last, printed under the label. */
+  trend?: Trend | null;
   /** hero = lead stat (bigger number, taller spark); sm = quiet supporting stat. */
   size?: MetricSize;
   className?: string;
 }
 
 /** Big, legible stat. Optionally links to the records, or expands a breakdown on click. */
-export function MetricCard({ label, value, sub, hint, icon, href, breakdown, spark, sparkColor, size = "default", className }: MetricCardProps) {
+export function MetricCard({ label, value, sub, hint, icon, href, breakdown, spark, sparkColor, sparkLabels, trend, size = "default", className }: MetricCardProps) {
   if (breakdown && breakdown.length > 0) {
     return (
       <MetricBreakdown
@@ -54,6 +60,8 @@ export function MetricCard({ label, value, sub, hint, icon, href, breakdown, spa
         href={href}
         spark={spark}
         sparkColor={sparkColor}
+        sparkLabels={sparkLabels}
+        trend={trend}
         size={size}
         className={className}
       />
@@ -76,8 +84,9 @@ export function MetricCard({ label, value, sub, hint, icon, href, breakdown, spa
         {label}
       </p>
       {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
+      {trend ? <TrendLine trend={trend} /> : null}
       {spark && spark.length > 1 ? (
-        <Sparkline data={spark} color={sparkColor} className={cn("w-full", s.spark)} />
+        <Sparkline data={spark} color={sparkColor} labels={sparkLabels} className={cn("w-full", s.spark)} />
       ) : null}
     </CardContent>
   );

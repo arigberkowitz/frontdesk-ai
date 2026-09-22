@@ -30,6 +30,7 @@ import { CopilotChat } from "@/components/portal/copilot-chat";
 import { LiveAlerts } from "@/components/portal/live-alerts";
 import { Milestones } from "@/components/portal/milestones";
 import { formatCurrencyCents, formatDateTime } from "@/lib/format";
+import { weekOverWeek } from "@/lib/trend";
 import { capVocab, vocabFor } from "@/lib/vocab";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -107,6 +108,27 @@ export default async function PortalOverviewPage({
       ? afterHours.slice(0, 4).map((c) => `Call at ${formatDateTime(c.startAt, tz)}`)
       : ["None yet — your AI caught everything during open hours."]),
   ];
+
+  // Each tile's line is its own number over the last 14 days — revenue is
+  // money earned per day, not the bookings count in a green coat — with a
+  // hover label per point and an honest week-over-week verdict underneath.
+  const dayLabel = (d: string) =>
+    new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const series = {
+    revenue: m.callsByDay.map((d) => d.revenueCents),
+    calls: m.callsByDay.map((d) => d.calls),
+    bookings: m.callsByDay.map((d) => d.bookings),
+    afterHours: m.callsByDay.map((d) => d.afterHours),
+  };
+  const labelsFor = (key: keyof typeof series, unit: (n: number) => string) =>
+    m.callsByDay.map((d, i) => `${dayLabel(d.date)} · ${unit(series[key][i])}`);
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const trend = {
+    revenue: weekOverWeek(series.revenue, formatCurrencyCents),
+    calls: weekOverWeek(series.calls),
+    bookings: weekOverWeek(series.bookings),
+    afterHours: weekOverWeek(series.afterHours),
+  };
 
   return (
     <div className="space-y-6">
@@ -186,10 +208,10 @@ export default async function PortalOverviewPage({
           returning owner opens this page to see what happened, not to be
           re-shown suggestions they've already scrolled past twice. */}
       <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
-        <MetricCard icon="calls" label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} spark={m.callsByDay.map((d) => d.calls)} sparkColor="#0ea5e9" />
-        <MetricCard icon="bookings" label={`${capVocab(v.appointments)} booked`} value={String(m.bookings)} href="/portal/appointments" breakdown={apptBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" />
-        <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} className="sm:col-span-2 lg:col-span-1" />
+        <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} spark={series.revenue} sparkLabels={labelsFor("revenue", formatCurrencyCents)} trend={trend.revenue} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
+        <MetricCard icon="calls" label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} spark={series.calls} sparkLabels={labelsFor("calls", (n) => plural(n, "call", "calls"))} trend={trend.calls} sparkColor="#0ea5e9" />
+        <MetricCard icon="bookings" label={`${capVocab(v.appointments)} booked`} value={String(m.bookings)} href="/portal/appointments" breakdown={apptBreakdown} spark={series.bookings} sparkLabels={labelsFor("bookings", (n) => plural(n, v.appointment, v.appointments))} trend={trend.bookings} sparkColor="#10b981" />
+        <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} spark={series.afterHours} sparkLabels={labelsFor("afterHours", (n) => plural(n, "after-hours call", "after-hours calls"))} trend={trend.afterHours} sparkColor="#f59e0b" className="sm:col-span-2 lg:col-span-1" />
       </div>
 
       <SetupChecklist

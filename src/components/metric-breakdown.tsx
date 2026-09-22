@@ -9,6 +9,8 @@ import { MetricIconChip, type MetricIcon } from "@/components/metric-accent";
 import { METRIC_SIZES, type MetricSize } from "@/components/metric-card";
 import { CountUp } from "@/components/count-up";
 import { Sparkline } from "@/components/charts/sparkline";
+import type { Trend } from "@/lib/trend";
+import { TrendLine } from "@/components/trend-line";
 
 interface MetricBreakdownProps {
   label: string;
@@ -23,12 +25,16 @@ interface MetricBreakdownProps {
   href?: string;
   spark?: number[];
   sparkColor?: string;
+  /** Per-point tooltip labels for the sparkline. */
+  sparkLabels?: string[];
+  /** This week vs last, printed under the label. */
+  trend?: Trend | null;
   size?: MetricSize;
   className?: string;
 }
 
 /** Client island for a metric that expands its breakdown on click. */
-export function MetricBreakdown({ label, value, sub, hint, icon, breakdown, href, spark, sparkColor, size = "default", className }: MetricBreakdownProps) {
+export function MetricBreakdown({ label, value, sub, hint, icon, breakdown, href, spark, sparkColor, sparkLabels, trend, size = "default", className }: MetricBreakdownProps) {
   const [open, setOpen] = useState(false);
   const s = METRIC_SIZES[size];
 
@@ -60,8 +66,9 @@ export function MetricBreakdown({ label, value, sub, hint, icon, breakdown, href
             </p>
           ) : null}
           {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
+          {trend ? <TrendLine trend={trend} /> : null}
           {spark && spark.length > 1 ? (
-            <Sparkline data={spark} color={sparkColor} className={cn("w-full", s.spark)} />
+            <Sparkline data={spark} color={sparkColor} labels={sparkLabels} className={cn("w-full", s.spark)} />
           ) : null}
         </button>
         {open ? (
