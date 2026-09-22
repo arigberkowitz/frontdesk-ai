@@ -229,3 +229,35 @@ export async function saveDepositSettingsAction(
       : "Off. No deposit texts will be sent.",
   };
 }
+
+/**
+ * Website chat on or off.
+ *
+ * On means a public endpoint starts answering for this business from any
+ * website that embeds the snippet. That is the whole point and also why it
+ * defaults to off: a public endpoint that spends model tokens should exist
+ * only for a business that asked for one.
+ */
+export async function saveChatWidgetSettingsAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const enabled = String(formData.get("enabled") ?? "") === "on";
+
+  const user = await assertClientAccess(clientId);
+  if (user.role !== "operator" && user.role !== "client_admin") {
+    return { ok: false, error: "Only your account admin can change this." };
+  }
+  await assertClientInOrg(user.orgId, clientId);
+
+  await db.update(clients).set({ chatWidgetEnabled: enabled }).where(eq(clients.id, clientId));
+  void audit({ clientId, actor: user.id, action: "settings.chat_widget", detail: { enabled } });
+  revalidatePath("/portal/settings");
+  return {
+    ok: true,
+    message: enabled
+      ? "On. Paste the snippet into your website and the chat bubble appears."
+      : "Off. The chat bubble will stop answering; remove the snippet when you get a chance.",
+  };
+}

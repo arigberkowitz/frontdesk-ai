@@ -314,6 +314,12 @@ export const clients = pgTable(
      * it at the right moment, and the money never touches us.
      */
     depositLinkUrl: text("deposit_link_url"),
+    // Website chat: the same receptionist — same knowledge, same booking tools —
+    // as a chat bubble on the business's own site. Off by default because the
+    // endpoint that powers it is public by design (it has to be reachable from
+    // somebody else's website), and a public endpoint that spends model tokens
+    // should exist only for businesses that asked for it.
+    chatWidgetEnabled: boolean("chat_widget_enabled").notNull().default(false),
     // Hash of the admin-chosen edit code. When set, staff (client_viewer) can
     // unlock AI-configuration editing by entering it. Null = staff can't edit.
     editCodeHash: text("edit_code_hash"),

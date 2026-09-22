@@ -20,6 +20,8 @@ import { ReviewRequestsCard } from "@/components/portal/review-requests-card";
 import { RecallCard } from "@/components/portal/recall-card";
 import { WaitlistCard } from "@/components/portal/waitlist-card";
 import { DepositsCard } from "@/components/portal/deposits-card";
+import { env } from "@/lib/env";
+import { ChatWidgetCard } from "@/components/portal/chat-widget-card";
 import { DangerZone } from "@/components/portal/danger-zone";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -96,6 +98,12 @@ export default async function PortalSettingsPage() {
         enabled={client.depositsEnabled}
         depositLinkUrl={client.depositLinkUrl}
         depositServiceCount={depositServiceCount}
+        isAdmin={editAccess.isAdmin}
+      />
+      <ChatWidgetCard
+        clientId={clientId}
+        enabled={client.chatWidgetEnabled}
+        appUrl={env.APP_URL.replace(/\/$/, "")}
         isAdmin={editAccess.isAdmin}
       />
       <WebhookCard

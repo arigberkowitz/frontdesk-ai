@@ -10,6 +10,13 @@ import { env, integrations } from "@/lib/env";
  */
 export const DRAFT_MODEL = "claude-opus-4-8";
 export const CRITIC_MODEL = "claude-haiku-4-5";
+/**
+ * The website chat receptionist. A live visitor is waiting on every turn, so
+ * this wants the fast model, and it's doing tool-calling against well-specified
+ * tools rather than open-ended reasoning, so the fast model is enough.
+ * Overridable without a deploy for the day that stops being true.
+ */
+export const CHAT_MODEL = process.env.CHAT_MODEL || CRITIC_MODEL;
 
 export function getAnthropic(): Anthropic | null {
   if (!integrations.anthropic()) return null;

@@ -64,6 +64,35 @@ export async function getClientByIdUnsafe(clientId: string) {
   });
 }
 
+/**
+ * Everything the prompt builder needs, looked up by id alone.
+ *
+ * For the public chat endpoint, which has no org context — a visitor on a
+ * dentist's website is nobody's user. The route gates on `chatWidgetEnabled`
+ * before it does anything with the result, so this returns a client that
+ * has opted into being reachable this way, or nothing.
+ */
+export async function getClientForChat(clientId: string) {
+  return db.query.clients.findFirst({
+    where: and(eq(clients.id, clientId), eq(clients.chatWidgetEnabled, true), isNull(clients.deletedAt)),
+    with: {
+      services: {
+        where: (s, { isNull: n }) => n(s.deletedAt),
+        orderBy: (s, { asc }) => [asc(s.name)],
+      },
+      providers: {
+        where: (p, { isNull: n }) => n(p.deletedAt),
+        orderBy: (p, { asc }) => [asc(p.name)],
+      },
+      businessHours: { orderBy: (h, { asc }) => [asc(h.dayOfWeek)] },
+      knowledgeItems: {
+        where: (k, { isNull: n }) => n(k.deletedAt),
+        orderBy: (k, { desc: d }) => [d(k.createdAt)],
+      },
+    },
+  });
+}
+
 /** Throw unless the client exists and belongs to the org. Returns the row. */
 export async function assertClientInOrg(orgId: string, clientId: string): Promise<Client> {
   const row = await db.query.clients.findFirst({

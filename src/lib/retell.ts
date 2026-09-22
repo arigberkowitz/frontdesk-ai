@@ -95,7 +95,7 @@ export function verifyRetellSignature(
 }
 
 /** Build the authenticated callback URL for a custom agent tool. */
-function agentToolUrl(appUrl: string, path: string, clientId: string): string {
+export function agentToolUrl(appUrl: string, path: string, clientId: string): string {
   const base = appUrl.replace(/\/$/, "");
   return `${base}/api/agent-tools/${path}?client=${clientId}&token=${encodeURIComponent(env.AGENT_TOOLS_SECRET)}`;
 }

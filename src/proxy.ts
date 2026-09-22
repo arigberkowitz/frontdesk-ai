@@ -41,6 +41,10 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)",
   "/api/agent-tools(.*)",
   "/api/cron(.*)",
+  // The website chat endpoint. Public on purpose: it is called from other
+  // people's websites, by visitors who have no account here. It gates itself
+  // on the business having turned the widget on, and rate-limits by IP.
+  "/api/chat",
 ]);
 
 /**
@@ -52,6 +56,7 @@ const isMachineRoute = createRouteMatcher([
   "/api/webhooks(.*)",
   "/api/agent-tools(.*)",
   "/api/cron(.*)",
+  "/api/chat",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
