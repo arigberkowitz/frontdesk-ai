@@ -7,6 +7,7 @@ import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "
 import { createClient } from "@/lib/data/clients";
 import { applyWebsiteToClient } from "@/lib/onboarding-apply";
 import { finishSignup } from "@/lib/signup";
+import { tidyBusinessName } from "@/lib/format";
 import { safeIndustry } from "@/config/starter-packs";
 import { DEFAULT_TIMEZONE } from "@/config/app";
 import { type ActionState, fieldErrorsOf } from "./types";
@@ -93,7 +94,9 @@ export async function onboardFromWebsitePortalAction(
 
   const { clientId, drafted } = await runWebsiteOnboard(
     user.orgId,
-    parsed.data.name,
+    // "lifetime chiro" is what people type on a phone; "Lifetime Chiro" is
+    // what should show on their customers' caller ID and every email.
+    tidyBusinessName(parsed.data.name),
     parsed.data.websiteUrl,
     safeTimezone(formData.get("timezone")),
   );

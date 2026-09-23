@@ -94,3 +94,27 @@ export function formatDuration(seconds: number | null | undefined): string {
   const s = Math.round(seconds % 60);
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
+
+/**
+ * "lifetime chiro" → "Lifetime Chiro". Only touches a name typed entirely in
+ * lowercase; anything with a capital in it already ("McBride Dental", "AT&T
+ * Store") is the owner's spelling and stays. Small words stay small unless
+ * they lead ("Bar of Soap", "The Fade Factory").
+ */
+export function tidyBusinessName(raw: string): string {
+  const name = raw.trim().replace(/\s+/g, " ");
+  if (!name || /[A-Z]/.test(name)) return name;
+  const small = new Set(["a", "an", "and", "at", "by", "for", "in", "of", "on", "or", "the", "to"]);
+  return name
+    .split(" ")
+    .map((w, i) =>
+      i > 0 && small.has(w)
+        ? w
+        : w
+            .replace(/^([a-z])/, (c) => c.toUpperCase())
+            // After a hyphen or an apostrophe that starts a new part ("o'brien",
+            // "smith-jones") — but not a possessive 's.
+            .replace(/(['’-])([a-z])(?=[a-z])/g, (_, p, c) => p + c.toUpperCase()),
+    )
+    .join(" ");
+}

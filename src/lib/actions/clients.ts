@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { clerkClient } from "@clerk/nextjs/server";
 import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "@/lib/auth-guard";
-import { toE164 } from "@/lib/format";
+import { tidyBusinessName, toE164 } from "@/lib/format";
 import { clientCreateSchema, clientProfileSchema, emptyToNull } from "@/lib/validation";
 import * as clientsData from "@/lib/data/clients";
 import { finishSignup } from "@/lib/signup";
@@ -51,7 +51,7 @@ export async function createStarterClientAction(formData: FormData): Promise<voi
   const user = await requireBusinessCreator();
   // Keep the name they gave at signup — losing it and making them retype it in
   // Settings was a real usability bug.
-  const name = String(formData.get("name") ?? "").trim().slice(0, 120) || "Your business";
+  const name = tidyBusinessName(String(formData.get("name") ?? "").slice(0, 120)) || "Your business";
   const tz = String(formData.get("timezone") ?? "").trim();
   let timezone = DEFAULT_TIMEZONE;
   try {
