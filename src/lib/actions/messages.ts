@@ -76,7 +76,7 @@ export async function sendMessageReplyAction(
     return { ok: false, error: "Couldn't load this conversation — please try again." };
   }
 
-  if (await isOptedOut(phone)) {
+  if (await isOptedOut(phone, clientId)) {
     return {
       ok: false,
       error:

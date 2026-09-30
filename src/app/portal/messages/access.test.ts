@@ -98,7 +98,7 @@ describe("Messages pages — tenant isolation", () => {
   it("reply guards on the page are checked for the session's business", async () => {
     getThread.mockResolvedValue([msg({ direction: "outbound", kind: "appointment_confirmation", status: "sent" })]);
     await ThreadPage({ params: Promise.resolve({ phone: "14155550100" }) });
-    expect(isOptedOut).toHaveBeenCalledWith("14155550100");
+    expect(isOptedOut).toHaveBeenCalledWith("14155550100", SESSION_CLIENT);
     expect(hasSmsConsent).toHaveBeenCalledWith(SESSION_CLIENT, "14155550100", "portal_reply");
   });
 

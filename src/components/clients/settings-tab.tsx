@@ -29,6 +29,7 @@ import { Field } from "@/components/form/field";
 import { NativeSelect } from "@/components/form/native-select";
 import { SubmitButton } from "@/components/form/submit-button";
 import { BillingCard, type BillingInfo } from "@/components/clients/billing-card";
+import { SmsNumberCard } from "@/components/clients/sms-number-card";
 import { CLIENT_STATUSES, INDUSTRIES, STATUS_LABELS, TIMEZONES } from "@/config/options";
 import type { Client } from "@/db/schema";
 
@@ -166,6 +167,8 @@ export function SettingsTab({
       </Card>
 
       <BillingCard clientId={client.id} billing={billing} />
+
+      <SmsNumberCard clientId={client.id} smsNumber={client.smsNumber ?? null} />
 
       <Card>
         <CardHeader>

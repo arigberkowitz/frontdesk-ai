@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -355,10 +355,24 @@ export const clients = pgTable(
     // forwarding — the AI answers only what the team misses, and the prompt
     // acknowledges the caller tried a person first.
     answeringMode: text("answering_mode").notNull().default("all_calls"),
+    // This business's OWN texting number (E.164, e.g. "+14155550123"), bought in
+    // the platform's Twilio account and pasted in by an operator. Null = texts
+    // go out from the shared TWILIO_FROM_NUMBER and replies are routed by
+    // "who last texted this customer". Set = texts go out from this number and
+    // anything texted TO it belongs to this business, no guessing.
+    // Migration: drizzle/manual/0009_client_sms_numbers.sql.
+    smsNumber: text("sms_number"),
     ...timestamps,
     ...softDelete,
   },
-  (t) => [index("clients_org_id_idx").on(t.orgId), index("clients_status_idx").on(t.status)],
+  (t) => [
+    index("clients_org_id_idx").on(t.orgId),
+    index("clients_status_idx").on(t.status),
+    // One live business per texting number, or inbound routing is ambiguous.
+    uniqueIndex("clients_sms_number_idx")
+      .on(t.smsNumber)
+      .where(sql`${t.smsNumber} is not null and ${t.deletedAt} is null`),
+  ],
 );
 
 /** Operators and scoped client viewers. Mirrors a Clerk user. */
@@ -671,6 +685,33 @@ export const smsOptOuts = pgTable(
     ...timestamps,
   },
   (t) => [uniqueIndex("sms_opt_outs_phone_idx").on(t.phone)],
+);
+
+/**
+ * STOP sent to ONE business's own texting number (clients.sms_number).
+ *
+ * `sms_opt_outs` above stays what it always was: a STOP to the shared number,
+ * which speaks for every business on it, so it blocks everyone. A STOP to a
+ * business's dedicated number is that customer telling THAT business to stop —
+ * Twilio blocks that number at the carrier, and we block that business (from
+ * any number, including the shared one if its own number is later removed).
+ * `business_phone` records which of our numbers received it.
+ * Migration: drizzle/manual/0009_client_sms_numbers.sql.
+ */
+export const clientSmsOptOuts = pgTable(
+  "client_sms_opt_outs",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    /** Normalized digits, same format as sms_opt_outs.phone. */
+    phone: text("phone").notNull(),
+    businessPhone: text("business_phone"),
+    keyword: text("keyword"),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("client_sms_opt_outs_phone_client_idx").on(t.phone, t.clientId)],
 );
 
 /**

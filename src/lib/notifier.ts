@@ -4,6 +4,10 @@ import twilio from "twilio";
 import { env, integrations, webhookUrl } from "./env";
 import { logger } from "./logger";
 import { recordOutboundSms, type OutboundLogContext } from "./data/sms-messages";
+import { getClientSmsNumber } from "./data/sms-numbers";
+import { samePhone, toE164, type TwilioNumberCheck } from "./sms-number-format";
+
+export type { TwilioNumberCheck };
 
 /**
  * Notifier (§EPIC E): email via Resend, SMS via Twilio, behind one interface.
@@ -29,6 +33,14 @@ export interface SmsMessage {
    * texts to the owner/staff (alerts, digests) and for one-time codes.
    */
   log?: OutboundLogContext;
+  /**
+   * The business this text is sent on behalf of, when it isn't already given
+   * by `log.clientId` (e.g. one-time cancel codes, which aren't logged). If
+   * that business has its own texting number the text goes out from it;
+   * otherwise from the shared TWILIO_FROM_NUMBER. Leave unset for owner/staff
+   * alerts and digests — those always come from the shared number.
+   */
+  fromClientId?: string;
 }
 
 export interface SendResult {
@@ -113,10 +125,11 @@ async function sendSms(msg: SmsMessage): Promise<SendResult> {
     logger.warn("notifier.sms.skipped", { reason: "Twilio env unset", to: msg.to });
     return { ok: false, skipped: true };
   }
+  const from = await senderNumberFor(msg);
   try {
     const client = twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
     const res = await client.messages.create({
-      from: env.TWILIO_FROM_NUMBER,
+      from,
       to: msg.to,
       body: msg.body,
       // "ok" from this call means Twilio accepted the message, nothing more.
@@ -124,7 +137,7 @@ async function sendSms(msg: SmsMessage): Promise<SendResult> {
       // it, a text bounced by the carrier stays recorded as sent forever.
       statusCallback: webhookUrl("/api/webhooks/twilio"),
     });
-    await logToInbox(msg, { ok: true, id: res.sid });
+    await logToInbox(msg, from, { ok: true, id: res.sid });
     return { ok: true, id: res.sid };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -133,22 +146,64 @@ async function sendSms(msg: SmsMessage): Promise<SendResult> {
     // days of not knowing which of five things was wrong.
     const detail = code ? `${message} (Twilio ${code})` : message;
     logger.error("notifier.sms.threw", { to: msg.to, error: detail, code });
-    await logToInbox(msg, { ok: false, error: detail });
+    await logToInbox(msg, from, { ok: false, error: detail });
     return { ok: false, error: detail, code };
   }
 }
 
+/**
+ * Which of our numbers a text leaves from: the business's own number when it
+ * has one, else the shared number. Never throws — a failed lookup falls back
+ * to the shared number, which is how every text went out before.
+ */
+export async function senderNumberFor(msg: Pick<SmsMessage, "log" | "fromClientId">): Promise<string> {
+  const clientId = msg.fromClientId ?? msg.log?.clientId;
+  if (!clientId) return env.TWILIO_FROM_NUMBER;
+  const own = await getClientSmsNumber(clientId);
+  return own || env.TWILIO_FROM_NUMBER;
+}
+
 /** Best-effort: record a customer text in the inbox. Never throws. */
-async function logToInbox(msg: SmsMessage, result: SendResult): Promise<void> {
+async function logToInbox(msg: SmsMessage, from: string, result: SendResult): Promise<void> {
   if (!msg.log) return;
   await recordOutboundSms(msg.log, {
     to: msg.to,
-    from: env.TWILIO_FROM_NUMBER || null,
+    from: from || null,
     body: msg.body,
     ok: result.ok,
     providerSid: result.id ?? null,
     error: result.error ?? null,
   });
+}
+
+/**
+ * Read-only look at a number in OUR Twilio account, used when an operator
+ * assigns a business its own texting number. Never buys, releases or edits
+ * anything — it only answers "is this pasted number really ours, can it text,
+ * and will replies reach us?".
+ */
+export async function checkTwilioNumber(raw: string): Promise<TwilioNumberCheck> {
+  const e164 = toE164(raw) ?? raw;
+  const isShared = samePhone(e164, env.TWILIO_FROM_NUMBER);
+  const empty = { found: false, smsCapable: false, webhookOk: false, smsUrl: null, isShared };
+  if (!integrations.twilio()) return { checked: false, ...empty };
+  const client = twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
+  const matches = await client.incomingPhoneNumbers.list({ phoneNumber: e164, limit: 1 });
+  const n = matches[0];
+  if (!n) return { checked: true, ...empty };
+  const smsUrl = n.smsUrl || null;
+  const expected = webhookUrl("/api/webhooks/twilio");
+  const webhookOk = Boolean(smsUrl && smsUrl.replace(/\/$/, "") === expected.replace(/\/$/, ""));
+  return {
+    checked: true,
+    found: true,
+    smsCapable: n.capabilities?.sms !== false,
+    // Advisory only: a number inside a Messaging Service may route inbound via
+    // the service's own setting, which this lookup can't see.
+    webhookOk,
+    smsUrl,
+    isShared,
+  };
 }
 
 export const notifier = { sendEmail, sendSms };

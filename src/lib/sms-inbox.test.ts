@@ -10,11 +10,15 @@ const lastTexted = vi.fn();
 const byId = vi.fn();
 const lastMessaged = vi.fn();
 const recordInbound = vi.fn();
+const ownLine = vi.fn();
 
 vi.mock("@/lib/data/clients", () => ({
   findClientByPhone: (...a: unknown[]) => byLine(...a),
   findClientLastTexted: (...a: unknown[]) => lastTexted(...a),
   getClientByIdUnsafe: (...a: unknown[]) => byId(...a),
+}));
+vi.mock("@/lib/data/sms-numbers", () => ({
+  findClientBySmsNumber: (...a: unknown[]) => ownLine(...a),
 }));
 vi.mock("@/lib/data/sms-messages", () => ({
   findClientLastMessaged: (...a: unknown[]) => lastMessaged(...a),
@@ -25,7 +29,8 @@ vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: 
 const { resolveInboundClient, storeInboundMessage } = await import("./sms-inbox");
 
 beforeEach(() => {
-  for (const f of [byLine, lastTexted, byId, lastMessaged, recordInbound]) f.mockReset();
+  for (const f of [byLine, lastTexted, byId, lastMessaged, recordInbound, ownLine]) f.mockReset();
+  ownLine.mockResolvedValue(null);
   byLine.mockResolvedValue(null);
   lastTexted.mockResolvedValue(null);
   lastMessaged.mockResolvedValue(null);
@@ -34,6 +39,23 @@ beforeEach(() => {
 });
 
 describe("resolveInboundClient", () => {
+  it("a text TO a business's own texting number goes straight to that business", async () => {
+    ownLine.mockResolvedValue(DENTIST);
+    lastMessaged.mockResolvedValue(PLUMBER.id);
+    expect(await resolveInboundClient("+14155559999", "+14155550100")).toBe(DENTIST);
+    expect(ownLine).toHaveBeenCalledWith("+14155559999");
+    // No guessing when the number itself says who it's for.
+    expect(byLine).not.toHaveBeenCalled();
+    expect(lastMessaged).not.toHaveBeenCalled();
+    expect(lastTexted).not.toHaveBeenCalled();
+  });
+
+  it("on the shared number, only counts texts sent from the number they replied to", async () => {
+    lastMessaged.mockResolvedValue(PLUMBER.id);
+    await resolveInboundClient("+18885550000", "+14155550100");
+    expect(lastMessaged).toHaveBeenCalledWith("+14155550100", "+18885550000");
+  });
+
   it("prefers the business whose own line was texted (To)", async () => {
     byLine.mockResolvedValue(DENTIST);
     lastMessaged.mockResolvedValue(PLUMBER.id);
@@ -45,7 +67,7 @@ describe("resolveInboundClient", () => {
     lastMessaged.mockResolvedValue(PLUMBER.id);
     lastTexted.mockResolvedValue(DENTIST);
     expect(await resolveInboundClient("+18885550000", "+14155550100")).toBe(PLUMBER);
-    expect(lastMessaged).toHaveBeenCalledWith("+14155550100");
+    expect(lastMessaged).toHaveBeenCalledWith("+14155550100", "+18885550000");
   });
 
   it("falls back to the reminders log for texts sent before the inbox existed", async () => {

@@ -384,3 +384,37 @@ everything else). This change closes the gaps rather than adding a parallel syst
   (typically someone removed earlier) sets the metadata directly; they join on their
   next sign-in. An email with a live FrontDesk login is refused (one login = one
   business).
+
+## 2026-09-30 — Per-business texting numbers (optional)
+
+- **`clients.sms_number`** (E.164, nullable; manual migration
+  `drizzle/manual/0009_client_sms_numbers.sql`). Null for every business until an
+  agency operator pastes one in on the client's Settings tab, so nothing changes on
+  deploy. Not reused from `retell_phone_number` / `forwarding_number`: Retell numbers
+  live in Retell's account (we can't send SMS from them through our Twilio), and the
+  forwarding number is the business's own carrier line.
+- **Outbound:** `notifier.sendSms` sends a customer text from the business's own
+  number when it has one (business taken from `log.clientId`, or `fromClientId` for
+  unlogged texts like cancel codes), else from `TWILIO_FROM_NUMBER`. Owner/staff
+  alerts and digests always use the shared number. A failed lookup falls back to
+  the shared number.
+- **Inbound routing:** `To` = a business's own number → that business, nothing else
+  consulted. Otherwise (shared number) the old fallback, but "who last texted this
+  customer" now only counts texts sent from the number they replied to (plus old rows
+  with no number), so a reply to the shared line isn't credited to a business that
+  texted from its own number.
+- **STOP/START scope.** `sms_opt_outs` is unchanged and still means "STOP to the
+  shared number" → blocks every business. A STOP to a business's own number goes to
+  the new `client_sms_opt_outs` and blocks **that business** (from any number, so
+  removing its number later can't route around the STOP via the shared line). START
+  lifts only the opt-out for the number it was sent to. `isOptedOut(phone, clientId)`
+  checks shared + that business; callers that don't pass a business get "any STOP
+  anywhere" (the conservative answer). An unmatched `To` is treated as the shared
+  number (broader scope). Twilio's own carrier-level block is per number (or per
+  Messaging Service, which is broader) — ours is never looser than Twilio's.
+- **Assignment is operator-only and never buys anything.** Agency operators only
+  (`requireAgencyOperator`), org-scoped. The number is checked read-only against our
+  Twilio account (exists, SMS-capable, not the shared number, not assigned to another
+  live business — also enforced by a partial unique index). A number whose "A message
+  comes in" webhook doesn't point at `/api/webhooks/twilio` is saved with a warning.
+  Assign/remove are written to `audit_log`.

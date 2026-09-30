@@ -68,7 +68,7 @@ export async function offerFreedSlot(
         logger.info("waitlist.offer.no_consent", { clientId: client.id, entryId: entry.id });
         continue;
       }
-      if (await isOptedOut(entry.customerPhone)) continue;
+      if (await isOptedOut(entry.customerPhone, client.id)) continue;
       const row = waiting.find((w) => w.id === entry.id);
       const body = waitlistOfferBody({
         businessName: client.name,

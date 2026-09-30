@@ -40,7 +40,7 @@ export async function requestDeposit(input: {
     }
     const to = appointment.customerPhone?.trim();
     if (!to) return false;
-    if (await isOptedOut(to)) return false;
+    if (await isOptedOut(to, client.id)) return false;
 
     const body = depositRequestBody({
       businessName: client.name,
