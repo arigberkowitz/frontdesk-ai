@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { services as servicesTable, type Client } from "@/db/schema";
 import { createReminder } from "@/lib/data/reminders";
-import { isOptedOut } from "@/lib/data/sms-optouts";
+import { isOptedOut, normalizePhone } from "@/lib/data/sms-optouts";
+import { getWaitlistConsentedPhones } from "@/lib/data/waitlist-consent";
 import { listWaiting, markOffered } from "@/lib/data/waitlist";
 import {
   chooseOffers,
@@ -57,8 +58,16 @@ export async function offerFreedSlot(
       : null;
     const when = describeOpening(opening.startAt, client.timezone);
 
+    // Only numbers that said yes to waitlist texts (a stored consent row).
+    // Fails closed: if the lookup errors, the set is empty and nobody is texted.
+    const consented = await getWaitlistConsentedPhones(client.id);
+
     let sent = 0;
     for (const entry of chosen) {
+      if (!consented.has(normalizePhone(entry.customerPhone ?? ""))) {
+        logger.info("waitlist.offer.no_consent", { clientId: client.id, entryId: entry.id });
+        continue;
+      }
       if (await isOptedOut(entry.customerPhone)) continue;
       const row = waiting.find((w) => w.id === entry.id);
       const body = waitlistOfferBody({
