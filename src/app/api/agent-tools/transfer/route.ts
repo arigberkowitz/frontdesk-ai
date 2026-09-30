@@ -1,5 +1,4 @@
-import { authenticateAgentTool } from "@/lib/agent-tools-auth";
-import { getClientByIdUnsafe } from "@/lib/data/clients";
+import { authorizeAgentTool } from "@/lib/agent-tools-auth";
 import { isAfterHours } from "@/lib/hours-util";
 import { logger } from "@/lib/logger";
 
@@ -14,11 +13,9 @@ export const runtime = "nodejs";
  * that nobody's phone rings at eleven at night.
  */
 export async function POST(req: Request): Promise<Response> {
-  const auth = authenticateAgentTool(new URL(req.url));
-  if (!auth.ok) return new Response(auth.message, { status: auth.status });
-
-  const client = await getClientByIdUnsafe(auth.clientId);
-  if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
+  const auth = await authorizeAgentTool(req);
+  if (!auth.ok) return auth.response;
+  const { client } = auth;
 
   const mode = client.setupFlags?.handoffMode ?? "always";
   const takeMessage = (reason: string) => {

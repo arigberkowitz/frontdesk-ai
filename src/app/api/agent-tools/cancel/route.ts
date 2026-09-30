@@ -1,6 +1,5 @@
 import { after } from "next/server";
-import { authenticateAgentTool, readToolArgs } from "@/lib/agent-tools-auth";
-import { getClientByIdUnsafe } from "@/lib/data/clients";
+import { authorizeAgentTool } from "@/lib/agent-tools-auth";
 import { getCallByRetellId } from "@/lib/data/calls";
 import { cancelAppointment, findUpcomingAppointmentsByPhone } from "@/lib/data/appointments";
 import { getBookingProviderForClient } from "@/lib/booking";
@@ -19,12 +18,9 @@ export const runtime = "nodejs";
  * as booking: cancelled appointments stop counting against capacity.
  */
 export async function POST(req: Request): Promise<Response> {
-  const auth = authenticateAgentTool(new URL(req.url));
-  if (!auth.ok) return new Response(auth.message, { status: auth.status });
-
-  const { args, retellCallId } = await readToolArgs(req);
-  const client = await getClientByIdUnsafe(auth.clientId);
-  if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
+  const auth = await authorizeAgentTool(req);
+  if (!auth.ok) return auth.response;
+  const { client, args, retellCallId } = auth;
 
   // The number the booking was made under: what the caller gave us, else the
   // number they're calling from.

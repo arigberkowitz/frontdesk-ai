@@ -1,5 +1,4 @@
-import { authenticateAgentTool, readToolArgs } from "@/lib/agent-tools-auth";
-import { getClientByIdUnsafe } from "@/lib/data/clients";
+import { authorizeAgentTool } from "@/lib/agent-tools-auth";
 import { getCallByRetellId } from "@/lib/data/calls";
 import { hasOverlappingAppointment, reserveAppointment } from "@/lib/data/appointments";
 import { findFreeProvider } from "@/lib/data/providers";
@@ -42,12 +41,9 @@ async function releaseExternalBooking(
 export const runtime = "nodejs";
 
 export async function POST(req: Request): Promise<Response> {
-  const auth = authenticateAgentTool(new URL(req.url));
-  if (!auth.ok) return new Response(auth.message, { status: auth.status });
-
-  const { args, retellCallId } = await readToolArgs(req);
-  const client = await getClientByIdUnsafe(auth.clientId);
-  if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
+  const auth = await authorizeAgentTool(req);
+  if (!auth.ok) return auth.response;
+  const { client, args, retellCallId } = auth;
 
   const startAt = parseInClientTimezone(String(args.datetime ?? ""), client.timezone);
   if (!startAt) {

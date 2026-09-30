@@ -4,6 +4,7 @@ import Retell from "retell-sdk";
 import { env, integrations } from "./env";
 import { toE164 } from "@/lib/format";
 import { logger } from "./logger";
+import { agentToolToken } from "./agent-tool-token";
 
 /**
  * Single entry point for Retell (§9). The rest of the app never imports the SDK
@@ -85,19 +86,24 @@ export function verifyRetellSignature(
   const b = Buffer.from(digest);
   const ok = a.length === b.length && timingSafeEqual(a, b);
   if (!ok) {
-    logger.warn("retell.verify.digest_mismatch", {
-      gotPrefix: digest.slice(0, 10),
-      expectedPrefix: expected.slice(0, 10),
-      gotLen: digest.length,
-    });
+    // Never log any part of the EXPECTED digest — it's derived from the key.
+    logger.warn("retell.verify.digest_mismatch", { gotLen: digest.length });
   }
   return ok;
 }
 
-/** Build the authenticated callback URL for a custom agent tool. */
+/**
+ * Build the authenticated callback URL for a custom agent tool.
+ *
+ * The token is PER CLIENT — HMAC(AGENT_TOOLS_SECRET, clientId) — so a token
+ * copied out of one business's Retell config or an access log only works for
+ * that business. It used to be the raw shared secret, which let anyone holding
+ * it act as every tenant by editing `?client=`. The token alone is also no
+ * longer enough: the tool routes verify Retell's request signature too.
+ */
 export function agentToolUrl(appUrl: string, path: string, clientId: string): string {
   const base = appUrl.replace(/\/$/, "");
-  return `${base}/api/agent-tools/${path}?client=${clientId}&token=${encodeURIComponent(env.AGENT_TOOLS_SECRET)}`;
+  return `${base}/api/agent-tools/${path}?client=${clientId}&token=${encodeURIComponent(agentToolToken(clientId))}`;
 }
 
 /**

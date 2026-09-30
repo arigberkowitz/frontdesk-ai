@@ -58,7 +58,7 @@ export const env = {
   // Use `||` so an empty RETELL_API_KEY doesn't become the secret. The dev
   // default NEVER applies in production — a guessable public string as the
   // only auth on booking/cancel/message endpoints would be an open door;
-  // authenticateAgentTool rejects an empty secret, so prod without env vars
+  // authorizeAgentTool rejects an empty secret, so prod without env vars
   // fails closed instead.
   // NOT the Retell API key. It used to fall back to it, which meant the key
   // that can provision numbers and read every tenant's transcripts was baked
@@ -67,6 +67,14 @@ export const env = {
   AGENT_TOOLS_SECRET:
     process.env.AGENT_TOOLS_SECRET ||
     (process.env.NODE_ENV === "production" ? "" : "dev-agent-tools-secret"),
+  // Whether agent-tool requests MUST carry a valid signature (Retell's
+  // x-retell-signature, or our own for web-chat tool calls). "enforce"
+  // (default) rejects unsigned calls with 401. "report" logs them and lets
+  // them through — a rollout escape hatch only, for the first deploy, in case
+  // Retell's signing key isn't the RETELL_API_KEY this app holds. Don't leave
+  // it on "report": in that mode the URL token alone is the whole defence.
+  AGENT_TOOLS_SIGNATURE_MODE:
+    process.env.AGENT_TOOLS_SIGNATURE_MODE === "report" ? ("report" as const) : ("enforce" as const),
   // Secret protecting the digest cron endpoint (digests disabled until set).
   CRON_SECRET: process.env.CRON_SECRET ?? "",
   // Where the morning health check sends its "something is wrong" email. The

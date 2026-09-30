@@ -5,6 +5,7 @@ import { getClientForChat } from "@/lib/data/clients";
 import { buildPromptForClient } from "@/lib/agent-publish";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { agentToolUrl } from "@/lib/retell";
+import { CHAT_SIGNATURE_HEADER, signChatToolRequest } from "@/lib/agent-tool-token";
 import { CHAT_MODEL, getAnthropic } from "@/lib/agents/anthropic";
 import { consumeAttempt } from "@/lib/rate-limit";
 import { chatChannelPreamble, chatGreeting, nowLine } from "@/lib/chat/prompt";
@@ -27,9 +28,11 @@ export const maxDuration = 60;
  * with no account here. So it defends itself — the business must have turned
  * the widget on, the transcript is sanitized before the model sees it, tool
  * rounds are capped, and every IP is rate-limited. Tools are called over HTTP
- * against our own agent-tool endpoints with the same secret Retell uses, so a
- * chat booking is checked, written, texted and webhooked exactly like a phone
- * booking. Nothing here is a second copy of booking logic.
+ * against our own agent-tool endpoints with the client's own tool token plus a
+ * per-client chat signature (x-frontdesk-chat-signature), so a chat booking is
+ * checked, written, texted and webhooked exactly like a phone booking — and
+ * the endpoints know for certain it came from web chat, not a phone call.
+ * Nothing here is a second copy of booking logic.
  */
 
 const RATE_LIMIT_PER_10_MIN = 40;
@@ -157,10 +160,14 @@ export async function POST(req: Request): Promise<Response> {
  */
 async function callTool(path: string, clientId: string, args: unknown): Promise<string> {
   try {
+    const body = JSON.stringify({ args, call: { channel: "web_chat" } });
     const res = await fetch(agentToolUrl(env.APP_URL, path, clientId), {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ args, call: { channel: "web_chat" } }),
+      headers: {
+        "content-type": "application/json",
+        [CHAT_SIGNATURE_HEADER]: signChatToolRequest(clientId, body),
+      },
+      body,
       signal: AbortSignal.timeout(20_000),
     });
     const text = await res.text();

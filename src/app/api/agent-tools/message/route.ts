@@ -1,5 +1,4 @@
-import { authenticateAgentTool, readToolArgs } from "@/lib/agent-tools-auth";
-import { getClientByIdUnsafe } from "@/lib/data/clients";
+import { authorizeAgentTool } from "@/lib/agent-tools-auth";
 import { toE164 } from "@/lib/format";
 import { getCallByRetellId } from "@/lib/data/calls";
 import { createLead } from "@/lib/data/leads";
@@ -10,12 +9,9 @@ import { after } from "next/server";
 export const runtime = "nodejs";
 
 export async function POST(req: Request): Promise<Response> {
-  const auth = authenticateAgentTool(new URL(req.url));
-  if (!auth.ok) return new Response(auth.message, { status: auth.status });
-
-  const { args, retellCallId } = await readToolArgs(req);
-  const client = await getClientByIdUnsafe(auth.clientId);
-  if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
+  const auth = await authorizeAgentTool(req);
+  if (!auth.ok) return auth.response;
+  const { client, args, retellCallId } = auth;
 
   // Normalize the number the moment it arrives. A message whose phone field
   // holds "four one five..." or a half-heard string is a lead the business
