@@ -7,6 +7,7 @@ import { listServices } from "@/lib/data/services";
 import { toE164 } from "@/lib/format";
 import { emitWebhook } from "@/lib/webhooks-emit";
 import { logger } from "@/lib/logger";
+import { recordWaitlistConsent } from "@/lib/data/waitlist-consent";
 
 export const runtime = "nodejs";
 
@@ -86,6 +87,10 @@ export async function POST(req: Request): Promise<Response> {
   });
 
   logger.info("agent-tools.waitlist.added", { clientId: client.id, entryId: entry.id });
+
+  // This tool is only called after they said yes to "want a text if something
+  // opens up?" — write that yes down, because the offer texts now require it.
+  after(() => recordWaitlistConsent({ clientId: client.id, phone, callId: callRow?.id }));
 
   after(() =>
     emitWebhook(client.id, "lead.created", {
