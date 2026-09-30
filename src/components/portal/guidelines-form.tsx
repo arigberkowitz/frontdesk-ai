@@ -62,7 +62,7 @@ export function GuidelinesForm({ client }: { client: Client }) {
         clientId={client.id}
         field="greeting"
         title="Greeting"
-        description="The first thing callers hear when your AI answers."
+        description="The first thing callers hear when your AI answers. If it doesn't already say so, we add a short line telling callers they're talking to an AI assistant and the call may be recorded. That part is required and can't be turned off here."
         label="Opening line"
         rows={2}
         defaultValue={client.greeting ?? ""}

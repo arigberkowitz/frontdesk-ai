@@ -5,7 +5,7 @@ import { requireClientEditor, requireOperator } from "@/lib/auth-guard";
 import { agentConfigSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg, getClient, updateClient } from "@/lib/data/clients";
 import { createAgentVersion } from "@/lib/data/agent-versions";
-import { defaultGreeting, DEFAULT_AGENT_NAME } from "@/lib/prompt";
+import { openingLine } from "@/lib/prompt";
 import { agentToolsFor, buildPromptForClient } from "@/lib/agent-publish";
 import { DEFAULT_VOICE_ID, getRetellClient, updateAgentVoice } from "@/lib/retell";
 import { integrations } from "@/lib/env";
@@ -135,9 +135,7 @@ export async function publishAgentAction(
     try {
       await getRetellClient().llm.update(client.retellLlmId, {
         general_prompt: prompt,
-        begin_message:
-          client.greeting?.trim() ||
-          defaultGreeting({ name: client.name }, client.agentName?.trim() || DEFAULT_AGENT_NAME),
+        begin_message: openingLine(client),
         // Keep tools in lockstep with the prompt: a prompt that mentions
         // cancel_appointment (or a changed escalation number) must ship the
         // matching tool set, or agents provisioned earlier hallucinate calls.
