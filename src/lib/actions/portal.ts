@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { users, type NewClient } from "@/db/schema";
-import { assertClientAccess, requireClientEditor } from "@/lib/auth-guard";
+import {
+  assertClientAccess,
+  OWNER_ONLY_ERROR,
+  requireClientEditor,
+  userIsClientOwner,
+} from "@/lib/auth-guard";
+import { ownerOnlyFieldsIn } from "@/lib/team-rules";
 import { toE164 } from "@/lib/format";
 import { assertClientInOrg, getClientByIdUnsafe, updateClient } from "@/lib/data/clients";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
@@ -28,6 +34,12 @@ export async function savePortalProfileAction(
   if (!guard.ok) return { ok: false, error: guard.error };
   const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
+
+  // Where alerts go (and the live-transfer number) is owner-only. The edit
+  // code unlocks AI settings for staff, not this.
+  if (ownerOnlyFieldsIn(formData).length > 0 && !userIsClientOwner(user, clientId)) {
+    return { ok: false, error: OWNER_ONLY_ERROR };
+  }
 
   const patch: Partial<NewClient> = {};
 
@@ -110,6 +122,9 @@ export async function savePortalProfileAction(
   }
   if (formData.has("smsAlertsEnabled")) {
     patch.smsAlertsEnabled = String(formData.get("smsAlertsEnabled")) === "on";
+  }
+  if (formData.has("weeklySummaryEnabled")) {
+    patch.weeklySummaryEnabled = String(formData.get("weeklySummaryEnabled")) === "on";
   }
 
   if (Object.keys(patch).length === 0) return { ok: false, error: "Nothing to save." };

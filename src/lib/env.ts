@@ -42,8 +42,10 @@ export const env = {
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "",
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? "",
   // Microsoft (Azure AD) OAuth app — one-click Outlook / Microsoft 365 connect.
-  MS_CLIENT_ID: process.env.MS_CLIENT_ID ?? "",
-  MS_CLIENT_SECRET: process.env.MS_CLIENT_SECRET ?? "",
+  // MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET are the documented names;
+  // the older MS_* names still work so an existing deployment doesn't break.
+  MS_CLIENT_ID: process.env.MICROSOFT_CLIENT_ID || process.env.MS_CLIENT_ID || "",
+  MS_CLIENT_SECRET: process.env.MICROSOFT_CLIENT_SECRET || process.env.MS_CLIENT_SECRET || "",
   // Public number for the sales demo agent (§11 screen 9).
   DEMO_PHONE_NUMBER: process.env.DEMO_PHONE_NUMBER ?? "",
   // Public base URL for webhook + agent-tool callbacks (baked into Retell at

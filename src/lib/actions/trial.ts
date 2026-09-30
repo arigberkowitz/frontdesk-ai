@@ -5,7 +5,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, organizations, users } from "@/db/schema";
 import {
-  requireClientEditor,
+  requireClientOwner,
   requireOperator,
 } from "@/lib/auth-guard";
 import { audit } from "@/lib/data/audit";
@@ -47,11 +47,11 @@ export async function requestTrialAction(
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
   const code = String(formData.get("code") ?? "").trim().toUpperCase();
-  const guard = await requireClientEditor(clientId);
+  const guard = await requireClientOwner(clientId);
   if (!guard.ok) return { ok: false, error: guard.error };
   if (!code) return { ok: false, error: "Enter your trial code." };
 
-  // requireClientEditor answers "may this ROLE edit a client"; an operator
+  // requireClientOwner answers "may this ROLE manage a client"; an operator
   // passes it for any client anywhere. The org half of the tenancy rule has to
   // be asked separately, and here it wasn't — so this lookup was unscoped.
   const client = await db.query.clients.findFirst({

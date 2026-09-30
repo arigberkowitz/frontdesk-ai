@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireClientEditor } from "@/lib/auth-guard";
+import { requireClientEditor, requireClientOwner } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { toE164 } from "@/lib/format";
 import {
@@ -16,8 +16,8 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 /** Add someone to the alert roster (name + email and/or phone). */
 export async function addAlertContactAction(formData: FormData): Promise<void> {
   const clientId = String(formData.get("clientId") ?? "");
-  const guard = await requireClientEditor(clientId);
-  if (!guard.ok) return; // locked staff: silent no-op (banner explains)
+  const guard = await requireClientOwner(clientId);
+  if (!guard.ok) return; // staff: owner-only (the form is hidden for them)
   const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
 
@@ -67,8 +67,8 @@ export async function allOnDutyAction(formData: FormData): Promise<void> {
 
 export async function deleteAlertContactAction(formData: FormData): Promise<void> {
   const clientId = String(formData.get("clientId") ?? "");
-  const guard = await requireClientEditor(clientId);
-  if (!guard.ok) return; // locked staff: silent no-op (banner explains)
+  const guard = await requireClientOwner(clientId);
+  if (!guard.ok) return; // staff: owner-only (the button is hidden for them)
   const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
   await deleteAlertContact(clientId, String(formData.get("contactId") ?? ""));

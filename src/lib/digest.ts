@@ -2,10 +2,16 @@ import "server-only";
 import { and, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, notifications, type Client } from "@/db/schema";
-import { getClientPeriodSummary, type PeriodSummary } from "./data/metrics";
+import { getClientPeriodSummary } from "./data/metrics";
 import { getCallHealth } from "./data/calls";
-import type { CallHealthSummary } from "./call-health";
 import { notifier } from "./notifier";
+import { claimWeeklySummary, finishWeeklySummary, getWeeklyActivity } from "./data/weekly-summary";
+import {
+  hasWeeklyActivity,
+  isoWeekKey,
+  weeklySummaryEmail,
+  type WeeklySummaryStats,
+} from "./weekly-summary-email";
 import { formatCurrencyCents } from "./format";
 import { env } from "./env";
 import { logger } from "./logger";
@@ -86,103 +92,56 @@ export async function sendDigests(
 
 /* --------------------------- weekly owner report -------------------------- */
 
-function esc(s: string): string {
-  return s.replace(/[<>&]/g, (c) => (c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;"));
+export interface WeeklySummaryRunResult extends DigestRunResult {
+  /** Businesses that switched the weekly summary off in Settings. */
+  optedOut: number;
+  /** Businesses already emailed for this ISO week (a retry or overlapping run). */
+  alreadySent: number;
+  week: string;
 }
 
-function statRow(label: string, value: string, sub?: string): string {
-  return `<tr>
-    <td style="padding:10px 0;border-bottom:1px solid #eee;color:#555;font-size:14px">${label}${
-      sub ? `<br><span style="color:#999;font-size:12px">${sub}</span>` : ""
-    }</td>
-    <td style="padding:10px 0;border-bottom:1px solid #eee;text-align:right;font-size:20px;font-weight:600;color:#111">${value}</td>
-  </tr>`;
+/** Everything the weekly summary shows for one business, last 7 days. */
+export async function getWeeklySummaryStats(clientId: string): Promise<WeeklySummaryStats> {
+  const [core, activity] = await Promise.all([
+    getClientPeriodSummary(clientId, 7),
+    getWeeklyActivity(clientId, 7),
+  ]);
+  return { ...core, ...activity };
 }
-
 
 /**
- * The part of the week nobody else sends.
+ * Render one business's weekly summary email without sending it — used by the
+ * portal preview route (Settings → Weekly summary → Preview).
+ */
+export async function renderWeeklySummaryForClient(
+  client: Pick<Client, "id" | "name">,
+): Promise<ReturnType<typeof weeklySummaryEmail> & { stats: WeeklySummaryStats }> {
+  const stats = await getWeeklySummaryStats(client.id);
+  const health = await getCallHealth(client.id, 7).catch(() => null);
+  return {
+    ...weeklySummaryEmail({
+      businessName: client.name,
+      stats,
+      health: health?.summary,
+      baseUrl: env.APP_URL,
+    }),
+    stats,
+  };
+}
+
+/**
+ * Weekly summary email (Monday cron, /api/cron/weekly-report) to each
+ * live/trial business's owner email: calls answered, bookings, cancellations,
+ * missed calls won back, new leads and customer texts for the past 7 days.
  *
- * A weekly report that only contains good news trains the reader to skim it.
- * Worse, it means the first time a business hears that callers were asking for
- * a human and not getting one is when one of them says so. If the week was
- * clean, say that plainly — it's only worth believing because we'd have said
- * otherwise.
+ *  - Opt-out: `clients.weekly_summary_enabled` (portal Settings → Alerts).
+ *  - Dedupe: one `weekly_summary_sends` row per business per ISO week, claimed
+ *    BEFORE sending. A retried or overlapping run can't email anyone twice;
+ *    only a failed / provider-not-configured week is retried.
+ *  - Quiet weeks (nothing at all happened) are skipped, as before.
  */
-function healthBlock(health?: CallHealthSummary): string {
-  if (!health || health.total === 0) return "";
-  const rows: string[] = [];
-  if (health.strandedAskingForHuman > 0)
-    rows.push(
-      `${health.strandedAskingForHuman} caller${health.strandedAskingForHuman === 1 ? "" : "s"} asked for a person and didn't reach one`,
-    );
-  if (health.repeatedQuestion > 0)
-    rows.push(
-      `${health.repeatedQuestion} call${health.repeatedQuestion === 1 ? "" : "s"} where your AI had to ask the same thing three or more times`,
-    );
-  if (health.earlyHangup > 0)
-    rows.push(`${health.earlyHangup} hung up within the first 15 seconds`);
-  if (health.noContactCaptured > 0)
-    rows.push(`${health.noContactCaptured} ended with no name or number to follow up on`);
-  if (health.possibleEmergency > 0)
-    rows.push(
-      `<strong>${health.possibleEmergency} mentioned something that may have been urgent</strong>`,
-    );
-
-  if (!rows.length) {
-    return `<p style="margin:16px 0 0;padding:10px 12px;background:#f0fdf4;border-radius:8px;font-size:14px;color:#166534">
-    Every call this week went cleanly — nobody was left waiting, cut off, or asked the same thing twice.
-  </p>`;
-  }
-
-  return `<div style="margin:18px 0 0;padding:12px;background:#fffbeb;border-radius:8px">
-    <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:#92400e">Worth a listen this week</p>
-    <ul style="margin:0;padding-left:18px;color:#78350f;font-size:14px">
-      ${rows.map((r) => `<li style="margin:2px 0">${r}</li>`).join("\n      ")}
-    </ul>
-    <p style="margin:8px 0 0;font-size:12px;color:#92400e">Each one is in your dashboard with the recording attached.</p>
-  </div>`;
-}
-
-/** The retention machine: one glance says what the AI earned this week. */
-export function weeklyReportEmailHtml(
-  client: Client,
-  s: PeriodSummary,
-  health?: CallHealthSummary,
-): string {
-  // Earned and upcoming are different claims and are never added together.
-  // "Booked $X" used to mean "count × the average price on your menu", which
-  // was neither.
-  const earned = formatCurrencyCents(s.estRevenueCents);
-  const upcoming = formatCurrencyCents(s.upcomingRevenueCents);
-  return `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto">
-  <p style="color:#666;margin:0 0 4px;font-size:13px">Your week with FrontDesk AI</p>
-  <h1 style="margin:0 0 6px;font-size:22px">${esc(client.name)}</h1>
-  <p style="margin:0 0 18px;font-size:15px;color:#333">
-    Your AI receptionist answered <strong>${s.calls} call${s.calls === 1 ? "" : "s"}</strong>,
-    booked <strong>${s.bookings} appointment${s.bookings === 1 ? "" : "s"}</strong>, and saved
-    <strong>${s.afterHours} after-hours call${s.afterHours === 1 ? "" : "s"}</strong> this week.
-  </p>
-  <table style="width:100%;border-collapse:collapse">
-    ${statRow("Calls answered", String(s.calls), "Every one picked up on the first ring")}
-    ${statRow("Appointments held", String(s.bookings), `Worth ${earned} at your listed prices`)}
-    ${s.upcomingRevenueCents > 0 ? statRow("Still to come", upcoming, "Booked this week, happening later") : ""}
-    ${statRow("After-hours saves", String(s.afterHours), "Calls that would have gone to voicemail")}
-    ${statRow("Messages & leads captured", String(s.leads), "Callers who left a callback request")}
-  </table>
-  ${healthBlock(health)}
-  <p style="margin:20px 0">
-    <a href="${env.APP_URL}/portal" style="background:#111;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;display:inline-block">Open your dashboard</a>
-  </p>
-  <p style="color:#999;font-size:12px;margin-top:18px">Sent every week by FrontDesk AI · numbers cover the last 7 days</p>
-</div>`;
-}
-
-/**
- * Weekly owner report email — sent alongside the weekly SMS digest to each
- * live/trial client's owner email. Quiet weeks (zero activity) are skipped.
- */
-export async function sendWeeklyReports(): Promise<DigestRunResult> {
+export async function sendWeeklyReports(now: Date = new Date()): Promise<WeeklySummaryRunResult> {
+  const week = isoWeekKey(now);
   const active = await db.query.clients.findMany({
     where: and(inArray(clients.status, ["live", "trial"]), isNull(clients.deletedAt)),
   });
@@ -190,42 +149,47 @@ export async function sendWeeklyReports(): Promise<DigestRunResult> {
   let sent = 0;
   let skipped = 0;
   let failed = 0;
+  let optedOut = 0;
+  let alreadySent = 0;
 
   for (const client of active) {
     try {
+      if (client.weeklySummaryEnabled === false) {
+        optedOut++;
+        continue;
+      }
       const to = client.ownerEmail?.trim();
       if (!to) {
         skipped++;
         continue;
       }
-      const s = await getClientPeriodSummary(client.id, 7);
-      if (s.calls === 0 && s.bookings === 0 && s.leads === 0) {
+      const { stats, subject, html, text } = await renderWeeklySummaryForClient(client);
+      if (!hasWeeklyActivity(stats)) {
         skipped++;
         continue;
       }
 
-      const subject = `Your AI answered ${s.calls} call${s.calls === 1 ? "" : "s"} and booked ${s.bookings} appointment${s.bookings === 1 ? "" : "s"} this week`;
-      // The week's failures ride along with the week's wins. A report that only
-      // ever flatters is a report nobody reads closely.
-      const health = await getCallHealth(client.id, 7).catch(() => null);
-      const html = weeklyReportEmailHtml(client, s, health?.summary);
-      const result = await notifier.sendEmail({
-        to,
-        subject,
-        html,
-        text: `${client.name} — this week: ${s.calls} calls answered, ${s.bookings} appointments booked (${formatCurrencyCents(s.estRevenueCents)} from the ones already held), ${s.leads} leads, ${s.afterHours} after-hours saves. See ${env.APP_URL}/portal`,
-      });
+      const claim = await claimWeeklySummary(client.id, week, to);
+      if (!claim) {
+        alreadySent++;
+        continue;
+      }
+
+      const result = await notifier.sendEmail({ to, subject, html, text });
+      const status = result.ok ? "sent" : result.skipped ? "skipped" : "failed";
+      await finishWeeklySummary(claim, { status, error: result.error ?? null, stats });
       await db.insert(notifications).values({
         clientId: client.id,
         type: "digest_weekly",
         channel: "email",
         recipient: to,
-        payload: { subject, summary: s },
+        payload: { subject, week, summary: stats },
         status: result.skipped ? "queued" : result.ok ? "sent" : "failed",
         sentAt: result.ok ? new Date() : null,
       });
       if (result.ok) sent++;
-      else skipped++;
+      else if (result.skipped) skipped++;
+      else failed++;
     } catch (err) {
       failed++;
       logger.error("digest.weekly_report.client_failed", {
@@ -235,6 +199,14 @@ export async function sendWeeklyReports(): Promise<DigestRunResult> {
     }
   }
 
-  logger.info("digest.weekly_report", { clients: active.length, sent, skipped, failed });
-  return { clients: active.length, sent, skipped, failed };
+  logger.info("digest.weekly_report", {
+    week,
+    clients: active.length,
+    sent,
+    skipped,
+    failed,
+    optedOut,
+    alreadySent,
+  });
+  return { clients: active.length, sent, skipped, failed, optedOut, alreadySent, week };
 }

@@ -20,13 +20,20 @@ import { ReviewRequestsCard } from "@/components/portal/review-requests-card";
 import { RecallCard } from "@/components/portal/recall-card";
 import { WaitlistCard } from "@/components/portal/waitlist-card";
 import { DepositsCard } from "@/components/portal/deposits-card";
-import { env } from "@/lib/env";
+import { env, integrations } from "@/lib/env";
+import { CalendarConnect } from "@/components/calendar-connect";
+import { CalendarStatusToast } from "@/components/calendar-status-toast";
 import { ChatWidgetCard } from "@/components/portal/chat-widget-card";
 import { DangerZone } from "@/components/portal/danger-zone";
 
 export const metadata: Metadata = { title: "Settings" };
 
-export default async function PortalSettingsPage() {
+export default async function PortalSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ calendar?: string }>;
+}) {
+  const sp = await searchParams;
   const { clientId } = await resolvePortalClient();
   const editAccess = await getPortalEditAccess(clientId);
   const client = await getClientByIdUnsafe(clientId);
@@ -60,6 +67,18 @@ export default async function PortalSettingsPage() {
         isAdmin={editAccess.isAdmin}
         canEdit={editAccess.canEdit}
       />
+      <section id="calendar" className="space-y-2">
+        <CalendarStatusToast status={sp.calendar} returnTo="/portal/settings" />
+        <h2 className="text-sm font-semibold">Calendar</h2>
+        <CalendarConnect
+          clientId={clientId}
+          provider={client.calendarProvider ?? null}
+          account={client.calendarAccount ?? null}
+          microsoftReady={integrations.microsoft()}
+          googleReady={integrations.google()}
+          from="settings"
+        />
+      </section>
       {/* High in the page on purpose: the wrong value here is the worst call
           this product can make. */}
       <HandoffCard
@@ -68,7 +87,7 @@ export default async function PortalSettingsPage() {
         escalationNumber={client.escalationNumber}
       />
       <PortalSettings client={client} isAdmin={editAccess.isAdmin} />
-      <AlertRoster clientId={clientId} contacts={alertContacts} />
+      <AlertRoster clientId={clientId} contacts={alertContacts} canManage={editAccess.isAdmin} />
       <SetupChecklist
         clientId={clientId}
         variant="settings"

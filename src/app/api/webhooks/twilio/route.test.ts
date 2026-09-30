@@ -23,7 +23,12 @@ const storeInboundMessage = vi.fn(async (_input: Record<string, unknown>) => {
   return { owner: OWNER as typeof OWNER | null, isNew: true };
 });
 const updateSmsDeliveryStatus = vi.fn(async () => {});
-const sendEmail = vi.fn(async () => ({ ok: true }));
+const notifyOwnerTextReply = vi.fn(async (_client: unknown, _input: Record<string, unknown>) => ({
+  status: "sent" as const,
+  sent: 1,
+  failed: 0,
+}));
+const sendEmail = notifyOwnerTextReply;
 const leadFind = vi.fn(async () => ({ id: "lead-1", name: "Pat" }) as { id: string; name: string } | undefined);
 const dbUpdateWhere = vi.fn(async () => {});
 
@@ -46,8 +51,8 @@ vi.mock("@/lib/sms-inbox", () => ({ storeInboundMessage }));
 const ownLine = vi.fn(async (_to: string) => null as { id: string } | null);
 vi.mock("@/lib/data/sms-numbers", () => ({ findClientBySmsNumber: (to: string) => ownLine(to) }));
 vi.mock("@/lib/data/sms-messages", () => ({ updateSmsDeliveryStatus }));
+vi.mock("@/lib/reply-alerts", () => ({ notifyOwnerTextReply }));
 vi.mock("@/lib/notifier", () => ({
-  notifier: { sendEmail },
   explainSmsError: (_c: unknown, fallback: string) => fallback,
 }));
 vi.mock("@/db", () => ({
@@ -162,6 +167,36 @@ describe("Twilio inbound webhook", () => {
     await POST(twilioRequest({ MessageSid: "SM_out2", MessageStatus: "undelivered", ErrorCode: "30003" }));
     expect(updateSmsDeliveryStatus).toHaveBeenCalledWith("SM_out2", "failed", expect.any(String));
     expect(storeInboundMessage).not.toHaveBeenCalled();
+  });
+
+  it("alerts through notifyOwnerTextReply with the conversation key and the lead's name", async () => {
+    await POST(twilioRequest(inbound("Running 5 min late")));
+    expect(notifyOwnerTextReply).toHaveBeenCalledWith(OWNER, {
+      customerPhone: "14155550100",
+      body: "Running 5 min late",
+      name: "Pat",
+      followUpsPaused: true,
+    });
+    expect(dbUpdateWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it("alerts for a customer who isn't a lead too (reminder replies, Messages threads)", async () => {
+    leadFind.mockResolvedValueOnce(undefined);
+    await POST(twilioRequest(inbound("Is parking free?")));
+    expect(notifyOwnerTextReply).toHaveBeenCalledTimes(1);
+    expect(notifyOwnerTextReply.mock.calls[0][1]).toMatchObject({ name: null, followUpsPaused: false });
+    expect(dbUpdateWhere).not.toHaveBeenCalled();
+  });
+
+  it("an alert failure never fails the webhook", async () => {
+    notifyOwnerTextReply.mockRejectedValueOnce(new Error("resend down"));
+    const res = await POST(twilioRequest(inbound("hello?")));
+    expect(res.status).toBe(200);
+  });
+
+  it("STOP with a message still reaches the owner; a bare STOP does not", async () => {
+    await POST(twilioRequest(inbound("stop, but cancel my 2pm", "SM_9")));
+    expect(notifyOwnerTextReply).toHaveBeenCalledTimes(1);
   });
 
   describe("per-business texting numbers", () => {

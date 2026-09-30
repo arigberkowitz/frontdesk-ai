@@ -259,6 +259,132 @@ Running log of choices and deviations (PRD §0). Newest first.
   business. When Twilio isn't configured (demo/dev) nothing is sent or recorded and the
   owner is told so, same as reminders. Sending marks the thread's inbound messages read.
 
+## 2026-09-30 — Guided setup: "Hide for now" + testable checklist rules
+
+- **Mostly already there.** The portal Overview's "Get your AI ready" checklist
+  (`SetupChecklist`, `getClientSetupStatus`) already tracks real data: services, hours,
+  FAQs, greeting, calendar, alerts, activation (agent + number), call forwarding (with the
+  real dial code) and a test call. Each step links to the existing page for it. It shows
+  until the owner clicks "I'm done" (which runs the AI readiness review), and lives on under
+  Settings → Setup. None of that was rebuilt.
+- **Added: dismiss without finishing.** "Hide for now" on the Overview stores
+  `setup_flags.checklistHiddenAt` (jsonb, **no migration**). Progress keeps tracking real
+  data. Settings → Setup shows "Show on Overview", and the existing reopen action now clears
+  the hidden flag too.
+- **Agent sync** needs no separate step. Every save in Services/Hours/Knowledge/Your AI
+  republishes the live agent (`applyClientEdit`) and says so if it couldn't. The activation
+  step's ticked row now says so.
+- **Refactor for tests:** step rules moved into pure `src/lib/setup-steps.ts`
+  (`buildSetupSteps`, `checklistMode`), and `data/setup.ts` only gathers the facts.
+  Behavior is unchanged.
+
+## 2026-09-30 — Calendar sync: finish the two-way loop (Google + Outlook)
+
+Most of calendar sync already existed (Google + Microsoft OAuth, encrypted refresh
+tokens via `src/lib/crypto.ts`, free/busy → slots in `check_availability`, AI bookings
+create events, portal/AI cancellations delete them, Cal.com as the bridge for
+everything else). This change closes the gaps rather than adding a parallel system:
+
+- **Busy time now blocks caller-named bookings too.** `check_availability` already
+  subtracted calendar busy time, but `book_appointment` accepted any time the caller
+  named, and Google/Outlook happily create overlapping events. The booking path now
+  calls `calendarSlotIsFree()` (new optional `BookingProvider.busyBetween`, implemented
+  for Google freeBusy and Graph calendarView) **before anything is written**. If the
+  calendar can't be read, the caller is told the time isn't available, same as a
+  failed event insert. Cal.com refuses clashes itself, so it doesn't need the hook.
+- **Connecting republishes the agent.** The Google/Microsoft callbacks now call
+  `applyClientEdit` (the Cal.com path already did), so the live prompt starts
+  promising bookings immediately instead of at the next unrelated edit.
+- **Env gating.** The Google tile is hidden unless `GOOGLE_CLIENT_ID/SECRET` are set
+  (it used to lead to a 400 page). Microsoft reads `MICROSOFT_CLIENT_ID/SECRET`, with
+  the older `MS_CLIENT_ID/SECRET` still accepted.
+- **Settings.** Connect/disconnect also lives in portal → Settings → Calendar; the
+  OAuth round-trip returns to the page it started from (allowlisted, via `state`).
+- **Disconnect revokes Google's grant** (best-effort `oauth2.googleapis.com/revoke`);
+  the stored token is deleted either way. Microsoft has no per-token revoke for
+  delegated grants.
+- **Not done (open):** free/busy reads only the connected account's primary calendar;
+  appointments added by hand in the portal aren't pushed to the calendar; no
+  reschedule sync (cancel + rebook works); Google "unverified app" review is still
+  needed for production.
+
+## 2026-09-30 — Reply alerts (customer texted → email the business)
+
+- **Extends what was there.** The Twilio webhook already emailed `owner_email` — but only
+  when the texter matched a lead, and with no throttle, no alert-roster routing and no
+  record. Now every new inbound customer text (replies, YES/START, and STOP-with-a-message;
+  not bare keywords, not Twilio replays) goes through `notifyOwnerTextReply`
+  (`src/lib/reply-alerts.ts`). Lead matching still stamps `last_reply_at` so recovery stands
+  down.
+- **Email only, never SMS.** Recipients come from `getAlertRecipients` (on-duty alert roster
+  → on-the-clock staff → owner email) and only its **emails** are used. The alert phone is
+  never texted for these — a conversation can be a dozen messages and the owner's cell is
+  the channel we can't make noisy.
+- **Throttle: one alert per conversation (business + customer) per 15 minutes.** State is
+  the `notifications` table itself (type `system`, `payload.kind = 'sms_reply'`,
+  `payload.customerPhone`); a `pg_advisory_xact_lock` on (business, customer) makes the
+  check-and-claim atomic so simultaneous texts can't both send. A failed send doesn't count,
+  so the next text retries. No migration.
+- **Unread badge** on the Messages nav already existed (PR #7: `countUnreadMessages` →
+  `PortalNav`/`PortalTabBar`), so nothing was added there. No in-app bell: the email path
+  exists, and the badge is the in-app signal.
+- **No per-person on/off switch for reply alerts yet.** Taking someone off duty in the alert
+  roster stops all their alerts, including these.
+
+## 2026-09-30 — Weekly summary email (extends the Monday owner report)
+
+- **Extends what was there.** `/api/cron/weekly-report` (Mondays 15:00 UTC, already in
+  vercel.json) already emailed each live/trial business's `owner_email` via Resend
+  (`sendWeeklyReports`). It had no opt-out, no dedupe (a second run re-sent everything) and
+  no cancellations, missed calls won back or texts. No new cron and no new provider.
+- **Numbers (last 7 days, all from existing tables):** calls answered (`calls`), appointments
+  booked (created in window, not cancelled/no-show) with held-revenue vs upcoming kept
+  separate as before, cancellations (`status = 'cancelled'` with `updated_at` in window;
+  there is no `cancelled_at`), after-hours saves, new leads, customer texts (inbound
+  `sms_messages`).
+- **"Missed calls won back"** = distinct customers who texted back (not STOP/HELP) within
+  14 days of an automated `recovery_lead` / `recovery_no_show` text from that business. It
+  reads 0 for businesses without outbound recovery turned on. This definition is a product
+  call and easy to change (`getWeeklyActivity`).
+- **Opt-out:** `clients.weekly_summary_enabled` (default on), Settings → Alerts → "Weekly
+  summary email". Every email links there.
+- **Dedupe:** `weekly_summary_sends` with unique `(client_id, week_key)` (ISO week, UTC). The
+  run claims the row *before* sending, so retries and overlapping runs can't double-send. A
+  week that failed, or was skipped because Resend isn't configured, may be retried. A row
+  stuck in `sending` (crash mid-send) blocks that week, which is safer than a duplicate.
+- **Migration:** `drizzle/manual/0008_weekly_summary.sql` (idempotent).
+- **Preview:** `/portal/settings/weekly-summary` renders the business's real email for the
+  last 7 days without sending.
+- **Not changed:** the Monday weekly *SMS* digest to the escalation number (`sendDigests
+  ("weekly")`) still runs from the same cron and isn't covered by this opt-out or dedupe.
+
+## 2026-09-30 — Team access: owner vs staff
+
+- **Kept the existing model, no Clerk Organizations.** Membership already lives in our
+  `users` table (`client_admin` = owner, `client_viewer` = staff) and reaches new
+  accounts through Clerk invitation `publicMetadata` `{ role, clientId }`. Switching to
+  Clerk Organizations would mean migrating every tenant for no user-visible gain. No
+  schema change; no migration.
+- **Two tiers.** Staff: calls, appointments, leads, messages, replies (unchanged), plus AI
+  settings if the owner shares the edit code (unchanged). Owner only, and never
+  unlocked by the edit code: billing checkout, trial code, the team, and where alerts
+  go (alert email, alert/transfer phone, SMS-alert toggle, weekly-summary email
+  toggle, adding/removing roster people). Staff can still flip roster people on/off duty — that's a day-to-day job.
+  Enforced on the server with `requireClientOwner` / `userIsClientOwner`
+  (`src/lib/auth-guard.ts`); the UI hides/disables the controls as well.
+- **Settings → Team** (`/portal/settings/team`, owner-only): invite as staff or owner,
+  pending invites with cancel, change role, remove. A business can't drop to zero
+  owners (agency operators are exempt, so they can repair it).
+- **Removal** clears the Clerk metadata FIRST (else the next sign-in would re-create the
+  membership from it), then soft-deletes the row and nulls `clerk_user_id` (unique
+  index). If Clerk can't be reached, nothing is removed. The Clerk login itself is
+  left alone.
+- **Existing Clerk accounts.** Clerk only copies invitation metadata into NEW accounts,
+  so inviting an email that already has a Clerk sign-in but no live FrontDesk login
+  (typically someone removed earlier) sets the metadata directly; they join on their
+  next sign-in. An email with a live FrontDesk login is refused (one login = one
+  business).
+
 ## 2026-09-30 — Per-business texting numbers (optional)
 
 - **`clients.sms_number`** (E.164, nullable; manual migration

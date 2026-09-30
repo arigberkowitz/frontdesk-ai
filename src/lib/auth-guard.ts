@@ -103,8 +103,10 @@ export async function getCurrentDbUser(): Promise<User> {
     "";
   const meta = (cu?.publicMetadata ?? {}) as { role?: string; clientId?: string };
 
-  // Invited client viewer — Clerk publicMetadata carries { role, clientId }.
-  if (meta.role === "client_viewer" && meta.clientId) {
+  // Invited team member — Clerk publicMetadata carries { role, clientId }.
+  // "client_viewer" is a staff invite; "client_admin" is an owner invite
+  // (sent from Settings → Team by an existing owner).
+  if ((meta.role === "client_viewer" || meta.role === "client_admin") && meta.clientId) {
     const client = await db.query.clients.findFirst({
       where: and(eq(clients.id, meta.clientId), isNull(clients.deletedAt)),
     });
@@ -125,7 +127,7 @@ export async function getCurrentDbUser(): Promise<User> {
             orgId: client.orgId,
             clerkUserId: userId,
             email,
-            role: existingAdmin ? "client_viewer" : "client_admin",
+            role: meta.role === "client_admin" || !existingAdmin ? "client_admin" : "client_viewer",
             clientId: client.id,
           })
           .returning()
@@ -429,6 +431,35 @@ export function userMayAccessClient(user: User, clientId: string): boolean {
   // org half can't be decided without a query. Every call site pairs them.
   if (user.role === "operator") return true;
   return user.clientId === clientId;
+}
+
+/* ------------------------------ owner-only ------------------------------- */
+
+/**
+ * The business OWNER tier: billing, the team, and where alerts go (owner email,
+ * alert phone, the alert roster). Operators (the agency, or a self-serve
+ * account holder) and `client_admin` qualify; staff (`client_viewer`) never do
+ * — not even with the edit code, which only unlocks AI configuration.
+ *
+ * Pure predicate; callers still pair it with an org check for operators.
+ */
+export function userIsClientOwner(user: User, clientId: string): boolean {
+  if (!userMayAccessClient(user, clientId)) return false;
+  return user.role === "operator" || user.role === "client_admin";
+}
+
+export const OWNER_ONLY_ERROR = "Only the business owner can change this.";
+
+/** Non-throwing owner guard for server actions that return an ActionState. */
+export async function requireClientOwner(
+  clientId: string,
+): Promise<{ ok: true; user: User } | { ok: false; error: string }> {
+  const user = await getCurrentDbUser();
+  if (!userMayAccessClient(user, clientId)) {
+    return { ok: false, error: "Forbidden: cross-tenant access denied." };
+  }
+  if (!userIsClientOwner(user, clientId)) return { ok: false, error: OWNER_ONLY_ERROR };
+  return { ok: true, user };
 }
 
 /* ------------------------- portal edit permissions ------------------------ */

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { audit } from "@/lib/data/audit";
-import { requireClientEditor, requireOperator } from "@/lib/auth-guard";
+import { requireClientOwner, requireOperator } from "@/lib/auth-guard";
 import { assertClientInOrg, getClient } from "@/lib/data/clients";
 import { getStripe } from "@/lib/stripe";
 import { env, integrations } from "@/lib/env";
@@ -121,7 +121,7 @@ export async function startSelfServeCheckoutAction(
   const interval = String(formData.get("interval") ?? "month") === "year" ? "year" : "month";
 
   // The business's own owner/admin — not their staff, and not another tenant.
-  const guard = await requireClientEditor(clientId);
+  const guard = await requireClientOwner(clientId);
   if (!guard.ok) return { ok: false, error: guard.error };
   await assertClientInOrg(guard.user.orgId, clientId);
 

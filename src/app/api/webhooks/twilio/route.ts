@@ -9,7 +9,7 @@ import { findClientBySmsNumber } from "@/lib/data/sms-numbers";
 import { updateSmsDeliveryStatus } from "@/lib/data/sms-messages";
 import { explainSmsError } from "@/lib/notifier";
 import { audit } from "@/lib/data/audit";
-import { notifier } from "@/lib/notifier";
+import { notifyOwnerTextReply } from "@/lib/reply-alerts";
 import { env, webhookUrl } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
@@ -24,7 +24,8 @@ export const runtime = "nodejs";
  *     number again (Twilio also blocks at carrier level; we mirror it so our
  *     own logic can't even try). START re-subscribes.
  *  2. Replies — a human texted back. Stamp the lead's lastReplyAt (recovery
- *     stands down) and forward the message to the business owner by email.
+ *     stands down) and email the business's alert recipients (throttled per
+ *     conversation, never by text — see src/lib/reply-alerts.ts).
  *
  * Every inbound message — replies AND the STOP/START/HELP keywords — is also
  * stored in the business's SMS inbox (sms_messages, keyed by MessageSid so a
@@ -122,18 +123,18 @@ export function hasMoreThanKeyword(body: string): boolean {
   return body.trim().replace(/[^a-z\s]/gi, " ").trim().split(/\s+/).filter(Boolean).length > 1;
 }
 
-const esc = (s: string) =>
-  s.replace(/[<>&]/g, (c) => (c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;"));
-
 /**
  * A human texted back — get it to the business.
  *
- * Attributed to the tenant they were actually talking to, then attached to
- * their most recent lead there so the recovery agent stands down and stops
- * texting someone who has already answered.
+ * Attributed to the tenant they were actually talking to. If they're a lead
+ * there, stamp the lead so the recovery agent stands down and stops texting
+ * someone who has already answered. Then email the alert recipients — for
+ * EVERY customer text, not only leads: a reply to a reminder or a customer
+ * the owner texted from Messages matters just as much. Throttled per
+ * conversation, email only (see notifyOwnerTextReply).
  */
 async function forwardReplyToOwner(
-  owner: Pick<Client, "id" | "ownerEmail"> | null,
+  owner: Client | null,
   params: Record<string, string>,
   from: string,
   body: string,
@@ -156,31 +157,36 @@ async function forwardReplyToOwner(
     orderBy: [desc(leads.createdAt)],
   });
 
-  if (!lead) {
-    logger.info("sms.reply.no_lead", { clientId: owner.id, phone: digits });
-    return;
+  if (lead) {
+    await db.update(leads).set({ lastReplyAt: new Date() }).where(eq(leads.id, lead.id));
+    // The email below is a notification; this row is the record. If the email
+    // bounces or gets deleted, what the customer actually said still exists.
+    void audit({
+      clientId: owner.id,
+      actor: "webhook:twilio",
+      action: "sms.reply_received",
+      detail: { leadId: lead.id, from: digits, body: body.slice(0, 500) },
+    });
+  } else {
+    logger.info("sms.reply.no_lead", { clientId: owner.id });
   }
 
-  await db.update(leads).set({ lastReplyAt: new Date() }).where(eq(leads.id, lead.id));
-  // The email below is a notification; this row is the record. If the email
-  // bounces or gets deleted, what the customer actually said still exists.
-  void audit({
-    clientId: owner.id,
-    actor: "webhook:twilio",
-    action: "sms.reply_received",
-    detail: { leadId: lead.id, from: normalizePhone(from), body: body.slice(0, 500) },
-  });
-  const who = lead.name ?? "A lead";
-  const ownerEmail = owner.ownerEmail?.trim();
-  if (ownerEmail) {
-    await notifier.sendEmail({
-      to: ownerEmail,
-      subject: `${who} texted back: "${body.slice(0, 40)}"`,
-      html: `<p><strong>${esc(who)}</strong> (${esc(from)}) replied:</p><blockquote>${esc(body.slice(0, 500))}</blockquote><p>Automated follow-ups for this lead are paused — the conversation is yours now.</p>`,
-      text: `${who} (${from}) replied: ${body.slice(0, 500)}\n\nAutomated follow-ups are paused — the conversation is yours now.`,
+  // An alert failure must never turn into a webhook failure (Twilio would
+  // retry, and the retry is deduped as a replay anyway).
+  try {
+    await notifyOwnerTextReply(owner, {
+      customerPhone: digits,
+      body,
+      name: lead?.name ?? null,
+      followUpsPaused: Boolean(lead),
+    });
+  } catch (err) {
+    logger.error("sms.reply.alert_failed", {
+      clientId: owner.id,
+      error: err instanceof Error ? err.message : String(err),
     });
   }
-  logger.info("sms.reply.forwarded", { clientId: owner.id, leadId: lead.id });
+  logger.info("sms.reply.forwarded", { clientId: owner.id, leadId: lead?.id ?? null });
 }
 
 export async function POST(req: Request): Promise<Response> {

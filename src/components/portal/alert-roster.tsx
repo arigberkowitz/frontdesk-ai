@@ -20,9 +20,12 @@ import type { AlertContact } from "@/db/schema";
 export function AlertRoster({
   clientId,
   contacts,
+  canManage = true,
 }: {
   clientId: string;
   contacts: AlertContact[];
+  /** Owners add/remove people; staff can only flip who's on duty. */
+  canManage?: boolean;
 }) {
   return (
     <Card>
@@ -66,17 +69,19 @@ export function AlertRoster({
                     {c.onDuty ? "On duty" : "Off duty"}
                   </Button>
                 </form>
-                <ConfirmDelete
-                  title={`Remove ${c.name}?`}
-                  description="They'll stop getting alerts when a lead or an emergency comes in."
-                  triggerLabel={`Remove ${c.name}`}
-                >
-                  <form action={deleteAlertContactAction}>
-                    <input type="hidden" name="clientId" value={clientId} />
-                    <input type="hidden" name="contactId" value={c.id} />
-                    <ConfirmDeleteAction type="submit">Remove</ConfirmDeleteAction>
-                  </form>
-                </ConfirmDelete>
+                {canManage ? (
+                  <ConfirmDelete
+                    title={`Remove ${c.name}?`}
+                    description="They'll stop getting alerts when a lead or an emergency comes in."
+                    triggerLabel={`Remove ${c.name}`}
+                  >
+                    <form action={deleteAlertContactAction}>
+                      <input type="hidden" name="clientId" value={clientId} />
+                      <input type="hidden" name="contactId" value={c.id} />
+                      <ConfirmDeleteAction type="submit">Remove</ConfirmDeleteAction>
+                    </form>
+                  </ConfirmDelete>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -86,23 +91,29 @@ export function AlertRoster({
           </p>
         )}
 
-        <form action={addAlertContactAction} className="space-y-4">
-          <input type="hidden" name="clientId" value={clientId} />
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Name">
-              <Input name="name" placeholder="Sam the tech" required />
-            </Field>
-            <Field label="Email (optional)">
-              <Input name="email" type="email" placeholder="sam@yourbusiness.com" />
-            </Field>
-            <Field label="Phone (optional)">
-              <Input name="phone" placeholder="+1 415 555 0100" />
-            </Field>
-          </div>
-          <div className="flex justify-end">
-            <SubmitButton>Add person</SubmitButton>
-          </div>
-        </form>
+        {canManage ? (
+          <form action={addAlertContactAction} className="space-y-4">
+            <input type="hidden" name="clientId" value={clientId} />
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Name">
+                <Input name="name" placeholder="Sam the tech" required />
+              </Field>
+              <Field label="Email (optional)">
+                <Input name="email" type="email" placeholder="sam@yourbusiness.com" />
+              </Field>
+              <Field label="Phone (optional)">
+                <Input name="phone" placeholder="+1 415 555 0100" />
+              </Field>
+            </div>
+            <div className="flex justify-end">
+              <SubmitButton>Add person</SubmitButton>
+            </div>
+          </form>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Only the business owner can add or remove people here.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
