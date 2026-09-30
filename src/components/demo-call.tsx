@@ -46,7 +46,7 @@ const SCENARIOS: Scenario[] = [
     tab: "Book a service",
     duration: "0:52",
     turns: [
-      { who: "ai", text: "Thanks for calling! This is Riley, your front desk. How can I help?" },
+      { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant for the front desk. How can I help?" },
       { who: "caller", text: "Hi — do you have anything for a cleaning this week?" },
       { who: "ai", text: "We do! I have Thursday at 2:00 or Friday at 10:30. Which works better?" },
       { who: "caller", text: "Thursday at 2 is great." },
@@ -74,7 +74,7 @@ const SCENARIOS: Scenario[] = [
     tab: "Quick question",
     duration: "0:31",
     turns: [
-      { who: "ai", text: "Thanks for calling! This is Riley, your front desk. How can I help?" },
+      { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant for the front desk. How can I help?" },
       { who: "caller", text: "How much is a standard appointment? And are you open Saturdays?" },
       {
         who: "ai",
@@ -94,7 +94,7 @@ const SCENARIOS: Scenario[] = [
     tab: "2am emergency",
     duration: "0:19",
     turns: [
-      { who: "ai", text: "Thanks for calling! This is Riley, your front desk. How can I help?" },
+      { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant for the front desk. How can I help?" },
       { who: "caller", text: "My water heater burst — there's water everywhere!" },
       {
         who: "ai",
@@ -113,7 +113,7 @@ const SCENARIOS: Scenario[] = [
     tab: "En Español",
     duration: "0:44",
     turns: [
-      { who: "ai", text: "Thanks for calling! This is Riley, your front desk. How can I help?" },
+      { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant for the front desk. How can I help?" },
       { who: "caller", text: "Hola, ¿tienen citas disponibles para mañana?" },
       { who: "ai", text: "¡Claro que sí! Mañana tengo a las 10:00 o a las 3:30. ¿Cuál le conviene?" },
       { who: "caller", text: "A las 10, por favor." },
