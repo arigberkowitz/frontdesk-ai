@@ -64,6 +64,47 @@ export interface BookingProvider {
   getAvailability(query: AvailabilityQuery): Promise<TimeSlot[]>;
   createBooking(input: CreateBookingInput): Promise<BookingResult>;
   cancelBooking(externalBookingId: string, reason?: string): Promise<void>;
+  /**
+   * Busy periods on the connected calendar between two instants. Implemented
+   * by providers that DON'T refuse a clashing booking themselves (Google and
+   * Microsoft happily create overlapping events; Cal.com rejects them), so the
+   * booking path can check a caller-named time against the real calendar.
+   */
+  busyBetween?(startIso: string, endIso: string): Promise<Array<{ start: string; end: string }>>;
+}
+
+/** Does [startMs, endMs) overlap any busy period? Touching edges don't count. */
+export function overlapsBusy(
+  busy: Array<{ start: string; end: string }>,
+  startMs: number,
+  endMs: number,
+): boolean {
+  return busy.some((b) => {
+    const s = Date.parse(b.start);
+    const e = Date.parse(b.end);
+    return Number.isFinite(s) && Number.isFinite(e) && s < endMs && e > startMs;
+  });
+}
+
+/**
+ * Is this exact time free on the business's connected calendar?
+ *
+ * The availability tool already subtracts calendar busy time from the slots it
+ * offers — but a caller can name any time ("Tuesday at 3?") and the agent can
+ * book it without asking for slots first. Without this, that booking lands on
+ * top of the owner's dentist appointment on their Google calendar.
+ *
+ * Throws when the calendar can't be read; the caller treats that exactly like
+ * a failed createBooking (don't tell the caller "booked").
+ */
+export async function calendarSlotIsFree(
+  provider: BookingProvider,
+  startAt: Date,
+  endAt: Date,
+): Promise<boolean> {
+  if (!provider.busyBetween) return true;
+  const busy = await provider.busyBetween(startAt.toISOString(), endAt.toISOString());
+  return !overlapsBusy(busy, startAt.getTime(), endAt.getTime());
 }
 
 const CAL_API_BASE = "https://api.cal.com/v2";
@@ -195,6 +236,11 @@ class GoogleCalendarBookingProvider implements BookingProvider {
     return Boolean(this.config.refreshToken && integrations.google());
   }
 
+  async busyBetween(startIso: string, endIso: string) {
+    const token = await getAccessToken(this.config.refreshToken);
+    return freeBusy(token, this.config.calendarId, startIso, endIso);
+  }
+
   async getAvailability(query: AvailabilityQuery): Promise<TimeSlot[]> {
     const token = await getAccessToken(this.config.refreshToken);
     const busy = await freeBusy(token, this.config.calendarId, query.rangeStart, query.rangeEnd);
@@ -268,6 +314,11 @@ class MicrosoftBookingProvider implements BookingProvider {
       );
     }
     return accessToken;
+  }
+
+  async busyBetween(startIso: string, endIso: string) {
+    const { msBusyTimes } = await import("./microsoft-calendar");
+    return msBusyTimes(await this.token(), startIso, endIso);
   }
 
   async getAvailability(query: AvailabilityQuery): Promise<TimeSlot[]> {

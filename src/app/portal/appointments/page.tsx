@@ -77,6 +77,7 @@ export default async function PortalAppointmentsPage({
         provider={client?.calendarProvider ?? null}
         account={client?.calendarAccount ?? null}
         microsoftReady={integrations.microsoft()}
+        googleReady={integrations.google()}
       />
       {items.length === 0 ? (
         <EmptyState

@@ -7,16 +7,15 @@ import { toast } from "sonner";
 const MESSAGES: Record<string, { kind: "success" | "error"; text: string }> = {
   connected: {
     kind: "success",
-    text: "Google Calendar connected — new bookings will sync automatically.",
+    text: "Calendar connected — busy times block bookings, and new bookings land on your calendar.",
   },
-  disconnected: { kind: "success", text: "Google Calendar disconnected." },
-  error: { kind: "error", text: "Couldn't connect Google Calendar — please try again." },
+  disconnected: { kind: "success", text: "Calendar disconnected." },
+  error: { kind: "error", text: "Couldn't connect your calendar — please try again." },
   noaccess: {
     kind: "error",
-    text: "Google didn't grant calendar access — try again and approve the calendar permission.",
+    text: "Calendar access wasn't granted — try again and approve the calendar permission.",
   },
 };
-
 /**
  * Fires a one-shot toast for the `?calendar=<status>` OAuth redirect, then strips
  * the param so a refresh doesn't replay it. Renders nothing.
