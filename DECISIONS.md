@@ -262,7 +262,7 @@ Running log of choices and deviations (PRD §0). Newest first.
 ## 2026-09-30 — Per-business texting numbers (optional)
 
 - **`clients.sms_number`** (E.164, nullable; manual migration
-  `drizzle/manual/0008_client_sms_numbers.sql`). Null for every business until an
+  `drizzle/manual/0009_client_sms_numbers.sql`). Null for every business until an
   agency operator pastes one in on the client's Settings tab, so nothing changes on
   deploy. Not reused from `retell_phone_number` / `forwarding_number`: Retell numbers
   live in Retell's account (we can't send SMS from them through our Twilio), and the

@@ -355,7 +355,7 @@ export const clients = pgTable(
     // go out from the shared TWILIO_FROM_NUMBER and replies are routed by
     // "who last texted this customer". Set = texts go out from this number and
     // anything texted TO it belongs to this business, no guessing.
-    // Migration: drizzle/manual/0008_client_sms_numbers.sql.
+    // Migration: drizzle/manual/0009_client_sms_numbers.sql.
     smsNumber: text("sms_number"),
     ...timestamps,
     ...softDelete,
@@ -691,7 +691,7 @@ export const smsOptOuts = pgTable(
  * Twilio blocks that number at the carrier, and we block that business (from
  * any number, including the shared one if its own number is later removed).
  * `business_phone` records which of our numbers received it.
- * Migration: drizzle/manual/0008_client_sms_numbers.sql.
+ * Migration: drizzle/manual/0009_client_sms_numbers.sql.
  */
 export const clientSmsOptOuts = pgTable(
   "client_sms_opt_outs",

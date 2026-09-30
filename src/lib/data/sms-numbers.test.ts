@@ -18,7 +18,7 @@ const optouts = await import("./sms-optouts");
 const inbox = await import("./sms-messages");
 
 const MIGRATION = readFileSync(
-  path.resolve(__dirname, "../../../drizzle/manual/0008_client_sms_numbers.sql"),
+  path.resolve(__dirname, "../../../drizzle/manual/0009_client_sms_numbers.sql"),
   "utf8",
 );
 
@@ -39,7 +39,7 @@ beforeEach(async () => {
   await pg.exec(`DELETE FROM sms_opt_outs; DELETE FROM client_sms_opt_outs; DELETE FROM sms_messages;`);
 });
 
-describe("migration 0008", () => {
+describe("migration 0009", () => {
   it("applies to a pre-feature database and is safe to run twice", async () => {
     const { PGlite } = await import("@electric-sql/pglite");
     const fresh = new PGlite();

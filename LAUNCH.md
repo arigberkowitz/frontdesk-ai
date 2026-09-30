@@ -87,7 +87,7 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
 ## Notes / known limits
 
 - **Per-business texting numbers** (optional): apply
-  `drizzle/manual/0008_client_sms_numbers.sql` (Neon SQL editor, idempotent)
+  `drizzle/manual/0009_client_sms_numbers.sql` (Neon SQL editor, idempotent)
   **before** deploying that code. No env vars. To give a business its own number:
   buy it in Twilio, add it to the A2P 10DLC campaign's Messaging Service, set its
   "A message comes in" webhook to POST `https://<domain>/api/webhooks/twilio`, then
