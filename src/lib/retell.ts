@@ -224,7 +224,7 @@ export function buildAgentTools(
       name: AGENT_TOOL_NAMES.cancelAppointment,
       url: agentToolUrl(appUrl, "cancel", clientId),
       description:
-        "Cancel the caller's existing appointment. Confirm which appointment and get a clear yes before calling this. Looks the booking up by phone number (defaults to the caller's number).",
+        "Cancel the caller's existing appointment. Confirm which appointment and get a clear yes before calling this. Only appointments booked under the number the caller is calling from can be cancelled; if theirs is under another number, take a message instead.",
       speak_during_execution: true,
       parameters: {
         type: "object" as const,
@@ -232,7 +232,7 @@ export function buildAgentTools(
           phone: {
             type: "string",
             description:
-              "The phone number the appointment was booked under. Omit to use the number the caller is calling from.",
+              "Omit. The number the caller is calling from is used; a different number will be refused.",
           },
           datetime: {
             type: "string",
