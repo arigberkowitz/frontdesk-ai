@@ -87,7 +87,7 @@ export default async function PortalSettingsPage({
         escalationNumber={client.escalationNumber}
       />
       <PortalSettings client={client} isAdmin={editAccess.isAdmin} />
-      <AlertRoster clientId={clientId} contacts={alertContacts} />
+      <AlertRoster clientId={clientId} contacts={alertContacts} canManage={editAccess.isAdmin} />
       <SetupChecklist
         clientId={clientId}
         variant="settings"
