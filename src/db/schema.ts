@@ -347,6 +347,9 @@ export const clients = pgTable(
     // Text-message alerts to the owner's alert phone on bookings/leads.
     // On by default; the owner can switch them off in portal Settings.
     smsAlertsEnabled: boolean("sms_alerts_enabled").notNull().default(true),
+    // Monday "your week" summary email to the owner email. On by default; the
+    // owner can switch it off in portal Settings. (drizzle/manual/0008)
+    weeklySummaryEnabled: boolean("weekly_summary_enabled").notNull().default(true),
     // How the business routes calls to the AI. "all_calls" = full receptionist
     // (forward everything); "missed_only" = backup mode via carrier conditional
     // forwarding — the AI answers only what the team misses, and the prompt
@@ -840,6 +843,33 @@ export const notifications = pgTable(
   },
   (t) => [index("notifications_client_id_idx").on(t.clientId)],
 );
+
+/**
+ * Weekly summary email ledger: one row per business per ISO week. The unique
+ * (client_id, week_key) index is what stops a retried or overlapping cron run
+ * from emailing a business twice in the same week. (drizzle/manual/0008)
+ */
+export const weeklySummarySends = pgTable(
+  "weekly_summary_sends",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    /** ISO week of the run, e.g. "2026-W40". */
+    weekKey: text("week_key").notNull(),
+    recipient: text("recipient").notNull(),
+    /** 'sending' | 'sent' | 'skipped' | 'failed' — only failed/skipped may be retried that week. */
+    status: text("status").notNull().default("sending"),
+    stats: jsonb("stats"),
+    error: text("error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("weekly_summary_sends_client_week_idx").on(t.clientId, t.weekKey)],
+);
+
+export type WeeklySummarySend = typeof weeklySummarySends.$inferSelect;
 
 /** Stripe subscription mirror (one active per client). */
 export const subscriptions = pgTable(

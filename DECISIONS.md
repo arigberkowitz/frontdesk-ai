@@ -330,3 +330,30 @@ everything else). This change closes the gaps rather than adding a parallel syst
   exists, and the badge is the in-app signal.
 - **No per-person on/off switch for reply alerts yet.** Taking someone off duty in the alert
   roster stops all their alerts, including these.
+
+## 2026-09-30 — Weekly summary email (extends the Monday owner report)
+
+- **Extends what was there.** `/api/cron/weekly-report` (Mondays 15:00 UTC, already in
+  vercel.json) already emailed each live/trial business's `owner_email` via Resend
+  (`sendWeeklyReports`). It had no opt-out, no dedupe (a second run re-sent everything) and
+  no cancellations, missed calls won back or texts. No new cron and no new provider.
+- **Numbers (last 7 days, all from existing tables):** calls answered (`calls`), appointments
+  booked (created in window, not cancelled/no-show) with held-revenue vs upcoming kept
+  separate as before, cancellations (`status = 'cancelled'` with `updated_at` in window;
+  there is no `cancelled_at`), after-hours saves, new leads, customer texts (inbound
+  `sms_messages`).
+- **"Missed calls won back"** = distinct customers who texted back (not STOP/HELP) within
+  14 days of an automated `recovery_lead` / `recovery_no_show` text from that business. It
+  reads 0 for businesses without outbound recovery turned on. This definition is a product
+  call and easy to change (`getWeeklyActivity`).
+- **Opt-out:** `clients.weekly_summary_enabled` (default on), Settings → Alerts → "Weekly
+  summary email". Every email links there.
+- **Dedupe:** `weekly_summary_sends` with unique `(client_id, week_key)` (ISO week, UTC). The
+  run claims the row *before* sending, so retries and overlapping runs can't double-send. A
+  week that failed, or was skipped because Resend isn't configured, may be retried. A row
+  stuck in `sending` (crash mid-send) blocks that week, which is safer than a duplicate.
+- **Migration:** `drizzle/manual/0008_weekly_summary.sql` (idempotent).
+- **Preview:** `/portal/settings/weekly-summary` renders the business's real email for the
+  last 7 days without sending.
+- **Not changed:** the Monday weekly *SMS* digest to the escalation number (`sendDigests
+  ("weekly")`) still runs from the same cron and isn't covered by this opt-out or dedupe.
