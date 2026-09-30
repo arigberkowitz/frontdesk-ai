@@ -146,7 +146,7 @@ export async function requestReviewsForClient(
         noConsent += 1;
         continue;
       }
-      if (await isOptedOut(to)) continue;
+      if (await isOptedOut(to, client.id)) continue;
       const body = reviewRequestBody({
         businessName: client.name,
         customerName: appt.customerName,

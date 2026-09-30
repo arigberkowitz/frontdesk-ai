@@ -166,7 +166,7 @@ export async function recallForClient(client: Client, now = new Date()): Promise
         noConsent += 1;
         continue;
       }
-      if (await isOptedOut(to)) continue;
+      if (await isOptedOut(to, client.id)) continue;
       const body = recallBody({
         businessName: client.name,
         customerName: appt.customerName,

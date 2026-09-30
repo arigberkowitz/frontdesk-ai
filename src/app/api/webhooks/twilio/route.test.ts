@@ -42,6 +42,9 @@ vi.mock("@/lib/data/sms-optouts", () => ({
   },
 }));
 vi.mock("@/lib/sms-inbox", () => ({ storeInboundMessage }));
+// Per-business texting numbers: null = the shared number (default in these tests).
+const ownLine = vi.fn(async (_to: string) => null as { id: string } | null);
+vi.mock("@/lib/data/sms-numbers", () => ({ findClientBySmsNumber: (to: string) => ownLine(to) }));
 vi.mock("@/lib/data/sms-messages", () => ({ updateSmsDeliveryStatus }));
 vi.mock("@/lib/notifier", () => ({
   notifier: { sendEmail },
@@ -85,6 +88,7 @@ beforeEach(() => {
   for (const f of [recordOptOut, removeOptOut, storeInboundMessage, updateSmsDeliveryStatus, sendEmail, dbUpdateWhere]) {
     f.mockClear();
   }
+  ownLine.mockReset().mockResolvedValue(null);
   storeInboundMessage.mockImplementation(async () => {
     calls.push("store");
     return { owner: OWNER, isNew: true };
@@ -158,5 +162,53 @@ describe("Twilio inbound webhook", () => {
     await POST(twilioRequest({ MessageSid: "SM_out2", MessageStatus: "undelivered", ErrorCode: "30003" }));
     expect(updateSmsDeliveryStatus).toHaveBeenCalledWith("SM_out2", "failed", expect.any(String));
     expect(storeInboundMessage).not.toHaveBeenCalled();
+  });
+
+  describe("per-business texting numbers", () => {
+    const DEDICATED = "+14155559999";
+    const toOwn = (Body: string) => ({ ...inbound(Body), To: DEDICATED });
+
+    it("STOP to the shared number opts out for every business (unscoped, as before)", async () => {
+      await POST(twilioRequest(inbound("STOP")));
+      expect(recordOptOut).toHaveBeenCalledWith("+14155550100", "stop", null);
+    });
+
+    it("STOP to a business's own number opts out for THAT business only", async () => {
+      ownLine.mockResolvedValue({ id: "c-own" });
+      await POST(twilioRequest(toOwn("STOP")));
+      expect(ownLine).toHaveBeenCalledWith(DEDICATED);
+      expect(recordOptOut).toHaveBeenCalledWith("+14155550100", "stop", {
+        clientId: "c-own",
+        businessPhone: DEDICATED,
+      });
+      // Still recorded before storing, and still silent.
+      expect(calls).toEqual(["recordOptOut", "store"]);
+    });
+
+    it("START to a business's own number lifts only that business's opt-out", async () => {
+      ownLine.mockResolvedValue({ id: "c-own" });
+      await POST(twilioRequest(toOwn("START")));
+      expect(removeOptOut).toHaveBeenCalledWith("+14155550100", {
+        clientId: "c-own",
+        businessPhone: DEDICATED,
+      });
+    });
+
+    it("START to the shared number lifts the shared opt-out (unscoped)", async () => {
+      await POST(twilioRequest(inbound("START")));
+      expect(removeOptOut).toHaveBeenCalledWith("+14155550100", null);
+    });
+
+    it("an unknown number falls back to the broader shared-number scope for STOP", async () => {
+      ownLine.mockResolvedValue(null);
+      await POST(twilioRequest(toOwn("STOP")));
+      expect(recordOptOut).toHaveBeenCalledWith("+14155550100", "stop", null);
+    });
+
+    it("ordinary replies don't pay for the number lookup (routing happens in the inbox)", async () => {
+      await POST(twilioRequest(toOwn("Running 5 min late")));
+      expect(ownLine).not.toHaveBeenCalled();
+      expect(storeInboundMessage.mock.calls[0][0]).toMatchObject({ to: DEDICATED, kind: "reply" });
+    });
   });
 });

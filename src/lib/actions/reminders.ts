@@ -47,7 +47,7 @@ export async function sendReminderAction(
   if (!phone) {
     return { ok: false, error: "No phone number on file for this customer — add one to send a reminder." };
   }
-  if (channel === "sms" && (await isOptedOut(phone))) {
+  if (channel === "sms" && (await isOptedOut(phone, clientId))) {
     return { ok: false, error: "This number has opted out of texts (replied STOP) — call them instead." };
   }
 
@@ -139,7 +139,7 @@ export async function sendLeadFollowupAction(
   if (!phone) {
     return { ok: false, error: "No phone number on file for this lead." };
   }
-  if (channel === "sms" && (await isOptedOut(phone))) {
+  if (channel === "sms" && (await isOptedOut(phone, clientId))) {
     return { ok: false, error: "This number has opted out of texts (replied STOP) — call them instead." };
   }
   // A lead gave a callback number, which isn't the same as agreeing to texts.

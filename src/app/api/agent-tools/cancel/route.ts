@@ -227,13 +227,15 @@ async function chatVerifiedNumber(
     if (!(await allowChatSms(client.id, phone, "cancel_code"))) {
       return { ok: false, body: generic };
     }
-    if (await isOptedOut(phone)) {
+    if (await isOptedOut(phone, client.id)) {
       logger.info("agent-tools.cancel.code_opted_out", { clientId: client.id });
       return { ok: false, body: generic };
     }
     const sent = await notifier.sendSms({
       to: phone,
       body: verificationCodeText(client.name, issueVerificationCode(client.id, phone)),
+      // From the business's own texting number when it has one.
+      fromClientId: client.id,
     });
     logger.info("agent-tools.cancel.code_sent", { clientId: client.id, ok: sent.ok });
     return { ok: false, body: generic };

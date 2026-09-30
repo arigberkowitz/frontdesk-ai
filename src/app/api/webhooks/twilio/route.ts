@@ -5,6 +5,7 @@ import { leads } from "@/db/schema";
 import { recordOptOut, removeOptOut, normalizePhone } from "@/lib/data/sms-optouts";
 import { reminders, type Client } from "@/db/schema";
 import { storeInboundMessage } from "@/lib/sms-inbox";
+import { findClientBySmsNumber } from "@/lib/data/sms-numbers";
 import { updateSmsDeliveryStatus } from "@/lib/data/sms-messages";
 import { explainSmsError } from "@/lib/notifier";
 import { audit } from "@/lib/data/audit";
@@ -254,9 +255,23 @@ export async function POST(req: Request): Promise<Response> {
     });
 
   try {
+    // Which of our numbers was texted decides the opt-out's reach. A business's
+    // OWN number: STOP/START applies to that business. The shared number (or
+    // anything we can't match): it applies to every business, as it always has.
+    // A failed lookup returns null → the broader, safer shared-number scope.
+    const to = params.To ?? "";
+    const dedicated = to && (STOP_WORDS.has(keyword) || START_WORDS.has(keyword))
+      ? await findClientBySmsNumber(to)
+      : null;
+    const scope = dedicated ? { clientId: dedicated.id, businessPhone: to } : null;
+
     if (STOP_WORDS.has(keyword)) {
-      await recordOptOut(from, keyword);
-      logger.info("sms.optout", { phone: normalizePhone(from) });
+      await recordOptOut(from, keyword, scope);
+      logger.info("sms.optout", {
+        phone: normalizePhone(from),
+        scope: scope ? "client" : "shared",
+        clientId: scope?.clientId,
+      });
       const inbound = await store("opt_out");
       // "Cancel my 2pm please" is a STOP keyword and also a human being asking
       // for something. Honour the carrier rule — they are opted out, and we say
@@ -271,7 +286,7 @@ export async function POST(req: Request): Promise<Response> {
     }
     let kind: "reply" | "opt_in" = "reply";
     if (START_WORDS.has(keyword)) {
-      await removeOptOut(from);
+      await removeOptOut(from, scope);
       kind = "opt_in";
       // Deliberately falls through to the reply handling below instead of
       // returning. "YES" is a START keyword AND the answer we now explicitly

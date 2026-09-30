@@ -1,5 +1,5 @@
 import "server-only";
-import { and, count, desc, eq, gte, inArray, isNull, max, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, max, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { smsMessages, type SmsMessageRow } from "@/db/schema";
 import { normalizePhone } from "@/lib/data/sms-optouts";
@@ -141,14 +141,32 @@ export async function updateSmsDeliveryStatus(
  * Returns null on any error (e.g. table not migrated yet) so the caller can
  * fall back to the older reminders-based lookup.
  */
-export async function findClientLastMessaged(phone: string): Promise<string | null> {
+export async function findClientLastMessaged(
+  phone: string,
+  /**
+   * The number the reply arrived on. When given, only texts we sent FROM that
+   * number count (plus old rows with no number recorded), so a reply to the
+   * shared number isn't credited to a business that texted this customer from
+   * its own dedicated number.
+   */
+  viaNumber?: string | null,
+): Promise<string | null> {
   const customerPhone = customerKeyFor(phone);
   if (!customerPhone) return null;
+  const via = viaNumber ? normalizePhone(viaNumber) : "";
   try {
     const [row] = await db
       .select({ clientId: smsMessages.clientId })
       .from(smsMessages)
-      .where(and(eq(smsMessages.customerPhone, customerPhone), eq(smsMessages.direction, "outbound")))
+      .where(
+        and(
+          eq(smsMessages.customerPhone, customerPhone),
+          eq(smsMessages.direction, "outbound"),
+          via
+            ? or(eq(smsMessages.businessPhone, via), isNull(smsMessages.businessPhone))
+            : undefined,
+        ),
+      )
       .orderBy(desc(smsMessages.createdAt))
       .limit(1);
     return row?.clientId ?? null;

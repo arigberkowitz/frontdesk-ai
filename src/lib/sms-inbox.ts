@@ -1,6 +1,7 @@
 import "server-only";
 import type { Client } from "@/db/schema";
 import { findClientByPhone, findClientLastTexted, getClientByIdUnsafe } from "@/lib/data/clients";
+import { findClientBySmsNumber } from "@/lib/data/sms-numbers";
 import {
   findClientLastMessaged,
   recordInboundSms,
@@ -12,14 +13,12 @@ import { logger } from "@/lib/logger";
 /**
  * Which business an inbound text belongs to.
  *
- *  1. `To` — the number the customer texted, matched against each business's
- *     own line. The only direct signal, and the right one once businesses have
- *     their own texting numbers.
- *  2. The business that last texted this customer, per the SMS inbox log.
- *     Every outbound text currently leaves from ONE shared sending number, so
- *     (1) never matches for replies to our texts; "who were they just talking
- *     to?" is the honest answer.
- *  3. The older reminders-based lookup, which covers texts sent before the
+ *  1. `To` is a business's OWN texting number (clients.sms_number) → that
+ *     business. Direct and unambiguous; nothing else is consulted.
+ *  2. `To` matches a business's voice line (legacy direct signal).
+ *  3. Otherwise (the shared number): the business that last texted this
+ *     customer FROM THE NUMBER THEY REPLIED TO, per the SMS inbox log.
+ *  4. The older reminders-based lookup, which covers texts sent before the
  *     inbox log existed (and keeps working if its migration hasn't run).
  *
  * Never returns a business the customer hasn't dealt with: no match → null,
@@ -27,10 +26,12 @@ import { logger } from "@/lib/logger";
  */
 export async function resolveInboundClient(to: string, from: string): Promise<Client | null> {
   if (to) {
+    const own = await findClientBySmsNumber(to);
+    if (own) return own;
     const byLine = await findClientByPhone(to);
     if (byLine) return byLine;
   }
-  const lastMessaged = await findClientLastMessaged(from);
+  const lastMessaged = await findClientLastMessaged(from, to || null);
   if (lastMessaged) {
     // Already excludes soft-deleted businesses.
     const client = await getClientByIdUnsafe(lastMessaged);

@@ -54,7 +54,7 @@ export default async function PortalMessageThreadPage({
   // Who may be texted from here — the send action enforces the same rules.
   const customerTexted = messages.some((m) => m.direction === "inbound");
   const [optedOut, consented] = await Promise.all([
-    isOptedOut(phone),
+    isOptedOut(phone, clientId),
     customerTexted ? Promise.resolve(true) : hasSmsConsent(clientId, phone, "portal_reply"),
   ]);
 

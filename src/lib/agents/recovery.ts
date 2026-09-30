@@ -212,7 +212,7 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
         continue;
       }
       // Hard compliance gate: STOP means never again, no matter the path.
-      if (await isOptedOut(t.to)) continue;
+      if (await isOptedOut(t.to, client.id)) continue;
       const result = await notifier.sendSms({
         to: t.to,
         body: t.body,

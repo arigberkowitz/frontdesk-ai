@@ -31,7 +31,7 @@ export async function sendBookingConfirmation(
 ): Promise<void> {
   const to = appt.customerPhone?.trim();
   if (!to) return;
-  if (await isOptedOut(to)) {
+  if (await isOptedOut(to, client.id)) {
     logger.info("appointment.confirmation.opted_out", { appointmentId: appt.id });
     return;
   }
@@ -127,7 +127,7 @@ export async function sendAppointmentReminders(now: Date = new Date()): Promise<
 
       for (const a of due) {
         const to = a.customerPhone!.trim();
-        if (await isOptedOut(to)) {
+        if (await isOptedOut(to, client.id)) {
           skipped += 1;
           continue;
         }
