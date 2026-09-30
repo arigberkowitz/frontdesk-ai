@@ -258,3 +258,26 @@ Running log of choices and deviations (PRD §0). Newest first.
   provider sid, error). That row also keeps shared-number reply routing pointed at this
   business. When Twilio isn't configured (demo/dev) nothing is sent or recorded and the
   owner is told so, same as reminders. Sending marks the thread's inbound messages read.
+
+## 2026-09-30 — Reply alerts (customer texted → email the business)
+
+- **Extends what was there.** The Twilio webhook already emailed `owner_email` — but only
+  when the texter matched a lead, and with no throttle, no alert-roster routing and no
+  record. Now every new inbound customer text (replies, YES/START, and STOP-with-a-message;
+  not bare keywords, not Twilio replays) goes through `notifyOwnerTextReply`
+  (`src/lib/reply-alerts.ts`). Lead matching still stamps `last_reply_at` so recovery stands
+  down.
+- **Email only, never SMS.** Recipients come from `getAlertRecipients` (on-duty alert roster
+  → on-the-clock staff → owner email) and only its **emails** are used. The alert phone is
+  never texted for these — a conversation can be a dozen messages and the owner's cell is
+  the channel we can't make noisy.
+- **Throttle: one alert per conversation (business + customer) per 15 minutes.** State is
+  the `notifications` table itself (type `system`, `payload.kind = 'sms_reply'`,
+  `payload.customerPhone`); a `pg_advisory_xact_lock` on (business, customer) makes the
+  check-and-claim atomic so simultaneous texts can't both send. A failed send doesn't count,
+  so the next text retries. No migration.
+- **Unread badge** on the Messages nav already existed (PR #7: `countUnreadMessages` →
+  `PortalNav`/`PortalTabBar`), so nothing was added there. No in-app bell: the email path
+  exists, and the badge is the in-app signal.
+- **No per-person on/off switch for reply alerts yet.** Taking someone off duty in the alert
+  roster stops all their alerts, including these.

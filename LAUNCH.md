@@ -95,6 +95,11 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
   0007). Smoke test: text the Twilio number from your phone, open that conversation in
   portal → Messages, send a reply, and confirm it arrives prefixed with the business name.
 
+- **Reply alerts** (customer text → email) need no migration or env var. They use the
+  existing `RESEND_API_KEY` + alert roster and never text anyone. Smoke test: text the
+  Twilio number twice within a minute; exactly one email should arrive, linking to that
+  conversation in Messages.
+
 - **After deploying the security-hardening change:** apply
   `drizzle/manual/0006_web_chat_limits.sql` (or `npm run db:push`), then run
   Settings → Re-sync agents so every Retell agent gets its per-client tool URL.
