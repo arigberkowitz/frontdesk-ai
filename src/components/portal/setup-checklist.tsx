@@ -2,18 +2,20 @@
 
 import { useActionState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, CheckCircle2, Lightbulb, Sparkles } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, EyeOff, Lightbulb, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   dismissReviewNotesAction,
   finishSetupAction,
+  hideSetupChecklistAction,
   reopenSetupAction,
   setSetupFlagAction,
 } from "@/lib/actions/setup";
 import { initialActionState } from "@/lib/actions/types";
 import { formatDateTime } from "@/lib/format";
+import { checklistMode } from "@/lib/setup-steps";
 
 interface SetupStepView {
   key: string;
@@ -61,6 +63,8 @@ export interface SetupStatusView {
   finishedAt: string | null;
   /** Optional improvements from the AI review — advice, never blockers. */
   reviewNotes?: string[];
+  /** Owner hid the unfinished checklist from the Overview ("Hide for now"). */
+  hiddenAt?: string | null;
 }
 
 /**
@@ -103,12 +107,27 @@ export function SetupChecklist({
     else if (reopenState.error) toast.error(reopenState.error);
   }, [reopenState]);
 
-  const notes = status.reviewNotes ?? [];
+  const [hideState, hideAction, hiding] = useActionState(
+    hideSetupChecklistAction,
+    initialActionState,
+  );
+  useEffect(() => {
+    if (hideState.ok) toast.success(hideState.message ?? "Hidden.");
+    else if (hideState.error) toast.error(hideState.error);
+  }, [hideState]);
 
-  // Overview: once finished, the checklist has served its purpose and goes away
-  // — unless the review left suggestions, which are worth one more look.
-  if (variant === "overview" && status.finishedAt && notes.length === 0) return null;
-  if (variant === "overview" && status.finishedAt) {
+  const notes = status.reviewNotes ?? [];
+  const mode = checklistMode({
+    variant,
+    finishedAt: status.finishedAt,
+    hiddenAt: status.hiddenAt,
+    reviewNotes: notes.length,
+  });
+
+  // Overview: once finished (or hidden with "Hide for now"), the checklist goes
+  // away — unless the finished review left suggestions worth one more look.
+  if (mode === "hidden") return null;
+  if (mode === "notes") {
     return (
       <Card>
         <CardContent className="space-y-3">
@@ -157,8 +176,25 @@ export function SetupChecklist({
               Complete{status.finishedAt ? ` · ${formatDateTime(new Date(status.finishedAt))}` : ""}
             </span>
           ) : (
-            <span className="text-sm text-muted-foreground tabular-nums">
-              {status.doneCount} of {status.total} done
+            <span className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {status.doneCount} of {status.total} done
+              </span>
+              {canEdit && variant === "overview" ? (
+                <form action={hideAction}>
+                  <input type="hidden" name="clientId" value={clientId} />
+                  <Button
+                    type="submit"
+                    size="sm"
+                    variant="ghost"
+                    disabled={hiding}
+                    title="Hide this checklist from your Overview. Bring it back from Settings → Setup."
+                  >
+                    <EyeOff className="size-3.5" />
+                    {hiding ? "Hiding…" : "Hide for now"}
+                  </Button>
+                </form>
+              ) : null}
             </span>
           )}
         </div>
@@ -250,6 +286,20 @@ export function SetupChecklist({
               <Button type="submit" size="sm" disabled={!status.complete || finishing}>
                 <Sparkles className="size-3.5" />
                 {finishing ? "AI is checking…" : "I'm done — run the final check"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+
+        {canEdit && !finished && status.hiddenAt && variant === "settings" ? (
+          <form action={reopenAction} className="mt-4 border-t pt-4">
+            <input type="hidden" name="clientId" value={clientId} />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Hidden from your Overview. Progress still updates as you go.
+              </p>
+              <Button type="submit" size="sm" variant="outline" disabled={reopening}>
+                {reopening ? "Showing…" : "Show on Overview"}
               </Button>
             </div>
           </form>
