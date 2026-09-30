@@ -64,6 +64,7 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
     aiNumber,
     calls: callCount?.n ?? 0,
     flags,
+    answeringMode: client?.answeringMode,
   });
 
   const doneCount = steps.filter((s) => s.done).length;

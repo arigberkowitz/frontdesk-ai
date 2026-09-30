@@ -4,7 +4,7 @@ import { requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { setWeekHours, type DayHoursInput } from "@/lib/data/hours";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
-import { firstDayClosingBeforeOpening } from "@/lib/hours-util";
+import { firstDayClosingBeforeOpening, firstDayWithBadTime } from "@/lib/hours-util";
 import type { ActionState } from "./types";
 
 export async function saveHoursAction(
@@ -28,6 +28,14 @@ export async function saveHoursAction(
       openTime: isClosed || !open ? null : open,
       closeTime: isClosed || !close ? null : close,
     });
+  }
+
+  const badTime = firstDayWithBadTime(days);
+  if (badTime) {
+    return {
+      ok: false,
+      error: `${badTime} has a time we can't read. Use 24-hour times like 09:00 and 17:00.`,
+    };
   }
 
   const badDay = firstDayClosingBeforeOpening(days);

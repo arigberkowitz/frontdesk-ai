@@ -8,6 +8,15 @@ import { provisionAgentForClient } from "@/lib/retell";
 import { env, integrations, webhookUrl } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import type { ActionState } from "@/lib/actions/types";
+import { claimFirstProvision, releaseFirstProvision } from "@/lib/provision-lock";
+
+/**
+ * The Retell phone error names Retell and "a payment method" — advice for the
+ * platform operator, not for a business owner, who can't add a card to our
+ * vendor account. Owners get a sentence they can act on.
+ */
+export const OWNER_PHONE_ERROR =
+  "Your AI is built, but we couldn't get its phone number just yet. Try Activate again in a few minutes — or use the browser test call meanwhile. If it keeps happening, message us from Settings → Help.";
 
 /**
  * Build (or re-sync) a business's Retell agent and phone number.
@@ -25,6 +34,14 @@ export async function runProvision(
   if (!client) return { ok: false, error: "Client not found." };
   if (!integrations.retell()) {
     return { ok: false, error: "Connect Retell first — add RETELL_API_KEY to your environment." };
+  }
+
+  const firstProvision = !client.retellPhoneNumber;
+  if (firstProvision && !(await claimFirstProvision(clientId))) {
+    return {
+      ok: false,
+      error: "Your receptionist is already being set up. Give it a minute, then refresh this page.",
+    };
   }
 
   try {
@@ -90,5 +107,14 @@ export async function runProvision(
       error:
         "We couldn't set up your receptionist just now. Please try again in a moment, or contact support if it keeps happening.",
     };
+  } finally {
+    if (firstProvision) {
+      await releaseFirstProvision(clientId).catch((err) =>
+        logger.warn("agent.provision.unlock_failed", {
+          clientId,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
   }
 }

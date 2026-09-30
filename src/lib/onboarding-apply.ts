@@ -8,6 +8,10 @@ import { createKnowledge } from "@/lib/data/knowledge";
 import { scrapeWebsite } from "@/lib/scrape";
 import { dayNameToIndex, structureBusinessProfile, type StructuredProfile } from "@/lib/onboarding";
 import { logger } from "@/lib/logger";
+import { usableDayHours } from "@/lib/hours-util";
+import { toE164 } from "@/lib/format";
+
+const MAX_DRAFTED_ITEMS = 40;
 
 /** Merge an AI-structured profile into a client (§8 step 4). */
 async function applyProfile(
@@ -16,17 +20,22 @@ async function applyProfile(
   profile: StructuredProfile,
 ): Promise<void> {
   await updateClient(orgId, clientId, {
-    address: profile.address.trim() || null,
-    forwardingNumber: profile.phone.trim() || null,
+    address: profile.address.trim().slice(0, 300) || null,
+    // Drafted from a web page, so normalize it like every other phone field
+    // (the forwarding instructions quote it back to the owner).
+    forwardingNumber: toE164(profile.phone.trim()) ?? null,
   });
 
-  for (const s of profile.services) {
+  // Same limits as the manual forms (validation.ts). This text comes from a
+  // web page anyone can point us at and ends up in the agent's prompt, so it
+  // doesn't get to be longer or more numerous than what an owner could type.
+  for (const s of profile.services.slice(0, MAX_DRAFTED_ITEMS)) {
     if (!s.name.trim()) continue;
     await createService(clientId, {
-      name: s.name.trim(),
+      name: s.name.trim().slice(0, 120),
       durationMin: s.durationMin,
       priceCents: s.priceDollars > 0 ? Math.round(s.priceDollars * 100) : null,
-      description: s.description.trim() || null,
+      description: s.description.trim().slice(0, 2000) || null,
       isActive: true,
     });
   }
@@ -42,13 +51,17 @@ async function applyProfile(
       closeTime: h.closed ? null : h.close.trim() || null,
     });
   }
-  if (days.length) await setWeekHours(clientId, days);
+  // Model output, so hold it to the same rules as the hours form: a row with
+  // "9am" or close-before-open is dropped (the owner fills it in) rather than
+  // saved into the booking window and the agent's prompt.
+  const usable = usableDayHours(days);
+  if (usable.length) await setWeekHours(clientId, usable);
 
-  for (const f of profile.faq) {
+  for (const f of profile.faq.slice(0, MAX_DRAFTED_ITEMS)) {
     if (!f.question.trim() || !f.answer.trim()) continue;
     await createKnowledge(clientId, {
-      question: f.question.trim(),
-      answer: f.answer.trim(),
+      question: f.question.trim().slice(0, 500),
+      answer: f.answer.trim().slice(0, 4000),
       source: "scraped",
       isActive: true,
     });
@@ -88,10 +101,10 @@ export async function applyWebsiteToClient(
       );
       if (voice) {
         await updateClient(orgId, clientId, {
-          ...(client.greeting?.trim() ? {} : { greeting: voice.greeting }),
+          ...(client.greeting?.trim() ? {} : { greeting: voice.greeting.slice(0, 1000) }),
           ...(client.agentGuidance?.trim() || !voice.guidance
             ? {}
-            : { agentGuidance: voice.guidance }),
+            : { agentGuidance: voice.guidance.slice(0, 4000) }),
         });
       }
     }

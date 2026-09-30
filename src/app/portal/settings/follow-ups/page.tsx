@@ -12,6 +12,7 @@ import { WaitlistCard } from "@/components/portal/waitlist-card";
 import { DepositsCard } from "@/components/portal/deposits-card";
 import { ChatWidgetCard } from "@/components/portal/chat-widget-card";
 import { WebhookCard } from "@/components/portal/webhook-card";
+import { toSafeClient } from "@/lib/client-safe";
 
 export const metadata: Metadata = { title: "Follow-ups · Settings" };
 
@@ -30,7 +31,7 @@ export default async function PortalSettingsFollowUpsPage() {
 
   return (
     <div className="space-y-6">
-      <RecoveryTextsForm client={client} />
+      <RecoveryTextsForm client={toSafeClient(client)} />
       <ReviewRequestsCard
         clientId={clientId}
         enabled={client.reviewRequestsEnabled}

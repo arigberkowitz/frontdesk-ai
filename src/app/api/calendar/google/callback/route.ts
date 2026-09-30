@@ -3,7 +3,7 @@ import { calendarReturnPath, parseCalendarOAuthState } from "@/lib/calendar-oaut
 import { applyClientEdit } from "@/lib/agent-publish";
 import { cookies } from "next/headers";
 import { timingSafeEqual } from "node:crypto";
-import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
+import { getCurrentDbUserSafe, userMayEditClient } from "@/lib/auth-guard";
 import { getClient, updateClient } from "@/lib/data/clients";
 import { exchangeCodeForTokens } from "@/lib/google-calendar";
 import { encryptSecret } from "@/lib/crypto";
@@ -44,7 +44,10 @@ export async function GET(req: Request): Promise<Response> {
   if (!user) return NextResponse.redirect(new URL("/sign-in", req.url));
   // Tenant rule lives in one place — a role-specific check here would let a
   // client_admin act on another business in the same house-agency org.
-  if (!userMayAccessClient(user, clientId)) {
+  // Editor rule, not just tenant access: connecting replaces the calendar the
+  // AI books into, which the Cal.com connect action already limits to
+  // editors. Staff could do it here with a plain link.
+  if (!(await userMayEditClient(user, clientId))) {
     return new Response("Forbidden", { status: 403 });
   }
   const client = await getClient(user.orgId, clientId);

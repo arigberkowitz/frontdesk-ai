@@ -17,10 +17,13 @@ export function ReceptionistPower({
   clientId,
   status,
   isAdmin,
+  hasAgent = true,
 }: {
   clientId: string;
   status: string;
   isAdmin: boolean;
+  /** Whether the AI has actually been built. Before that there's nothing to switch. */
+  hasAgent?: boolean;
 }) {
   const [state, action, pending] = useActionState(setReceptionistPowerAction, initialActionState);
 
@@ -31,6 +34,9 @@ export function ReceptionistPower({
 
   if (!isAdmin || status === "draft") return null;
   const paused = status === "paused";
+  // "Receptionist is on — answering, booking, and alerting normally" used to
+  // show on day one, above a card saying there's no phone number yet.
+  if (!paused && !hasAgent) return null;
 
   return (
     <Card className={paused ? "border-amber-500/40 bg-amber-500/5" : undefined}>

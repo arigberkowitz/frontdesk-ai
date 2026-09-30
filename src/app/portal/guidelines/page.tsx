@@ -17,6 +17,7 @@ import { clientMayActivate, getTrialState } from "@/lib/data/trial";
 import { TestCallButton } from "@/components/clients/test-call-button";
 import { CallMeNow } from "@/components/portal/call-me-now";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
+import { toSafeClient } from "@/lib/client-safe";
 import {
   groupVoicesByGender,
   normalizeGender,
@@ -203,7 +204,7 @@ export default async function PortalGuidelinesPage({
         </CardContent>
       </Card>
 
-      <GuidelinesForm client={client} />
+      <GuidelinesForm client={toSafeClient(client)} />
     </div>
   );
 }

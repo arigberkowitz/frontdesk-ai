@@ -12,7 +12,7 @@ import { Field } from "@/components/form/field";
 import { NativeSelect } from "@/components/form/native-select";
 import { SubmitButton } from "@/components/form/submit-button";
 import { TIMEZONES } from "@/config/options";
-import type { Client } from "@/db/schema";
+import type { SafeClient as Client } from "@/lib/client-safe";
 
 /*
  * The portal settings forms, one component per card so each Settings section
@@ -255,7 +255,7 @@ export function EditCodeForm({ client, isAdmin = true }: { client: Client; isAdm
             <Input
               name="code"
               type="text"
-              placeholder={client.editCodeHash ? "••••••  (set — enter a new one to change)" : "e.g. front-desk-2026"}
+              placeholder={client.hasEditCode ? "••••••  (set — enter a new one to change)" : "e.g. front-desk-2026"}
               autoComplete="off"
             />
           </Field>

@@ -5,6 +5,7 @@ import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listAlertContacts } from "@/lib/data/alert-contacts";
 import { AlertRoster } from "@/components/portal/alert-roster";
 import { AlertsForm } from "@/components/portal/portal-settings";
+import { toSafeClient } from "@/lib/client-safe";
 
 export const metadata: Metadata = { title: "Alerts · Settings" };
 
@@ -18,7 +19,7 @@ export default async function PortalSettingsAlertsPage() {
 
   return (
     <div className="space-y-6">
-      <AlertsForm client={client} isAdmin={editAccess.isAdmin} />
+      <AlertsForm client={toSafeClient(client)} isAdmin={editAccess.isAdmin} />
       <AlertRoster clientId={clientId} contacts={alertContacts} canManage={editAccess.isAdmin} />
     </div>
   );

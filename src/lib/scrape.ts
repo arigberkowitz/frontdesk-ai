@@ -54,7 +54,7 @@ export function normalizeUrl(raw: string): string {
  * site that 302s to localhost reads internal services back to the user.
  * ------------------------------------------------------------------------ */
 
-function isPrivateIp(ip: string): boolean {
+export function isPrivateIp(ip: string): boolean {
   const v = isIP(ip);
   if (v === 4) {
     const [a, b] = ip.split(".").map(Number);
@@ -66,6 +66,8 @@ function isPrivateIp(ip: string): boolean {
       (a === 169 && b === 254) || // link-local / cloud metadata
       (a === 172 && b >= 16 && b <= 31) ||
       (a === 192 && b === 168) ||
+      (a === 192 && b === 0 && Number(ip.split(".")[2]) === 0) || // IETF protocol assignments
+      (a === 198 && (b === 18 || b === 19)) || // benchmarking
       a >= 224 // multicast / reserved
     );
   }
@@ -75,6 +77,9 @@ function isPrivateIp(ip: string): boolean {
       low === "::" ||
       low === "::1" ||
       low.startsWith("fe80") || // link-local
+      low.startsWith("fec0") || // site-local (deprecated, still routable internally)
+      low.startsWith("64:ff9b:") || // NAT64 — wraps an IPv4 address, possibly private
+      low.startsWith("::127.") || // IPv4-compatible loopback
       low.startsWith("fc") || // unique-local
       low.startsWith("fd") ||
       low.startsWith("::ffff:") // v4-mapped — re-check the embedded v4
@@ -102,6 +107,36 @@ async function isSafePublicUrl(url: URL): Promise<boolean> {
 }
 
 const MAX_REDIRECTS = 3;
+/** A real homepage is well under this; anything bigger is a trap, not a site. */
+const MAX_HTML_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Read at most `max` bytes of a response body. `res.text()` buffers whatever
+ * the server sends, and the URL comes from a stranger at signup, so an endless
+ * or multi-gigabyte response could exhaust the function's memory.
+ */
+async function readCapped(res: Response, max: number): Promise<string> {
+  const declared = Number(res.headers.get("content-length") ?? "");
+  if (Number.isFinite(declared) && declared > max) {
+    await res.body?.cancel().catch(() => {});
+    return "";
+  }
+  if (!res.body) return "";
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel().catch(() => {});
+      break;
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
 
 async function fetchHtml(url: string): Promise<string | null> {
   const controller = new AbortController();
@@ -128,7 +163,7 @@ async function fetchHtml(url: string): Promise<string | null> {
       if (!res.ok) return null;
       const ct = res.headers.get("content-type") ?? "";
       if (!ct.includes("html")) return null;
-      return await res.text();
+      return await readCapped(res, MAX_HTML_BYTES);
     }
     return null;
   } catch (err) {

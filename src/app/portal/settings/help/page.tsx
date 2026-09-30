@@ -4,6 +4,7 @@ import { resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { HelpForm } from "@/components/portal/portal-settings";
 import { SupportCard } from "@/components/portal/support-card";
+import { toSafeClient } from "@/lib/client-safe";
 
 export const metadata: Metadata = { title: "Help · Settings" };
 
@@ -16,7 +17,7 @@ export default async function PortalSettingsHelpPage() {
   return (
     <div className="space-y-6">
       <SupportCard />
-      <HelpForm client={client} />
+      <HelpForm client={toSafeClient(client)} />
     </div>
   );
 }

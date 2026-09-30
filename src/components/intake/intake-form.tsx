@@ -29,6 +29,9 @@ export function IntakeForm({
   defaultWebsite: string;
 }) {
   const [state, action] = useActionState(submitIntakeAction, initialActionState);
+  // Echoed back on an error: React 19 resets the form after the action runs.
+  const v = (state.data as { values?: Record<string, string> } | undefined)?.values;
+  const drafting = Boolean((state.data as { drafting?: boolean } | undefined)?.drafting);
 
   if (state.ok) {
     return (
@@ -38,7 +41,7 @@ export function IntakeForm({
         </div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight">You&apos;re all set!</h1>
         <p className="text-muted-foreground">
-          Thanks — we&apos;ve got your details{defaultWebsite ? " and are reading your website" : ""}. We&apos;ll
+          Thanks — we&apos;ve got your details{drafting ? " and have read your website" : ""}. We&apos;ll
           build your AI receptionist and follow up to get it live. You can close this page.
         </p>
       </div>
@@ -46,7 +49,7 @@ export function IntakeForm({
   }
 
   return (
-    <form action={action} className="w-full max-w-lg space-y-5">
+    <form key={JSON.stringify(v ?? {})} action={action} className="w-full max-w-lg space-y-5">
       <div className="space-y-2 text-center">
         <div
           className="mx-auto flex size-11 items-center justify-center rounded-2xl text-white"
@@ -65,20 +68,45 @@ export function IntakeForm({
       <input type="hidden" name="token" value={token} />
 
       <Field label="Business name" error={state.fieldErrors?.name}>
-        <Input name="name" defaultValue={defaultName} placeholder="Bright Smile Dental" required />
+        <Input
+          name="name"
+          defaultValue={v?.name ?? defaultName}
+          placeholder="Bright Smile Dental"
+          required
+          maxLength={120}
+        />
       </Field>
-      <Field label="Website" hint="Optional — we'll draft your services, hours, and FAQs from it.">
-        <Input name="websiteUrl" type="url" defaultValue={defaultWebsite} placeholder="https://yourbusiness.com" />
+      <Field
+        label="Website"
+        hint="Optional — we'll draft your services, hours, and FAQs from it."
+        error={state.fieldErrors?.websiteUrl}
+      >
+        {/* type="text": the browser's url type rejected "yourbusiness.com". */}
+        <Input
+          name="websiteUrl"
+          type="text"
+          inputMode="url"
+          defaultValue={v?.websiteUrl ?? defaultWebsite}
+          placeholder="yourbusiness.com"
+        />
       </Field>
       <Field label="Best email for alerts" error={state.fieldErrors?.ownerEmail}>
-        <Input name="ownerEmail" type="email" placeholder="you@yourbusiness.com" />
+        <Input name="ownerEmail" type="email" defaultValue={v?.ownerEmail ?? ""} placeholder="you@yourbusiness.com" />
       </Field>
-      <Field label="Best cell for alerts & call transfers">
-        <Input name="ownerCell" placeholder="+1 415 555 0100" />
+      {/* The server's "Enter a 10-digit US mobile number" had nowhere to show,
+          so a mistyped cell made the button look like it did nothing. */}
+      <Field label="Best cell for alerts & call transfers" error={state.fieldErrors?.ownerCell}>
+        <Input name="ownerCell" type="tel" defaultValue={v?.ownerCell ?? ""} placeholder="(415) 555-0100" />
       </Field>
-      <Field label="Anything we should know?" hint="What should the AI always mention, or never say?">
+      <Field
+        label="Anything we should know?"
+        hint="What should the AI always mention, or never say?"
+        error={state.fieldErrors?.instructions}
+      >
         <Textarea
           name="instructions"
+          defaultValue={v?.instructions ?? ""}
+          maxLength={4000}
           rows={4}
           placeholder={"e.g. We're accepting new patients.\nNever quote exact prices — say it depends on insurance."}
         />

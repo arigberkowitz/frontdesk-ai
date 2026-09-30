@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { audit } from "@/lib/data/audit";
 import { requireClientOwner, requireOperator } from "@/lib/auth-guard";
 import { assertClientInOrg, getClient } from "@/lib/data/clients";
+import { getTrialState } from "@/lib/data/trial";
 import { getStripe } from "@/lib/stripe";
 import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -136,6 +137,14 @@ export async function startSelfServeCheckoutAction(
 
   const client = await getClient(guard.user.orgId, clientId);
   if (!client) return { ok: false, error: "Client not found." };
+
+  // The plan cards hide once a business pays, but a stale tab or a second
+  // click could still open a new checkout, and Stripe would happily start a
+  // SECOND subscription for the same business.
+  const trialState = await getTrialState(clientId);
+  if (trialState.subscribed || trialState.comped) {
+    return { ok: false, error: "You're already on a plan — nothing more to pay. Reach us from Settings → Help to change it." };
+  }
 
   const recurringAmount = interval === "year" ? plan.monthlyPriceCents * 10 : plan.monthlyPriceCents;
 

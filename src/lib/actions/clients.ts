@@ -75,7 +75,8 @@ export async function createStarterClientAction(formData: FormData): Promise<voi
     // Teams start with per-person booking ready to go.
     staffModeEnabled: companySize !== "solo",
   });
-  await attachCreatorToClient(user, client.id);
+  // Only one business per signup, even if the form was submitted twice.
+  if (!(await attachCreatorToClient(user, client.id))) redirect("/portal");
   // Trial, starter pack, the receptionist and its number, welcome email —
   // the same finish as the website path. This used to stop at the pack, so
   // a template signup landed in `draft` with no trial and an Activate button
