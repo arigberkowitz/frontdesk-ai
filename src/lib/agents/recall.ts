@@ -174,7 +174,11 @@ export async function recallForClient(client: Client, now = new Date()): Promise
         monthsSince: monthsBetween(appt.endAt ?? appt.startAt, now),
         callbackNumber: client.retellPhoneNumber,
       });
-      const result = await notifier.sendSms({ to, body });
+      const result = await notifier.sendSms({
+        to,
+        body,
+        log: { clientId: client.id, kind: "recall", appointmentId: appt.id },
+      });
       if (result.skipped) {
         notSent += 1;
         continue;

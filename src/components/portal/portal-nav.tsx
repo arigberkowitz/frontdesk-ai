@@ -18,6 +18,7 @@ const ITEMS = [
   { label: "Calls", href: "/portal/calls" },
   { label: "Appointments", href: "/portal/appointments" },
   { label: "Leads", href: "/portal/leads" },
+  { label: "Messages", href: "/portal/messages" },
   { label: "Team", href: "/portal/team" },
   { label: "Services", href: "/portal/services" },
   { label: "Hours", href: "/portal/hours" },
@@ -26,13 +27,31 @@ const ITEMS = [
   { label: "Settings", href: "/portal/settings" },
 ];
 
+/** Small count pill for unread customer texts on the Messages tab. */
+function UnreadPill({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-indigo-500 px-1.5 text-[11px] font-semibold leading-5 text-white">
+      <span className="sr-only">, </span>
+      {count > 99 ? "99+" : count}
+      <span className="sr-only"> unread</span>
+    </span>
+  );
+}
+
 function isActive(pathname: string, href: string): boolean {
   return href === "/portal" ? pathname === "/portal" : pathname.startsWith(href);
 }
 
 /** Solo businesses get zero team clutter — the Team tab only shows when staff
  *  mode is on or the business said it has a team at setup. */
-export function PortalNav({ showTeam = true }: { showTeam?: boolean }) {
+export function PortalNav({
+  showTeam = true,
+  unreadMessages = 0,
+}: {
+  showTeam?: boolean;
+  unreadMessages?: number;
+}) {
   const pathname = usePathname();
   return (
     <nav className="-mx-1 hidden items-center gap-1 overflow-x-auto px-1 md:flex">
@@ -51,6 +70,7 @@ export function PortalNav({ showTeam = true }: { showTeam?: boolean }) {
             )}
           >
             {item.label}
+            {item.href === "/portal/messages" ? <UnreadPill count={unreadMessages} /> : null}
           </Link>
         );
       })}
@@ -73,7 +93,13 @@ const BAR = [
  * answer: a bottom tab bar with the four daily screens, and a More sheet for
  * the setup pages you visit once a month.
  */
-export function PortalTabBar({ showTeam = true }: { showTeam?: boolean }) {
+export function PortalTabBar({
+  showTeam = true,
+  unreadMessages = 0,
+}: {
+  showTeam?: boolean;
+  unreadMessages?: number;
+}) {
   const pathname = usePathname();
   // The sheet remembers WHERE it was opened; navigating anywhere makes that
   // stale, which closes it — no effect needed, and a sheet can never linger
@@ -112,6 +138,7 @@ export function PortalTabBar({ showTeam = true }: { showTeam?: boolean }) {
                   )}
                 >
                   {item.label}
+                  {item.href === "/portal/messages" ? <UnreadPill count={unreadMessages} /> : null}
                 </Link>
               );
             })}
@@ -151,7 +178,15 @@ export function PortalTabBar({ showTeam = true }: { showTeam?: boolean }) {
               : "text-muted-foreground",
           )}
         >
-          {moreOpen ? <X className="size-5" /> : <MoreHorizontal className="size-5" />}
+          <span className="relative">
+            {moreOpen ? <X className="size-5" /> : <MoreHorizontal className="size-5" />}
+            {unreadMessages > 0 && !moreOpen ? (
+              <span
+                aria-label={`${unreadMessages} unread messages`}
+                className="absolute -right-1 -top-0.5 size-2 rounded-full bg-indigo-500"
+              />
+            ) : null}
+          </span>
           More
         </button>
       </nav>

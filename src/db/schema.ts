@@ -159,6 +159,19 @@ export const suggestionStatus = pgEnum("suggestion_status", [
   "dismissed",
 ]);
 export const gradeStatus = pgEnum("grade_status", ["open", "reviewed"]);
+/** Which way an SMS went, from the business's point of view. */
+export const smsDirection = pgEnum("sms_direction", ["inbound", "outbound"]);
+/**
+ * Where a stored text stands. `received` is every inbound message; outbound
+ * starts at `sent` (Twilio accepted it) or `failed`, and the carrier's later
+ * verdict (status callback) can move it to `delivered` or `failed`.
+ */
+export const smsMessageStatus = pgEnum("sms_message_status", [
+  "received",
+  "sent",
+  "delivered",
+  "failed",
+]);
 export const webhookSource = pgEnum("webhook_source", ["retell", "stripe", "cal", "twilio"]);
 export const webhookStatus = pgEnum("webhook_status", [
   "received",
@@ -750,6 +763,63 @@ export const reminders = pgTable(
   ],
 );
 
+/**
+ * Every text between a business and one of its customers, both directions —
+ * the record behind the portal's Messages inbox.
+ *
+ * `reminders` logs THAT a text went out (kind, status) but never what it said,
+ * and inbound replies used to exist only as an email to the owner plus an
+ * audit row. This table is the conversation itself: one row per message, so an
+ * owner can see "we sent the confirmation → they replied 'can we do 3pm?'".
+ *
+ * Tenant-owned like everything else: every read scopes by `client_id`. The
+ * customer is keyed by `customer_phone` (normalized digits, see
+ * normalizePhone), so "(415) 555-0100" and "+14155550100" are one thread.
+ *
+ * `provider_sid` is Twilio's MessageSid. It's unique so a webhook replay (or
+ * the same outbound logged twice) can never create a duplicate row; NULLs are
+ * allowed for outbound sends where Twilio returned no sid (a failed send).
+ *
+ * `read_at` only means anything on inbound rows: null = the owner hasn't opened
+ * the thread since it arrived.
+ */
+export const smsMessages = pgTable(
+  "sms_messages",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    direction: smsDirection("direction").notNull(),
+    /** Normalized digits of the customer's number (e.g. "14155550100"). */
+    customerPhone: text("customer_phone").notNull(),
+    /** The business-side number: `To` on inbound, our sending number on outbound. */
+    businessPhone: text("business_phone"),
+    body: text("body").notNull(),
+    status: smsMessageStatus("status").notNull(),
+    /**
+     * What the message was. Outbound: the reminder kind that sent it
+     * ("appointment_reminder", "recall", "lead_followup", ...). Inbound:
+     * "reply", or the compliance keyword class ("opt_out", "opt_in", "help").
+     */
+    kind: text("kind"),
+    providerSid: text("provider_sid"),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, {
+      onDelete: "set null",
+    }),
+    leadId: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
+    error: text("error"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("sms_messages_provider_sid_idx").on(t.providerSid),
+    index("sms_messages_client_phone_created_idx").on(t.clientId, t.customerPhone, t.createdAt),
+    index("sms_messages_client_created_idx").on(t.clientId, t.createdAt),
+    index("sms_messages_customer_phone_idx").on(t.customerPhone),
+  ],
+);
+
 /** Outbound notification log (`recipient` instead of reserved word `to`). */
 export const notifications = pgTable(
   "notifications",
@@ -1118,6 +1188,8 @@ export type WaitlistEntry = typeof waitlistEntries.$inferSelect;
 export type NewWaitlistEntry = typeof waitlistEntries.$inferInsert;
 export type Reminder = typeof reminders.$inferSelect;
 export type NewReminder = typeof reminders.$inferInsert;
+export type SmsMessageRow = typeof smsMessages.$inferSelect;
+export type NewSmsMessageRow = typeof smsMessages.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
 export type Subscription = typeof subscriptions.$inferSelect;

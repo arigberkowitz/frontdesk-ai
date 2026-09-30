@@ -86,6 +86,11 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
 
 ## Notes / known limits
 
+- **After deploying the SMS replies inbox:** apply `drizzle/manual/0007_sms_messages.sql`
+  (Neon SQL editor, idempotent) **before** the deploy. The Twilio number's "A message comes
+  in" webhook must already POST to `/api/webhooks/twilio` (unchanged). Messages only
+  appear for texts sent/received after the deploy.
+
 - **After deploying the security-hardening change:** apply
   `drizzle/manual/0006_web_chat_limits.sql` (or `npm run db:push`), then run
   Settings → Re-sync agents so every Retell agent gets its per-client tool URL.

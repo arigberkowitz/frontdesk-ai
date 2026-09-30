@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Phone } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
+import { countUnreadMessages } from "@/lib/data/sms-messages";
 import { PortalNav, PortalTabBar } from "@/components/portal/portal-nav";
 import { UserMenuButton } from "@/components/user-menu-button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -12,7 +13,11 @@ import { env } from "@/lib/env";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const { clientId, preview } = await resolvePortalClient();
-  const client = await getClientByIdUnsafe(clientId);
+  const [client, unreadMessages] = await Promise.all([
+    getClientByIdUnsafe(clientId),
+    // Never throws (0 until the sms_messages migration has run).
+    countUnreadMessages(clientId),
+  ]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -47,6 +52,7 @@ export default async function PortalLayout({ children }: { children: React.React
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <PortalNav
             showTeam={Boolean(client && (client.staffModeEnabled || client.companySize !== "solo"))}
+            unreadMessages={unreadMessages}
           />
           <CommandPalette portal />
           <ThemeToggle />
@@ -59,6 +65,7 @@ export default async function PortalLayout({ children }: { children: React.React
       </main>
       <PortalTabBar
         showTeam={Boolean(client && (client.staffModeEnabled || client.companySize !== "solo"))}
+        unreadMessages={unreadMessages}
       />
       {client?.chatWidgetEnabled ? (
         <ChatBubble clientId={clientId} appUrl={env.APP_URL.replace(/\/$/, "")} />

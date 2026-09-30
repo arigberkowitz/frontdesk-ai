@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import twilio from "twilio";
 import { env, integrations, webhookUrl } from "./env";
 import { logger } from "./logger";
+import { recordOutboundSms, type OutboundLogContext } from "./data/sms-messages";
 
 /**
  * Notifier (§EPIC E): email via Resend, SMS via Twilio, behind one interface.
@@ -22,6 +23,12 @@ export interface EmailMessage {
 export interface SmsMessage {
   to: string;
   body: string;
+  /**
+   * Set on texts to a business's CUSTOMER so the message lands in that
+   * business's Messages inbox (sms_messages) next to any reply. Leave unset for
+   * texts to the owner/staff (alerts, digests) and for one-time codes.
+   */
+  log?: OutboundLogContext;
 }
 
 export interface SendResult {
@@ -117,6 +124,7 @@ async function sendSms(msg: SmsMessage): Promise<SendResult> {
       // it, a text bounced by the carrier stays recorded as sent forever.
       statusCallback: webhookUrl("/api/webhooks/twilio"),
     });
+    await logToInbox(msg, { ok: true, id: res.sid });
     return { ok: true, id: res.sid };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -125,8 +133,22 @@ async function sendSms(msg: SmsMessage): Promise<SendResult> {
     // days of not knowing which of five things was wrong.
     const detail = code ? `${message} (Twilio ${code})` : message;
     logger.error("notifier.sms.threw", { to: msg.to, error: detail, code });
+    await logToInbox(msg, { ok: false, error: detail });
     return { ok: false, error: detail, code };
   }
+}
+
+/** Best-effort: record a customer text in the inbox. Never throws. */
+async function logToInbox(msg: SmsMessage, result: SendResult): Promise<void> {
+  if (!msg.log) return;
+  await recordOutboundSms(msg.log, {
+    to: msg.to,
+    from: env.TWILIO_FROM_NUMBER || null,
+    body: msg.body,
+    ok: result.ok,
+    providerSid: result.id ?? null,
+    error: result.error ?? null,
+  });
 }
 
 export const notifier = { sendEmail, sendSms };
