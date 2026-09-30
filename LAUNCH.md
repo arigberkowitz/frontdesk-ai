@@ -72,6 +72,7 @@ Not needed for customer #1: run a free pilot or invoice manually
 | `/api/cron/qa-review` | 08:30 | Grades yesterday's calls, fills `/review` |
 | `/api/cron/nightly-improve` | 09:00 | Drafts knowledge/guidance suggestions |
 | `/api/cron/digest` | 14:00 | Owner daily digests |
+| `/api/cron/weekly-report` | Mon 15:00 | Weekly summary email (+ weekly SMS digest) |
 | `/api/cron/outbound-recovery` | 17:00 | Texts cold leads/no-shows (opt-in clients only) |
 
 All require `CRON_SECRET` (already set). Manual trigger for testing:
@@ -94,6 +95,12 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
 - **Reply by text from Messages** needs no migration or env var (uses `sms_messages` from
   0007). Smoke test: text the Twilio number from your phone, open that conversation in
   portal → Messages, send a reply, and confirm it arrives prefixed with the business name.
+
+- **Weekly summary email — MIGRATION REQUIRED:** apply `drizzle/manual/0008_weekly_summary.sql`
+  (Neon SQL editor, idempotent) **before** the deploy. It adds `clients.weekly_summary_enabled`
+  and the `weekly_summary_sends` dedupe table. It uses the existing Monday cron
+  (`/api/cron/weekly-report`), `RESEND_API_KEY`/`RESEND_FROM` and `CRON_SECRET`, with no new
+  env vars. To check it, open `/portal/settings/weekly-summary` (preview only, sends nothing).
 
 - **After deploying the security-hardening change:** apply
   `drizzle/manual/0006_web_chat_limits.sql` (or `npm run db:push`), then run

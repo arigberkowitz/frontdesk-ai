@@ -111,6 +111,9 @@ export async function savePortalProfileAction(
   if (formData.has("smsAlertsEnabled")) {
     patch.smsAlertsEnabled = String(formData.get("smsAlertsEnabled")) === "on";
   }
+  if (formData.has("weeklySummaryEnabled")) {
+    patch.weeklySummaryEnabled = String(formData.get("weeklySummaryEnabled")) === "on";
+  }
 
   if (Object.keys(patch).length === 0) return { ok: false, error: "Nothing to save." };
 
