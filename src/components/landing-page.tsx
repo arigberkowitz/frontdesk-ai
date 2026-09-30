@@ -324,7 +324,7 @@ export function LandingPage() {
                         $1,500 of it against a checkout that no visitor could
                         even reach. */}
                     <p className="mt-1.5 text-sm text-muted-foreground">
-                      No setup fee · 3 weeks free
+                      No setup fee · 2 weeks free
                     </p>
                     {/* Volume, and the flat-rate promise. Every AI receptionist
                         priced near this one meters minutes and bills the

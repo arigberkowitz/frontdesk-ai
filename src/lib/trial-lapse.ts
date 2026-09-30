@@ -18,8 +18,8 @@ import { logger } from "@/lib/logger";
  *
  * Grace: three days past the trial's end. The Overview banner has counted
  * down for a week, and the number is the one thing worth a short pause —
- * releasing it at midnight on day 21 would punish the owner who meant to
- * pay on day 22. After release the business is paused (nothing answers), the
+ * releasing it at midnight on day 14 would punish the owner who meant to
+ * pay on day 15. After release the business is paused (nothing answers), the
  * owner gets one email, and choosing a plan later activates a fresh number.
  */
 export const LAPSE_GRACE_DAYS = 3;
