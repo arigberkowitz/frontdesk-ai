@@ -86,6 +86,13 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
 
 ## Notes / known limits
 
+- **After deploying the security-hardening change:** apply
+  `drizzle/manual/0006_web_chat_limits.sql` (or `npm run db:push`), then run
+  Settings → Re-sync agents so every Retell agent gets its per-client tool URL.
+  Place one real test call (book + cancel) and check the logs for
+  `agent-tools.auth.unsigned_rejected`. If Retell-signed calls are being
+  rejected, set `AGENT_TOOLS_SIGNATURE_MODE=report` temporarily and investigate.
+
 - DB schema syncs with `npm run db:push` (NOT `db:migrate` — the migration
   journal predates the push workflow and is out of sync). Run it after any
   schema change, including the `copilot_chat` enum value (migration 0010).
