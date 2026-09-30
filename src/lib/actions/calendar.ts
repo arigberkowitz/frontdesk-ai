@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requireClientEditor } from "@/lib/auth-guard";
 import { assertClientInOrg, updateClient } from "@/lib/data/clients";
 import { applyClientEdit } from "@/lib/agent-publish";
-import { encryptSecret } from "@/lib/crypto";
+import { decryptSecret, encryptSecret } from "@/lib/crypto";
+import { revokeGoogleToken } from "@/lib/google-calendar";
+import { logger } from "@/lib/logger";
 import { type ActionState } from "./types";
 
 /**
@@ -79,7 +81,18 @@ export async function disconnectCalendarAction(formData: FormData): Promise<void
   const guard = await requireClientEditor(clientId);
   if (!guard.ok) return; // locked staff: silent no-op (banner explains)
   const user = guard.user;
-  await assertClientInOrg(user.orgId, clientId);
+  const client = await assertClientInOrg(user.orgId, clientId);
+  // Google: also revoke the grant, so "disconnect" means we can no longer read
+  // the calendar at all — not just that we forgot the token. (Microsoft has no
+  // per-token revoke endpoint for delegated grants; the owner removes the app
+  // at myapps.microsoft.com / account.live.com if they want the grant gone.)
+  if (client.calendarProvider === "google" && client.calendarSecret) {
+    const token = readSecret(client.calendarSecret);
+    if (token) {
+      const revoked = await revokeGoogleToken(token);
+      if (!revoked) logger.warn("calendar.google.revoke_failed", { clientId });
+    }
+  }
   await updateClient(user.orgId, clientId, {
     calendarProvider: null,
     calendarSecret: null,
@@ -89,4 +102,12 @@ export async function disconnectCalendarAction(formData: FormData): Promise<void
   });
   await applyClientEdit(user, clientId);
   revalidatePath("/portal", "layout");
+}
+
+function readSecret(payload: string): string | null {
+  try {
+    return decryptSecret(payload);
+  } catch {
+    return null; // unreadable (rotated key): nothing to revoke with
+  }
 }
