@@ -29,6 +29,22 @@ export async function recordWebhookEvent(input: {
   return { isNew: inserted.length > 0, event: inserted[0] };
 }
 
+/**
+ * Current ledger status for an event, or null when we've never seen it. Lets a
+ * handler tell "already handled" (skip) apart from "received earlier but the
+ * handler failed" (process again), so a sender's retry is never thrown away.
+ */
+export async function getWebhookEventStatus(
+  source: Source,
+  externalId: string,
+): Promise<WebhookEvent["status"] | null> {
+  const row = await db.query.webhookEvents.findFirst({
+    columns: { status: true },
+    where: and(eq(webhookEvents.source, source), eq(webhookEvents.externalId, externalId)),
+  });
+  return row?.status ?? null;
+}
+
 export async function markWebhookProcessed(
   source: Source,
   externalId: string,

@@ -71,11 +71,16 @@ export function chatTools(opts: { waitlistEnabled: boolean }): ChatTool[] {
       def: {
         name: "cancel_appointment",
         description:
-          "Cancel the visitor's existing appointment. Confirm which one and get a clear yes first. Looks the booking up by phone number.",
+          "Cancel the visitor's existing appointment. For security this takes two steps: call it with just the phone number and it texts a 6-digit code to that number; then call it again with the phone AND the code the visitor types. Confirm which appointment and get a clear yes before the final cancel.",
         input_schema: {
           type: "object",
           properties: {
             phone: { type: "string", description: "The phone number the appointment was booked under." },
+            code: {
+              type: "string",
+              description:
+                "The 6-digit code the visitor received by text. Omit on the first call; never guess or make one up.",
+            },
             datetime: {
               type: "string",
               description:

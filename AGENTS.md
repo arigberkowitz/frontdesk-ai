@@ -13,7 +13,7 @@ truth for *what* to build: the PRD. Source of truth for *decisions/deviations*:
 `DECISIONS.md`. Per-phase status: `PROGRESS.md`. **Build in the PRD §15 phase order.**
 
 ## Stack
-- Next.js 16.2.7 (App Router, Turbopack) · React 19 · TypeScript · Tailwind v4
+- Next.js 16.3.7 (App Router, Turbopack) · React 19 · TypeScript · Tailwind v4
 - shadcn/ui **base-nova** style — built on **Base UI (`@base-ui/react`)**, not Radix
 - Drizzle ORM + Neon Postgres (HTTP driver) · Clerk auth · Retell · Cal.com ·
   Resend (email) · Twilio (SMS) · Stripe (billing) · Anthropic (onboarding scrape)

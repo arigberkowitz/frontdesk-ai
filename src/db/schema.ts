@@ -146,6 +146,10 @@ export const agentRunKind = pgEnum("agent_run_kind", [
   "copilot_chat",
   "review_request",
   "recall",
+  // Durable caps for the public website chat (src/lib/data/chat-limits.ts):
+  // one row per visitor message, and one per customer text the chat triggers.
+  "web_chat_turn",
+  "web_chat_sms",
 ]);
 export const agentRunStatus = pgEnum("agent_run_status", ["running", "succeeded", "failed"]);
 export const suggestionType = pgEnum("suggestion_type", ["knowledge", "guidance"]);

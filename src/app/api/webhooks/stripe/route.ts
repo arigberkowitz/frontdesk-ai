@@ -2,7 +2,11 @@ import type Stripe from "stripe";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { getStripe, subscriptionPeriodEnd } from "@/lib/stripe";
-import { markWebhookProcessed, recordWebhookEvent } from "@/lib/data/webhook-events";
+import {
+  getWebhookEventStatus,
+  markWebhookProcessed,
+  recordWebhookEvent,
+} from "@/lib/data/webhook-events";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { PLANS, type PlanKey } from "@/config/plans";
@@ -73,17 +77,30 @@ export async function POST(req: Request): Promise<Response> {
     return new Response("Invalid signature", { status: 400 });
   }
 
-  // Same ledger the Retell webhook keeps: one row per event, replays
-  // short-circuited. These events decide whether a business is paying — the
-  // one category of webhook where "we have no record of receiving it" is an
-  // unacceptable answer during a billing dispute.
+  // Same ledger the Retell webhook keeps: one row per event. These events
+  // decide whether a business is paying — the one category of webhook where
+  // "we have no record of receiving it" is an unacceptable answer during a
+  // billing dispute.
+  //
+  // Only an event that was actually HANDLED short-circuits. The row used to be
+  // written before processing and every replay was skipped on sight, so when
+  // the handler failed and returned 500, each of Stripe's retries hit the
+  // ledger, got "200 already processed", and the event was lost for good. Now a
+  // row left at "received"/"failed" is processed again; the upsert below is
+  // idempotent, so a replay racing an in-flight first attempt is harmless.
   const { isNew } = await recordWebhookEvent({
     source: "stripe",
     externalId: event.id,
     eventType: event.type,
     payload: event,
   });
-  if (!isNew) return new Response("ok (already processed)", { status: 200 });
+  if (!isNew) {
+    const status = await getWebhookEventStatus("stripe", event.id);
+    if (status === "processed" || status === "ignored") {
+      return new Response("ok (already processed)", { status: 200 });
+    }
+    logger.info("stripe.webhook.reprocessing", { eventId: event.id, previousStatus: status });
+  }
 
   try {
     if (event.type === "checkout.session.completed") {
@@ -110,6 +127,10 @@ export async function POST(req: Request): Promise<Response> {
     // told Stripe "recorded" and threw the only copy away, so a transient blip
     // during checkout left a paying customer marked unpaid, permanently, and
     // the only trace was a line in a log nobody reads.
+    // Keep the receipt but mark it failed, so the retry is processed rather
+    // than short-circuited as a duplicate. A ledger hiccup here must not turn
+    // the 500 into something else.
+    await markWebhookProcessed("stripe", event.id, "failed").catch(() => undefined);
     return new Response("Handler failed", { status: 500 });
   }
 

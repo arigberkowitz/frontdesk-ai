@@ -175,6 +175,31 @@ Running log of choices and deviations (PRD §0). Newest first.
   review for a capability most local-service callers can't use; Meet/Teams ride the calendar
   connections we already hold.
 
+## 2026-09-30 — Security hardening (audit follow-up)
+
+- **Agent-tool auth is per tenant and signed.** Tool URLs carry
+  `HMAC(AGENT_TOOLS_SECRET, "agent-tools:v1:" + clientId)` instead of the raw secret, and
+  every call must also carry a valid `x-retell-signature` (Retell signs custom-function
+  calls with the API key, same scheme as webhooks — docs.retellai.com "Verify the request
+  is from Retell") or our own per-client `x-frontdesk-chat-signature` (web chat → tools).
+  The handler's channel (`voice` / `web_chat`) comes from which signature verified.
+  - **Legacy compatibility:** URLs still holding the shared secret (agents not re-synced
+    since this change) are accepted only on a Retell-signed call whose `call.agent_id` is
+    that client's agent. After deploy, run Settings → Re-sync agents; once every agent has
+    the new URLs, delete the legacy branch in `src/lib/agent-tools-auth.ts`.
+  - **Rollout escape hatch:** `AGENT_TOOLS_SIGNATURE_MODE=report` logs unsigned calls
+    instead of rejecting them. Default (unset) is `enforce`. This also resolves the old
+    TODO above: if Retell-signed tool calls verify in production, the scheme is confirmed.
+- **Cancelling requires proof.** Voice: only the calling number (caller ID). Web chat: a
+  6-digit code texted to the number on the booking (stateless HMAC, 10–20 min validity,
+  throttled). No details are revealed before verification.
+- **Web-chat caps are durable** (`agent_runs` kinds `web_chat_turn` / `web_chat_sms`,
+  manual migration `drizzle/manual/0006_web_chat_limits.sql`, in-memory fallback until it
+  lands): 300 model turns / business / day; 3 chat-triggered texts per number and 40 per
+  business per day. Paused/churned businesses get no chat.
+- **Stripe webhook** reprocesses any replay whose ledger row isn't `processed`/`ignored`;
+  a failed handler marks the row `failed` and returns 500 so Stripe's retry lands.
+
 ## 2026-09-30 — SMS consent gate + enforced AI disclosure (audit follow-up)
 
 - **Stored consent is required** before recall, review-request, recovery (lead + no-show)
