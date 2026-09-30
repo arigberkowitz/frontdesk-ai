@@ -116,9 +116,50 @@ export async function reopenSetupAction(
   const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
 
-  await db.update(clients).set({ setupCompletedAt: null }).where(eq(clients.id, clientId));
+  const existing = await db.query.clients.findFirst({
+    where: eq(clients.id, clientId),
+    columns: { setupFlags: true },
+  });
+  // Brings back a finished checklist AND one hidden with "Hide for now".
+  const flags = { ...(existing?.setupFlags ?? {}) };
+  delete flags.checklistHiddenAt;
+  await db
+    .update(clients)
+    .set({ setupCompletedAt: null, setupFlags: flags })
+    .where(eq(clients.id, clientId));
   revalidatePath("/portal", "layout");
-  return { ok: true, message: "Setup checklist reopened on your Overview." };
+  return { ok: true, message: "Setup checklist is back on your Overview." };
+}
+
+/**
+ * "Hide for now": take the unfinished checklist off the Overview without
+ * pretending setup is done. Nothing else changes — progress keeps tracking
+ * real data, and it's one click to bring back from Settings → Setup.
+ */
+export async function hideSetupChecklistAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  await assertClientInOrg(guard.user.orgId, clientId);
+
+  const existing = await db.query.clients.findFirst({
+    where: eq(clients.id, clientId),
+    columns: { setupFlags: true },
+  });
+  await db
+    .update(clients)
+    .set({
+      setupFlags: { ...(existing?.setupFlags ?? {}), checklistHiddenAt: new Date().toISOString() },
+    })
+    .where(eq(clients.id, clientId));
+  revalidatePath("/portal", "layout");
+  return {
+    ok: true,
+    message: "Hidden. You can bring the checklist back anytime from Settings → Setup.",
+  };
 }
 
 /**

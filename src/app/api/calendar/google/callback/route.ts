@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { calendarReturnPath, parseCalendarOAuthState } from "@/lib/calendar-oauth";
+import { applyClientEdit } from "@/lib/agent-publish";
 import { cookies } from "next/headers";
 import { timingSafeEqual } from "node:crypto";
 import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
@@ -16,11 +18,11 @@ const OAUTH_COOKIE_PATH = "/api/calendar/google";
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
-  const [clientId = "", nonce] = (url.searchParams.get("state") ?? "").split(":");
+  const { clientId, nonce, from } = parseCalendarOAuthState(url.searchParams.get("state"));
   const oauthError = url.searchParams.get("error");
 
   const back = (status: string) => {
-    const res = NextResponse.redirect(new URL(`/portal/appointments?calendar=${status}`, req.url));
+    const res = NextResponse.redirect(new URL(calendarReturnPath(from, status), req.url));
     // Clear the one-time CSRF cookie on the way out.
     res.cookies.set(OAUTH_STATE_COOKIE, "", { path: OAUTH_COOKIE_PATH, maxAge: 0 });
     return res;
@@ -60,6 +62,10 @@ export async function GET(req: Request): Promise<Response> {
       calendarAccount: email,
       calendarConnectedAt: new Date(),
     });
+    // Booking just became possible — republish so the live agent starts
+    // offering it (the prompt only promises booking when a calendar is
+    // connected). Best-effort: applyClientEdit never throws.
+    await applyClientEdit(user, clientId);
     return back("connected");
   } catch (err) {
     logger.error("calendar.google.callback_failed", {
