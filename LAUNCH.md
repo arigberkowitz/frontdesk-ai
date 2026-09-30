@@ -28,6 +28,17 @@ is at `/settings` (every row should read "Connected").
    checkbox and point it at `/terms` and `/privacy`.
 3. Have a lawyer skim both pages before charging anyone.
 
+### Team invites (Clerk, free)
+Settings → Team lets an owner invite staff/owners by email. Clerk sends the email.
+1. Vercel env: `CLERK_SECRET_KEY` must be set (it already is if sign-in works). Without
+   it the invite form says invites aren't switched on.
+2. Clerk Dashboard → **Restrictions**: invitations work in both Public and
+   Restricted sign-up modes. If you run an email allowlist, test one invite first.
+3. Clerk Dashboard → **Paths / Allowed redirect URLs**: make sure `APP_URL/portal`
+   is allowed (the invite link returns there).
+4. Use the PRODUCTION Clerk instance's key in production; invites made on the dev
+   instance don't carry over.
+
 ### Dress rehearsal (the critical path, ~pennies of usage)
 1. Sign up fresh (or use an existing test client) in production.
 2. Onboard a real business website → verify services/hours/FAQ drafted,

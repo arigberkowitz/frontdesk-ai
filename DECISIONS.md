@@ -258,3 +258,30 @@ Running log of choices and deviations (PRD §0). Newest first.
   provider sid, error). That row also keeps shared-number reply routing pointed at this
   business. When Twilio isn't configured (demo/dev) nothing is sent or recorded and the
   owner is told so, same as reminders. Sending marks the thread's inbound messages read.
+
+## 2026-09-30 — Team access: owner vs staff
+
+- **Kept the existing model, no Clerk Organizations.** Membership already lives in our
+  `users` table (`client_admin` = owner, `client_viewer` = staff) and reaches new
+  accounts through Clerk invitation `publicMetadata` `{ role, clientId }`. Switching to
+  Clerk Organizations would mean migrating every tenant for no user-visible gain. No
+  schema change; no migration.
+- **Two tiers.** Staff: calls, appointments, leads, messages, replies (unchanged), plus AI
+  settings if the owner shares the edit code (unchanged). Owner only, and never
+  unlocked by the edit code: billing checkout, trial code, the team, and where alerts
+  go (alert email, alert/transfer phone, SMS-alert toggle, adding/removing roster
+  people). Staff can still flip roster people on/off duty — that's a day-to-day job.
+  Enforced on the server with `requireClientOwner` / `userIsClientOwner`
+  (`src/lib/auth-guard.ts`); the UI hides/disables the controls as well.
+- **Settings → Team** (`/portal/settings/team`, owner-only): invite as staff or owner,
+  pending invites with cancel, change role, remove. A business can't drop to zero
+  owners (agency operators are exempt, so they can repair it).
+- **Removal** clears the Clerk metadata FIRST (else the next sign-in would re-create the
+  membership from it), then soft-deletes the row and nulls `clerk_user_id` (unique
+  index). If Clerk can't be reached, nothing is removed. The Clerk login itself is
+  left alone.
+- **Existing Clerk accounts.** Clerk only copies invitation metadata into NEW accounts,
+  so inviting an email that already has a Clerk sign-in but no live FrontDesk login
+  (typically someone removed earlier) sets the metadata directly; they join on their
+  next sign-in. An email with a live FrontDesk login is refused (one login = one
+  business).
