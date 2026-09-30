@@ -188,7 +188,7 @@ export function SetupChecklist({
                     size="sm"
                     variant="ghost"
                     disabled={hiding}
-                    title="Hide this checklist from your Overview. Bring it back from Settings → Setup."
+                    title="Hide this checklist from your Overview. Bring it back from Settings → Business."
                   >
                     <EyeOff className="size-3.5" />
                     {hiding ? "Hiding…" : "Hide for now"}

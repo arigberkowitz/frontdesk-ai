@@ -72,7 +72,7 @@ export async function sendWelcomeEmail(clientId: string): Promise<void> {
     ? [
         `Your AI receptionist is live. Its number is <strong>${formatPhone(num)}</strong> — <strong>call it right now</strong> from your cell and ask it something a customer would.`,
         `When you're happy with how it sounds, forward your business line to it: from your business phone, dial <strong>${esc(dialCode(num))}</strong>, wait for the confirmation tone, hang up. (AT&amp;T/T-Mobile: <strong>**21*${num.replace(/[^\d+]/g, "")}#</strong>.) Undo any time with <strong>*73</strong>. Your customers keep calling the number they already know.`,
-        `Every booking and message it takes is emailed to <strong>${esc(to)}</strong> the moment it happens — change that, and add a phone for texts, under <a href="${appUrl("/portal/settings")}">Settings</a>.`,
+        `Every booking and message it takes is emailed to <strong>${esc(to)}</strong> the moment it happens — change that, and add a phone for texts, under <a href="${appUrl("/portal/settings/alerts")}">Settings → Alerts</a>.`,
         `Its services, hours and answers are drafted for your industry. <a href="${appUrl("/portal/services")}">Check the prices</a> especially — they're examples until you say otherwise.`,
         `Your free trial runs ${TRIAL_DAYS} days with everything switched on. No card, nothing to set up. We'll check in once near the end.`,
       ]

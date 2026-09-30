@@ -168,7 +168,7 @@ export function AiNumberCard({
                 <strong>No AI phone number yet.</strong> Your AI is fully built and you can talk to
                 it right now with a test call in the browser — it just has no phone line of its own
                 to answer on. Ask us to assign one and the dial-in steps appear here.{" "}
-                <Link href="/portal/settings#help" className="underline underline-offset-2">
+                <Link href="/portal/settings/help" className="underline underline-offset-2">
                   Request a number
                 </Link>
                 .

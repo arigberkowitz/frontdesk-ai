@@ -29,6 +29,6 @@ export function parseCalendarOAuthState(state: string | null | undefined): {
 
 /** Where the owner lands after the OAuth round-trip, with the outcome for the toast. */
 export function calendarReturnPath(from: CalendarReturn, status: string): string {
-  const page = from === "settings" ? "/portal/settings" : "/portal/appointments";
+  const page = from === "settings" ? "/portal/settings/calendar" : "/portal/appointments";
   return `${page}?calendar=${encodeURIComponent(status)}`;
 }

@@ -46,7 +46,7 @@ export async function saveWebhookAction(
     delete flags.webhookSecret;
     await db.update(clients).set({ setupFlags: flags }).where(eq(clients.id, clientId));
     void audit({ clientId, actor: user.id, action: "webhook.cleared", detail: {} });
-    revalidatePath("/portal/settings");
+    revalidatePath("/portal/settings", "layout");
     return { ok: true, message: "Webhook turned off. Nothing more will be sent." };
   }
 
@@ -70,7 +70,7 @@ export async function saveWebhookAction(
 
   logger.info("webhook.saved", { clientId });
   void audit({ clientId, actor: user.id, action: "webhook.saved", detail: { url } });
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
   return { ok: true, message: "Saved. Send a test event to check the other end is listening." };
 }
 
@@ -94,7 +94,7 @@ export async function rotateWebhookSecretAction(
   flags.webhookSecret = generateWebhookSecret();
   await db.update(clients).set({ setupFlags: flags }).where(eq(clients.id, clientId));
   void audit({ clientId, actor: user.id, action: "webhook.rotated", detail: {} });
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
   return {
     ok: true,
     message: "New signing secret. Update it wherever you're verifying, or deliveries will fail.",

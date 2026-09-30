@@ -142,7 +142,7 @@ export function weeklySummaryEmail(input: WeeklySummaryEmailInput): {
           s.upcomingRevenueCents > 0 ? ` · ${upcoming} still to come` : ""
         }`
       : "Appointments your AI put on the calendar";
-  const settingsUrl = `${base}/portal/settings#weekly-summary`;
+  const settingsUrl = `${base}/portal/settings/alerts#weekly-summary`;
 
   const html = `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto">
   <p style="color:#666;margin:0 0 4px;font-size:13px">Your week with FrontDesk AI</p>

@@ -1,22 +1,25 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { getCurrentDbUser, resolvePortalClient, userIsClientOwner } from "@/lib/auth-guard";
 import { listTeamMembers } from "@/lib/data/team";
 import { listPendingInvites, teamInvitesReady, type PendingInvite } from "@/lib/team-invites";
 import { dbRoleToTeam } from "@/lib/team-rules";
 import { logger } from "@/lib/logger";
-import { PageHeader } from "@/components/page-header";
 import { TeamAccess } from "@/components/portal/team-access";
+import { EditCodeForm } from "@/components/portal/portal-settings";
 
-export const metadata: Metadata = { title: "Team access" };
+export const metadata: Metadata = { title: "Team access · Settings" };
 
+/** Settings → Team access (owner-only): sign-ins, roles, and the staff edit code. */
 export default async function PortalTeamAccessPage() {
   const { clientId } = await resolvePortalClient();
   const me = await getCurrentDbUser();
   // Owner-only. Staff land back on Settings; the actions re-check regardless.
   if (!userIsClientOwner(me, clientId)) redirect("/portal/settings");
 
+  const client = await getClientByIdUnsafe(clientId);
+  if (!client) notFound();
   const members = await listTeamMembers(clientId);
   const ready = teamInvitesReady();
   let invites: PendingInvite[] = [];
@@ -33,18 +36,6 @@ export default async function PortalTeamAccessPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Team access"
-        description="Give your staff their own sign-ins, and choose who can manage billing and settings."
-      />
-      <p className="text-sm">
-        <Link
-          href="/portal/settings"
-          className="text-muted-foreground underline underline-offset-2"
-        >
-          ← Back to Settings
-        </Link>
-      </p>
       <TeamAccess
         clientId={clientId}
         invitesReady={ready}
@@ -56,6 +47,9 @@ export default async function PortalTeamAccessPage() {
         }))}
         invites={invites.map((i) => ({ id: i.id, email: i.email, role: i.role }))}
       />
+      {/* Lives with the sign-ins it governs: the code staff enter to unlock
+          editing your AI. Owner-only, like this whole section. */}
+      <EditCodeForm client={client} isAdmin />
     </div>
   );
 }

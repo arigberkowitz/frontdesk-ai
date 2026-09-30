@@ -30,7 +30,7 @@ export function TimezoneCard({ clientId, timezone }: { clientId: string; timezon
         <PanelHeader
           icon={Globe}
           title="Your timezone"
-          description="The hours above and every appointment time your AI offers are in this timezone. You can also change it later under Settings."
+          description="The hours above and every appointment time your AI offers are in this timezone. You can also change it later under Settings → Business."
         />
         <form action={action} className="mt-4 flex flex-wrap items-end gap-3">
           <input type="hidden" name="clientId" value={clientId} />

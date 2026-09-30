@@ -61,7 +61,7 @@ export async function saveReviewRequestSettingsAction(
     action: "settings.review_requests",
     detail: { enabled },
   });
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
   return {
     ok: true,
     message: enabled
@@ -109,7 +109,7 @@ export async function saveRecallSettingsAction(
 
   await db.update(clients).set({ recallEnabled: enabled }).where(eq(clients.id, clientId));
   void audit({ clientId, actor: user.id, action: "settings.recall", detail: { enabled } });
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
   return {
     ok: true,
     message: enabled
@@ -145,7 +145,7 @@ export async function saveWaitlistSettingsAction(
   // Without this the database says yes and the live agent keeps the old tool
   // list — the exact half-wired state that has bitten this codebase before.
   const sync = await applyClientEdit(user, clientId);
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
   return {
     ok: true,
     message: withSyncNote(
@@ -221,7 +221,7 @@ export async function saveDepositSettingsAction(
     .set({ depositsEnabled: enabled, depositLinkUrl: linkUrl || null })
     .where(eq(clients.id, clientId));
   void audit({ clientId, actor: user.id, action: "settings.deposits", detail: { enabled } });
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
   return {
     ok: true,
     message: enabled
@@ -253,7 +253,7 @@ export async function saveChatWidgetSettingsAction(
 
   await db.update(clients).set({ chatWidgetEnabled: enabled }).where(eq(clients.id, clientId));
   void audit({ clientId, actor: user.id, action: "settings.chat_widget", detail: { enabled } });
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
   return {
     ok: true,
     message: enabled

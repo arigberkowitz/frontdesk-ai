@@ -142,7 +142,7 @@ describe("OAuth state round-trip", () => {
   it("never redirects anywhere but the two portal pages", () => {
     expect(oauth.calendarReturnFrom("https://evil.test")).toBe("appointments");
     expect(oauth.parseCalendarOAuthState("c1:n1://evil.test").from).toBe("appointments");
-    expect(oauth.calendarReturnPath("settings", "connected")).toBe("/portal/settings?calendar=connected");
+    expect(oauth.calendarReturnPath("settings", "connected")).toBe("/portal/settings/calendar?calendar=connected");
     expect(oauth.calendarReturnPath("appointments", "error")).toBe("/portal/appointments?calendar=error");
   });
 });

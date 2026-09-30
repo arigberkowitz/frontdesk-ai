@@ -149,7 +149,7 @@ export async function savePortalProfileAction(
   await updateClient(user.orgId, clientId, patch);
   // Business name lives in the agent prompt, so keep the live agent in sync.
   const sync = await applyClientEdit(user, clientId);
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
   return { ok: true, message: withSyncNote("Saved.", sync) };
 }
 

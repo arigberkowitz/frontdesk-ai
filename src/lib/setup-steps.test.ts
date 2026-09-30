@@ -58,7 +58,7 @@ describe("buildSetupSteps", () => {
     const s = byKey(fresh);
     expect(s.services.href).toBe("/portal/services");
     expect(s.hours.href).toBe("/portal/hours");
-    expect(s.forwarding.href).toBe("/portal/settings#forwarding");
+    expect(s.forwarding.href).toBe("/portal/settings/phone#forwarding");
     expect(s.testcall.href).toBe("/portal/guidelines#test-call");
   });
 

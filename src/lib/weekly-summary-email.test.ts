@@ -66,8 +66,8 @@ describe("weeklySummaryEmail", () => {
 
   it("links to the opt-out setting and never double-slashes the base url", () => {
     const { html, text } = render();
-    expect(html).toContain("https://app.test/portal/settings#weekly-summary");
-    expect(text).toContain("https://app.test/portal/settings#weekly-summary");
+    expect(html).toContain("https://app.test/portal/settings/alerts#weekly-summary");
+    expect(text).toContain("https://app.test/portal/settings/alerts#weekly-summary");
     expect(html).not.toContain("app.test//");
   });
 
