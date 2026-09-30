@@ -63,8 +63,29 @@ export function dueForReminder(
   });
 }
 
+/**
+ * Appointment texts never contain a phone number. Product decision (Ari,
+ * 2026-09-30): the confirmation used to end "Need to change it? Call
+ * <escalation number>", and the escalation number is the business's
+ * transfer/alert number — often somebody's personal mobile (on the demo
+ * business it was a family member's cell). A customer-facing text is the wrong
+ * place for it, and there's no number we can be sure is right to print. So
+ * there is no phone parameter at all, and any phone-like digit run that
+ * sneaks in through a name/service/business field (e.g. a spoken name that
+ * was really a number) is removed.
+ */
+const PHONE_LIKE = /\+?\(?\d[\d\s().-]{5,}\d/g;
+
+export function stripPhoneNumbers(text: string | null | undefined): string {
+  return (text ?? "")
+    .replace(PHONE_LIKE, (m) => (m.replace(/\D/g, "").length >= 7 ? "" : m))
+    .replace(/\(\s*\)/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function firstName(name: string | null): string {
-  const first = (name ?? "").trim().split(/\s+/)[0];
+  const first = stripPhoneNumbers(name).split(/\s+/)[0];
   return first ? ` ${first}` : "";
 }
 
@@ -73,14 +94,15 @@ export function confirmationText(opts: {
   customerName: string | null;
   serviceName?: string | null;
   when: string;
-  callbackNumber?: string | null;
   meetingUrl?: string | null;
 }): string {
-  const service = opts.serviceName ? `${opts.serviceName} ` : "";
+  const business = stripPhoneNumbers(opts.business);
+  const serviceName = stripPhoneNumbers(opts.serviceName);
+  const service = serviceName ? `${serviceName} ` : "";
   return (
-    `Hi${firstName(opts.customerName)}, you're booked with ${opts.business} — ${service}on ${opts.when}.` +
+    `Hi${firstName(opts.customerName)}, you're booked with ${business} — ${service}on ${opts.when}.` +
     (opts.meetingUrl ? ` Join by video: ${opts.meetingUrl}` : "") +
-    (opts.callbackNumber ? ` Need to change it? Call ${opts.callbackNumber}.` : "") +
+    ` Need to change it? Give ${business} a call.` +
     ` Reply STOP to opt out.`
   );
 }
@@ -89,13 +111,13 @@ export function reminderText(opts: {
   business: string;
   customerName: string | null;
   when: string;
-  callbackNumber?: string | null;
   meetingUrl?: string | null;
 }): string {
+  const business = stripPhoneNumbers(opts.business);
   return (
-    `Hi${firstName(opts.customerName)}, a reminder of your appointment with ${opts.business} ${opts.when}.` +
+    `Hi${firstName(opts.customerName)}, a reminder of your appointment with ${business} ${opts.when}.` +
     (opts.meetingUrl ? ` Join by video: ${opts.meetingUrl}` : "") +
-    (opts.callbackNumber ? ` Need to reschedule? Call ${opts.callbackNumber}.` : "") +
+    ` Need to reschedule? Give ${business} a call.` +
     ` Reply STOP to opt out.`
   );
 }

@@ -41,7 +41,6 @@ export async function sendBookingConfirmation(
     customerName: appt.customerName,
     serviceName,
     when: whenFor(client, appt.startAt),
-    callbackNumber: client.escalationNumber?.trim() || null,
     meetingUrl: appt.meetingUrl,
   });
 
@@ -133,7 +132,6 @@ export async function sendAppointmentReminders(now: Date = new Date()): Promise<
           business: client.name,
           customerName: a.customerName,
           when: whenFor(client, a.startAt),
-          callbackNumber: client.escalationNumber?.trim() || null,
           meetingUrl: row.meetingUrl,
         });
         const result = await notifier.sendSms({ to, body });
