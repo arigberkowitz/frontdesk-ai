@@ -25,6 +25,11 @@ vi.mock("@/lib/data/callers", () => ({
   listCallerNames: async () => [],
 }));
 vi.mock("@/lib/data/sms-messages", () => ({ getThread, markThreadRead, listConversations }));
+const isOptedOut = vi.fn(async () => false);
+const hasSmsConsent = vi.fn(async () => false);
+vi.mock("@/lib/data/sms-optouts", () => ({ isOptedOut }));
+vi.mock("@/lib/data/sms-consents", () => ({ hasSmsConsent }));
+vi.mock("@/lib/actions/messages", () => ({ sendMessageReplyAction: vi.fn() }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
@@ -55,6 +60,8 @@ beforeEach(() => {
   markThreadRead.mockReset();
   listConversations.mockReset();
   listConversations.mockResolvedValue([]);
+  isOptedOut.mockClear();
+  hasSmsConsent.mockClear();
 });
 
 describe("Messages pages — tenant isolation", () => {
@@ -86,5 +93,18 @@ describe("Messages pages — tenant isolation", () => {
     getThread.mockResolvedValue([msg()]);
     await ThreadPage({ params: Promise.resolve({ phone: "14155550100" }) });
     expect(markThreadRead).not.toHaveBeenCalled();
+  });
+
+  it("reply guards on the page are checked for the session's business", async () => {
+    getThread.mockResolvedValue([msg({ direction: "outbound", kind: "appointment_confirmation", status: "sent" })]);
+    await ThreadPage({ params: Promise.resolve({ phone: "14155550100" }) });
+    expect(isOptedOut).toHaveBeenCalledWith("14155550100");
+    expect(hasSmsConsent).toHaveBeenCalledWith(SESSION_CLIENT, "14155550100", "portal_reply");
+  });
+
+  it("a customer who texted in needs no stored consent to be replied to", async () => {
+    getThread.mockResolvedValue([msg()]);
+    await ThreadPage({ params: Promise.resolve({ phone: "14155550100" }) });
+    expect(hasSmsConsent).not.toHaveBeenCalled();
   });
 });

@@ -6,6 +6,10 @@ import { resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { getCallerContext } from "@/lib/data/callers";
 import { getThread, markThreadRead } from "@/lib/data/sms-messages";
+import { isOptedOut } from "@/lib/data/sms-optouts";
+import { hasSmsConsent } from "@/lib/data/sms-consents";
+import { stripPhoneNumbers } from "@/lib/appointment-messages";
+import { MessageReply } from "@/components/portal/message-reply";
 import { messageKindLabel, parseThreadParam } from "@/lib/sms-inbox-view";
 import { formatDateTime, formatPhone } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
@@ -46,6 +50,13 @@ export default async function PortalMessageThreadPage({
   const title = caller.name ?? formatPhone(phone);
   const hasAppointment = messages.some((m) => m.appointmentId);
   const hasLead = messages.some((m) => m.leadId);
+
+  // Who may be texted from here — the send action enforces the same rules.
+  const customerTexted = messages.some((m) => m.direction === "inbound");
+  const [optedOut, consented] = await Promise.all([
+    isOptedOut(phone),
+    customerTexted ? Promise.resolve(true) : hasSmsConsent(clientId, phone, "portal_reply"),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -124,9 +135,31 @@ export default async function PortalMessageThreadPage({
           </ol>
         </CardContent>
       </Card>
-      <p className="text-center text-xs text-muted-foreground">
-        Replying from here isn&apos;t available yet — call or text {formatPhone(phone)} from your phone.
-      </p>
+      <Card>
+        <CardContent>
+          {preview ? (
+            <p className="text-sm text-muted-foreground">
+              You&apos;re previewing this business&apos;s portal — replies can only be sent by the business.
+            </p>
+          ) : optedOut ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              <span className="font-medium text-foreground">This customer texted STOP</span>, so you can&apos;t
+              text them. They&apos;d have to text START first — you can still call {formatPhone(phone)}.
+            </p>
+          ) : !consented ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              This customer hasn&apos;t texted you or agreed to texts from you yet, so you can&apos;t start a
+              text conversation here. Give them a call at {formatPhone(phone)} instead.
+            </p>
+          ) : (
+            <MessageReply
+              phone={phone}
+              businessName={stripPhoneNumbers(client?.name)}
+              includeOptOut={!customerTexted}
+            />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

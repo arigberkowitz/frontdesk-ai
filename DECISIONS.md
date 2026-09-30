@@ -229,5 +229,32 @@ Running log of choices and deviations (PRD §0). Newest first.
   recent one; per-business numbers would remove that ambiguity.
 - **Compliance first:** the opt-out/opt-in write happens before the message is stored,
   and storing never throws, so a storage failure can't cost anyone their opt-out.
-- **Read-only.** No reply-from-app. Opening a thread marks it read (not in operator
+- **Read-only.** No reply-from-app (superseded — see "Messages: reply by text" below). Opening a thread marks it read (not in operator
   preview). Every read is scoped by the session's `clientId`.
+
+## 2026-09-30 — Messages: reply by text (portal → Messages → conversation)
+
+- **Who/what can be texted.** `sendMessageReplyAction` (`src/lib/actions/messages.ts`)
+  takes the business from the session (`resolvePortalClient`), never the form, and only
+  texts a number that already has rows in `sms_messages` for that business. Staff
+  (client_viewer) may reply, like reminders/lead follow-ups; an operator *previewing* a
+  portal may not (texting in a business's name is the business's call).
+- **Consent.** The published /sms-consent policy says "a caller who texts the business's
+  number first also consents to receive a reply to that message" (consent is per
+  business). So: if the customer has any inbound message in this business's thread, the
+  reply is conversational and needs no stored consent row. If the thread is only our
+  automated texts, a stored consent covering the new `portal_reply` purpose is required
+  (mapped to `booking-v1`, same as `lead_followup`) and "Reply STOP to opt out." is
+  appended. STOP (`isOptedOut`, fail-safe) always blocks.
+- **Names the business.** The policy also says every message names the business, and all
+  businesses share one sending number, so a reply is prefixed `Business Name: ` unless
+  the owner already typed the name.
+- **Caps.** PR #2's `allowChatSms` caps are for anonymous, chat-triggered texts, so they
+  aren't reused. Owner replies get their own durable caps counted from `sms_messages`
+  (kind `portal_reply`, rolling 24h): 20 per customer, 100 per business. No new enum
+  value or migration. Max 480 characters (same as lead follow-ups); empty input rejected.
+- **Recording + routing.** Sent through `notifier.sendSms` with
+  `log: { clientId, kind: "portal_reply" }`, which records the outbound row (sent/failed,
+  provider sid, error). That row also keeps shared-number reply routing pointed at this
+  business. When Twilio isn't configured (demo/dev) nothing is sent or recorded and the
+  owner is told so, same as reminders. Sending marks the thread's inbound messages read.

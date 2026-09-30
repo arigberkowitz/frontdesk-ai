@@ -91,6 +91,10 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
   in" webhook must already POST to `/api/webhooks/twilio` (unchanged). Messages only
   appear for texts sent/received after the deploy.
 
+- **Reply by text from Messages** needs no migration or env var (uses `sms_messages` from
+  0007). Smoke test: text the Twilio number from your phone, open that conversation in
+  portal → Messages, send a reply, and confirm it arrives prefixed with the business name.
+
 - **After deploying the security-hardening change:** apply
   `drizzle/manual/0006_web_chat_limits.sql` (or `npm run db:push`), then run
   Settings → Re-sync agents so every Retell agent gets its per-client tool URL.
