@@ -84,13 +84,20 @@ export function CalendarConnect({
   provider,
   account,
   microsoftReady = false,
+  googleReady = false,
+  from = "appointments",
 }: {
   clientId: string;
   provider: string | null;
   account: string | null;
   /** Azure OAuth app configured → Outlook connects with one click. */
   microsoftReady?: boolean;
+  /** Google OAuth app configured (GOOGLE_CLIENT_ID/SECRET) → the Google tile shows. */
+  googleReady?: boolean;
+  /** Which portal page the OAuth round-trip returns to. */
+  from?: "appointments" | "settings";
 }) {
+  const fromQs = from === "settings" ? "&from=settings" : "";
   const [choice, setChoice] = useState<string>("");
   const [calcom, calcomAction, calcomPending] = useActionState(
     connectCalcomAction,
@@ -156,21 +163,25 @@ export function CalendarConnect({
             dropdown, no intermediate step. Everything else expands short
             guided steps below. */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-          <Button
-            variant="outline"
-            className={`h-auto flex-col gap-1 py-3 ${choice === "google" ? "border-primary" : ""}`}
-            onClick={() => setChoice(choice === "google" ? "" : "google")}
-          >
-            <span className="text-base font-semibold">G</span>
-            <span className="text-xs font-normal">Google Calendar</span>
-          </Button>
+          {/* Hidden until the Google OAuth app is configured — the button
+              would otherwise lead to a dead "isn't configured" page. */}
+          {googleReady ? (
+            <Button
+              variant="outline"
+              className={`h-auto flex-col gap-1 py-3 ${choice === "google" ? "border-primary" : ""}`}
+              onClick={() => setChoice(choice === "google" ? "" : "google")}
+            >
+              <span className="text-base font-semibold">G</span>
+              <span className="text-xs font-normal">Google Calendar</span>
+            </Button>
+          ) : null}
           {microsoftReady ? (
             <Button
               variant="outline"
               className="h-auto flex-col gap-1 py-3"
               nativeButton={false}
               render={
-                <Link href={`/api/calendar/microsoft/connect?client=${clientId}`} prefetch={false} />
+                <Link href={`/api/calendar/microsoft/connect?client=${clientId}${fromQs}`} prefetch={false} />
               }
             >
               <span className="text-base font-semibold">O</span>
@@ -220,7 +231,7 @@ export function CalendarConnect({
             shows a scary-looking "unverified app" interstitial. Telling people
             EXACTLY what they'll see and which link to click turns the single
             biggest drop-off point in setup into a non-event. */}
-        {choice === "google" ? (
+        {choice === "google" && googleReady ? (
           <div className="space-y-2">
             <Steps
               intro="Two screens, about 20 seconds:"
@@ -247,7 +258,7 @@ export function CalendarConnect({
             <Button
               nativeButton={false}
               render={
-                <Link href={`/api/calendar/google/connect?client=${clientId}`} prefetch={false} />
+                <Link href={`/api/calendar/google/connect?client=${clientId}${fromQs}`} prefetch={false} />
               }
             >
               <CalendarPlus className="size-4" />

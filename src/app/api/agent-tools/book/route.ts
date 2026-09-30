@@ -3,7 +3,7 @@ import { getCallByRetellId } from "@/lib/data/calls";
 import { hasOverlappingAppointment, reserveAppointment } from "@/lib/data/appointments";
 import { findFreeProvider } from "@/lib/data/providers";
 import { listActiveBlocks } from "@/lib/data/availability-blocks";
-import { getBookingProviderForClient } from "@/lib/booking";
+import { calendarSlotIsFree, getBookingProviderForClient } from "@/lib/booking";
 import { blocksForProvider, businessWideBlocks, checkSlot, slotRefusal } from "@/lib/booking-window";
 import { matchService, serviceClarification } from "@/lib/service-match";
 import { parseInClientTimezone } from "@/lib/hours-util";
@@ -162,6 +162,16 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const provider = getBookingProviderForClient(client);
     if (provider.isConfigured()) {
+      // A caller-named time must be free on the REAL calendar too (Google and
+      // Outlook don't refuse overlapping events). Nothing has been written yet.
+      if (!(await calendarSlotIsFree(provider, startAt, endAt))) {
+        logger.info("agent-tools.book.calendar_busy", { clientId: client.id });
+        return Response.json({
+          success: false,
+          error:
+            "That time is already taken on the business's calendar. Apologize briefly and offer a different time (check availability first).",
+        });
+      }
       const r = await provider.createBooking({
         startAt: startAt.toISOString(),
         durationMin,

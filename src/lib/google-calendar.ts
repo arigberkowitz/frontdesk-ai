@@ -115,6 +115,26 @@ export async function getAccessToken(refreshToken: string): Promise<string> {
   return data.access_token;
 }
 
+/**
+ * Revoke a refresh token at Google (disconnect). Best-effort by design: the
+ * token is deleted from our database regardless, and a failed revoke only
+ * means the grant lingers in the owner's Google account until they remove it
+ * (myaccount.google.com → Security → Third-party access). Never throws.
+ */
+export async function revokeGoogleToken(refreshToken: string): Promise<boolean> {
+  try {
+    const res = await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token: refreshToken }),
+    });
+    // 400 = already revoked/expired — the outcome we wanted anyway.
+    return res.ok || res.status === 400;
+  } catch {
+    return false;
+  }
+}
+
 export async function freeBusy(
   accessToken: string,
   calendarId: string,

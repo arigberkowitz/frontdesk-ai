@@ -87,6 +87,27 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
 
 ## Notes / known limits
 
+- **Calendar sync (Google / Outlook one-click).** No migration. Needs
+  `CREDENTIALS_SECRET` (long random string; encrypts tokens). Each option stays
+  hidden until its keys are set:
+  - **Google:** Google Cloud Console → APIs & Services → enable **Google Calendar
+    API** → OAuth consent screen (External; scopes `calendar.events`,
+    `calendar.freebusy`, `openid`, `email`; add test users until verified) →
+    Credentials → OAuth client ID (Web application) with redirect URI
+    `https://<domain>/api/calendar/google/callback` → set `GOOGLE_CLIENT_ID`,
+    `GOOGLE_CLIENT_SECRET`. Submit the app for verification before real customers
+    (otherwise owners see the "unverified app" screen and there's a 100-user cap).
+  - **Outlook / Microsoft 365:** Azure Portal → App registrations → New
+    (supported accounts: "any org directory + personal Microsoft accounts"),
+    Web redirect URI `https://<domain>/api/calendar/microsoft/callback` → API
+    permissions: Microsoft Graph delegated `Calendars.ReadWrite`, `offline_access`,
+    `openid`, `email` → Certificates & secrets → new client secret → set
+    `MICROSOFT_CLIENT_ID` (Application ID), `MICROSOFT_CLIENT_SECRET`. Secrets expire
+    (max 24 months) — calendar a rotation. Consider publisher verification.
+  - Smoke test: connect in portal → Settings → Calendar, put a busy event on the
+    calendar, call and ask for that exact time (should be refused), book a free
+    time (event appears), cancel it (event disappears).
+
 - **After deploying the SMS replies inbox:** apply `drizzle/manual/0007_sms_messages.sql`
   (Neon SQL editor, idempotent) **before** the deploy. The Twilio number's "A message comes
   in" webhook must already POST to `/api/webhooks/twilio` (unchanged). Messages only
@@ -95,6 +116,11 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
 - **Reply by text from Messages** needs no migration or env var (uses `sms_messages` from
   0007). Smoke test: text the Twilio number from your phone, open that conversation in
   portal → Messages, send a reply, and confirm it arrives prefixed with the business name.
+
+- **Reply alerts** (customer text → email) need no migration or env var. They use the
+  existing `RESEND_API_KEY` + alert roster and never text anyone. Smoke test: text the
+  Twilio number twice within a minute; exactly one email should arrive, linking to that
+  conversation in Messages.
 
 - **Weekly summary email — MIGRATION REQUIRED:** apply `drizzle/manual/0008_weekly_summary.sql`
   (Neon SQL editor, idempotent) **before** the deploy. It adds `clients.weekly_summary_enabled`

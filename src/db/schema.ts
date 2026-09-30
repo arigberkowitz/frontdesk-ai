@@ -240,6 +240,8 @@ export const clients = pgTable(
       .$type<{
         calendarSkipped?: boolean;
         forwardingDone?: boolean;
+        /** Owner hid the unfinished setup checklist from the Overview (ISO). */
+        checklistHiddenAt?: string;
         quietAlertAt?: string;
         /** Advisory notes from the AI setup review — suggestions, not blockers. */
         reviewNotes?: string[];

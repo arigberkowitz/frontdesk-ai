@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildCalendarOAuthState, calendarReturnFrom } from "@/lib/calendar-oauth";
 import { randomBytes } from "node:crypto";
 import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
 import { getClient } from "@/lib/data/clients";
@@ -12,7 +13,9 @@ const OAUTH_COOKIE_PATH = "/api/calendar/google";
 
 /** Start the Google Calendar OAuth flow for a client. */
 export async function GET(req: Request): Promise<Response> {
-  const clientId = new URL(req.url).searchParams.get("client") ?? "";
+  const url = new URL(req.url);
+  const clientId = url.searchParams.get("client") ?? "";
+  const from = calendarReturnFrom(url.searchParams.get("from"));
   const user = await getCurrentDbUserSafe();
   if (!user) return NextResponse.redirect(new URL("/sign-in", req.url));
   if (!googleConfigured()) return new Response("Google Calendar isn't configured.", { status: 400 });
@@ -28,7 +31,7 @@ export async function GET(req: Request): Promise<Response> {
   // and a matching httpOnly cookie. The callback rejects any mismatch, so an attacker
   // can't forge a callback that attaches their own Google account to this client.
   const nonce = randomBytes(16).toString("hex");
-  const res = NextResponse.redirect(googleAuthUrl(`${clientId}:${nonce}`));
+  const res = NextResponse.redirect(googleAuthUrl(buildCalendarOAuthState(clientId, nonce, from)));
   res.cookies.set(OAUTH_STATE_COOKIE, nonce, {
     httpOnly: true,
     sameSite: "lax",

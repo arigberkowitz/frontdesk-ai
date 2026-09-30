@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildCalendarOAuthState, calendarReturnFrom } from "@/lib/calendar-oauth";
 import { randomBytes } from "node:crypto";
 import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
 import { getClient } from "@/lib/data/clients";
@@ -12,7 +13,9 @@ const OAUTH_COOKIE_PATH = "/api/calendar/microsoft";
 
 /** Start the Outlook / Microsoft 365 OAuth flow for a client. */
 export async function GET(req: Request): Promise<Response> {
-  const clientId = new URL(req.url).searchParams.get("client") ?? "";
+  const url = new URL(req.url);
+  const clientId = url.searchParams.get("client") ?? "";
+  const from = calendarReturnFrom(url.searchParams.get("from"));
   const user = await getCurrentDbUserSafe();
   if (!user) return NextResponse.redirect(new URL("/sign-in", req.url));
   if (!microsoftConfigured()) {
@@ -27,7 +30,7 @@ export async function GET(req: Request): Promise<Response> {
   if (!client) return new Response("Client not found", { status: 404 });
 
   const nonce = randomBytes(16).toString("hex");
-  const res = NextResponse.redirect(microsoftAuthUrl(`${clientId}:${nonce}`));
+  const res = NextResponse.redirect(microsoftAuthUrl(buildCalendarOAuthState(clientId, nonce, from)));
   res.cookies.set(OAUTH_STATE_COOKIE, nonce, {
     httpOnly: true,
     sameSite: "lax",

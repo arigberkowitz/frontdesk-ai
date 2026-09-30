@@ -4,20 +4,9 @@ import { db } from "@/db";
 import { alertContacts, businessHours, calls, clients, knowledgeItems, services } from "@/db/schema";
 import { getBookingProviderForClient } from "@/lib/booking";
 import { formatPhone } from "@/lib/format";
+import { buildSetupSteps, type SetupStep } from "@/lib/setup-steps";
 
-export interface SetupStep {
-  key: string;
-  label: string;
-  href: string;
-  done: boolean;
-  hint?: string;
-  /** Shown once the step is ticked — for when "done" doesn't mean what it looks like. */
-  doneHint?: string;
-  /** Can be resolved with "skip for now" (calendar). */
-  skippable?: boolean;
-  /** Resolved by the owner confirming they did it outside the app (forwarding). */
-  manual?: boolean;
-}
+export type { SetupStep } from "@/lib/setup-steps";
 
 export interface SetupStatus {
   steps: SetupStep[];
@@ -28,6 +17,8 @@ export interface SetupStatus {
   finishedAt: Date | null;
   /** Advisory notes from the AI review. Optional improvements, never blockers. */
   reviewNotes: string[];
+  /** Owner hid the unfinished checklist from the Overview ("Hide for now"). */
+  hiddenAt: string | null;
 }
 
 /** Activation checklist state for a client, derived from real data. `complete`
@@ -61,87 +52,19 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
   const flags = client?.setupFlags ?? {};
   const aiNumber = client?.retellPhoneNumber ? formatPhone(client.retellPhoneNumber) : null;
 
-  const steps: SetupStep[] = [
-    { key: "services", label: "Add your services", href: "/portal/services", done: (svc?.n ?? 0) > 0 },
-    { key: "hours", label: "Set your hours", href: "/portal/hours", done: (hrs?.n ?? 0) > 0 },
-    {
-      key: "faqs",
-      label: "Add a few FAQs",
-      href: "/portal/knowledge",
-      done: (kb?.n ?? 0) > 0,
-      hint: "Teach it the questions callers ask.",
-    },
-    {
-      key: "greeting",
-      label: "Set your greeting & voice",
-      href: "/portal/guidelines",
-      done: Boolean(client?.greeting?.trim()),
-    },
-    {
-      key: "calendar",
-      label: "Connect your calendar",
-      href: "/portal/appointments",
-      done: calendar || Boolean(flags.calendarSkipped),
-      skippable: true,
-      hint: "So the AI can book appointments — or skip for now and it takes messages.",
-      // A skipped calendar is a ticked step that means the opposite of what a
-      // tick usually means: your AI will never book anybody. Say so on the
-      // ticked row, where they'll actually read it.
-      doneHint:
-        !calendar && flags.calendarSkipped
-          ? "Skipped — your AI takes messages instead of booking anyone in. Connect anytime."
-          : undefined,
-    },
-    {
-      key: "alerts",
-      label: "Choose who gets alerts",
-      href: "/portal/settings",
-      done: (alerts?.n ?? 0) > 0 || Boolean(client?.ownerEmail?.trim()),
-      hint: "Who we text or email when a lead or emergency comes in.",
-    },
-    {
-      key: "live",
-      label: "Activate your receptionist",
-      href: "/portal/guidelines",
-      // An agent without a number cannot answer a phone. Provisioning the
-      // number is deliberately allowed to fail without losing the agent, which
-      // is right — but this step used to go green on the agent alone, so the
-      // one step that actually mattered showed a tick next to a receptionist
-      // no one could ring.
-      done: Boolean(client?.retellAgentId && aiNumber),
-      hint: client?.retellAgentId && !aiNumber
-        ? "Your AI is built but hasn't been given a phone number yet. Tell us and we'll sort it — nothing else here works until it has one."
-        : "Go live — this is when your business gets its own AI phone number.",
-    },
-    {
-      key: "forwarding",
-      label: "Forward your business line",
-      href: "/portal/settings#forwarding",
-      done: Boolean(flags.forwardingDone),
-      // "I've done this" only exists once there's a number to have forwarded
-      // to. It was clickable before then, and clicking it said "Forwarding
-      // confirmed — calls to your business line now reach your AI", which was
-      // a sentence about a phone number that did not exist.
-      manual: Boolean(aiNumber),
-      // Every business gets its own dedicated AI number at activation — show
-      // the real one here the moment it exists instead of "your AI number".
-      hint: aiNumber
-        ? `From your business phone, dial *72 ${aiNumber} (most carriers; AT&T/T-Mobile: **21*${aiNumber.replace(/[^\d+]/g, "")}#). ~2 minutes, undo with *73.`
-        : "The dial code contains your AI's own phone number, so it appears here once that number is assigned. Until then, try your AI with a test call in your browser (Your AI page).",
-    },
-    {
-      key: "testcall",
-      label: "Make a test call — hear it answer",
-      // The hint tells you to use the browser test call, which lives on Your AI.
-      // Sending you to the (empty) call log instead was a dead end at the exact
-      // moment you were trying to do the thing.
-      href: "/portal/guidelines#test-call",
-      done: (callCount?.n ?? 0) > 0,
-      hint: aiNumber
-        ? `Call your AI at ${aiNumber}. This checks itself off when your first call appears.`
-        : "No number yet? Use “Test call in browser” on the Your AI page. This checks itself off when your first call appears.",
-    },
-  ];
+  const steps = buildSetupSteps({
+    services: svc?.n ?? 0,
+    openDays: hrs?.n ?? 0,
+    faqs: kb?.n ?? 0,
+    greeting: client?.greeting,
+    calendarConnected: calendar,
+    alertContacts: alerts?.n ?? 0,
+    ownerEmail: client?.ownerEmail,
+    agentId: client?.retellAgentId,
+    aiNumber,
+    calls: callCount?.n ?? 0,
+    flags,
+  });
 
   const doneCount = steps.filter((s) => s.done).length;
   return {
@@ -151,5 +74,6 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
     complete: doneCount === steps.length,
     finishedAt: client?.setupCompletedAt ?? null,
     reviewNotes: client?.setupFlags?.reviewNotes ?? [],
+    hiddenAt: client?.setupFlags?.checklistHiddenAt ?? null,
   };
 }
