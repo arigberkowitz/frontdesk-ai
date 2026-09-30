@@ -45,7 +45,11 @@ export async function sendBookingConfirmation(
     meetingUrl: appt.meetingUrl,
   });
 
-  const result = await notifier.sendSms({ to, body });
+  const result = await notifier.sendSms({
+    to,
+    body,
+    log: { clientId: client.id, kind: "appointment_confirmation", appointmentId: appt.id },
+  });
   if (result.skipped) {
     // Texting isn't connected. Say so in the log rather than recording a send —
     // and note that the caller was promised this text on a recorded line.
@@ -136,7 +140,11 @@ export async function sendAppointmentReminders(now: Date = new Date()): Promise<
           callbackNumber: client.escalationNumber?.trim() || null,
           meetingUrl: row.meetingUrl,
         });
-        const result = await notifier.sendSms({ to, body });
+        const result = await notifier.sendSms({
+          to,
+          body,
+          log: { clientId: client.id, kind: "appointment_reminder", appointmentId: a.id },
+        });
         if (result.skipped) {
           skipped += 1;
           continue;

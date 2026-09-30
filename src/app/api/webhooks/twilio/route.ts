@@ -3,8 +3,9 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { leads } from "@/db/schema";
 import { recordOptOut, removeOptOut, normalizePhone } from "@/lib/data/sms-optouts";
-import { findClientByPhone, findClientLastTexted } from "@/lib/data/clients";
-import { reminders } from "@/db/schema";
+import { reminders, type Client } from "@/db/schema";
+import { storeInboundMessage } from "@/lib/sms-inbox";
+import { updateSmsDeliveryStatus } from "@/lib/data/sms-messages";
 import { explainSmsError } from "@/lib/notifier";
 import { audit } from "@/lib/data/audit";
 import { notifier } from "@/lib/notifier";
@@ -23,6 +24,12 @@ export const runtime = "nodejs";
  *     own logic can't even try). START re-subscribes.
  *  2. Replies — a human texted back. Stamp the lead's lastReplyAt (recovery
  *     stands down) and forward the message to the business owner by email.
+ *
+ * Every inbound message — replies AND the STOP/START/HELP keywords — is also
+ * stored in the business's SMS inbox (sms_messages, keyed by MessageSid so a
+ * replay is stored once), which is what the portal's Messages page shows.
+ * Storing is best-effort and always happens AFTER the compliance action, so a
+ * failure there can never cost anyone their opt-out.
  */
 
 const STOP_WORDS = new Set(["stop", "stopall", "unsubscribe", "cancel", "end", "quit"]);
@@ -125,14 +132,16 @@ const esc = (s: string) =>
  * texting someone who has already answered.
  */
 async function forwardReplyToOwner(
+  owner: Pick<Client, "id" | "ownerEmail"> | null,
   params: Record<string, string>,
   from: string,
   body: string,
 ): Promise<void> {
-  const to = params.To ?? "";
-  const owner = (to ? await findClientByPhone(to) : null) ?? (await findClientLastTexted(from));
+  // The owner is resolved once, in storeInboundMessage (see resolveInboundClient
+  // for the To → last-texted fallback), so the inbox and this email always
+  // agree about which business a reply belongs to.
   if (!owner) {
-    logger.warn("sms.reply.unknown_recipient", { to: normalizePhone(to) });
+    logger.warn("sms.reply.unknown_recipient", { to: normalizePhone(params.To ?? "") });
     return;
   }
 
@@ -217,14 +226,15 @@ export async function POST(req: Request): Promise<Response> {
     const sid = params.MessageSid ?? params.SmsSid ?? "";
     if (sid && (messageStatus === "failed" || messageStatus === "undelivered")) {
       const code = Number(params.ErrorCode ?? "") || undefined;
+      const error = explainSmsError(code, `Carrier reported ${messageStatus}${code ? ` (Twilio ${code})` : ""}.`);
       await db
         .update(reminders)
-        .set({
-          status: "failed",
-          error: explainSmsError(code, `Carrier reported ${messageStatus}${code ? ` (Twilio ${code})` : ""}.`),
-        })
+        .set({ status: "failed", error })
         .where(eq(reminders.providerSid, sid));
+      await updateSmsDeliveryStatus(sid, "failed", error);
       logger.warn("sms.delivery.failed", { sid, status: messageStatus, code });
+    } else if (sid && messageStatus === "delivered") {
+      await updateSmsDeliveryStatus(sid, "delivered");
     }
     return twiml();
   }
@@ -234,26 +244,42 @@ export async function POST(req: Request): Promise<Response> {
   const keyword = optOutKeyword(body);
   if (!from) return twiml();
 
+  const store = (kind: "reply" | "opt_out" | "opt_in" | "help") =>
+    storeInboundMessage({
+      from,
+      to: params.To ?? "",
+      body,
+      messageSid: params.MessageSid || params.SmsSid || null,
+      kind,
+    });
+
   try {
     if (STOP_WORDS.has(keyword)) {
       await recordOptOut(from, keyword);
       logger.info("sms.optout", { phone: normalizePhone(from) });
+      const inbound = await store("opt_out");
       // "Cancel my 2pm please" is a STOP keyword and also a human being asking
       // for something. Honour the carrier rule — they are opted out, and we say
       // nothing back — but don't let the message itself vanish: the business
       // still has an appointment on the books that this person wants moved.
-      if (hasMoreThanKeyword(body)) await forwardReplyToOwner(params, from, body);
+      // A replay (same MessageSid already stored) was forwarded the first time.
+      if (hasMoreThanKeyword(body) && inbound.isNew) {
+        await forwardReplyToOwner(inbound.owner, params, from, body);
+      }
       // Twilio's own Advanced Opt-Out sends the confirmation; stay silent here.
       return twiml();
     }
+    let kind: "reply" | "opt_in" = "reply";
     if (START_WORDS.has(keyword)) {
       await removeOptOut(from);
+      kind = "opt_in";
       // Deliberately falls through to the reply handling below instead of
       // returning. "YES" is a START keyword AND the answer we now explicitly
       // ask for — "Reply YES to confirm or NO to reschedule". Returning here
       // meant the single most likely reply to a confirmation text resubscribed
       // someone who was never unsubscribed and told nobody anything.
     } else if (HELP_WORDS.has(keyword)) {
+      await store("help");
       // Brand, contact and the rates line are all standard 10DLC audit items,
       // and /sms-consent tells people this reply will carry a number to reach.
       return twiml(
@@ -276,7 +302,9 @@ export async function POST(req: Request): Promise<Response> {
     // fallback is whoever last texted this person, which answers the same
     // question ("who were they talking to?") without depending on a per-tenant
     // number we don't yet issue.
-    await forwardReplyToOwner(params, from, body);
+    const inbound = await store(kind);
+    // Twilio replays a webhook it thinks failed; don't email the owner twice.
+    if (inbound.isNew) await forwardReplyToOwner(inbound.owner, params, from, body);
     return twiml();
   } catch (err) {
     logger.error("webhook.twilio.failed", {

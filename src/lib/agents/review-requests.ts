@@ -152,7 +152,11 @@ export async function requestReviewsForClient(
         customerName: appt.customerName,
         reviewUrl,
       });
-      const result = await notifier.sendSms({ to, body });
+      const result = await notifier.sendSms({
+        to,
+        body,
+        log: { clientId: client.id, kind: "review_request", appointmentId: appt.id },
+      });
       if (result.skipped) {
         notSent += 1;
         continue;

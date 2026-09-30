@@ -77,7 +77,11 @@ export async function offerFreedSlot(
         when,
         callbackNumber: client.retellPhoneNumber,
       });
-      const result = await notifier.sendSms({ to: entry.customerPhone, body });
+      const result = await notifier.sendSms({
+        to: entry.customerPhone,
+        body,
+        log: { clientId: client.id, kind: "waitlist_offer" },
+      });
       // Nothing left the building, so nothing is recorded and nobody's offer
       // count is spent — they stay first in line for the next opening.
       if (result.skipped) continue;

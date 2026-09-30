@@ -71,7 +71,11 @@ export async function sendReminderAction(
     };
   }
 
-  const result = await notifier.sendSms({ to: phone, body });
+  const result = await notifier.sendSms({
+    to: phone,
+    body,
+    log: { clientId, kind: "appointment_reminder", appointmentId },
+  });
 
   if (result.skipped || !integrations.twilio()) {
     logger.warn("reminder.send.not_configured", { clientId, appointmentId });
@@ -172,7 +176,11 @@ export async function sendLeadFollowupAction(
     };
   }
 
-  const result = await notifier.sendSms({ to: phone, body });
+  const result = await notifier.sendSms({
+    to: phone,
+    body,
+    log: { clientId, kind: "lead_followup", leadId },
+  });
 
   if (result.skipped || !integrations.twilio()) {
     logger.warn("lead.followup.not_configured", { clientId, leadId });

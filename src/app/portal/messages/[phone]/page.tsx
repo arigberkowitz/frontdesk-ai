@@ -1,0 +1,132 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft, CalendarCheck, Inbox, Phone } from "lucide-react";
+import { resolvePortalClient } from "@/lib/auth-guard";
+import { getClientByIdUnsafe } from "@/lib/data/clients";
+import { getCallerContext } from "@/lib/data/callers";
+import { getThread, markThreadRead } from "@/lib/data/sms-messages";
+import { messageKindLabel, parseThreadParam } from "@/lib/sms-inbox-view";
+import { formatDateTime, formatPhone } from "@/lib/format";
+import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
+export const metadata: Metadata = { title: "Conversation" };
+
+/**
+ * One customer's text thread with this business, oldest → newest.
+ *
+ * Tenant isolation: the thread is looked up by (session clientId, phone). A
+ * phone that only exists under another business simply has no rows here, and
+ * renders as not found — nothing about the other business leaks.
+ */
+export default async function PortalMessageThreadPage({
+  params,
+}: {
+  params: Promise<{ phone: string }>;
+}) {
+  const { phone: raw } = await params;
+  const phone = parseThreadParam(raw);
+  if (!phone) notFound();
+  const { clientId, preview } = await resolvePortalClient();
+  const [client, messages, caller] = await Promise.all([
+    getClientByIdUnsafe(clientId),
+    getThread(clientId, phone),
+    getCallerContext(clientId, phone, null),
+  ]);
+  if (messages.length === 0) notFound();
+
+  // Opening the thread is reading it — but an operator previewing the portal
+  // isn't the owner, so don't clear the owner's unread markers for them.
+  if (!preview) await markThreadRead(clientId, phone);
+
+  const tz = client?.timezone ?? undefined;
+  const title = caller.name ?? formatPhone(phone);
+  const hasAppointment = messages.some((m) => m.appointmentId);
+  const hasLead = messages.some((m) => m.leadId);
+
+  return (
+    <div className="space-y-6">
+      <Button
+        variant="ghost"
+        size="sm"
+        render={<Link href="/portal/messages" />}
+        nativeButton={false}
+        className="-ml-2"
+      >
+        <ArrowLeft className="size-4" /> All messages
+      </Button>
+      <PageHeader
+        title={title}
+        description={caller.name ? formatPhone(phone) : "Texts with this customer."}
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          render={<Link href={`/portal/calls?from=${encodeURIComponent(phone)}`} />}
+          nativeButton={false}
+        >
+          <Phone className="size-4" /> Calls
+        </Button>
+        {hasAppointment ? (
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href="/portal/appointments" />}
+            nativeButton={false}
+          >
+            <CalendarCheck className="size-4" /> Appointments
+          </Button>
+        ) : null}
+        {hasLead ? (
+          <Button variant="outline" size="sm" render={<Link href="/portal/leads" />} nativeButton={false}>
+            <Inbox className="size-4" /> Leads
+          </Button>
+        ) : null}
+      </PageHeader>
+
+      <Card>
+        <CardContent>
+          <ol className="space-y-4">
+            {messages.map((m) => {
+              const outbound = m.direction === "outbound";
+              const label = messageKindLabel(m.kind);
+              return (
+                <li key={m.id} className={cn("flex", outbound ? "justify-end" : "justify-start")}>
+                  <div className={cn("max-w-[85%] space-y-1", outbound ? "items-end text-right" : "")}>
+                    <div
+                      className={cn(
+                        "whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-left text-sm",
+                        outbound
+                          ? "rounded-br-sm bg-indigo-500 text-white"
+                          : "rounded-bl-sm bg-muted text-foreground",
+                        m.status === "failed" && "bg-destructive/10 text-foreground ring-1 ring-destructive/40",
+                      )}
+                    >
+                      {m.body}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {outbound ? "Sent" : "Received"}
+                      {label ? ` · ${label}` : ""} · {formatDateTime(m.createdAt, tz)}
+                      {outbound && m.status === "delivered" ? " · Delivered" : ""}
+                    </p>
+                    {m.status === "failed" ? (
+                      <p className="text-xs text-destructive">
+                        Not delivered{m.error ? ` — ${m.error}` : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </CardContent>
+      </Card>
+      <p className="text-center text-xs text-muted-foreground">
+        Replying from here isn&apos;t available yet — call or text {formatPhone(phone)} from your phone.
+      </p>
+    </div>
+  );
+}

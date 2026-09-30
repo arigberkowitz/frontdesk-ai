@@ -213,7 +213,16 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
       }
       // Hard compliance gate: STOP means never again, no matter the path.
       if (await isOptedOut(t.to)) continue;
-      const result = await notifier.sendSms({ to: t.to, body: t.body });
+      const result = await notifier.sendSms({
+        to: t.to,
+        body: t.body,
+        log: {
+          clientId: client.id,
+          kind: t.kind === "lead" ? "recovery_lead" : "recovery_no_show",
+          leadId: t.leadId ?? null,
+          appointmentId: t.appointmentId ?? null,
+        },
+      });
 
       // `skipped` means the SMS provider isn't wired up, so nothing left the
       // building. We used to log that as "sent", mark the lead contacted, and

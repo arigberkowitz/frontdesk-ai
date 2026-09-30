@@ -214,3 +214,20 @@ Running log of choices and deviations (PRD §0). Newest first.
   say it's an AI (and, if enabled, that the call may be recorded). Applies to publish,
   provisioning, paused mode and AI outbound callbacks. The recording toggle remains
   operator-only; AI disclosure is unconditional.
+
+## 2026-09-30 — SMS replies inbox (portal → Messages)
+
+- **`sms_messages` stores both directions** (manual migration
+  `drizzle/manual/0007_sms_messages.sql`). Inbound: every message the Twilio webhook
+  verifies — replies *and* STOP/START/HELP — with `provider_sid` = MessageSid (unique, so a
+  replay is stored once and the owner isn't re-emailed). Outbound: customer texts sent via
+  `notifier.sendSms({ ..., log: { clientId, kind, appointmentId?, leadId? } })`. Owner
+  alerts, digests and one-time cancel codes deliberately pass no `log` and are not stored.
+- **Tenant attribution for inbound:** `To` matched to a business line → else the business
+  that last texted this customer (inbox log) → else the legacy reminders lookup. With one
+  shared sending number, a customer texted by two businesses is attributed to the most
+  recent one; per-business numbers would remove that ambiguity.
+- **Compliance first:** the opt-out/opt-in write happens before the message is stored,
+  and storing never throws, so a storage failure can't cost anyone their opt-out.
+- **Read-only.** No reply-from-app. Opening a thread marks it read (not in operator
+  preview). Every read is scoped by the session's `clientId`.

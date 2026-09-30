@@ -49,7 +49,11 @@ export async function requestDeposit(input: {
       when: describeOpening(appointment.startAt, client.timezone),
       payUrl: client.depositLinkUrl!.trim(),
     });
-    const result = await notifier.sendSms({ to, body });
+    const result = await notifier.sendSms({
+      to,
+      body,
+      log: { clientId: client.id, kind: "deposit_request", appointmentId: appointment.id },
+    });
     if (result.skipped) return false;
 
     const failed = !result.ok;
