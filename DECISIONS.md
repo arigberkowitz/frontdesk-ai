@@ -174,3 +174,18 @@ Running log of choices and deviations (PRD §0). Newest first.
   reminder texts. **Zoom was considered and rejected**: separate OAuth app + marketplace
   review for a capability most local-service callers can't use; Meet/Teams ride the calendar
   connections we already hold.
+
+## 2026-09-30 — SMS consent gate + enforced AI disclosure (audit follow-up)
+
+- **Stored consent is required** before recall, review-request, recovery (lead + no-show)
+  texts, and an owner's one-tap lead follow-up text: the number must have an
+  `sms_consents` row for that business under a wording listed in `CONSENT_COVERAGE`
+  (`src/lib/data/sms-consents.ts`). Lookup errors fail safe (no send). Opt-out (STOP)
+  is still checked as before. **Open policy question:** `booking-v1` is currently mapped to
+  every purpose; if recall/review requests are promotional under the published policy,
+  remove it from those lists until a separate consent script + campaign use case exist.
+- **AI disclosure lives in `begin_message`**, not only in the prompt: `openingLine()` /
+  `withRequiredDisclosure()` prepend a fixed sentence whenever the greeting doesn't clearly
+  say it's an AI (and, if enabled, that the call may be recorded). Applies to publish,
+  provisioning, paused mode and AI outbound callbacks. The recording toggle remains
+  operator-only; AI disclosure is unconditional.

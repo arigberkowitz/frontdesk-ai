@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { agentRuns, appointments, clients, reminders, type Client } from "@/db/schema";
 import { createReminder } from "@/lib/data/reminders";
 import { isOptedOut } from "@/lib/data/sms-optouts";
+import { getConsentedPhones, isConsented } from "@/lib/data/sms-consents";
 import { isDeliverableUrl } from "@/lib/webhooks-out";
 import {
   REVIEW_DELAY_HOURS,
@@ -135,9 +136,16 @@ export async function requestReviewsForClient(
 
   let sent = 0;
   let notSent = 0;
+  let noConsent = 0;
+  // Only customers with a stored consent to texts from this business.
+  const consented = await getConsentedPhones(client.id, "review_request");
   try {
     for (const appt of due.slice(0, MAX_SENDS_PER_CLIENT)) {
       const to = appt.customerPhone!.trim();
+      if (!isConsented(consented, to)) {
+        noConsent += 1;
+        continue;
+      }
       if (await isOptedOut(to)) continue;
       const body = reviewRequestBody({
         businessName: client.name,
@@ -167,7 +175,7 @@ export async function requestReviewsForClient(
         .set({
           status: "succeeded",
           finishedAt: new Date(),
-          stats: { attempted: due.length, sent, notSent, feature: "review_requests" },
+          stats: { attempted: due.length, sent, notSent, noConsent, feature: "review_requests" },
         })
         .where(eq(agentRuns.id, run.id));
     }
