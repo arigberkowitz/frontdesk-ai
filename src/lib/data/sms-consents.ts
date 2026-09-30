@@ -52,7 +52,14 @@ export type ConsentPurpose =
   | "review_request"
   | "recovery_lead"
   | "recovery_no_show"
-  | "lead_followup";
+  | "lead_followup"
+  /**
+   * An owner's typed text from portal → Messages to a customer who has NOT
+   * texted the business yet (the thread is only automated texts). A reply to
+   * a customer who texted in is conversational and isn't gated on this — see
+   * DECISIONS.md "Messages: reply by text".
+   */
+  | "portal_reply";
 
 /**
  * Which recorded consent wordings cover which kind of text.
@@ -71,6 +78,7 @@ export const CONSENT_COVERAGE: Record<ConsentPurpose, readonly string[]> = {
   recovery_lead: [CONSENT_WORDING_VERSION],
   recovery_no_show: [CONSENT_WORDING_VERSION],
   lead_followup: [CONSENT_WORDING_VERSION],
+  portal_reply: [CONSENT_WORDING_VERSION],
 };
 
 /** Pure: the set of numbers (normalized digits) whose consent rows cover `purpose`. */

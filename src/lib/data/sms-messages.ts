@@ -1,5 +1,5 @@
 import "server-only";
-import { and, count, desc, eq, inArray, isNull, max, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { smsMessages, type SmsMessageRow } from "@/db/schema";
 import { normalizePhone } from "@/lib/data/sms-optouts";
@@ -232,6 +232,63 @@ export async function getThread(
     .orderBy(desc(smsMessages.createdAt), desc(smsMessages.id))
     .limit(limit);
   return rows.reverse();
+}
+
+export interface ConversationSummary {
+  /** Messages of any kind between this business and this customer. */
+  total: number;
+  /** Of those, how many the customer sent (replies, START, HELP, STOP). */
+  inbound: number;
+}
+
+/**
+ * Does this business have a conversation with this customer, and has the
+ * customer ever texted it? Scoped to `clientId` like every read here. Unlike
+ * the best-effort writes, this THROWS on a DB error: it backs a send guard,
+ * and a guard that can't check must not pass.
+ */
+export async function getConversationSummary(
+  clientId: string,
+  customerPhone: string,
+): Promise<ConversationSummary> {
+  const key = customerKeyFor(customerPhone);
+  if (!key) return { total: 0, inbound: 0 };
+  const [row] = await db
+    .select({
+      total: count(),
+      inbound: sql<number>`count(*) filter (where ${smsMessages.direction} = 'inbound')`.mapWith(Number),
+    })
+    .from(smsMessages)
+    .where(and(eq(smsMessages.clientId, clientId), eq(smsMessages.customerPhone, key)));
+  return { total: Number(row?.total ?? 0), inbound: Number(row?.inbound ?? 0) };
+}
+
+/**
+ * Outbound texts of one `kind` this business sent since `since` — overall and
+ * to one customer. Backs the portal-reply daily caps. Throws on DB error.
+ */
+export async function countOutboundSince(
+  clientId: string,
+  customerPhone: string,
+  kind: string,
+  since: Date,
+): Promise<{ client: number; thread: number }> {
+  const key = customerKeyFor(customerPhone) ?? "";
+  const [row] = await db
+    .select({
+      client: count(),
+      thread: sql<number>`count(*) filter (where ${smsMessages.customerPhone} = ${key})`.mapWith(Number),
+    })
+    .from(smsMessages)
+    .where(
+      and(
+        eq(smsMessages.clientId, clientId),
+        eq(smsMessages.direction, "outbound"),
+        eq(smsMessages.kind, kind),
+        gte(smsMessages.createdAt, since),
+      ),
+    );
+  return { client: Number(row?.client ?? 0), thread: Number(row?.thread ?? 0) };
 }
 
 /** Mark this business's unread inbound messages from one customer as read. */
