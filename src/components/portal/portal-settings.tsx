@@ -167,6 +167,28 @@ export function PortalSettings({ client, isAdmin = true }: { client: Client; isA
                 <option value="off">Off — email only</option>
               </NativeSelect>
             </Field>
+            <div id="weekly-summary" className="scroll-mt-24">
+              <Field
+                label="Weekly summary email"
+                hint="Every Monday: calls answered, bookings, cancellations, missed calls won back, new leads and customer texts from the past 7 days. Sent to the alerts email above."
+              >
+                <NativeSelect
+                  name="weeklySummaryEnabled"
+                  defaultValue={client.weeklySummaryEnabled ? "on" : "off"}
+                >
+                  <option value="on">On — email me a summary every Monday</option>
+                  <option value="off">Off — no weekly summary</option>
+                </NativeSelect>
+              </Field>
+              <a
+                href="/portal/settings/weekly-summary"
+                target="_blank"
+                rel="noopener"
+                className="mt-1 inline-block text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                Preview this week&apos;s summary
+              </a>
+            </div>
             <div className="flex justify-end">
               <SubmitButton pending={alertsPending}>Save</SubmitButton>
             </div>
