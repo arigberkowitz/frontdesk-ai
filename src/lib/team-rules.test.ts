@@ -23,6 +23,8 @@ describe("team rules", () => {
     expect(ownerOnlyFieldsIn(f)).toEqual([]);
     f.set("alertPhone", "");
     expect(ownerOnlyFieldsIn(f)).toEqual(["alertPhone"]);
+    f.set("weeklySummaryEnabled", "off");
+    expect(ownerOnlyFieldsIn(f)).toEqual(["alertPhone", "weeklySummaryEnabled"]);
   });
 
   it("never lets a business drop to zero owners", () => {

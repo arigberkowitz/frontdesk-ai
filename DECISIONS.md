@@ -368,8 +368,8 @@ everything else). This change closes the gaps rather than adding a parallel syst
 - **Two tiers.** Staff: calls, appointments, leads, messages, replies (unchanged), plus AI
   settings if the owner shares the edit code (unchanged). Owner only, and never
   unlocked by the edit code: billing checkout, trial code, the team, and where alerts
-  go (alert email, alert/transfer phone, SMS-alert toggle, adding/removing roster
-  people). Staff can still flip roster people on/off duty — that's a day-to-day job.
+  go (alert email, alert/transfer phone, SMS-alert toggle, weekly-summary email
+  toggle, adding/removing roster people). Staff can still flip roster people on/off duty — that's a day-to-day job.
   Enforced on the server with `requireClientOwner` / `userIsClientOwner`
   (`src/lib/auth-guard.ts`); the UI hides/disables the controls as well.
 - **Settings → Team** (`/portal/settings/team`, owner-only): invite as staff or owner,

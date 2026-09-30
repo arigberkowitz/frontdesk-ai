@@ -310,9 +310,9 @@ describe("roles and removal", () => {
 });
 
 describe("owner-only settings are enforced on the server (staff with the edit code)", () => {
-  it("staff can't change the alert email / phone / SMS alerts", async () => {
+  it("staff can't change the alert email / phone / SMS alerts / weekly summary", async () => {
     as(staff);
-    for (const field of ["ownerEmail", "alertPhone", "smsAlertsEnabled"]) {
+    for (const field of ["ownerEmail", "alertPhone", "smsAlertsEnabled", "weeklySummaryEnabled"]) {
       const res = await savePortalProfileAction({}, fd({ clientId: A, [field]: "x" }));
       expect(res).toEqual({ ok: false, error: OWNER_ONLY_ERROR });
     }
@@ -321,6 +321,12 @@ describe("owner-only settings are enforced on the server (staff with the edit co
   it("staff with the code can still save everyday profile fields", async () => {
     as(staff);
     const res = await savePortalProfileAction({}, fd({ clientId: A, name: "Acme Dental & Co" }));
+    expect(res.ok).toBe(true);
+  });
+
+  it("owner can turn the weekly summary email off", async () => {
+    as(owner);
+    const res = await savePortalProfileAction({}, fd({ clientId: A, weeklySummaryEnabled: "off" }));
     expect(res.ok).toBe(true);
   });
 
