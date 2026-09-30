@@ -6,6 +6,7 @@
  * reuses the existing Retell agent (no duplicates).
  *   npx tsx scripts/seed-barbershop.ts
  */
+import { createHmac } from "node:crypto";
 import { config } from "dotenv";
 import postgres from "postgres";
 import Retell from "retell-sdk";
@@ -54,14 +55,18 @@ const KNOWLEDGE = [
   { q: "Where are you and is there parking?", a: "We're at 88 Grand Ave — street parking out front and a lot around back." },
 ];
 
-const AGENT_TOOLS_SECRET =
-  process.env.AGENT_TOOLS_SECRET || process.env.RETELL_API_KEY || "dev-agent-tools-secret";
+// Never fall back to the Retell API key (see env.ts) — dev default only.
+const AGENT_TOOLS_SECRET = process.env.AGENT_TOOLS_SECRET || "dev-agent-tools-secret";
+
+/** Mirrors agentToolToken() in src/lib/agent-tool-token.ts (per-client token). */
+const toolToken = (clientId: string) =>
+  createHmac("sha256", AGENT_TOOLS_SECRET).update(`agent-tools:v1:${clientId}`).digest("base64url");
 
 /** Inline copy of the agent tools — retell.ts is "server-only" and can't be imported here. */
 function buildTools(appUrl: string, clientId: string) {
   const base = appUrl.replace(/\/$/, "");
   const url = (path: string) =>
-    `${base}/api/agent-tools/${path}?client=${clientId}&token=${encodeURIComponent(AGENT_TOOLS_SECRET)}`;
+    `${base}/api/agent-tools/${path}?client=${clientId}&token=${encodeURIComponent(toolToken(clientId))}`;
   return [
     { type: "custom", name: "check_availability", url: url("check-availability"), description: "Check open appointment slots for a service over a date range. Call this before booking.", speak_during_execution: true, parameters: { type: "object", properties: { service: { type: "string", description: "The service the caller wants." }, date_range: { type: "string", description: "Natural-language date or range." } }, required: ["service"] } },
     { type: "custom", name: "book_appointment", url: url("book"), description: "Book an appointment after confirming service, date/time, name, and phone.", speak_during_execution: true, parameters: { type: "object", properties: { service: { type: "string" }, datetime: { type: "string", description: "ISO 8601 start date-time." }, name: { type: "string" }, phone: { type: "string" } }, required: ["service", "datetime", "name", "phone"] } },

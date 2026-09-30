@@ -1,5 +1,4 @@
-import { authenticateAgentTool, readToolArgs } from "@/lib/agent-tools-auth";
-import { getClientByIdUnsafe } from "@/lib/data/clients";
+import { authorizeAgentTool } from "@/lib/agent-tools-auth";
 import { listActiveBlocks } from "@/lib/data/availability-blocks";
 import { businessWideBlocks } from "@/lib/booking-window";
 import { matchService } from "@/lib/service-match";
@@ -18,12 +17,9 @@ export const runtime = "nodejs";
  * tool states which situation it is and what to do about it.
  */
 export async function POST(req: Request): Promise<Response> {
-  const auth = authenticateAgentTool(new URL(req.url));
-  if (!auth.ok) return new Response(auth.message, { status: auth.status });
-
-  const { args } = await readToolArgs(req);
-  const client = await getClientByIdUnsafe(auth.clientId);
-  if (!client) return Response.json({ error: "Client not found" }, { status: 404 });
+  const auth = await authorizeAgentTool(req);
+  if (!auth.ok) return auth.response;
+  const { client, args } = auth;
 
   // Only the length matters here — we're sizing the slot grid, not booking.
   // Falling back to `services[0]` used to reach retired services and size the

@@ -7,6 +7,7 @@ import { createReminder, getClientAppointment } from "@/lib/data/reminders";
 import { getClientLead } from "@/lib/data/leads";
 import { getInsightForCall } from "@/lib/data/insights";
 import { isOptedOut } from "@/lib/data/sms-optouts";
+import { hasSmsConsent } from "@/lib/data/sms-consents";
 import { explainSmsError, notifier } from "@/lib/notifier";
 import {
   genericFollowUpText,
@@ -130,6 +131,14 @@ export async function sendLeadFollowupAction(
   }
   if (channel === "sms" && (await isOptedOut(phone))) {
     return { ok: false, error: "This number has opted out of texts (replied STOP) — call them instead." };
+  }
+  // A lead gave a callback number, which isn't the same as agreeing to texts.
+  // Only text numbers with a stored consent to texts from this business.
+  if (channel === "sms" && !(await hasSmsConsent(clientId, phone, "lead_followup"))) {
+    return {
+      ok: false,
+      error: "This person hasn't agreed to get texts from you yet, so we can't text them. Give them a call instead.",
+    };
   }
 
   const client = await getClientByIdUnsafe(clientId);

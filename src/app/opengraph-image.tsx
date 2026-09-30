@@ -90,7 +90,7 @@ export default function OgImage() {
               padding: "12px 24px",
             }}
           >
-            3 weeks free · no card
+            2 weeks free · no card
           </div>
         </div>
       </div>

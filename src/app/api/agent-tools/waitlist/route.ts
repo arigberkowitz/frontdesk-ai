@@ -1,6 +1,5 @@
 import { after } from "next/server";
-import { authenticateAgentTool, readToolArgs } from "@/lib/agent-tools-auth";
-import { getClientByIdUnsafe } from "@/lib/data/clients";
+import { authorizeAgentTool } from "@/lib/agent-tools-auth";
 import { getCallByRetellId } from "@/lib/data/calls";
 import { addWaitlistEntry } from "@/lib/data/waitlist";
 import { matchService } from "@/lib/service-match";
@@ -27,12 +26,9 @@ const DEFAULT_WINDOW_DAYS = 30;
  * nothing, which is the same as not having one.
  */
 export async function POST(req: Request): Promise<Response> {
-  const auth = authenticateAgentTool(new URL(req.url));
-  if (!auth.ok) return new Response(auth.message, { status: auth.status });
-
-  const { args, retellCallId } = await readToolArgs(req);
-  const client = await getClientByIdUnsafe(auth.clientId);
-  if (!client) return new Response("Not found", { status: 404 });
+  const auth = await authorizeAgentTool(req);
+  if (!auth.ok) return auth.response;
+  const { client, args, retellCallId } = auth;
 
   if (!client.waitlistEnabled) {
     return Response.json({
