@@ -80,7 +80,7 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
     {
       key: "alerts",
       label: "Choose who gets alerts",
-      href: "/portal/settings",
+      href: "/portal/settings/alerts",
       done: f.alertContacts > 0 || Boolean(f.ownerEmail?.trim()),
       hint: "Who we text or email when a lead or emergency comes in.",
     },
@@ -107,7 +107,7 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
     {
       key: "forwarding",
       label: "Forward your business line",
-      href: "/portal/settings#forwarding",
+      href: "/portal/settings/phone#forwarding",
       done: Boolean(flags.forwardingDone),
       // "I've done this" only exists once there's a number to have forwarded
       // to. It was clickable before then, and clicking it said "Forwarding

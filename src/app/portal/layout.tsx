@@ -3,7 +3,7 @@ import { Phone } from "lucide-react";
 import { resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { countUnreadMessages } from "@/lib/data/sms-messages";
-import { PortalNav, PortalTabBar } from "@/components/portal/portal-nav";
+import { PortalSidebar, PortalTabBar } from "@/components/portal/portal-nav";
 import { UserMenuButton } from "@/components/user-menu-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
@@ -18,6 +18,7 @@ export default async function PortalLayout({ children }: { children: React.React
     // Never throws (0 until the sms_messages migration has run).
     countUnreadMessages(clientId),
   ]);
+  const showTeam = Boolean(client && (client.staffModeEnabled || client.companySize !== "solo"));
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -50,23 +51,24 @@ export default async function PortalLayout({ children }: { children: React.React
           <p className="text-xs text-muted-foreground leading-tight">FrontDesk AI</p>
         </div>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <PortalNav
-            showTeam={Boolean(client && (client.staffModeEnabled || client.companySize !== "solo"))}
-            unreadMessages={unreadMessages}
-          />
           <CommandPalette portal />
           <ThemeToggle />
           <UserMenuButton />
         </div>
       </header>
       <LiveCallStrip clientId={clientId} />
-      <main className="flex-1 p-4 pb-24 sm:p-6 sm:pb-24 md:pb-6 lg:p-8">
-        <div className="fd-fade-up mx-auto w-full max-w-5xl">{children}</div>
-      </main>
-      <PortalTabBar
-        showTeam={Boolean(client && (client.staffModeEnabled || client.companySize !== "solo"))}
-        unreadMessages={unreadMessages}
-      />
+      <div className="flex flex-1">
+        {/* Desktop: grouped left rail. Phones use the bottom tab bar below. */}
+        <aside className="hidden w-56 shrink-0 border-r md:block">
+          <div className="sticky top-16 max-h-[calc(100vh-4rem)] overflow-y-auto px-3 py-6">
+            <PortalSidebar showTeam={showTeam} unreadMessages={unreadMessages} />
+          </div>
+        </aside>
+        <main className="min-w-0 flex-1 p-4 pb-24 sm:p-6 sm:pb-24 md:pb-8 lg:p-8">
+          <div className="fd-fade-up mx-auto w-full max-w-5xl">{children}</div>
+        </main>
+      </div>
+      <PortalTabBar showTeam={showTeam} unreadMessages={unreadMessages} />
       {client?.chatWidgetEnabled ? (
         <ChatBubble clientId={clientId} appUrl={env.APP_URL.replace(/\/$/, "")} />
       ) : null}

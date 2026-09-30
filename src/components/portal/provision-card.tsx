@@ -79,7 +79,7 @@ export function ProvisionCard({
               ) : (
                 <p>
                   Ready to talk to in your browser. Its own phone number is on the way — if this
-                  still says so tomorrow, press Re-sync below or send us a note from Settings.
+                  still says so tomorrow, press Re-sync below or send us a note from Settings → Help.
                 </p>
               )}
             </div>
@@ -105,7 +105,7 @@ export function ProvisionCard({
         {!retellReady ? (
           <p className="text-sm text-amber-600 dark:text-amber-400">
             Activation isn&apos;t available yet — the voice service isn&apos;t connected. Please reach
-            out to support (see Settings) and we&apos;ll switch it on.
+            out to support (Settings → Help) and we&apos;ll switch it on.
           </p>
         ) : (
           <form action={action}>

@@ -46,7 +46,7 @@ beforeEach(() => {
 describe("Google calendar OAuth callback", () => {
   it("stores the refresh token encrypted, republishes the agent, returns to Settings", async () => {
     const res = await hit("c1:n1:settings");
-    expect(res.headers.get("location")).toBe("https://app.test/portal/settings?calendar=connected");
+    expect(res.headers.get("location")).toBe("https://app.test/portal/settings/calendar?calendar=connected");
     expect(updateClient).toHaveBeenCalledWith(
       "org1",
       "c1",
@@ -63,7 +63,7 @@ describe("Google calendar OAuth callback", () => {
   it("rejects a nonce that doesn't match this browser's cookie (CSRF) and stores nothing", async () => {
     cookieNonce = "other";
     const res = await hit("c1:n1:settings");
-    expect(res.headers.get("location")).toBe("https://app.test/portal/settings?calendar=error");
+    expect(res.headers.get("location")).toBe("https://app.test/portal/settings/calendar?calendar=error");
     expect(exchangeCodeForTokens).not.toHaveBeenCalled();
     expect(updateClient).not.toHaveBeenCalled();
   });

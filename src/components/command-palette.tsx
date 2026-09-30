@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { SETTINGS_SECTIONS } from "@/config/portal-settings-sections";
 
 interface CmdItem {
   label: string;
@@ -33,16 +34,21 @@ interface CmdItem {
 
 const PORTAL_ITEMS: CmdItem[] = [
   { label: "Overview", href: "/portal", icon: LayoutDashboard, group: "Go to" },
-  { label: "Calls", href: "/portal/calls", icon: Phone, group: "Go to" },
-  { label: "Appointments", href: "/portal/appointments", icon: CalendarCheck, group: "Go to" },
-  { label: "Leads", href: "/portal/leads", icon: Inbox, group: "Go to" },
-  { label: "Messages", href: "/portal/messages", icon: MessagesSquare, group: "Go to" },
-  { label: "Services", href: "/portal/services", icon: Wrench, group: "Go to" },
-  { label: "Hours", href: "/portal/hours", icon: Clock, group: "Go to" },
-  { label: "Knowledge", href: "/portal/knowledge", icon: HelpCircle, group: "Go to" },
-  { label: "Team", href: "/portal/team", icon: Users, group: "Go to" },
-  { label: "Your AI", href: "/portal/guidelines", icon: Sparkles, group: "Go to" },
-  { label: "Settings", href: "/portal/settings", icon: Settings, group: "Go to" },
+  { label: "Calls", href: "/portal/calls", icon: Phone, group: "Inbox" },
+  { label: "Messages", href: "/portal/messages", icon: MessagesSquare, group: "Inbox" },
+  { label: "Leads", href: "/portal/leads", icon: Inbox, group: "Inbox" },
+  { label: "Appointments", href: "/portal/appointments", icon: CalendarCheck, group: "Schedule" },
+  { label: "Hours & time off", href: "/portal/hours", icon: Clock, group: "Schedule" },
+  { label: "Staff", href: "/portal/staff", icon: Users, group: "Schedule" },
+  { label: "Your AI", href: "/portal/guidelines", icon: Sparkles, group: "Receptionist" },
+  { label: "Services", href: "/portal/services", icon: Wrench, group: "Receptionist" },
+  { label: "Knowledge", href: "/portal/knowledge", icon: HelpCircle, group: "Receptionist" },
+  ...SETTINGS_SECTIONS.map((s) => ({
+    label: s.key === "business" ? "Settings" : `Settings · ${s.label}`,
+    href: s.href,
+    icon: Settings,
+    group: "Settings",
+  })),
 ];
 
 /** ⌘K quick-jump to any page, client, or action. */

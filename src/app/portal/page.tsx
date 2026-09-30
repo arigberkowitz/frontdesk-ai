@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MessageSquare, Sparkles, Users } from "lucide-react";
+import { BarChart3, BellRing, Inbox, MessagesSquare, Sparkles, Users } from "lucide-react";
 import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientMetrics, getClientRoi, getClientWeeklyRecap } from "@/lib/data/metrics";
 import { getClientSetupStatus } from "@/lib/data/setup";
@@ -13,6 +13,7 @@ import { getFollowUpsForClient } from "@/lib/data/follow-ups";
 import { failedTextsSince } from "@/lib/data/reminders";
 import { getTrialState } from "@/lib/data/trial";
 import { listProviders } from "@/lib/data/providers";
+import { countUnreadMessages } from "@/lib/data/sms-messages";
 import { PageHeader } from "@/components/page-header";
 import { MetricCard } from "@/components/metric-card";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,7 +43,7 @@ export default async function PortalOverviewPage({
 }) {
   const { onboarded } = await searchParams;
   const { clientId } = await resolvePortalClient();
-  const [client, m, appts, callsList, followUps, roi, setup, recap, activity, learnings, team, health, failedTexts, trial] =
+  const [client, m, appts, callsList, followUps, roi, setup, recap, activity, learnings, team, health, failedTexts, trial, unreadMessages, editAccess] =
     await Promise.all([
       getClientByIdUnsafe(clientId),
       getClientMetrics(clientId),
@@ -58,6 +59,9 @@ export default async function PortalOverviewPage({
       getCallHealth(clientId),
       failedTextsSince(clientId),
       getTrialState(clientId),
+      // Never throws (0 until the sms_messages migration has run).
+      countUnreadMessages(clientId),
+      getPortalEditAccess(clientId),
     ]);
   const tz = client?.timezone;
   const v = vocabFor(client?.industry);
@@ -130,83 +134,97 @@ export default async function PortalOverviewPage({
     afterHours: weekOverWeek(series.afterHours),
   };
 
+  // Things that want a decision from the owner, gathered in one place instead
+  // of scattered between the numbers and the charts. Call health joins them
+  // only when there's actually a call that went wrong.
+  const healthNeedsYou = m.totalCalls > 0 && health.needsAttention.length > 0;
+  const hasAttention =
+    m.newLeads > 0 ||
+    unreadMessages > 0 ||
+    showTeamNudge ||
+    (m.totalCalls > 0 && learnings.length > 0) ||
+    healthNeedsYou;
+
+  const callHealth = (
+    <CallHealthPanel
+      summary={health.summary}
+      items={health.needsAttention}
+      waste={health.waste}
+      medianReplyMs={health.medianReplyMs}
+      latencySampleSize={health.latencySampleSize}
+      blockList={
+        <BlockedCallers
+          clientId={clientId}
+          blocked={health.blockedNumbers}
+          suggested={health.suggestedBlocks}
+          timeZone={tz}
+        />
+      }
+      timeZone={tz}
+    />
+  );
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Your AI receptionist"
-        description="Here's what it caught for you. Tap any number for the details."
-      >
-        <LiveAlerts />
-      </PageHeader>
+    <div className="space-y-8">
+      <div className="space-y-4">
+        <PageHeader
+          title="Overview"
+          description="What your AI receptionist caught for you. Tap any number for the details."
+        >
+          <LiveAlerts />
+        </PageHeader>
 
-      <TrialBanner state={trial} />
+        <TrialBanner state={trial} />
 
-      <TextingBrokenBanner
-        count={failedTexts.count}
-        ourFault={/Twilio 20003|Authenticate/i.test(failedTexts.latestError ?? "")}
+        <TextingBrokenBanner
+          count={failedTexts.count}
+          ourFault={/Twilio 20003|Authenticate/i.test(failedTexts.latestError ?? "")}
+        />
+
+        {onboarded ? (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="flex items-start gap-3 p-4 text-sm">
+              <Sparkles className="mt-0.5 size-5 shrink-0 text-primary" />
+              <div>
+                {/* Two different things happen here and they used to say the same
+                    sentence. Telling someone we read their website when we
+                    couldn't — or when they never gave us one — makes every
+                    number on the next screen look like it came from their
+                    business, and it didn't. */}
+                <p className="font-medium">
+                  {onboarded === "website"
+                    ? "We drafted your receptionist from your website."
+                    : "We've started you off with a template for your industry."}
+                </p>
+                <p className="text-muted-foreground">
+                  {onboarded === "website" ? null : (
+                    <>
+                      The services, hours and answers below are examples, not yours yet —{" "}
+                      <strong>the prices especially</strong>.{" "}
+                    </>
+                  )}
+                  Review your <strong>Services</strong>, <strong>Hours</strong>, and{" "}
+                  <strong>Knowledge</strong> pages, set the greeting and voice under{" "}
+                  <strong>Your AI</strong>, then activate it. Edit anything that&apos;s off —
+                  nothing goes live until you activate.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+
+      {/* Setup first while it's unfinished — it's the one thing a new owner
+          has to do. It removes itself once done (or hidden), leaving the
+          numbers at the top for everyone else. */}
+      <SetupChecklist
+        clientId={clientId}
+        status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
+        canEdit={editAccess.canEdit}
       />
 
-      {m.newLeads > 0 ? (
-        <Card className="border-amber-500/40 bg-amber-500/5">
-          <CardContent className="flex items-start gap-3 p-4 text-sm">
-            <MessageSquare className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <div>
-              <p className="font-medium">
-                {m.newLeads} new message{m.newLeads === 1 ? "" : "s"} for you
-              </p>
-              <p className="text-muted-foreground">
-                Someone left a message your AI couldn&apos;t book.{" "}
-                <Link
-                  href="/portal/leads"
-                  className="font-medium text-foreground underline underline-offset-2"
-                >
-                  View messages →
-                </Link>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {onboarded ? (
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="flex items-start gap-3 p-4 text-sm">
-            <Sparkles className="mt-0.5 size-5 shrink-0 text-primary" />
-            <div>
-              {/* Two different things happen here and they used to say the same
-                  sentence. Telling someone we read their website when we
-                  couldn't — or when they never gave us one — makes every
-                  number on the next screen look like it came from their
-                  business, and it didn't. */}
-              <p className="font-medium">
-                {onboarded === "website"
-                  ? "We drafted your receptionist from your website."
-                  : "We've started you off with a template for your industry."}
-              </p>
-              <p className="text-muted-foreground">
-                {onboarded === "website" ? null : (
-                  <>
-                    The services, hours and answers below are examples, not yours yet —{" "}
-                    <strong>the prices especially</strong>.{" "}
-                  </>
-                )}
-                Review your <strong>Services</strong>, <strong>Hours</strong>, and{" "}
-                <strong>Knowledge</strong> tabs, set the greeting and voice under{" "}
-                <strong>Your AI</strong>, then activate it. Edit anything that&apos;s off —
-                nothing goes live until you activate.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
       {/* The tiles stay even at zero — they're the promise, the picture of
-          where the money will show up once the phone rings. What waits for the
-          first call is the analytics stack below them: ROI, recaps, call
-          health, activity. Ten blank panels don't say "coming soon", they say
-          "broken". The numbers also come BEFORE the advisory cards now — a
-          returning owner opens this page to see what happened, not to be
-          re-shown suggestions they've already scrolled past twice. */}
+          where the money will show up once the phone rings. */}
       <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} spark={series.revenue} sparkLabels={labelsFor("revenue", formatCurrencyCents)} trend={trend.revenue} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
         <MetricCard icon="calls" label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} spark={series.calls} sparkLabels={labelsFor("calls", (n) => plural(n, "call", "calls"))} trend={trend.calls} sparkColor="#0ea5e9" />
@@ -214,27 +232,57 @@ export default async function PortalOverviewPage({
         <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} spark={series.afterHours} sparkLabels={labelsFor("afterHours", (n) => plural(n, "after-hours call", "after-hours calls"))} trend={trend.afterHours} sparkColor="#f59e0b" className="sm:col-span-2 lg:col-span-1" />
       </div>
 
-      <SetupChecklist
-        clientId={clientId}
-        status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
-        canEdit={(await getPortalEditAccess(clientId)).canEdit}
-      />
-
-      {showTeamNudge ? (
-        <Card className="border-indigo-500/30 bg-indigo-500/5">
-          <CardContent className="flex items-start gap-3 p-4 text-sm">
-            <Users className="mt-0.5 size-5 shrink-0 text-indigo-600 dark:text-indigo-400" />
-            <p className="text-muted-foreground">
-              <Link
-                href="/portal/team"
-                className="font-medium text-foreground underline underline-offset-2"
-              >
-                Add your team
-              </Link>{" "}
-              — so callers can book with a specific person.
-            </p>
-          </CardContent>
-        </Card>
+      {hasAttention ? (
+        <section className="space-y-3" aria-labelledby="needs-you">
+          <h2 id="needs-you" className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <BellRing className="size-4" />
+            Needs your attention
+          </h2>
+          {m.newLeads > 0 || unreadMessages > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {m.newLeads > 0 ? (
+                <AttentionLink
+                  href="/portal/leads"
+                  icon={<Inbox className="size-5 text-amber-600 dark:text-amber-400" />}
+                  tone="amber"
+                  title={`${m.newLeads} new lead${m.newLeads === 1 ? "" : "s"}`}
+                  detail="Callers who left a message your AI couldn't book."
+                />
+              ) : null}
+              {unreadMessages > 0 ? (
+                <AttentionLink
+                  href="/portal/messages"
+                  icon={<MessagesSquare className="size-5 text-indigo-600 dark:text-indigo-400" />}
+                  tone="indigo"
+                  title={`${unreadMessages} unread text${unreadMessages === 1 ? "" : "s"}`}
+                  detail="Customers texted back. Reply from Messages."
+                />
+              ) : null}
+            </div>
+          ) : null}
+          {showTeamNudge ? (
+            <Card className="border-indigo-500/30 bg-indigo-500/5">
+              <CardContent className="flex items-start gap-3 p-4 text-sm">
+                <Users className="mt-0.5 size-5 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                <p className="text-muted-foreground">
+                  <Link
+                    href="/portal/staff"
+                    className="font-medium text-foreground underline underline-offset-2"
+                  >
+                    Add your staff
+                  </Link>{" "}
+                  — so callers can book with a specific person.
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+          {m.totalCalls > 0 ? (
+            <AiLearnings clientId={clientId} suggestions={learnings} canEdit={editAccess.canEdit} />
+          ) : null}
+          {/* A business should meet the calls that went wrong before it meets
+              the ones that went right. */}
+          {healthNeedsYou ? callHealth : null}
+        </section>
       ) : null}
 
       {m.totalCalls === 0 ? (
@@ -246,52 +294,74 @@ export default async function PortalOverviewPage({
         </Card>
       ) : (
         <>
-
-      <AiLearnings
-        clientId={clientId}
-        suggestions={learnings}
-        canEdit={(await getPortalEditAccess(clientId)).canEdit}
-      />
-
-      <Milestones totalCalls={m.totalCalls} estRevenueCents={m.estRevenueCents} />
-
-      <RoiPanel roi={roi} />
-
-      <WeeklyRecap recap={recap} />
-
-      {/* Deliberately above the activity chart. A business should meet the
-          calls that went wrong before it meets the ones that went right. */}
-      <CallHealthPanel
-        summary={health.summary}
-        items={health.needsAttention}
-        waste={health.waste}
-        medianReplyMs={health.medianReplyMs}
-        latencySampleSize={health.latencySampleSize}
-        blockList={
-          <BlockedCallers
-            clientId={clientId}
-            blocked={health.blockedNumbers}
-            suggested={health.suggestedBlocks}
-            timeZone={tz}
-          />
-        }
-        timeZone={tz}
-      />
-
-      <CallActivity
-        trend={m.callsByDay}
-        outcomes={m.outcomes}
-        followUps={followUps}
-        clientId={clientId}
-        tz={tz}
-      />
-
-
           <ActivityFeed items={activity} />
+
+          {/* The deeper numbers are still one click away, but no longer stack
+              five panels between the owner and the bottom of the page. */}
+          <details className="group rounded-xl border bg-card">
+            <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 text-sm [&::-webkit-details-marker]:hidden">
+              <BarChart3 className="size-4 shrink-0 text-muted-foreground" />
+              <span className="font-medium">Reports &amp; trends</span>
+              <span className="hidden text-muted-foreground sm:inline">
+                What your AI earned you, this week vs last, milestones{healthNeedsYou ? "" : ", call health"} and call patterns.
+              </span>
+              <span className="ml-auto shrink-0 text-xs font-medium underline underline-offset-2 group-open:hidden">
+                Show
+              </span>
+              <span className="ml-auto hidden shrink-0 text-xs font-medium underline underline-offset-2 group-open:inline">
+                Hide
+              </span>
+            </summary>
+            <div className="space-y-6 border-t p-4">
+              <RoiPanel roi={roi} />
+              <WeeklyRecap recap={recap} />
+              <Milestones totalCalls={m.totalCalls} estRevenueCents={m.estRevenueCents} />
+              {healthNeedsYou ? null : callHealth}
+              <CallActivity
+                trend={m.callsByDay}
+                outcomes={m.outcomes}
+                followUps={followUps}
+                clientId={clientId}
+                tz={tz}
+              />
+            </div>
+          </details>
         </>
       )}
 
       <CopilotChat />
     </div>
+  );
+}
+
+/** One tappable "this wants you" tile on the Overview. */
+function AttentionLink({
+  href,
+  icon,
+  tone,
+  title,
+  detail,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  tone: "amber" | "indigo";
+  title: string;
+  detail: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={
+        tone === "amber"
+          ? "fd-lift flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm"
+          : "fd-lift flex items-start gap-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4 text-sm"
+      }
+    >
+      <span className="mt-0.5 shrink-0">{icon}</span>
+      <span>
+        <span className="block font-medium">{title} →</span>
+        <span className="text-muted-foreground">{detail}</span>
+      </span>
+    </Link>
   );
 }

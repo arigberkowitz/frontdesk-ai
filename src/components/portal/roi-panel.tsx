@@ -71,7 +71,7 @@ export function RoiPanel({ roi }: { roi: ClientRoi }) {
             <p className="mt-1 text-sm text-muted-foreground">
               Your AI hasn&apos;t been sent a call in the last 30 days. If that&apos;s a surprise,
               check that your business line is forwarding to it —{" "}
-              <Link href="/portal/settings#forwarding" className="underline underline-offset-2">
+              <Link href="/portal/settings/phone#forwarding" className="underline underline-offset-2">
                 see the forwarding steps
               </Link>
               .

@@ -36,7 +36,7 @@ export async function addAlertContactAction(formData: FormData): Promise<void> {
   if (rawPhone && !phone) return;
 
   await addAlertContact(clientId, { name, email: email || null, phone });
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
 }
 
 /** Flip a contact's on-duty switch. */
@@ -51,7 +51,7 @@ export async function toggleAlertContactAction(formData: FormData): Promise<void
     String(formData.get("contactId") ?? ""),
     String(formData.get("onDuty")) === "true",
   );
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
 }
 
 /** One click: everyone on the roster gets every alert. */
@@ -62,7 +62,7 @@ export async function allOnDutyAction(formData: FormData): Promise<void> {
   const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
   await setAllAlertContactsDuty(clientId, true);
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
 }
 
 export async function deleteAlertContactAction(formData: FormData): Promise<void> {
@@ -72,5 +72,5 @@ export async function deleteAlertContactAction(formData: FormData): Promise<void
   const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
   await deleteAlertContact(clientId, String(formData.get("contactId") ?? ""));
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
 }

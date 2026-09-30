@@ -1,0 +1,114 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getCurrentDbUser, getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
+import { getClientByIdUnsafe } from "@/lib/data/clients";
+import { getProviderStats, listProviderAppointments } from "@/lib/data/providers";
+import { PageHeader } from "@/components/page-header";
+import { TeamBoard, type TeamMemberView } from "@/components/portal/team-board";
+
+function formatTime(d: Date, tz: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
+}
+
+export const metadata: Metadata = { title: "Staff" };
+
+/** Today's window in the client's timezone. */
+function todayWindow(tz: string): { start: Date; end: Date } {
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const [y, m, d] = fmt.format(now).split("-").map(Number);
+  // Midnight local ≈ construct from the tz offset at now (good enough for a day view).
+  const offsetMin = -new Date(now.toLocaleString("en-US", { timeZone: tz })).getTimezoneOffset();
+  void offsetMin;
+  const startUtcGuess = new Date(Date.UTC(y!, m! - 1, d!, 0, 0, 0));
+  // Correct the guess by the difference between the tz's rendering and UTC.
+  const rendered = new Date(startUtcGuess.toLocaleString("en-US", { timeZone: tz }));
+  const diff = startUtcGuess.getTime() - rendered.getTime();
+  const start = new Date(startUtcGuess.getTime() + diff);
+  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
+}
+
+export default async function PortalStaffPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ as?: string }>;
+}) {
+  const { as: viewAs } = await searchParams;
+  const { clientId } = await resolvePortalClient();
+  const user = await getCurrentDbUser();
+  const editAccess = await getPortalEditAccess(clientId);
+  const client = await getClientByIdUnsafe(clientId);
+  if (!client) notFound();
+
+  const { start, end } = todayWindow(client.timezone);
+  const stats = client.staffModeEnabled ? await getProviderStats(clientId, start, end) : [];
+
+  const members: TeamMemberView[] = await Promise.all(
+    stats.map(async (s) => {
+      const todays = await listProviderAppointments(clientId, s.provider.id, start, end);
+      return {
+        id: s.provider.id,
+        name: s.provider.name,
+        email: s.provider.email,
+        phone: s.provider.phone,
+        onClock: s.provider.onClock,
+        todayCount: s.todayCount,
+        totalBookings: s.totalBookings,
+        earnedRevenueCents: s.earnedRevenueCents,
+        todayAppointments: todays.map((a) => ({
+          id: a.id,
+          when: formatTime(a.startAt, client.timezone),
+          customer: a.customerName,
+          service: a.service?.name ?? null,
+        })),
+      };
+    }),
+  );
+
+  // Manager step-in: ?as=<id> focuses one person's view (admins only).
+  const focused =
+    editAccess.isAdmin && viewAs ? members.find((m) => m.id === viewAs) ?? null : null;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={focused ? `${focused.name}'s day` : "Staff"}
+        description={
+          focused
+            ? "Exactly what this teammate sees — their schedule, their numbers."
+            : client.staffModeEnabled
+              ? `The people customers can book with — who's on the clock today, and everyone's day at a glance.${
+                  editAccess.isAdmin ? " (Portal sign-ins are under Settings → Team access.)" : ""
+                }`
+              : "Turn on staff mode so customers can book with a specific person, and each one gets their own day view."
+        }
+      />
+      {focused ? (
+        <Link
+          href="/portal/staff"
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          ← Back to all staff
+        </Link>
+      ) : null}
+      <TeamBoard
+        clientId={clientId}
+        enabled={client.staffModeEnabled}
+        isAdmin={editAccess.isAdmin}
+        viewerEmail={user.email}
+        members={focused ? [focused] : members}
+        focusedId={focused?.id ?? null}
+      />
+    </div>
+  );
+}

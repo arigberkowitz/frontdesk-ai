@@ -69,7 +69,7 @@ export async function blockNumberAction(
   logger.info("spam.blocked", { clientId, phone: normalizeForBlock(phone) });
   revalidatePath("/portal");
   revalidatePath("/portal/calls");
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
   return { ok: true, message: `${formatPhone(phone)} is blocked. Your AI won't talk to them again.` };
 }
 
@@ -88,7 +88,7 @@ export async function unblockNumberAction(
   void audit({ clientId, actor: guard.user.id, action: "caller.unblocked", detail: { phone: normalizeForBlock(phone) } });
   logger.info("spam.unblocked", { clientId, phone: normalizeForBlock(phone) });
   revalidatePath("/portal");
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
   return { ok: true, message: `${formatPhone(phone)} can get through again.` };
 }
 
@@ -131,7 +131,7 @@ export async function setHandoffModeAction(
   // The rule lives in the published prompt as well as in our transfer endpoint,
   // so a change is only real once the agent has it.
   const sync = await applyClientEdit(guard.user, clientId);
-  revalidatePath("/portal/settings");
+  revalidatePath("/portal/settings", "layout");
   revalidatePath("/portal");
 
   const message =

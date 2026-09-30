@@ -90,7 +90,7 @@ function RemoveButton({
   useToastState(state);
   return (
     <ConfirmDelete
-      title={`Remove ${name} from the team?`}
+      title={`Remove ${name} from your staff?`}
       description="They stop being offered for new bookings. Appointments already on the calendar stay put."
       triggerLabel="Remove"
       triggerVariant="text"
@@ -207,7 +207,7 @@ function MemberCard({
           <div className="mt-2 flex items-center justify-end gap-1">
             {!focused ? (
               <Link
-                href={`/portal/team?as=${member.id}`}
+                href={`/portal/staff?as=${member.id}`}
                 className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 View their day
@@ -229,7 +229,7 @@ function AddMemberForm({ clientId }: { clientId: string }) {
       <CardContent className="p-5 sm:p-6">
         <PanelHeader
           icon={UserPlus}
-          title="Add a team member"
+          title="Add a staff member"
           description="Their email links their portal login to their own view; their phone gets on-the-clock alerts."
         />
         <form action={action} className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -244,7 +244,7 @@ function AddMemberForm({ clientId }: { clientId: string }) {
             <Input name="phone" placeholder="+1 415 555 0100" />
           </Field>
           <div className="sm:col-span-3 flex justify-end">
-            <SubmitButton pending={pending}>Add to team</SubmitButton>
+            <SubmitButton pending={pending}>Add staff member</SubmitButton>
           </div>
         </form>
       </CardContent>
