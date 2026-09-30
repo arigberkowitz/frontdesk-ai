@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { agentRuns, appointments, clients, reminders, services, type Client } from "@/db/schema";
 import { createReminder } from "@/lib/data/reminders";
 import { isOptedOut } from "@/lib/data/sms-optouts";
+import { getConsentedPhones, isConsented } from "@/lib/data/sms-consents";
 import {
   RECALL_LEAD_DAYS,
   RECALL_MAX_OVERDUE_DAYS,
@@ -154,9 +155,17 @@ export async function recallForClient(client: Client, now = new Date()): Promise
 
   let sent = 0;
   let notSent = 0;
+  let noConsent = 0;
+  // Only people who agreed to texts from this business (a stored sms_consents
+  // row) get a recall nudge. Opt-out alone isn't permission.
+  const consented = await getConsentedPhones(client.id, "recall");
   try {
     for (const { appt, serviceName } of due.slice(0, MAX_SENDS_PER_CLIENT)) {
       const to = appt.customerPhone!.trim();
+      if (!isConsented(consented, to)) {
+        noConsent += 1;
+        continue;
+      }
       if (await isOptedOut(to)) continue;
       const body = recallBody({
         businessName: client.name,
@@ -188,7 +197,7 @@ export async function recallForClient(client: Client, now = new Date()): Promise
         .set({
           status: "succeeded",
           finishedAt: new Date(),
-          stats: { attempted: due.length, sent, notSent },
+          stats: { attempted: due.length, sent, notSent, noConsent },
         })
         .where(eq(agentRuns.id, run.id));
     }
