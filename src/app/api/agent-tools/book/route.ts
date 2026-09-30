@@ -11,6 +11,7 @@ import { toE164 } from "@/lib/format";
 import { notifyOwnerBooking } from "@/lib/notify";
 import { sendBookingConfirmation } from "@/lib/appointment-texts";
 import { recordSmsConsent } from "@/lib/data/sms-consents";
+import { allowChatSms } from "@/lib/data/chat-limits";
 import { after } from "next/server";
 import { logger } from "@/lib/logger";
 import { emitWebhook } from "@/lib/webhooks-emit";
@@ -43,7 +44,7 @@ export const runtime = "nodejs";
 export async function POST(req: Request): Promise<Response> {
   const auth = await authorizeAgentTool(req);
   if (!auth.ok) return auth.response;
-  const { client, args, retellCallId } = auth;
+  const { client, args, retellCallId, channel } = auth;
 
   const startAt = parseInClientTimezone(String(args.datetime ?? ""), client.timezone);
   if (!startAt) {
@@ -239,6 +240,20 @@ export async function POST(req: Request): Promise<Response> {
 
   await notifyOwnerBooking(client, appt);
 
+  // Declared before the after() callbacks below that read it (it used to be
+  // declared after them, which only worked because after() runs later).
+  const consented = args.sms_consent === true || String(args.sms_consent) === "true";
+  // On the anonymous web chat, "yes, text me" is typed by whoever is at the
+  // keyboard about whatever number they typed. Cap how many texts the chat can
+  // make this business send, per number and per day, so it can't be used to
+  // text strangers. Voice consent comes from the caller on a recorded line.
+  const mayText =
+    consented &&
+    (channel !== "web_chat" || (await allowChatSms(client.id, customerPhone, "booking_confirmation")));
+  if (consented && !mayText) {
+    logger.warn("agent-tools.book.chat_sms_capped", { clientId: client.id, appointmentId: appt.id });
+  }
+
   // The deposit goes out while they still have the appointment in mind. Asked
   // for three days later it just gets ignored.
   after(() =>
@@ -246,7 +261,7 @@ export async function POST(req: Request): Promise<Response> {
       client,
       appointment: appt,
       serviceDepositCents: service.depositCents,
-      smsConsent: consented,
+      smsConsent: mayText,
     }),
   );
 
@@ -267,7 +282,6 @@ export async function POST(req: Request): Promise<Response> {
   // The confirmation text the caller was asked about, and agreed to, moments
   // ago. Until now the agent asked, they said yes, and nothing was ever sent.
   // Sent inline so it lands while they're still holding the phone.
-  const consented = args.sms_consent === true || String(args.sms_consent) === "true";
   if (consented) {
     // The receipt the privacy policy promises: who said yes, when, on which
     // call, to which version of the ask. Until now the yes lived for
@@ -276,6 +290,8 @@ export async function POST(req: Request): Promise<Response> {
     after(() =>
       recordSmsConsent({ clientId: client.id, phone: customerPhone, callId: callRow?.id }),
     );
+  }
+  if (mayText) {
     after(() =>
       sendBookingConfirmation(client, appt, service.name).catch((err) =>
         logger.error("agent-tools.book.confirmation_failed", {

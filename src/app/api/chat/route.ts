@@ -8,6 +8,7 @@ import { agentToolUrl } from "@/lib/retell";
 import { CHAT_SIGNATURE_HEADER, signChatToolRequest } from "@/lib/agent-tool-token";
 import { CHAT_MODEL, getAnthropic } from "@/lib/agents/anthropic";
 import { consumeAttempt } from "@/lib/rate-limit";
+import { allowChatTurn } from "@/lib/data/chat-limits";
 import { chatChannelPreamble, chatGreeting, nowLine } from "@/lib/chat/prompt";
 import { chatTools } from "@/lib/chat/tools";
 import { MAX_TOOL_ROUNDS, corsHeaders, sanitizeTurns, type ChatTurn } from "@/lib/chat/session";
@@ -35,7 +36,19 @@ export const maxDuration = 60;
  * Nothing here is a second copy of booking logic.
  */
 
-const RATE_LIMIT_PER_10_MIN = 40;
+/**
+ * Layered caps. The per-IP ones are in-memory (per warm instance) and only
+ * slow a single scripted visitor; the per-business daily cap and the customer
+ * text caps (src/lib/data/chat-limits.ts) live in Postgres and hold across
+ * instances and IPs.
+ */
+const RATE_LIMIT_PER_10_MIN = 20;
+const RATE_LIMIT_PER_IP_PER_CLIENT_PER_DAY = 80;
+/** Tools that write something or notify someone: book, cancel, message, waitlist. */
+const SIDE_EFFECT_TOOLS = new Set(["book", "cancel", "message", "waitlist"]);
+const SIDE_EFFECTS_PER_IP_PER_HOUR = 6;
+/** Businesses whose chat stays up. Paused (e.g. lapsed trial) and churned don't. */
+const CHAT_STATUSES = new Set(["draft", "trial", "live"]);
 
 function ip(req: Request): string {
   return (
@@ -69,7 +82,10 @@ export async function POST(req: Request): Promise<Response> {
   if (!/^[0-9a-f-]{36}$/i.test(clientId)) return json({ error: "Bad request" }, 400);
 
   const client = await getClientForChat(clientId);
-  if (!client) return json({ error: "Chat isn't available for this business." }, 404);
+  if (!client || !CHAT_STATUSES.has(client.status)) {
+    return json({ error: "Chat isn't available for this business." }, 404);
+  }
+  const visitor = ip(req);
 
   const anthropic = getAnthropic();
   if (!anthropic) {
@@ -87,6 +103,14 @@ export async function POST(req: Request): Promise<Response> {
       // The widget titles itself from this so the embed needs nothing but an id.
       business: { name: client.name, agent: agentName },
     });
+  }
+
+  // Only turns that reach the model count — the opening line above is free.
+  if (!consumeAttempt(`chat:${visitor}:${client.id}`, RATE_LIMIT_PER_IP_PER_CLIENT_PER_DAY, 24 * 3600_000).ok) {
+    return json({ error: "Too many messages today — please call the business instead." }, 429);
+  }
+  if (!(await allowChatTurn(client.id))) {
+    return json({ error: "Chat is busy right now — please call the business instead." }, 429);
   }
 
   const system =
@@ -132,7 +156,7 @@ export async function POST(req: Request): Promise<Response> {
         if (!tool) {
           output = JSON.stringify({ error: "Unknown tool" });
         } else {
-          output = await callTool(tool.path, client.id, use.input);
+          output = await callTool(tool.path, client.id, use.input, visitor);
         }
         results.push({ type: "tool_result", tool_use_id: use.id, content: output });
       }
@@ -158,7 +182,17 @@ export async function POST(req: Request): Promise<Response> {
  * is down becomes a sentence the receptionist can work with, not a 500 the
  * visitor stares at.
  */
-async function callTool(path: string, clientId: string, args: unknown): Promise<string> {
+async function callTool(path: string, clientId: string, args: unknown, visitor: string): Promise<string> {
+  if (
+    SIDE_EFFECT_TOOLS.has(path) &&
+    !consumeAttempt(`chat-actions:${visitor}:${clientId}`, SIDE_EFFECTS_PER_IP_PER_HOUR, 60 * 60_000).ok
+  ) {
+    logger.warn("chat.side_effect_limit", { clientId, path });
+    return JSON.stringify({
+      error:
+        "Limit reached for this chat. Don't retry. Apologize and ask them to call the business directly.",
+    });
+  }
   try {
     const body = JSON.stringify({ args, call: { channel: "web_chat" } });
     const res = await fetch(agentToolUrl(env.APP_URL, path, clientId), {
