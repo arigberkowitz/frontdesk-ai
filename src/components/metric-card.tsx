@@ -96,6 +96,7 @@ export function MetricCard({ label, value, sub, hint, icon, href, breakdown, spa
       <Card
         className={cn(
           "fd-lift overflow-hidden hover:border-primary/40 hover:bg-muted/40",
+          size === "hero" && "fd-hero-tile",
           "focus-within:ring-2 focus-within:ring-ring",
           className,
         )}
@@ -107,5 +108,5 @@ export function MetricCard({ label, value, sub, hint, icon, href, breakdown, spa
     );
   }
 
-  return <Card className={cn("overflow-hidden", className)}>{body}</Card>;
+  return <Card className={cn("overflow-hidden", size === "hero" && "fd-hero-tile", className)}>{body}</Card>;
 }

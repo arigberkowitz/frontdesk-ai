@@ -9,7 +9,12 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-fraunces);
+  /* --font-display is only set inside the portal skin; everywhere else headings stay Fraunces. */
+  --font-heading: var(--font-display, var(--font-fraunces));
+  /* Signature accent (portal "Signal" gradient ends) — usable as text-brand, from-brand, etc. */
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-brand-soft: var(--brand-soft);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -88,6 +93,28 @@
   --sidebar-accent-foreground: oklch(0.21 0.02 277);
   --sidebar-border: oklch(0.918 0.008 277);
   --sidebar-ring: oklch(0.586 0.204 277);
+
+  /* Brand accent tokens. Outside the portal these match the old indigo. */
+  --brand: #4f46e5;
+  --brand-2: #0e7490;
+  --brand-soft: rgb(99 102 241 / 0.12);
+
+  /*
+   * Component tokens. The shared ui/* components read these. The defaults
+   * reproduce the previous look and the portal skin below overrides them, so
+   * marketing and the operator dashboard keep their current appearance.
+   */
+  --card-ring: color-mix(in oklab, var(--foreground) 10%, transparent);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 10px 30px -14px rgb(0 0 0 / 0.12);
+  --card-shadow-hover: 0 10px 28px rgb(0 0 0 / 0.08);
+  --primary-image: none;
+  --primary-shadow: 0 0 #0000;
+  --primary-shadow-hover: 0 0 #0000;
+  --focus-glow: 0 0 #0000;
+  --input-bg: transparent;
+  --overlay-shadow: 0 0 #0000;
+  --scrim: rgb(0 0 0 / 0.1);
+  --lift: 0px;
 }
 
 .dark {
@@ -122,6 +149,9 @@
   --sidebar-accent-foreground: oklch(0.985 0.002 277);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.65 0.18 277);
+  --brand: #a5b4fc;
+  --brand-2: #67e8f9;
+  --brand-soft: rgb(129 140 248 / 0.16);
 }
 
 @layer base {
@@ -395,4 +425,338 @@ summary:focus-visible {
   outline: 2px solid var(--color-ring);
   outline-offset: 2px;
   border-radius: 0.75rem;
+}
+
+/* ============================================================================
+ * PORTAL SKIN — "Signal" (light, bright, clean)
+ *
+ * The customer portal marks its root with [data-fd-app]. `html:has(...)` puts
+ * these tokens on <html>, so dialogs, toasts and menus that portal into <body>
+ * pick them up too. Light only: `:not(.dark)` leaves the existing dark mode
+ * exactly as it was. Nothing here applies to marketing or the operator app.
+ *
+ * Palette
+ *   Ink          #0E1024  body text            (17.4:1 on the page)
+ *   Slate        #5B6078  secondary text       (5.7:1 on the page, 6.2:1 on white)
+ *   Mist         #F5F6FB  page background
+ *   Cloud        #EEF0F7  muted fills
+ *   Hairline     #E3E5EF  borders
+ *   Signal Violet #6A3DF5 accent / primary    (white text 5.8:1)
+ *   Deep Cyan    #0E7490  gradient end        (white text 5.4:1)
+ *   Glow Cyan    #22D3EE  decoration only — never behind or as text
+ * ========================================================================== */
+html:not(.dark):has([data-fd-app]) {
+  --font-display: var(--font-sora);
+
+  --background: #f5f6fb;
+  --foreground: #0e1024;
+  --card: rgb(255 255 255 / 0.82);
+  --card-foreground: #0e1024;
+  --popover: rgb(255 255 255 / 0.94);
+  --popover-foreground: #0e1024;
+  --primary: #6a3df5;
+  --primary-foreground: #ffffff;
+  --secondary: #eef0f7;
+  --secondary-foreground: #1b1e3a;
+  --muted: #eef0f7;
+  --muted-foreground: #5b6078;
+  --accent: #f1edff;
+  --accent-foreground: #4a2fd6;
+  --destructive: #d92d20;
+  --border: #e3e5ef;
+  --input: #d6d9e7;
+  --ring: #7c5cff;
+  --chart-1: #6a3df5;
+  --chart-2: #10b981;
+  --chart-3: #0891b2;
+  --chart-4: #f59e0b;
+  --chart-5: #8b90a8;
+  --radius: 0.75rem;
+  --sidebar: transparent;
+  --sidebar-foreground: #0e1024;
+  --sidebar-primary: #6a3df5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1edff;
+  --sidebar-accent-foreground: #4a2fd6;
+  --sidebar-border: #e3e5ef;
+  --sidebar-ring: #7c5cff;
+
+  --brand: #5b3df5;
+  --brand-2: #0e7490;
+  --brand-soft: #f1edff;
+  --brand-glow: #22d3ee;
+  --signal: linear-gradient(115deg, #6a3df5 0%, #4b56e0 45%, #0e7490 100%);
+  --signal-bright: linear-gradient(90deg, #7c5cff, #22d3ee);
+
+  --card-ring: rgb(35 40 90 / 0.09);
+  --card-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 1px 1px rgb(14 16 36 / 0.03),
+    0 1px 3px rgb(14 16 36 / 0.04),
+    0 14px 34px -20px rgb(76 58 200 / 0.22);
+  --card-shadow-hover:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 0 0 1px rgb(124 92 255 / 0.18),
+    0 1px 3px rgb(14 16 36 / 0.05),
+    0 22px 44px -22px rgb(106 61 245 / 0.38),
+    0 8px 22px -16px rgb(14 116 144 / 0.25);
+  --primary-image: var(--signal);
+  --primary-shadow: 0 1px 0 rgb(255 255 255 / 0.25) inset, 0 6px 16px -6px rgb(106 61 245 / 0.55);
+  --primary-shadow-hover: 0 1px 0 rgb(255 255 255 / 0.25) inset, 0 10px 24px -8px rgb(106 61 245 / 0.6), 0 4px 14px -6px rgb(14 116 144 / 0.35);
+  --focus-glow: 0 0 22px -2px rgb(124 92 255 / 0.45);
+  --input-bg: #ffffff;
+  --overlay-shadow: 0 30px 80px -24px rgb(40 30 120 / 0.35), 0 8px 24px -12px rgb(14 16 36 / 0.18);
+  --scrim: rgb(14 16 36 / 0.22);
+  --lift: -1px;
+}
+
+/* Ambient light: two very soft washes of the accent behind everything, so the
+   frosted cards have something to frost. Fixed, so it never scrolls into
+   stripes on long pages. */
+html:not(.dark):has([data-fd-app]) body {
+  background:
+    radial-gradient(52rem 30rem at 105% -8%, rgb(124 92 255 / 0.1), transparent 62%),
+    radial-gradient(44rem 28rem at -12% 18%, rgb(34 211 238 / 0.08), transparent 60%),
+    #f5f6fb;
+  background-attachment: fixed;
+}
+html:not(.dark):has([data-fd-app]) ::selection {
+  background: rgb(124 92 255 / 0.2);
+}
+
+/* Frosted glass on the surfaces that float. */
+html:not(.dark):has([data-fd-app]) :is([data-slot="card"], [data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="select-content"], [data-slot="sheet-content"], .fd-glass) {
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+
+/* Headings: Sora, tighter tracking, tabular figures for any numbers inside. */
+html:not(.dark):has([data-fd-app]) .font-heading {
+  letter-spacing: -0.02em;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Section labels pick up a hint of the accent. */
+html:not(.dark):has([data-fd-app]) .fd-section-label {
+  letter-spacing: 0.08em;
+}
+
+/* Lift for interactive cards reads the colored hover shadow. */
+html:not(.dark):has([data-fd-app]) .fd-lift:hover {
+  box-shadow: var(--card-shadow-hover);
+  border-color: rgb(106 61 245 / 0.28);
+}
+
+/* Native <details>/<summary> panels (Overview "Reports & trends", call rows)
+   share the card treatment. */
+html:not(.dark):has([data-fd-app]) details.bg-card {
+  box-shadow: var(--card-shadow);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+
+/* ---- Header: frosted bar with a thin Signal hairline that slowly breathes. */
+html:not(.dark):has([data-fd-app]) .fd-header {
+  background: rgb(255 255 255 / 0.72);
+  border-bottom-color: transparent;
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.6);
+}
+html:not(.dark):has([data-fd-app]) .fd-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, rgb(124 92 255 / 0.55) 22%, rgb(34 211 238 / 0.55) 55%, rgb(227 229 239) 80%, rgb(227 229 239) 100%);
+  background-size: 200% 100%;
+  animation: fd-signal-drift 14s ease-in-out infinite alternate;
+}
+@keyframes fd-signal-drift {
+  from { background-position: 0% 0; }
+  to { background-position: 100% 0; }
+}
+
+/* Brand mark in the header gets a soft glow. */
+html:not(.dark):has([data-fd-app]) .fd-mark {
+  box-shadow: 0 6px 18px -6px rgb(106 61 245 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.4) inset;
+}
+
+/* ---- Page title: a short Signal bar above every portal page title. */
+html:not(.dark):has([data-fd-app]) [data-slot="page-title"]::before {
+  content: "";
+  display: block;
+  width: 2rem;
+  height: 3px;
+  margin-bottom: 0.625rem;
+  border-radius: 9999px;
+  background: var(--signal-bright);
+}
+
+/* ---- Overview hero panel ------------------------------------------------
+ * Layered glass with a luminous Signal edge, a slowly drifting aurora mesh
+ * and a fine grid with a soft light sweep. All decoration sits on the right
+ * so the greeting and numbers stay on near-white (AA holds everywhere).
+ * Outside the light portal skin the decoration layers are simply hidden. */
+.fd-hero-mesh,
+.fd-hero-grid {
+  display: none;
+}
+html:not(.dark):has([data-fd-app]) .fd-hero-panel {
+  border-color: transparent;
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.94) 0%, rgb(255 255 255 / 0.78) 55%, rgb(247 245 255 / 0.7) 100%);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 30px 60px -34px rgb(106 61 245 / 0.4),
+    0 14px 34px -24px rgb(14 116 144 / 0.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+}
+html:not(.dark):has([data-fd-app]) .fd-hero-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(120deg, rgb(124 92 255 / 0.75), rgb(34 211 238 / 0.6) 35%, rgb(227 229 239 / 0.9) 62%, rgb(124 92 255 / 0.4));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+html:not(.dark):has([data-fd-app]) .fd-hero-mesh {
+  display: block;
+  position: absolute;
+  z-index: -1;
+  top: -55%;
+  right: -28%;
+  width: 90%;
+  aspect-ratio: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(closest-side at 35% 45%, rgb(124 92 255 / 0.32), transparent),
+    radial-gradient(closest-side at 68% 38%, rgb(34 211 238 / 0.3), transparent),
+    radial-gradient(closest-side at 52% 72%, rgb(99 102 241 / 0.2), transparent);
+  filter: blur(8px);
+  animation: fd-mesh-orbit 38s linear infinite;
+}
+@keyframes fd-mesh-orbit {
+  to { transform: rotate(360deg); }
+}
+html:not(.dark):has([data-fd-app]) .fd-hero-grid {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgb(106 61 245 / 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(106 61 245 / 0.08) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-position: -1px -1px;
+  -webkit-mask-image: radial-gradient(ellipse 55% 95% at 88% 10%, #000 15%, transparent 72%);
+  mask-image: radial-gradient(ellipse 55% 95% at 88% 10%, #000 15%, transparent 72%);
+  overflow: hidden;
+}
+/* A soft band of light that sweeps across the grid every few seconds. */
+html:not(.dark):has([data-fd-app]) .fd-hero-grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 35%, rgb(255 255 255 / 0.85) 50%, transparent 65%);
+  mix-blend-mode: soft-light;
+  transform: translateX(-100%);
+  animation: fd-grid-sweep 9s ease-in-out infinite;
+}
+@keyframes fd-grid-sweep {
+  0%, 30% { transform: translateX(-100%); }
+  70%, 100% { transform: translateX(100%); }
+}
+html:not(.dark):has([data-fd-app]) .fd-gradient-text {
+  background: var(--signal);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+html:not(.dark):has([data-fd-app]) .fd-hero-stat {
+  background: rgb(255 255 255 / 0.72);
+  border-color: rgb(35 40 90 / 0.09);
+  box-shadow: inset 0 1px 0 #fff, 0 8px 22px -18px rgb(76 58 200 / 0.4);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* ---- Lead stat tile: a hairline Signal edge on top. */
+html:not(.dark):has([data-fd-app]) [data-slot="card"].fd-hero-tile {
+  position: relative;
+}
+html:not(.dark):has([data-fd-app]) [data-slot="card"].fd-hero-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--signal-bright);
+  pointer-events: none;
+}
+
+/* ---- Sidebar active item: tinted pill + a glowing Signal tick. */
+html:not(.dark):has([data-fd-app]) .fd-nav-link[aria-current="page"] {
+  background: linear-gradient(90deg, rgb(124 92 255 / 0.14), rgb(34 211 238 / 0.06));
+  box-shadow: 0 0 0 1px rgb(106 61 245 / 0.12) inset, 0 6px 18px -12px rgb(106 61 245 / 0.6);
+}
+/* The tick sits on the rail edge, so only in the desktop sidebar. */
+html:not(.dark):has([data-fd-app]) nav[aria-label="Portal"] .fd-nav-link[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: -0.75rem;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #7c5cff, #22d3ee);
+  box-shadow: 0 0 10px rgb(124 92 255 / 0.7);
+}
+
+/* ---- Messages thread: a faintly cooler canvas so white incoming bubbles
+   stand off it; outgoing bubbles wear the Signal gradient. */
+html:not(.dark):has([data-fd-app]) .fd-thread {
+  background: linear-gradient(180deg, rgb(238 240 247 / 0.7), rgb(248 249 253 / 0.8));
+}
+html:not(.dark):has([data-fd-app]) .fd-bubble-out {
+  background: var(--signal);
+  color: #fff;
+  box-shadow: 0 8px 20px -12px rgb(106 61 245 / 0.7);
+}
+html:not(.dark):has([data-fd-app]) .fd-bubble-in {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px var(--border) inset, 0 4px 14px -10px rgb(14 16 36 / 0.25);
+}
+
+/* ---- Toasts (sonner) match the glass surfaces. */
+html:not(.dark):has([data-fd-app]) [data-sonner-toast].cn-toast {
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: var(--overlay-shadow);
+}
+
+/* ---- Keyboard focus: always a visible ring, plus a soft glow. */
+html:not(.dark):has([data-fd-app]) :is(a, summary, [role="tab"], [role="button"]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  box-shadow: var(--focus-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not(.dark):has([data-fd-app]) .fd-header::after,
+  html:not(.dark):has([data-fd-app]) .fd-hero-mesh,
+  html:not(.dark):has([data-fd-app]) .fd-hero-grid::after {
+    animation: none;
+  }
+  html:not(.dark):has([data-fd-app]) * {
+    --lift: 0px;
+  }
 }

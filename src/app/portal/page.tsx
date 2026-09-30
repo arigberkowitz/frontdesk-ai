@@ -14,7 +14,8 @@ import { failedTextsSince } from "@/lib/data/reminders";
 import { getTrialState } from "@/lib/data/trial";
 import { listProviders } from "@/lib/data/providers";
 import { countUnreadMessages } from "@/lib/data/sms-messages";
-import { PageHeader } from "@/components/page-header";
+import { currentUser } from "@clerk/nextjs/server";
+import { PortalHero } from "@/components/portal/portal-hero";
 import { MetricCard } from "@/components/metric-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { CallActivity } from "@/components/portal/call-activity";
@@ -30,9 +31,10 @@ import { AiLearnings } from "@/components/portal/ai-learnings";
 import { CopilotChat } from "@/components/portal/copilot-chat";
 import { LiveAlerts } from "@/components/portal/live-alerts";
 import { Milestones } from "@/components/portal/milestones";
-import { formatCurrencyCents, formatDateTime } from "@/lib/format";
+import { formatCurrencyCents, formatDateTime, formatPhone } from "@/lib/format";
 import { weekOverWeek } from "@/lib/trend";
 import { capVocab, vocabFor } from "@/lib/vocab";
+import { countOnDay, greetingForHour, heroStatus, hourInZone } from "@/lib/portal-hero";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -42,7 +44,7 @@ export default async function PortalOverviewPage({
   searchParams: Promise<{ onboarded?: string }>;
 }) {
   const { onboarded } = await searchParams;
-  const { clientId } = await resolvePortalClient();
+  const { clientId, preview } = await resolvePortalClient();
   const [client, m, appts, callsList, followUps, roi, setup, recap, activity, learnings, team, health, failedTexts, trial, unreadMessages, editAccess] =
     await Promise.all([
       getClientByIdUnsafe(clientId),
@@ -63,6 +65,8 @@ export default async function PortalOverviewPage({
       countUnreadMessages(clientId),
       getPortalEditAccess(clientId),
     ]);
+  // First name for the greeting — never the operator's own name in a preview.
+  const me = preview ? null : await currentUser().catch(() => null);
   const tz = client?.timezone;
   const v = vocabFor(client?.industry);
   const showTeamNudge = Boolean(client?.staffModeEnabled) && team.length === 0;
@@ -137,6 +141,32 @@ export default async function PortalOverviewPage({
   // Things that want a decision from the owner, gathered in one place instead
   // of scattered between the numbers and the charts. Call health joins them
   // only when there's actually a call that went wrong.
+  // Hero: greeting in the business's own time of day, receptionist status and
+  // today's numbers — all from data loaded above.
+  const now = new Date();
+  const greeting = greetingForHour(hourInZone(now, tz));
+  const heroName = me?.firstName || client?.name || null;
+  const aiLive = setup.steps.find((s) => s.key === "live")?.done ?? false;
+  const status = heroStatus({
+    clientStatus: client?.status,
+    aiLive,
+    setupDone: setup.doneCount,
+    setupTotal: setup.total,
+  });
+  const statusDetail =
+    status.tone === "live" && client?.retellPhoneNumber
+      ? `answering ${formatPhone(client.retellPhoneNumber)}`
+      : null;
+  const heroStats = [
+    { label: "Calls today", value: countOnDay(callsList.map((c) => c.startAt), now, tz), href: "/portal/calls" },
+    {
+      label: `${capVocab(v.appointments)} today`,
+      value: countOnDay(activeAppts.map((a) => a.startAt), now, tz),
+      href: "/portal/appointments",
+    },
+    { label: unreadMessages === 1 ? "Unread text" : "Unread texts", value: unreadMessages, href: "/portal/messages" },
+  ];
+
   const healthNeedsYou = m.totalCalls > 0 && health.needsAttention.length > 0;
   const hasAttention =
     m.newLeads > 0 ||
@@ -167,12 +197,18 @@ export default async function PortalOverviewPage({
   return (
     <div className="space-y-8">
       <div className="space-y-4">
-        <PageHeader
-          title="Overview"
+        <PortalHero
+          greeting={greeting}
+          name={heroName}
           description="What your AI receptionist caught for you. Tap any number for the details."
+          status={status}
+          statusDetail={statusDetail}
+          stats={heroStats}
+          appointmentsLabel={capVocab(v.appointments)}
+          unreadMessages={unreadMessages}
         >
           <LiveAlerts />
-        </PageHeader>
+        </PortalHero>
 
         <TrialBanner state={trial} />
 

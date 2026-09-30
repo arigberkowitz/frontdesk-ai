@@ -21,7 +21,7 @@ export default async function PortalLayout({ children }: { children: React.React
   const showTeam = Boolean(client && (client.staffModeEnabled || client.companySize !== "solo"));
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div data-fd-app="portal" className="flex min-h-screen flex-col">
       {preview ? (
         <div className="flex items-center justify-between gap-3 border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-sm text-amber-800 dark:text-amber-300 sm:px-6">
           <span>
@@ -37,9 +37,9 @@ export default async function PortalLayout({ children }: { children: React.React
           </Link>
         </div>
       ) : null}
-      <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur sm:px-6">
+      <header className="fd-header sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur sm:px-6">
         <div
-          className="flex size-8 items-center justify-center rounded-lg text-white"
+          className="fd-mark flex size-8 items-center justify-center rounded-lg text-white"
           style={{ background: "linear-gradient(135deg,#6366f1,#10b981)" }}
         >
           <Phone className="size-4" />
@@ -48,7 +48,7 @@ export default async function PortalLayout({ children }: { children: React.React
           <p className="truncate font-heading text-sm font-semibold leading-tight">
             {client?.name ?? "Your business"}
           </p>
-          <p className="text-xs text-muted-foreground leading-tight">FrontDesk AI</p>
+          <p className="text-xs font-medium tracking-wide text-muted-foreground leading-tight">FrontDesk AI</p>
         </div>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <CommandPalette portal />
@@ -59,7 +59,7 @@ export default async function PortalLayout({ children }: { children: React.React
       <LiveCallStrip clientId={clientId} />
       <div className="flex flex-1">
         {/* Desktop: grouped left rail. Phones use the bottom tab bar below. */}
-        <aside className="hidden w-56 shrink-0 border-r md:block">
+        <aside className="hidden w-60 shrink-0 border-r border-border/70 bg-card/40 md:block">
           <div className="sticky top-16 max-h-[calc(100vh-4rem)] overflow-y-auto px-3 py-6">
             <PortalSidebar showTeam={showTeam} unreadMessages={unreadMessages} />
           </div>
@@ -72,7 +72,7 @@ export default async function PortalLayout({ children }: { children: React.React
       {client?.chatWidgetEnabled ? (
         <ChatBubble clientId={clientId} appUrl={env.APP_URL.replace(/\/$/, "")} />
       ) : null}
-      <footer className="border-t px-4 py-4 text-center text-xs text-muted-foreground sm:px-6">
+      <footer className="border-t border-border/70 px-4 py-4 text-center text-xs text-muted-foreground sm:px-6">
         FrontDesk AI ·{" "}
         <Link
           href="/terms"

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Fraunces } from "next/font/google";
+import { Geist, Geist_Mono, Fraunces, Sora } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -23,6 +23,16 @@ const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
   axes: ["opsz"],
+});
+
+// Geometric display face for the customer portal (headings + big numbers).
+// Wired up only inside the portal skin (see globals.css `--font-display`);
+// marketing pages keep Fraunces. Sora ships tabular figures for stat tiles.
+const sora = Sora({
+  variable: "--font-sora",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 const SITE_URL = process.env.APP_URL || "https://frontdesk-ai-alpha.vercel.app";
@@ -65,7 +75,7 @@ export default function RootLayout({
       <html
         lang="en"
         suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} ${sora.variable} h-full antialiased`}
       >
         <body className="min-h-full flex flex-col">
           <ThemeProvider>
