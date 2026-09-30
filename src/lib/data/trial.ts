@@ -59,7 +59,7 @@ export async function getTrialState(clientId: string): Promise<TrialState> {
  *
  * True while a free trial is running, for a comped business, and for anyone
  * with a live subscription. An *expired* trial is deliberately not enough:
- * otherwise the twenty-one days are decorative.
+ * otherwise the fourteen days are decorative.
  *
  * Note what this does NOT do — it doesn't take an already-answering phone line
  * away. A business whose trial lapses keeps answering its calls; it just can't
