@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { PROTECTED_ROUTE_PATTERNS } from "@/lib/route-access";
 
 /**
  * The old Vercel alias served a byte-identical copy of every legal page. TCR
@@ -59,6 +60,13 @@ const isMachineRoute = createRouteMatcher([
   "/api/chat",
 ]);
 
+/**
+ * The app's own areas (see src/lib/route-access.ts). Only these are gated, so a
+ * URL that isn't an app area — including one that doesn't exist — reaches
+ * Next and gets the real 404 page instead of a sign-in redirect.
+ */
+const isProtectedRoute = createRouteMatcher([...PROTECTED_ROUTE_PATTERNS]);
+
 export default clerkMiddleware(async (auth, req) => {
   // Before any auth work: one canonical home for the site. Both hosts are
   // literals rather than env-derived — APP_URL falls back to Vercel's injected
@@ -79,7 +87,7 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(to, 308);
   }
 
-  if (!isPublicRoute(req)) {
+  if (isProtectedRoute(req) && !isPublicRoute(req)) {
     // Send unauthenticated visitors to our own /sign-in page (the custom animated
     // flow) instead of Clerk's hosted Account Portal.
     await auth.protect({
