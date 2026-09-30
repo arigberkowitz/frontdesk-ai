@@ -2,7 +2,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getClient, updateClient } from "@/lib/data/clients";
 import { createAgentVersion } from "@/lib/data/agent-versions";
-import { defaultGreeting, DEFAULT_AGENT_NAME, openHoursSummary } from "@/lib/prompt";
+import { DEFAULT_AGENT_NAME, openHoursSummary, openingLine } from "@/lib/prompt";
 import { buildPromptForClient } from "@/lib/agent-publish";
 import { provisionAgentForClient } from "@/lib/retell";
 import { env, integrations, webhookUrl } from "@/lib/env";
@@ -30,7 +30,8 @@ export async function runProvision(
   try {
     const agentName = client.agentName?.trim() || DEFAULT_AGENT_NAME;
     const prompt = buildPromptForClient(client);
-    const greeting = client.greeting?.trim() || defaultGreeting({ name: client.name }, agentName);
+    // Greeting + enforced AI/recording disclosure (see openingLine).
+    const greeting = openingLine({ ...client, agentName });
     const boosted = [client.name, ...client.services.filter((s) => s.isActive).map((s) => s.name)]
       .map((s) => s.trim())
       .filter(Boolean);

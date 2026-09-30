@@ -5,8 +5,9 @@ import { getBookingProviderForClient } from "@/lib/booking";
 import {
   buildGeneralPrompt,
   DEFAULT_AGENT_NAME,
-  defaultGreeting,
   openHoursSummary,
+  openingLine,
+  withRequiredDisclosure,
 } from "@/lib/prompt";
 import { buildAgentTools, getRetellClient } from "@/lib/retell";
 import { env, integrations } from "@/lib/env";
@@ -78,7 +79,10 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
   if (client.status === "paused") {
     await getRetellClient().llm.update(client.retellLlmId, {
       general_prompt: `You are the answering service for ${client.name}. The business has TEMPORARILY TURNED OFF its automated receptionist. Apologize briefly, say the team will call back, and take a message: ask for the caller's name, then their phone number (one question at a time, read the number back), then a one-sentence reason for the call. Do not answer questions about prices, hours, or services. Do not book appointments. Keep the whole call under a minute.`,
-      begin_message: `Thanks for calling ${client.name}. Our automated assistant is off right now, but I can take a quick message so the team calls you back.`,
+      begin_message: withRequiredDisclosure(
+        `Thanks for calling ${client.name}. I'm an AI assistant taking messages right now, so the team can call you back.`,
+        { businessName: client.name, recording: client.recordingDisclosureEnabled },
+      ),
       // Message-taking only: strip the booking/cancel tools so a paused
       // business can't get a real booking row from an LLM that ignores the
       // prompt — keep take_message and the human-transfer path.
@@ -99,9 +103,9 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
 
   await getRetellClient().llm.update(client.retellLlmId, {
     general_prompt: buildPromptForClient(client),
-    begin_message:
-      client.greeting?.trim() ||
-      defaultGreeting({ name: client.name }, client.agentName?.trim() || DEFAULT_AGENT_NAME),
+    // The greeting with the AI/recording disclosure enforced — a custom
+    // greeting can add to it but can't drop it.
+    begin_message: openingLine(client),
     // Rebuild tools too: an escalation-number change swaps between the native
     // transfer tool and the message-taking fallback — without this, the live
     // agent keeps the old transfer behavior until a full re-provision.

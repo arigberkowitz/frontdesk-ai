@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DemoCall } from "@/components/demo-call";
+import { TrustSection } from "@/components/landing/trust-section";
 import { planList, minutesLabel } from "@/config/plans";
 import { formatCurrencyCents, formatPhone } from "@/lib/format";
 import { env } from "@/lib/env";
@@ -267,6 +268,8 @@ export function LandingPage() {
           </div>
         </section>
 
+        <TrustSection demoPhone={env.DEMO_PHONE_NUMBER} />
+
         <section id="pricing" className="border-t bg-card/40">
           <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
             <div className="text-center">
@@ -324,7 +327,7 @@ export function LandingPage() {
                         $1,500 of it against a checkout that no visitor could
                         even reach. */}
                     <p className="mt-1.5 text-sm text-muted-foreground">
-                      No setup fee · 3 weeks free
+                      No setup fee · 2 weeks free
                     </p>
                     {/* Volume, and the flat-rate promise. Every AI receptionist
                         priced near this one meters minutes and bills the

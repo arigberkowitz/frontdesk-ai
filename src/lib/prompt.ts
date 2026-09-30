@@ -155,6 +155,75 @@ export function defaultGreeting(client: { name: string }, agentName = DEFAULT_AG
   return `Hi, thanks for calling ${client.name}! This is ${agentName}, the AI assistant. How can I help you today?`;
 }
 
+/**
+ * The opening line the caller actually hears, with the AI (and, when enabled,
+ * recording) disclosure GUARANTEED.
+ *
+ * The disclosure used to be a prompt instruction ("naturally disclose…"),
+ * which a model can skip, and a business could replace the greeting with one
+ * that never mentions AI. Now it's enforced in the text we hand Retell as
+ * `begin_message`: if the greeting doesn't already clearly say the caller is
+ * talking to an AI (and that the call may be recorded), we prepend a short
+ * fixed sentence that does. A custom greeting can add to it but can't remove
+ * it. AI disclosure is unconditional; the recording notice follows
+ * `recordingDisclosureEnabled` (default on, operator-only toggle).
+ *
+ * Pure so it can be tested; every place that sets begin_message goes through it.
+ */
+const AI_DISCLOSURE_RE =
+  /\b(AI|A\.I\.)\s+(assistant|receptionist|agent|voice|answering)|\bartificial intelligence\b|\bvirtual (assistant|receptionist)\b|\bautomated (assistant|receptionist)\b/i;
+const AI_DENIAL_RE = /\bnot (an? )?(AI|A\.I\.|robot|bot|automated)\b|\breal (person|human)\b|\bI'?m (a )?human\b/i;
+const RECORDING_RE = /\b(may|might|will|are|is)\s+(be\s+|being\s+)?recorded\b|\brecorded (line|call)\b/i;
+
+export function hasAiDisclosure(text: string): boolean {
+  return AI_DISCLOSURE_RE.test(text) && !AI_DENIAL_RE.test(text);
+}
+
+export function hasRecordingNotice(text: string): boolean {
+  return RECORDING_RE.test(text);
+}
+
+export function withRequiredDisclosure(
+  greeting: string,
+  opts: { businessName: string; recording: boolean; customLine?: string | null },
+): string {
+  const base = greeting.trim();
+  let prefix = "";
+  const custom = opts.customLine?.trim();
+  if (custom && (!hasAiDisclosure(base) || (opts.recording && !hasRecordingNotice(base)))) {
+    prefix = custom;
+  }
+  const soFar = `${prefix} ${base}`;
+  const needAi = !hasAiDisclosure(soFar);
+  const needRec = opts.recording && !hasRecordingNotice(soFar);
+  const fixed =
+    needAi && needRec
+      ? `Hi, you've reached the AI assistant for ${opts.businessName}, and this call may be recorded.`
+      : needAi
+        ? `Hi, you've reached the AI assistant for ${opts.businessName}.`
+        : needRec
+          ? "Just so you know, this call may be recorded."
+          : "";
+  return [fixed, prefix, base].filter(Boolean).join(" ");
+}
+
+/** The begin_message for an inbound call: the business's greeting (or ours) plus the enforced disclosure. */
+export function openingLine(client: {
+  name: string;
+  greeting?: string | null;
+  agentName?: string | null;
+  recordingDisclosureEnabled: boolean;
+  recordingDisclosureLine?: string | null;
+}): string {
+  const greeting =
+    client.greeting?.trim() || defaultGreeting({ name: client.name }, client.agentName?.trim() || DEFAULT_AGENT_NAME);
+  return withRequiredDisclosure(greeting, {
+    businessName: client.name,
+    recording: client.recordingDisclosureEnabled,
+    customLine: client.recordingDisclosureEnabled ? client.recordingDisclosureLine : null,
+  });
+}
+
 export function resolveDisclosureLine(client: PromptClient): string | null {
   if (!client.recordingDisclosureEnabled) return null;
   const line = client.recordingDisclosureLine?.trim();
@@ -191,7 +260,9 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     client.answeringMode === "missed_only"
       ? "You answer the calls the team couldn't get to — the caller likely expected a person. Acknowledge that naturally (\"Sorry — everyone's helping other customers right now, but I can take care of you\") and never pretend to be human."
       : null,
-    disclosure ? `At the start of the call, naturally disclose: "${disclosure}"` : null,
+    // The opening line itself carries the disclosure (see openingLine), so the
+    // model's job is to never contradict it — not to remember to say it.
+    `Your opening line already told the caller you're an AI assistant for ${client.name}${disclosure ? " and that the call may be recorded" : ""}. If anyone asks whether you're a real person, say plainly that you're an AI assistant — never claim or imply you're human.`,
     guidance
       ? `Follow the "What ${client.name} wants you to say" section above EXACTLY — those instructions take priority over these rules wherever they conflict.`
       : null,

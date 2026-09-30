@@ -4,7 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { APP_NAME, APP_DESCRIPTION } from "@/config/app";
+import { APP_NAME, APP_DESCRIPTION, APP_TITLE } from "@/config/app";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,7 +29,7 @@ const SITE_URL = process.env.APP_URL || "https://frontdesk-ai-alpha.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: `${APP_NAME} — ${APP_DESCRIPTION}`, template: `%s · ${APP_NAME}` },
+  title: { default: APP_TITLE, template: `%s · ${APP_NAME}` },
   description: APP_DESCRIPTION,
   openGraph: {
     title: `${APP_NAME} — Never miss another call`,

@@ -3,6 +3,9 @@ import {
   buildGeneralPrompt,
   defaultGreeting,
   resolveDisclosureLine,
+  hasAiDisclosure,
+  hasRecordingNotice,
+  openingLine,
   DEFAULT_AGENT_NAME,
   type BuildPromptInput,
   type PromptClient,
@@ -136,5 +139,57 @@ describe("handoff mode", () => {
     expect(buildGeneralPrompt(input)).toContain(
       "use transfer_to_human to connect them to the team",
     );
+  });
+});
+
+describe("opening line disclosure (can't be removed by a custom greeting)", () => {
+  const base = {
+    name: "Bayside Plumbing",
+    recordingDisclosureEnabled: true,
+    recordingDisclosureLine: null,
+  };
+
+  it("default greeting says AI and gets the recording notice", () => {
+    const line = openingLine(base);
+    expect(hasAiDisclosure(line)).toBe(true);
+    expect(hasRecordingNotice(line)).toBe(true);
+  });
+
+  it("a custom greeting with no AI mention gets the disclosure prepended", () => {
+    const line = openingLine({ ...base, greeting: "Thanks for calling Bayside, how can I help?" });
+    expect(line.startsWith("Hi, you've reached the AI assistant for Bayside Plumbing, and this call may be recorded.")).toBe(true);
+    expect(line).toContain("Thanks for calling Bayside, how can I help?");
+  });
+
+  it("a greeting that denies being AI still gets the disclosure", () => {
+    const line = openingLine({ ...base, greeting: "Hi, I'm a real person, not an AI assistant!" });
+    expect(line).toMatch(/^Hi, you've reached the AI assistant/);
+  });
+
+  it("doesn't double up when the greeting already discloses both", () => {
+    const g = "Hi, you've reached Bayside's AI receptionist — this call may be recorded. How can I help?";
+    expect(openingLine({ ...base, greeting: g })).toBe(g);
+  });
+
+  it("AI disclosure stays even when the recording notice is turned off", () => {
+    const line = openingLine({ ...base, recordingDisclosureEnabled: false, greeting: "Bayside, how can I help?" });
+    expect(hasAiDisclosure(line)).toBe(true);
+    expect(hasRecordingNotice(line)).toBe(false);
+  });
+
+  it("uses the operator's custom disclosure line, and still enforces AI if it lacks it", () => {
+    const line = openingLine({
+      ...base,
+      greeting: "Bayside, how can I help?",
+      recordingDisclosureLine: "Calls are recorded for quality.",
+    });
+    expect(line).toBe("Hi, you've reached the AI assistant for Bayside Plumbing. Calls are recorded for quality. Bayside, how can I help?");
+    expect(hasAiDisclosure(line)).toBe(true);
+    expect(hasRecordingNotice(line)).toBe(true);
+  });
+
+  it("the prompt never tells the model to hide being an AI", () => {
+    const p = buildGeneralPrompt({ ...input, client: { ...client, recordingDisclosureEnabled: false } });
+    expect(p).toMatch(/never claim or imply you're human/);
   });
 });

@@ -7,6 +7,7 @@ import { assertClientInOrg, getClientByIdUnsafe } from "@/lib/data/clients";
 import { getClientLead } from "@/lib/data/leads";
 import { createReminder } from "@/lib/data/reminders";
 import { getRetellClient } from "@/lib/retell";
+import { withRequiredDisclosure } from "@/lib/prompt";
 import { planAccessFor, UPGRADE_MESSAGES } from "@/lib/plan-access";
 import { withinTextingHours } from "@/lib/appointment-messages";
 import { integrations } from "@/lib/env";
@@ -81,10 +82,14 @@ export async function callLeadWithAiAction(
   // having already said it's ringing them back, and behaves accordingly.
   const firstName = (lead.name ?? "").trim().split(/\s+/)[0];
   const about = lead.service?.trim() || lead.reason?.trim();
-  const beginMessage =
-    `Hi${firstName ? ` ${firstName}` : ""}, this is ${client.agentName?.trim() || "the assistant"} calling back from ${client.name}` +
-    (about ? ` about the ${about.toLowerCase()} you asked about` : " — you called us earlier") +
-    `. Is now an okay time?`;
+  // An AI placing a call to a consumer says so in its first sentence, and the
+  // recording notice rides along when enabled — same guarantee as inbound.
+  const beginMessage = withRequiredDisclosure(
+    `Hi${firstName ? ` ${firstName}` : ""}, this is ${client.agentName?.trim() || "the assistant"}, the AI assistant for ${client.name}, calling back` +
+      (about ? ` about the ${about.toLowerCase()} you asked about` : " — you called us earlier") +
+      `. Is now an okay time?`,
+    { businessName: client.name, recording: client.recordingDisclosureEnabled },
+  );
 
   try {
     const call = await getRetellClient().call.createPhoneCall({

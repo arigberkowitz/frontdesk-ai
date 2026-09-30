@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { createReminder } from "@/lib/data/reminders";
 import { isOptedOut } from "@/lib/data/sms-optouts";
+import { getConsentedPhones, isConsented } from "@/lib/data/sms-consents";
 import { clientsAlreadyRun, mapLimit, outOfBudget } from "./util";
 import { notifier } from "@/lib/notifier";
 import { logger } from "@/lib/logger";
@@ -196,8 +197,20 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
 
   let sent = 0;
   let notSent = 0;
+  let noConsent = 0;
+  // Consent gate: a lead who left a message, or a customer who no-showed, gets
+  // a follow-up text only if that number agreed to texts from this business
+  // (stored sms_consents row). Giving a callback number isn't agreement.
+  const [leadConsent, noShowConsent] = await Promise.all([
+    getConsentedPhones(client.id, "recovery_lead"),
+    getConsentedPhones(client.id, "recovery_no_show"),
+  ]);
   try {
     for (const t of touches) {
+      if (!isConsented(t.kind === "lead" ? leadConsent : noShowConsent, t.to)) {
+        noConsent += 1;
+        continue;
+      }
       // Hard compliance gate: STOP means never again, no matter the path.
       if (await isOptedOut(t.to)) continue;
       const result = await notifier.sendSms({ to: t.to, body: t.body });
@@ -238,7 +251,7 @@ export async function recoverClient(client: Client): Promise<RecoveryResult> {
         .set({
           status: "succeeded",
           finishedAt: new Date(),
-          stats: { attempted: touches.length, sent, notSent },
+          stats: { attempted: touches.length, sent, notSent, noConsent },
         })
         .where(eq(agentRuns.id, run.id));
     }
