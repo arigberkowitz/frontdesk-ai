@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DemoCall } from "@/components/demo-call";
+import { TrustSection } from "@/components/landing/trust-section";
 import { planList, minutesLabel } from "@/config/plans";
 import { formatCurrencyCents, formatPhone } from "@/lib/format";
 import { env } from "@/lib/env";
@@ -266,6 +267,8 @@ export function LandingPage() {
             </div>
           </div>
         </section>
+
+        <TrustSection demoPhone={env.DEMO_PHONE_NUMBER} />
 
         <section id="pricing" className="border-t bg-card/40">
           <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
