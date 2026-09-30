@@ -34,6 +34,13 @@ const isPublicRoute = createRouteMatcher([
   "/terms",
   "/privacy",
   "/sms-consent",
+  // Metadata routes (src/app/robots.ts, sitemap.ts, opengraph-image.tsx,
+  // apple-icon.tsx). Crawlers and link-preview bots have no session, so a
+  // sign-in redirect here hides the sitemap and breaks share cards.
+  "/robots.txt",
+  "/sitemap.xml",
+  "/opengraph-image(.*)",
+  "/apple-icon(.*)",
   // The one route a stranger takes to ask for a trial. Leaving it off this list
   // sent everyone who clicked "Ask us for a trial" to a sign-in wall — asking
   // people to create an account before they're allowed to ask a question.
