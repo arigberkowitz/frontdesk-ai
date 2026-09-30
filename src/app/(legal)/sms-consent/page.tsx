@@ -76,8 +76,8 @@ export default function SmsConsentPage() {
           </p>
           <p className="rounded-lg border bg-muted/40 p-4 italic">
             &ldquo;Hi Jamie, a friendly reminder of your Cleaning &amp; checkup appointment with
-            Bright Smile Dental on Tue, Aug 4 at 2:30 PM. Need to reschedule? Call (415) 555-0142.
-            Reply STOP to opt out.&rdquo;
+            Bright Smile Dental on Tue, Aug 4 at 2:30 PM. Need to reschedule? Give Bright Smile
+            Dental a call. Reply STOP to opt out.&rdquo;
           </p>
         </Section>
 
@@ -89,7 +89,7 @@ export default function SmsConsentPage() {
             messaging number, replying STOP stops texts sent through that number on behalf of{" "}
             <strong>any</strong> participating business, until you reply START. Reply{" "}
             <strong>START</strong> to re-subscribe. Reply <strong>HELP</strong> for help, or
-            contact the business directly at the number shown in the message.
+            contact the business directly.
           </p>
         </Section>
 

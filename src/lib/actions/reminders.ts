@@ -17,6 +17,7 @@ import {
 import { integrations } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { stripPhoneNumbers } from "@/lib/appointment-messages";
 import { type ActionState } from "./types";
 
 /**
@@ -51,14 +52,19 @@ export async function sendReminderAction(
   }
 
   const client = await getClientByIdUnsafe(clientId);
-  const business = client?.name ?? "your appointment";
+  const business = stripPhoneNumbers(client?.name) || "us";
   const when = formatDateTime(appt.startAt, client?.timezone ?? undefined);
-  const service = appt.service?.name ? `${appt.service.name} ` : "";
-  const callbackNumber = client?.escalationNumber?.trim();
+  // No phone number in appointment texts (see appointment-messages.ts). This
+  // used to append the business's escalation number — its transfer/alert line,
+  // often somebody's personal mobile.
+  const serviceName = stripPhoneNumbers(appt.service?.name);
+  const service = serviceName ? `${serviceName} ` : "";
+  const name = stripPhoneNumbers(appt.customerName);
   const body =
-    `Hi${appt.customerName ? ` ${appt.customerName}` : ""}, a friendly reminder of your ${service}appointment with ${business} on ${when}.` +
+    `Hi${name ? ` ${name}` : ""}, a friendly reminder of your ${service}appointment with ${business} on ${when}.` +
     (appt.meetingUrl ? ` Join by video: ${appt.meetingUrl}` : "") +
-    (callbackNumber ? ` Need to reschedule? Call ${callbackNumber}.` : "");
+    ` Need to reschedule? Give ${business} a call.` +
+    ` Reply STOP to opt out.`;
 
   // Outbound voice isn't wired up. This used to write a "sent" row anyway and
   // tell the owner the reminder went out, so the appointment history showed a

@@ -5,6 +5,7 @@ import {
   reminderText,
   withinTextingHours,
   type ReminderCandidate,
+  stripPhoneNumbers,
 } from "./appointment-messages";
 
 const HOUR = 3_600_000;
@@ -94,7 +95,6 @@ describe("what the texts say", () => {
       customerName: "Dana Reed",
       serviceName: "Consultation",
       when: "Aug 6, 2026, 2:00 PM",
-      callbackNumber: "(408) 832-9827",
     });
     expect(body).toContain("Hi Dana");
     expect(body).toContain("Lawyers for Justice");
@@ -128,5 +128,71 @@ describe("what the texts say", () => {
     const body = reminderText({ business: "Firm", customerName: "Sam", when: "tomorrow at 2" });
     expect(body).toContain("a reminder of your appointment");
     expect(body).toContain("Reply STOP to opt out.");
+  });
+
+  const PHONE = /\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}|\+\d{10,}/;
+
+  it("the booking confirmation never contains a phone number", () => {
+    const body = confirmationText({
+      business: "Lawyers for Justice",
+      customerName: "Ari",
+      serviceName: "standard appointment",
+      when: "Thu, Oct 1, 2026, 2:00 PM",
+      meetingUrl: "https://meet.example/abc",
+    });
+    expect(body).toBe(
+      "Hi Ari, you're booked with Lawyers for Justice — standard appointment on Thu, Oct 1, 2026, 2:00 PM." +
+        " Join by video: https://meet.example/abc" +
+        " Need to change it? Give Lawyers for Justice a call. Reply STOP to opt out.",
+    );
+    expect(body).not.toMatch(PHONE);
+  });
+
+  it("ignores a callback number even if a caller still passes one", () => {
+    const body = confirmationText({
+      business: "Lawyers for Justice",
+      customerName: "Ari",
+      when: "tomorrow at 2",
+      // Old call shape — must not leak into the text.
+      ...({ callbackNumber: "+14085551234" } as object),
+    });
+    expect(body).not.toContain("4085551234");
+    expect(body).not.toMatch(PHONE);
+    expect(body).toContain("Reply STOP to opt out.");
+  });
+
+  it("scrubs phone-like digits that arrive through name, service or business", () => {
+    const body = confirmationText({
+      business: "Lawyers for Justice 408-555-1234",
+      customerName: "4085551234",
+      serviceName: "Consult (call +1 408 555 1234)",
+      when: "Oct 1, 2026, 2:00 PM",
+    });
+    expect(body).not.toMatch(PHONE);
+    expect(body).not.toContain("555");
+    expect(body.startsWith("Hi, you're booked with Lawyers for Justice")).toBe(true);
+    expect(body).toContain("Oct 1, 2026, 2:00 PM");
+    expect(body).toContain("Reply STOP to opt out.");
+  });
+
+  it("the reminder never contains a phone number and keeps business + STOP", () => {
+    const body = reminderText({
+      business: "Lawyers for Justice",
+      customerName: "Ari",
+      when: "tomorrow at 2:00 PM",
+      ...({ callbackNumber: "(408) 832-9827" } as object),
+    });
+    expect(body).not.toMatch(PHONE);
+    expect(body).toContain("Lawyers for Justice");
+    expect(body).toContain("Reply STOP to opt out.");
+  });
+});
+
+describe("stripPhoneNumbers", () => {
+  it("removes numbers but leaves short digit runs like times and suites", () => {
+    expect(stripPhoneNumbers("Call (408) 832-9827 now")).toBe("Call now");
+    expect(stripPhoneNumbers("+1 408 832 9827")).toBe("");
+    expect(stripPhoneNumbers("Suite 200, 2:00 PM")).toBe("Suite 200, 2:00 PM");
+    expect(stripPhoneNumbers(null)).toBe("");
   });
 });
