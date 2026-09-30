@@ -4,6 +4,12 @@
  */
 export const APP_NAME = "FrontDesk AI";
 export const APP_TAGLINE = "Your phone, always answered.";
+/**
+ * The homepage <title>. Search results cut titles off around 60 characters;
+ * the old one (name + full description) was 118, so the part that said what
+ * this is got truncated. Keep this ≤ 60 (enforced by app.test.ts).
+ */
+export const APP_TITLE = `${APP_NAME} — AI Voice Receptionist for Local Businesses`;
 export const APP_DESCRIPTION =
   "AI voice receptionist for local service businesses — every call answered, booked, and captured 24/7.";
 

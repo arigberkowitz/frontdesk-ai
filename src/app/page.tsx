@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { getCurrentDbUser, operatorHomePath } from "@/lib/auth-guard";
+import type { Metadata } from "next";
 import { LandingPage } from "@/components/landing-page";
+
+// The legal pages declare a canonical; the homepage didn't. Relative to
+// metadataBase (APP_URL), so it resolves to the canonical host.
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 /**
  * Root entry. Public marketing landing for visitors; signed-in users are routed
