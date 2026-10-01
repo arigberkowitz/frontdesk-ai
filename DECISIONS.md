@@ -540,3 +540,54 @@ everything else). This change closes the gaps rather than adding a parallel syst
     out. The lead is still in the portal.
   - The call-problem alert for calls with no recap can still fire on both `call_ended` and
     `call_analyzed` (existing behaviour, unchanged here).
+
+## 2026-09-30 — Multilingual answering (caller's language, configurable list)
+
+- **Setting:** Settings → Phone & AI → Languages. The owner picks which language calls open in
+  (English or Spanish, the two greetings we've written) and up to 3 other languages the AI
+  switches to when a caller speaks them. The default is English only. It's stored in the
+  existing `clients.languages` text column (no migration):
+  - `en`, `en-es` and `es` keep their meaning and are still written for those shapes.
+  - Anything else is a comma list, primary first (`en,es,fr`). See `src/lib/languages.ts`.
+  - The old selector in General was removed so there's one place to set this.
+- **Choices offered:** the ten languages Retell's legacy "multi" setting covered (en, es, fr, pt,
+  de, it, ru, hi, ja, nl). That set is known to work together in Retell's multilingual speech
+  recognition. Retell supports many more locales, but each combination must be covered by the
+  voice and by one recognition provider. Add more only after a test call.
+- **Retell:**
+  - Agent `language` is now an explicit locale array for multilingual agents (`["en-US","es-ES"]`,
+    primary first, which is also Retell's pronunciation fallback), or one locale.
+  - The scalar `"multi"` we used to send is deprecated. Retell still accepts it but stores it as
+    all ten legacy locales, which is the least accurate setup.
+  - Any non-English agent also pins `voice_model: eleven_flash_v2_5`, because our voices are
+    ElevenLabs and the English-only models can't speak other languages. English-only agents
+    are left on Retell's default.
+  - Applied on provisioning and on every sync (`agentSpeechSettings`).
+- **Prompt:** new rules right after the precedence rule:
+  - Detect the caller's language and switch.
+  - On switching, the first sentence repeats the AI disclosure (and recording notice when it's
+    on) in that language. Spanish has a fixed sentence; other languages get a faithful
+    translation.
+  - Ask the texting-consent question in the caller's language. Spanish is fixed; other
+    languages are translated with STOP kept in English.
+  - Pass `language` when booking.
+  - Don't translate names.
+  - A Spanish-first business opens in Spanish: a Spanish default greeting, and a Spanish fixed
+    disclosure is enforced just like the English one (`withRequiredDisclosure(..., { language: "es" })`).
+  - `disclosureGiven` (call health) now recognises Spanish disclosures.
+- **Texts:**
+  - `book_appointment` gets an optional `language` param. It's stored per business and phone in
+    the new `customer_languages` table, and the latest call wins.
+  - Confirmation and reminder texts use Spanish templates when the customer's language is
+    Spanish, with a Spanish date format. STOP stays in English. Every other language falls
+    back to English.
+  - Reads and writes are fail-soft, so a missing table just means English texts.
+- **Consent receipts:** a yes given in Spanish is stored as `booking-v1-es` (and so on for other
+  languages), so the receipt says which language the ask was in. `CONSENT_COVERAGE` treats
+  translations of booking-v1 as the same consent.
+- **Migration:** `drizzle/manual/0012_customer_languages.sql` (new table only, idempotent).
+  It's numbered 0012 because the AI text replies PR uses 0010 and the missed-call PR uses 0011. Order between them doesn't
+  matter.
+- **Cost:** Retell documents no per-language surcharge, and we add none. The trade-off is
+  accuracy (the cross-language recognition pipeline is less precise than single-language) and a
+  slightly longer prompt.

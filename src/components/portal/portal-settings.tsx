@@ -27,7 +27,7 @@ function useSavedToast(state: ActionState, fallback: string) {
   }, [state, fallback]);
 }
 
-/** Name, timezone, languages. */
+/** Name and timezone. (Languages live in Settings → Phone & AI.) */
 export function BusinessDetailsForm({ client }: { client: Client }) {
   const [profile, profileAction, profilePending] = useActionState(
     savePortalProfileAction,
@@ -53,16 +53,6 @@ export function BusinessDetailsForm({ client }: { client: Client }) {
                   {t}
                 </option>
               ))}
-            </NativeSelect>
-          </Field>
-          <Field
-            label="Languages your AI speaks"
-            hint="Bilingual mode answers in English and switches to fluent Spanish the moment a caller speaks it — no extra staff, no extra cost."
-          >
-            <NativeSelect name="languages" defaultValue={client.languages}>
-              <option value="en">English only</option>
-              <option value="en-es">English + Spanish (bilingual)</option>
-              <option value="es">Spanish first</option>
             </NativeSelect>
           </Field>
           <div className="flex justify-end">

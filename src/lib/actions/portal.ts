@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { languagesFromForm, parseLanguages, serializeLanguages } from "@/lib/languages";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, users, type NewClient } from "@/db/schema";
@@ -53,9 +54,11 @@ export async function savePortalProfileAction(
     const tz = String(formData.get("timezone") ?? "").trim();
     if (tz) patch.timezone = tz;
   }
-  if (formData.has("languages")) {
-    const lang = String(formData.get("languages") ?? "");
-    patch.languages = ["en", "en-es", "es"].includes(lang) ? lang : "en";
+  if (formData.has("primaryLanguage")) {
+    // Settings → Phone & AI: the opening language plus any others the AI may switch to.
+    patch.languages = languagesFromForm(formData.get("primaryLanguage"), formData.getAll("extraLanguages"));
+  } else if (formData.has("languages")) {
+    patch.languages = serializeLanguages(parseLanguages(String(formData.get("languages") ?? "")));
   }
   if (formData.has("ownerEmail")) {
     const email = String(formData.get("ownerEmail") ?? "").trim();
