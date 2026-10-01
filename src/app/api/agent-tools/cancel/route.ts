@@ -48,11 +48,14 @@ export async function POST(req: Request): Promise<Response> {
   const { client, args, retellCallId, channel, call } = auth;
 
   let phone: string;
-  if (channel === "voice") {
+  if (channel === "voice" || channel === "sms") {
+    // AI text replies: a texted request from the same phone number is caller-ID
+    // verified, exactly like voice — the signed from_number is the
+    // Twilio-verified sender. There is no Retell call row to fall back to.
     const verified = await voiceCallerNumber(
       client.id,
       call.fromNumber,
-      retellCallId,
+      channel === "voice" ? retellCallId : undefined,
       String(args.phone ?? ""),
     );
     if (!verified.ok) return Response.json(verified.body);
@@ -68,7 +71,9 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({
       success: false,
       message:
-        channel === "voice"
+        channel === "sms"
+          ? "I couldn't find an upcoming appointment under the number they're texting from. Appointments can only be cancelled from the number they were booked under, so hand the conversation to the owner."
+          : channel === "voice"
           ? "I couldn't find an upcoming appointment under the number they're calling from. Appointments can only be cancelled from the number they were booked under, so offer to take a message and the team will sort it out."
           : "I couldn't find an upcoming appointment under that number. Offer to take a message so the team can sort it out.",
     });
@@ -133,7 +138,11 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
-  await notifyOwnerCancellation(client, cancelled, channel === "web_chat" ? "chat" : "phone");
+  await notifyOwnerCancellation(
+    client,
+    cancelled,
+    channel === "web_chat" ? "chat" : channel === "sms" ? "text" : "phone",
+  );
 
   const when = formatDateTime(cancelled.startAt, client.timezone);
   return Response.json({

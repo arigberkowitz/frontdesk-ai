@@ -86,11 +86,12 @@ export async function notifyOwnerBooking(client: Client, appt: Appointment): Pro
 export async function notifyOwnerCancellation(
   client: Client,
   appt: Appointment,
-  source: "phone" | "chat" | "portal",
+  source: "phone" | "chat" | "text" | "portal",
 ): Promise<void> {
   // Portal cancellations are the owner's own doing — no alert needed.
   if (source === "portal") return;
-  const via = source === "chat" ? "via your website chat" : "by phone";
+  const via =
+    source === "chat" ? "via your website chat" : source === "text" ? "by text (AI reply)" : "by phone";
   const who = appt.customerName ?? "A caller";
   const when = formatDateTime(appt.startAt, client.timezone);
   const phone = formatPhone(appt.customerPhone);

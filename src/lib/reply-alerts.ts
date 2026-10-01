@@ -44,6 +44,8 @@ export interface ReplyAlertEmailInput {
   link: string;
   /** A lead's automated follow-ups were just paused by this reply. */
   followUpsPaused: boolean;
+  /** AI text replies handed this thread to a person — why (owner-facing words). */
+  aiHandoff?: string | null;
 }
 
 /** Subject/html/text for one reply alert. Pure, so it can be tested. */
@@ -57,15 +59,20 @@ export function replyAlertEmail(input: ReplyAlertEmailInput): {
   const snippet = input.body.replace(/\s+/g, " ").trim();
   const short = snippet.length > 60 ? `${snippet.slice(0, 57)}…` : snippet;
   const full = snippet.slice(0, 500);
-  const subject = short ? `${who} texted ${input.business}: "${short}"` : `${who} texted ${input.business}`;
+  const base = short ? `${who} texted ${input.business}: "${short}"` : `${who} texted ${input.business}`;
+  const subject = input.aiHandoff ? `Needs you: ${base}` : base;
   const burstNote = `More texts in this conversation over the next ${REPLY_ALERT_THROTTLE_MINUTES} minutes won't send another email — they'll be waiting in Messages.`;
   const pausedNote = "Automated follow-ups for this customer are paused — the conversation is yours now.";
+  const aiNote = input.aiHandoff
+    ? `Your AI stopped replying in this conversation because ${input.aiHandoff}. It stays paused here until you press "Resume AI" in Messages.`
+    : "";
 
   const html = `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px">
   <h2 style="margin:0 0 2px;font-size:18px">💬 New text from ${esc(who)}</h2>
   <p style="color:#666;margin:0 0 16px">for ${esc(input.business)}${input.name ? ` · ${esc(phone)}` : ""}</p>
   ${full ? `<blockquote style="margin:0 0 14px;padding:10px 12px;border-left:3px solid #6366f1;background:#f5f5ff;font-size:15px">${esc(full)}</blockquote>` : ""}
   <p style="margin:0 0 14px"><a href="${esc(input.link)}" style="background:#111;color:#fff;text-decoration:none;padding:9px 16px;border-radius:8px;font-size:14px;display:inline-block">Read &amp; reply in Messages</a></p>
+  ${aiNote ? `<p style="margin:0 0 6px;font-size:14px"><strong>${esc(aiNote)}</strong></p>` : ""}
   ${input.followUpsPaused ? `<p style="margin:0 0 6px;font-size:14px">${pausedNote}</p>` : ""}
   <p style="color:#999;font-size:12px;margin-top:18px">${burstNote}<br>Sent by your AI receptionist · FrontDesk AI</p>
 </div>`;
@@ -73,6 +80,7 @@ export function replyAlertEmail(input: ReplyAlertEmailInput): {
     `New text from ${who}${input.name ? ` (${phone})` : ""} for ${input.business}:`,
     full ? `"${full}"` : "",
     `Read & reply: ${input.link}`,
+    aiNote,
     input.followUpsPaused ? pausedNote : "",
     burstNote,
   ]
@@ -148,6 +156,7 @@ export async function notifyOwnerTextReply(
     body: string;
     name?: string | null;
     followUpsPaused?: boolean;
+    aiHandoff?: string | null;
   },
 ): Promise<ReplyAlertResult> {
   const { emails } = await getAlertRecipients(client);
@@ -164,6 +173,7 @@ export async function notifyOwnerTextReply(
     body: input.body,
     link,
     followUpsPaused: Boolean(input.followUpsPaused),
+    aiHandoff: input.aiHandoff ?? null,
   });
 
   const claimed = await claimReplyAlert(client.id, input.customerPhone, emails, {
