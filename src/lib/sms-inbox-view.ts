@@ -16,6 +16,8 @@ const KIND_LABELS: Record<string, string> = {
   opt_out: "Opted out (STOP)",
   opt_in: "Opted back in",
   help: "Asked for help (HELP)",
+  rebook_offer: "Rebooking offer",
+  rebook_reply: "Rebooking update",
 };
 
 /** Short human label for what a message was, or null for a plain reply. */

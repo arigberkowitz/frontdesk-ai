@@ -367,6 +367,11 @@ export const clients = pgTable(
     // anything texted TO it belongs to this business, no guessing.
     // Migration: drizzle/manual/0009_client_sms_numbers.sql.
     smsNumber: text("sms_number"),
+    // Smart rebooking: when the owner blocks time over booked appointments,
+    // let them (and only them, on confirmation) text those customers 2–3 new
+    // times and handle the "1 / 2 / 3 / NO" replies. OFF by default.
+    // (drizzle/manual/0012_smart_rebooking.sql)
+    smartRebookingEnabled: boolean("smart_rebooking_enabled").notNull().default(false),
     ...timestamps,
     ...softDelete,
   },
@@ -871,6 +876,51 @@ export const smsMessages = pgTable(
   ],
 );
 
+/**
+ * Smart rebooking offers: "we need to move your appointment — reply 1, 2 or 3".
+ * One live offer per appointment (partial unique index on status = 'sent').
+ * (drizzle/manual/0012_smart_rebooking.sql)
+ */
+export const rebookOffers = pgTable(
+  "rebook_offers",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    appointmentId: uuid("appointment_id")
+      .notNull()
+      .references(() => appointments.id, { onDelete: "cascade" }),
+    /** Normalized digits of the customer's number ("14155550100"). */
+    customerPhone: text("customer_phone").notNull(),
+    /** The offered times, in order: [{ startAt, endAt }] (ISO). */
+    slots: jsonb("slots").$type<{ startAt: string; endAt: string }[]>().notNull().default([]),
+    /**
+     * 'sent' (waiting on a reply) | 'rescheduled' | 'cancelled' | 'needs_owner'
+     * | 'skipped' (never sent — see skip_reason) | 'failed' | 'expired'
+     */
+    status: text("status").notNull(),
+    skipReason: text("skip_reason"),
+    /** The replacement appointment, when they picked a time. */
+    newAppointmentId: uuid("new_appointment_id").references(() => appointments.id, {
+      onDelete: "set null",
+    }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    /** The portal user who confirmed the send. */
+    createdBy: text("created_by"),
+    ...timestamps,
+  },
+  (t) => [
+    index("rebook_offers_client_phone_idx").on(t.clientId, t.customerPhone, t.status),
+    index("rebook_offers_appointment_idx").on(t.appointmentId),
+    uniqueIndex("rebook_offers_one_live_per_appt_idx")
+      .on(t.appointmentId)
+      .where(sql`${t.status} = 'sent'`),
+  ],
+);
+
 /** Outbound notification log (`recipient` instead of reserved word `to`). */
 export const notifications = pgTable(
   "notifications",
@@ -1267,6 +1317,7 @@ export type NewWaitlistEntry = typeof waitlistEntries.$inferInsert;
 export type Reminder = typeof reminders.$inferSelect;
 export type NewReminder = typeof reminders.$inferInsert;
 export type SmsMessageRow = typeof smsMessages.$inferSelect;
+export type RebookOfferRow = typeof rebookOffers.$inferSelect;
 export type NewSmsMessageRow = typeof smsMessages.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;

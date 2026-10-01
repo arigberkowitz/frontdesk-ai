@@ -13,6 +13,7 @@ import { DepositsCard } from "@/components/portal/deposits-card";
 import { ChatWidgetCard } from "@/components/portal/chat-widget-card";
 import { WebhookCard } from "@/components/portal/webhook-card";
 import { toSafeClient } from "@/lib/client-safe";
+import { SmartRebookingCard } from "@/components/portal/smart-rebooking-card";
 
 export const metadata: Metadata = { title: "Follow-ups · Settings" };
 
@@ -42,6 +43,11 @@ export default async function PortalSettingsFollowUpsPage() {
         clientId={clientId}
         enabled={client.recallEnabled}
         recallServiceCount={recallServiceCount}
+        isAdmin={editAccess.isAdmin}
+      />
+      <SmartRebookingCard
+        clientId={clientId}
+        enabled={client.smartRebookingEnabled}
         isAdmin={editAccess.isAdmin}
       />
       <WaitlistCard

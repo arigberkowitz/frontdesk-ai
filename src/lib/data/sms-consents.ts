@@ -59,7 +59,14 @@ export type ConsentPurpose =
    * a customer who texted in is conversational and isn't gated on this — see
    * DECISIONS.md "Messages: reply by text".
    */
-  | "portal_reply";
+  | "portal_reply"
+  /**
+   * Smart rebooking: "we have to move your appointment — reply 1, 2 or 3",
+   * sent only when the owner confirms in the portal. Also allowed when the
+   * customer already received this appointment's confirmation text (the same
+   * inheritance the day-before reminder uses) — see src/lib/rebooking.ts.
+   */
+  | "rebook";
 
 /**
  * Which recorded consent wordings cover which kind of text.
@@ -79,6 +86,9 @@ export const CONSENT_COVERAGE: Record<ConsentPurpose, readonly string[]> = {
   recovery_no_show: [CONSENT_WORDING_VERSION],
   lead_followup: [CONSENT_WORDING_VERSION],
   portal_reply: [CONSENT_WORDING_VERSION],
+  // A text about an appointment they booked and agreed to texts about —
+  // squarely what booking-v1 ("confirmation and a reminder") describes.
+  rebook: [CONSENT_WORDING_VERSION],
 };
 
 /** Pure: the set of numbers (normalized digits) whose consent rows cover `purpose`. */
