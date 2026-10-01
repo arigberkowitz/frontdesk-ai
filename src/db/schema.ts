@@ -374,6 +374,15 @@ export const clients = pgTable(
     // anything texted TO it belongs to this business, no guessing.
     // Migration: drizzle/manual/0009_client_sms_numbers.sql.
     smsNumber: text("sms_number"),
+    // AI text replies: when a customer texts, Claude drafts and sends a reply
+    // grounded only in this business's services/hours/FAQ, and can check
+    // availability / book / reschedule / cancel through the same agent-tool
+    // endpoints the phone agent uses. OFF by default like every other
+    // automated customer text. (drizzle/manual/0010_ai_text_replies.sql)
+    aiTextRepliesEnabled: boolean("ai_text_replies_enabled").notNull().default(false),
+    // After the owner replies by hand in a thread, the AI stays quiet in that
+    // thread for this many hours.
+    aiTextPauseHours: integer("ai_text_pause_hours").notNull().default(12),
     ...timestamps,
     ...softDelete,
   },
@@ -901,6 +910,34 @@ export const smsMessages = pgTable(
   ],
 );
 
+/**
+ * Per-conversation AI state for AI text replies (one row per business +
+ * customer, created lazily). Absent row = defaults (AI may reply if the
+ * business turned the feature on). (drizzle/manual/0010_ai_text_replies.sql)
+ */
+export const smsThreads = pgTable(
+  "sms_threads",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    /** Normalized digits, same key as sms_messages.customer_phone. */
+    customerPhone: text("customer_phone").notNull(),
+    /** True = the AI does not reply in this thread until someone resumes it. */
+    aiPaused: boolean("ai_paused").notNull().default(false),
+    /** 'owner' (Pause AI button) or 'handoff:<reason>' (the AI stood down). */
+    aiPausedReason: text("ai_paused_reason"),
+    aiPausedAt: timestamp("ai_paused_at", { withTimezone: true }),
+    /** Owner replies before this instant no longer count toward the auto-pause. */
+    aiResumedAt: timestamp("ai_resumed_at", { withTimezone: true }),
+    /** Short claim so two texts arriving together can't produce two AI replies. */
+    aiBusyUntil: timestamp("ai_busy_until", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("sms_threads_client_phone_idx").on(t.clientId, t.customerPhone)],
+);
+
 /** Outbound notification log (`recipient` instead of reserved word `to`). */
 export const notifications = pgTable(
   "notifications",
@@ -1297,6 +1334,7 @@ export type NewWaitlistEntry = typeof waitlistEntries.$inferInsert;
 export type Reminder = typeof reminders.$inferSelect;
 export type NewReminder = typeof reminders.$inferInsert;
 export type SmsMessageRow = typeof smsMessages.$inferSelect;
+export type SmsThreadRow = typeof smsThreads.$inferSelect;
 export type NewSmsMessageRow = typeof smsMessages.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;

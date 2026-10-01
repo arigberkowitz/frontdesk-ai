@@ -175,6 +175,61 @@ Running log of choices and deviations (PRD §0). Newest first.
   review for a capability most local-service callers can't use; Meet/Teams ride the calendar
   connections we already hold.
 
+## 2026-09-30 — AI text replies (customer texts → Claude answers)
+
+- **Off by default, per business.** `clients.ai_text_replies_enabled` (default false),
+  Settings → Follow-ups → "AI text replies" (owner/admin only, audited). Trial/live
+  businesses only. Migration `drizzle/manual/0010_ai_text_replies.sql` (also adds
+  `clients.ai_text_pause_hours` and the `sms_threads` table) — **renumber at merge** if
+  another branch took 0010.
+- **Only ever a reply.** It runs on an inbound text, so the customer texted first — the
+  consent the published /sms-consent policy grants for a reply (same reasoning as owner
+  replies). STOP (`sms_opt_outs` + `client_sms_opt_outs` via `isOptedOut`, fail-safe) is
+  checked before the model and again right before sending. STOP/HELP keyword texts never
+  reach it. Customer texting hours (9:00–20:00 local, `withinTextingHours`) apply; outside
+  them the owner gets the normal reply alert and nothing is texted.
+- **Same booking logic as the phone agent.** check-availability / book / cancel are the
+  existing `/api/agent-tools/*` endpoints, called over HTTP exactly like the web chat does,
+  with a new per-client, domain-separated signature (`x-frontdesk-sms-signature`,
+  "sms-tools:v1:"). `authorizeAgentTool` reports channel `sms` only from that signature. The
+  signed `call.from_number` is the Twilio-verified sender, so:
+  - **cancel** treats it like voice caller ID: a texted request from the same number is
+    verified; a number typed into the conversation is refused; no code is texted.
+  - **book** always books under the texting number (a typed number is ignored), and starts
+    no consent receipt / confirmation-reminder series (the AI's reply is the confirmation).
+    **Open:** whether an SMS booking should count as consent for the day-before reminder.
+  - Reschedule = book the new time, then cancel the old one (prompt rule; the tools enforce
+    who may cancel). There is no separate reschedule endpoint.
+- **Prompt-injection posture** (`src/lib/sms-ai/rules.ts`, pure + tested): business facts
+  (services/hours/FAQ/guidance, `ownerText`-sanitized) first, our rules LAST and winning;
+  the thread goes in as a fenced `<transcript>` user turn with tag-like text neutralized,
+  labelled Customer / Business / You (AI). Tools are only availability/book/cancel plus two
+  decision tools (`send_reply`, `handoff_to_owner`) — nothing can touch the live agent,
+  knowledge or settings. Every draft passes `guardReply` (no links, phone numbers, prompt
+  talk, 6-digit codes; ≤320 chars) or it isn't sent and the thread is handed off.
+- **Handoffs.** Emergencies, "get me a person / call me", and sensitive topics (refunds,
+  complaints, legal, medical) are detected on the raw text BEFORE the model (so injection
+  can't argue past them). The model can also hand off when unsure. A handoff pauses AI in
+  that thread (`sms_threads.ai_paused`, reason `handoff:<why>`), sends a TEMPLATED holding
+  text (emergencies say "call 911"), and sends the existing reply-alert email with a
+  "Needs you:" subject and the reason. A model/tool error falls back to the plain alert.
+- **Owner stays in charge.** While the AI is handling a thread, the per-text reply-alert
+  email is skipped (the owner hears on handoff instead) — **open decision**: some owners may
+  want every text emailed anyway. A manual portal reply pauses the AI in that thread for
+  `ai_text_pause_hours` (default 12; 2/6/12/24/48), computed from `sms_messages` (no extra
+  write). Messages → conversation shows the AI status with **Pause AI / Resume AI** (staff
+  may use it; operator preview may not).
+- **Marked as AI.** Stored in `sms_messages` with kind `ai_reply` / `ai_handoff` (free-text
+  column, no enum change); the thread shows an "AI" badge and the list previews "AI: …".
+- **Caps** (from `sms_messages`, rolling 24h): 10 AI texts per thread, 200 per business. At
+  the thread cap the AI hands the conversation to the owner (no holding text).
+- **Concurrency.** A short claim on `sms_threads.ai_busy_until` stops two texts arriving
+  together from producing two replies; the run re-checks for a newer text before finishing.
+- **Model:** `CHAT_MODEL` (Haiku by default, env-overridable), same as the web chat.
+  Recovery's comment "unattended sends are templated, never LLM text" still holds for
+  outbound campaigns; this feature is a reply inside a conversation the customer started,
+  gated as above — but it IS model text leaving unattended, which is why it's opt-in.
+
 ## 2026-09-30 — Security hardening (audit follow-up)
 
 - **Agent-tool auth is per tenant and signed.** Tool URLs carry

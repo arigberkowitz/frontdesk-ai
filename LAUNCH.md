@@ -120,6 +120,15 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
     calendar, call and ask for that exact time (should be refused), book a free
     time (event appears), cancel it (event disappears).
 
+- **AI text replies — MIGRATION REQUIRED:** apply `drizzle/manual/0010_ai_text_replies.sql`
+  (Neon SQL editor, idempotent) **before** the deploy (renumber if another branch merged a
+  0010 first). No new env vars: uses `ANTHROPIC_API_KEY` (optional `CHAT_MODEL`),
+  `AGENT_TOOLS_SECRET`, `APP_URL`, Twilio. Off for every business until the owner turns it on
+  in Settings → Follow-ups. Smoke test on a test business with a calendar: turn it on, text
+  the number "do you have anything Tuesday?", confirm an AI-badged reply; text "can I talk to
+  a person" and confirm the thread pauses and the "Needs you:" email arrives; reply from
+  Messages and confirm the AI stays quiet; press Resume AI.
+
 - **Per-business texting numbers** (optional): apply
   `drizzle/manual/0009_client_sms_numbers.sql` (Neon SQL editor, idempotent)
   **before** deploying that code. No env vars. To give a business its own number:

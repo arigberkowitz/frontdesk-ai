@@ -138,3 +138,44 @@ describe("cancel tool verification", () => {
     expect(body.message).toMatch(/Too many code attempts/);
   });
 });
+
+describe("cancel tool × AI text replies (sms channel)", () => {
+  const sms = (args: Record<string, unknown>, fromNumber?: string) => {
+    authResult = { ok: true, client: CLIENT, channel: "sms", args, call: { fromNumber } };
+  };
+  beforeEach(() => {
+    sent.length = 0;
+    cancelled.length = 0;
+  });
+
+  it("a texted request from the booking's own number is caller-ID verified and cancels", async () => {
+    sms({}, "+14155550100");
+    const body = await (await POST(req())).json();
+    expect(body.success).toBe(true);
+    expect(cancelled).toEqual(["appt-1"]);
+    // No verification code is texted — the texting number IS the proof.
+    expect(sent).toHaveLength(0);
+  });
+
+  it("a number typed into the conversation can't redirect the cancel", async () => {
+    sms({ phone: "415-555-0100" }, "+12125550199");
+    const body = await (await POST(req())).json();
+    expect(body.success).toBe(false);
+    expect(cancelled).toEqual([]);
+  });
+
+  it("someone texting from a number with no booking can't cancel anyone's", async () => {
+    sms({}, "+12125550199");
+    const body = await (await POST(req())).json();
+    expect(body.success).toBe(false);
+    expect(body.message).toMatch(/texting from/);
+    expect(cancelled).toEqual([]);
+  });
+
+  it("no signed number → refuse", async () => {
+    sms({});
+    const body = await (await POST(req())).json();
+    expect(body.success).toBe(false);
+    expect(cancelled).toEqual([]);
+  });
+});

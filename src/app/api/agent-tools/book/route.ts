@@ -46,7 +46,7 @@ export const runtime = "nodejs";
 export async function POST(req: Request): Promise<Response> {
   const auth = await authorizeAgentTool(req);
   if (!auth.ok) return auth.response;
-  const { client, args, retellCallId, channel } = auth;
+  const { client, args, retellCallId, channel, call } = auth;
 
   const startAt = parseInClientTimezone(String(args.datetime ?? ""), client.timezone);
   if (!startAt) {
@@ -71,7 +71,11 @@ export async function POST(req: Request): Promise<Response> {
   // chase — and "ended with no way to call back" is one of the failures we
   // report to the business. Better to ask again on the call than to write a
   // record that quietly can't be acted on.
-  const spokenPhone = String(args.phone ?? "").trim();
+  // AI text replies (channel "sms"): the booking goes under the number that is
+  // texting — the signed, Twilio-verified sender — never a number typed into
+  // the conversation, so a text thread can't book (and later text) a stranger.
+  const spokenPhone =
+    channel === "sms" ? String(call.fromNumber ?? "").trim() : String(args.phone ?? "").trim();
   if (!spokenPhone) {
     return Response.json({ message: "What's the best callback number to put on the booking?" });
   }
@@ -254,7 +258,12 @@ export async function POST(req: Request): Promise<Response> {
 
   // Declared before the after() callbacks below that read it (it used to be
   // declared after them, which only worked because after() runs later).
-  const consented = args.sms_consent === true || String(args.sms_consent) === "true";
+  // By text there is no separate "may we text you?" ask: the customer is
+  // already in a text conversation and the AI's reply confirms the booking.
+  // So no consent receipt and no separate confirmation/reminder series is
+  // started from an SMS booking (an open product decision — see DECISIONS.md).
+  const consented =
+    channel !== "sms" && (args.sms_consent === true || String(args.sms_consent) === "true");
   // The language the caller spoke (multilingual agents pass it), so their
   // texts follow it. Unknown or unsupported → null → English, as before.
   const language = normalizeCustomerLanguage(args.language);
