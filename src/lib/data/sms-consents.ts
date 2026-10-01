@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { smsConsents } from "@/db/schema";
 import { logger } from "./../logger";
 import { normalizePhone } from "./sms-optouts";
+import { LANGUAGE_OPTIONS, normalizeCustomerLanguage } from "@/lib/languages";
 
 /**
  * The exact consent script version currently in force. This string is the
@@ -13,6 +14,23 @@ import { normalizePhone } from "./sms-optouts";
  * the ask ever changes, so old rows keep saying what was actually agreed to.
  */
 export const CONSENT_WORDING_VERSION = "booking-v1";
+
+/**
+ * The same ask, made in the caller's language (multilingual answering):
+ * "booking-v1-es" etc. The receipt says which language the yes was given in.
+ * The Spanish wording is fixed in the prompt (lib/languages.ts
+ * SPANISH_CONSENT_ASK); other languages are the agent's faithful translation.
+ */
+export function consentWordingFor(language: string | null | undefined): string {
+  const code = normalizeCustomerLanguage(language);
+  return code && code !== "en" ? `${CONSENT_WORDING_VERSION}-${code}` : CONSENT_WORDING_VERSION;
+}
+
+/** booking-v1 and its translations: one consent, asked in different languages. */
+const BOOKING_V1_WORDINGS: readonly string[] = [
+  CONSENT_WORDING_VERSION,
+  ...LANGUAGE_OPTIONS.filter((l) => l.code !== "en").map((l) => `${CONSENT_WORDING_VERSION}-${l.code}`),
+];
 
 /**
  * Write the receipt for a "yes, text me".
@@ -26,13 +44,15 @@ export async function recordSmsConsent(input: {
   clientId: string;
   phone: string;
   callId?: string | null;
+  /** The language the ask was made in, when not English. */
+  language?: string | null;
 }): Promise<void> {
   try {
     await db.insert(smsConsents).values({
       clientId: input.clientId,
       phone: input.phone,
       callId: input.callId ?? null,
-      wording: CONSENT_WORDING_VERSION,
+      wording: consentWordingFor(input.language),
     });
   } catch (err) {
     logger.error("sms_consent.record_failed", {
@@ -61,6 +81,12 @@ export type ConsentPurpose =
    */
   | "portal_reply"
   /**
+   * The one templated "sorry we missed you — reply to book" text after a call
+   * that ended early or dropped without a booking. See DECISIONS.md
+   * "Missed-call text-back".
+   */
+  | "missed_call"
+  /**
    * Smart rebooking: "we have to move your appointment — reply 1, 2 or 3",
    * sent only when the owner confirms in the portal. Also allowed when the
    * customer already received this appointment's confirmation text (the same
@@ -80,15 +106,22 @@ export type ConsentPurpose =
  * separate consent script and campaign use case exist.
  */
 export const CONSENT_COVERAGE: Record<ConsentPurpose, readonly string[]> = {
-  recall: [CONSENT_WORDING_VERSION],
-  review_request: [CONSENT_WORDING_VERSION],
-  recovery_lead: [CONSENT_WORDING_VERSION],
-  recovery_no_show: [CONSENT_WORDING_VERSION],
-  lead_followup: [CONSENT_WORDING_VERSION],
-  portal_reply: [CONSENT_WORDING_VERSION],
+  recall: BOOKING_V1_WORDINGS,
+  review_request: BOOKING_V1_WORDINGS,
+  recovery_lead: BOOKING_V1_WORDINGS,
+  recovery_no_show: BOOKING_V1_WORDINGS,
+  lead_followup: BOOKING_V1_WORDINGS,
+  portal_reply: BOOKING_V1_WORDINGS,
+  // TODO(Ari): same policy call as above. booking-v1 covers it so a returning
+  // customer who agreed to texts can be texted back after a dropped call. A
+  // first-time caller who hung up early has usually agreed to nothing, so they
+  // will NOT be texted until a consent wording covers this purpose (or counsel
+  // decides a one-off reply to their own call needs none — then this gate in
+  // src/lib/agents/missed-call-callback.ts is the single place to change).
+  missed_call: BOOKING_V1_WORDINGS,
   // A text about an appointment they booked and agreed to texts about —
   // squarely what booking-v1 ("confirmation and a reminder") describes.
-  rebook: [CONSENT_WORDING_VERSION],
+  rebook: BOOKING_V1_WORDINGS,
 };
 
 /** Pure: the set of numbers (normalized digits) whose consent rows cover `purpose`. */

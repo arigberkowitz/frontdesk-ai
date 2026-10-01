@@ -34,3 +34,16 @@ describe("sms inbox view helpers", () => {
     expect(parseThreadParam("%E0%A4%A")).toBeNull();
   });
 });
+
+describe("AI messages in the inbox", () => {
+  it("labels and previews AI-written texts", async () => {
+    const { isAiMessage } = await import("./sms-inbox-view");
+    expect(messageKindLabel("ai_reply")).toBe("AI reply");
+    expect(messageKindLabel("ai_handoff")).toBe("AI passed this to you");
+    expect(isAiMessage("ai_reply")).toBe(true);
+    expect(isAiMessage("portal_reply")).toBe(false);
+    expect(previewText("See you Tue!", "outbound", 90, "ai_reply")).toBe("AI: See you Tue!");
+    expect(previewText("See you Tue!", "outbound", 90, "portal_reply")).toBe("You: See you Tue!");
+    expect(previewText("See you Tue!", "outbound")).toBe("You: See you Tue!");
+  });
+});

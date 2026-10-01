@@ -5,9 +5,11 @@ import { verifyRetellSignature } from "./retell";
 import { getClientByIdUnsafe } from "./data/clients";
 import {
   CHAT_SIGNATURE_HEADER,
+  SMS_SIGNATURE_HEADER,
   agentToolToken,
   safeEqual,
   verifyChatToolSignature,
+  verifySmsToolSignature,
 } from "./agent-tool-token";
 
 /**
@@ -37,7 +39,12 @@ import {
  * log line, for the first deploy only. Default is enforce.
  */
 
-export type ToolChannel = "voice" | "web_chat";
+/**
+ * `sms` = our own AI text replies (src/lib/agents/text-reply.ts). Its signed
+ * `call.from_number` is the Twilio-verified number that texted, so the tools
+ * treat it like voice caller ID (book under it; cancel only its own bookings).
+ */
+export type ToolChannel = "voice" | "web_chat" | "sms";
 export type ToolClient = NonNullable<Awaited<ReturnType<typeof getClientByIdUnsafe>>>;
 
 export interface ToolCallContext {
@@ -109,7 +116,17 @@ export async function authorizeAgentTool(req: Request): Promise<AgentToolAuth> {
 
   let channel: ToolChannel;
   const chatSig = req.headers.get(CHAT_SIGNATURE_HEADER);
-  if (chatSig) {
+  const smsSig = req.headers.get(SMS_SIGNATURE_HEADER);
+  if (chatSig && smsSig) {
+    return deny(401, "Invalid signature");
+  }
+  if (smsSig) {
+    if (tokenKind !== "tenant" || !verifySmsToolSignature(clientId, raw, smsSig)) {
+      logger.warn("agent-tools.auth.bad_sms_signature", { clientId });
+      return deny(401, "Invalid signature");
+    }
+    channel = "sms";
+  } else if (chatSig) {
     // Our own chat route always uses the per-tenant token; a legacy token with
     // a chat signature is not something we ever send.
     if (tokenKind !== "tenant" || !verifyChatToolSignature(clientId, raw, chatSig)) {

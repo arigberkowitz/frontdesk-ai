@@ -5,8 +5,14 @@ import { appointments, clients, type Appointment, type Client } from "@/db/schem
 import { notifier } from "./notifier";
 import { createReminder } from "./data/reminders";
 import { isOptedOut } from "./data/sms-optouts";
-import { confirmationText, dueForReminder, reminderText, withinTextingHours } from "./appointment-messages";
-import { formatDateTime } from "./format";
+import {
+  confirmationText,
+  dueForReminder,
+  formatWhen,
+  reminderText,
+  withinTextingHours,
+} from "./appointment-messages";
+import { getCustomerLanguage } from "./data/customer-languages";
 import { logger } from "./logger";
 
 /**
@@ -19,8 +25,8 @@ import { logger } from "./logger";
  * which needs no new column and cannot drift out of step with reality.
  */
 
-function whenFor(client: Client, at: Date): string {
-  return formatDateTime(at, client.timezone);
+function whenFor(client: Client, at: Date, language?: string | null): string {
+  return formatWhen(at, client.timezone, language);
 }
 
 /** "you're booked" — sent within seconds of the call ending. */
@@ -28,6 +34,8 @@ export async function sendBookingConfirmation(
   client: Client,
   appt: Appointment,
   serviceName?: string | null,
+  /** The language the customer spoke on the call; falls back to what we stored for them. */
+  language?: string | null,
 ): Promise<void> {
   const to = appt.customerPhone?.trim();
   if (!to) return;
@@ -36,12 +44,14 @@ export async function sendBookingConfirmation(
     return;
   }
 
+  const lang = language ?? (await getCustomerLanguage(client.id, to));
   const body = confirmationText({
     business: client.name,
     customerName: appt.customerName,
     serviceName,
-    when: whenFor(client, appt.startAt),
+    when: whenFor(client, appt.startAt, lang),
     meetingUrl: appt.meetingUrl,
+    language: lang,
   });
 
   const result = await notifier.sendSms({
@@ -132,11 +142,13 @@ export async function sendAppointmentReminders(now: Date = new Date()): Promise<
           continue;
         }
         const row = rows.find((r) => r.id === a.id)!;
+        const lang = await getCustomerLanguage(client.id, to);
         const body = reminderText({
           business: client.name,
           customerName: a.customerName,
-          when: whenFor(client, a.startAt),
+          when: whenFor(client, a.startAt, lang),
           meetingUrl: row.meetingUrl,
+          language: lang,
         });
         const result = await notifier.sendSms({
           to,

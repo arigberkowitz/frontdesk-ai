@@ -273,6 +273,12 @@ export const clients = pgTable(
          * phone number) is running, so a double-click or two tabs can't buy two.
          */
         provisioningAt?: string;
+        /**
+         * Daily owner briefing email (portal Settings → Alerts). Opt-in: off
+         * unless the owner turns it on. jsonb rather than a column so the
+         * feature ships without a migration (dedupe lives in notifications).
+         */
+        dailyBriefing?: boolean;
         /** When each trial-lifecycle email went out (ISO). Dedupe state, not business data. */
         trialEmails?: { welcome?: string; d7?: string; d1?: string };
       }>()
@@ -306,8 +312,9 @@ export const clients = pgTable(
     // tells the AI when a human is actually reachable, e.g. "weekdays 9–5".
     humanHandoffEnabled: boolean("human_handoff_enabled").notNull().default(true),
     humanHoursNote: text("human_hours_note"),
-    // Spoken languages the AI handles: 'en' | 'en-es' (bilingual) | 'es'.
-    // Drives the agent's language behavior (match the caller, switch on request).
+    // Spoken languages the AI handles, primary first: 'en' | 'en-es' | 'es' |
+    // a comma list like 'en,es,fr' (see lib/languages.ts). Drives the agent's
+    // Retell locales, voice model and prompt (match the caller, switch on request).
     languages: text("languages").notNull().default("en"),
     // Agent #5 opt-in: the recovery loop may text this client's cold leads and
     // no-shows. Off by default — outbound to real customers is opt-in only.
@@ -367,6 +374,23 @@ export const clients = pgTable(
     // anything texted TO it belongs to this business, no guessing.
     // Migration: drizzle/manual/0009_client_sms_numbers.sql.
     smsNumber: text("sms_number"),
+    // AI text replies: when a customer texts, Claude drafts and sends a reply
+    // grounded only in this business's services/hours/FAQ, and can check
+    // availability / book / reschedule / cancel through the same agent-tool
+    // endpoints the phone agent uses. OFF by default like every other
+    // automated customer text. (drizzle/manual/0010_ai_text_replies.sql)
+    aiTextRepliesEnabled: boolean("ai_text_replies_enabled").notNull().default(false),
+    // After the owner replies by hand in a thread, the AI stays quiet in that
+    // thread for this many hours.
+    aiTextPauseHours: integer("ai_text_pause_hours").notNull().default(12),
+    // Missed/dropped-call text-back: when a call ends without a booking because
+    // the caller hung up early, the line dropped, or they left mid-booking,
+    // text them (templated) offering to finish booking. OFF by default like
+    // every automated customer text. (drizzle/manual/0011_missed_call_callbacks.sql)
+    missedCallTextsEnabled: boolean("missed_call_texts_enabled").notNull().default(false),
+    // Optional: have the AI phone them back instead of texting. Separate switch,
+    // and also needs MISSED_CALL_AI_CALLBACKS=on in the environment. Off by default.
+    missedCallAiCallbacksEnabled: boolean("missed_call_ai_callbacks_enabled").notNull().default(false),
     // Smart rebooking: when the owner blocks time over booked appointments,
     // let them (and only them, on confirmation) text those customers 2–3 new
     // times and handle the "1 / 2 / 3 / NO" replies. OFF by default.
@@ -725,6 +749,29 @@ export const clientSmsOptOuts = pgTable(
 );
 
 /**
+ * The language a customer spoke with the AI (per business, per phone), so
+ * their confirmation and reminder texts go out in it. Written when the agent
+ * books and passes `language`; the latest call wins.
+ * Migration: drizzle/manual/0012_customer_languages.sql. Reads and writes are
+ * fail-soft, so a deploy that runs before the migration just texts in English.
+ */
+export const customerLanguages = pgTable(
+  "customer_languages",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    /** Normalized digits, same format as sms_opt_outs.phone. */
+    phone: text("phone").notNull(),
+    /** One of LANGUAGE_OPTIONS codes (lib/languages.ts), e.g. "es". */
+    language: text("language").notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("customer_languages_client_phone_idx").on(t.clientId, t.phone)],
+);
+
+/**
  * Proof of texting consent, one row per yes.
  *
  * The privacy policy has promised this record since it was written — "the fact
@@ -873,6 +920,72 @@ export const smsMessages = pgTable(
     index("sms_messages_client_phone_created_idx").on(t.clientId, t.customerPhone, t.createdAt),
     index("sms_messages_client_created_idx").on(t.clientId, t.createdAt),
     index("sms_messages_customer_phone_idx").on(t.customerPhone),
+  ],
+);
+
+/**
+ * Per-conversation AI state for AI text replies (one row per business +
+ * customer, created lazily). Absent row = defaults (AI may reply if the
+ * business turned the feature on). (drizzle/manual/0010_ai_text_replies.sql)
+ */
+export const smsThreads = pgTable(
+  "sms_threads",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    /** Normalized digits, same key as sms_messages.customer_phone. */
+    customerPhone: text("customer_phone").notNull(),
+    /** True = the AI does not reply in this thread until someone resumes it. */
+    aiPaused: boolean("ai_paused").notNull().default(false),
+    /** 'owner' (Pause AI button) or 'handoff:<reason>' (the AI stood down). */
+    aiPausedReason: text("ai_paused_reason"),
+    aiPausedAt: timestamp("ai_paused_at", { withTimezone: true }),
+    /** Owner replies before this instant no longer count toward the auto-pause. */
+    aiResumedAt: timestamp("ai_resumed_at", { withTimezone: true }),
+    /** Short claim so two texts arriving together can't produce two AI replies. */
+    aiBusyUntil: timestamp("ai_busy_until", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("sms_threads_client_phone_idx").on(t.clientId, t.customerPhone)],
+);
+
+/**
+ * Missed/dropped-call callbacks: one row per call we considered (unique
+ * call_id = idempotent across Retell webhook replays and the sweep cron).
+ * (drizzle/manual/0011_missed_call_callbacks.sql)
+ */
+export const callCallbacks = pgTable(
+  "call_callbacks",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    callId: uuid("call_id")
+      .notNull()
+      .references(() => calls.id, { onDelete: "cascade" }),
+    /** Normalized digits of the caller ("14155550100"). */
+    customerPhone: text("customer_phone").notNull(),
+    /** 'hung_up_early' | 'dropped' | 'abandoned_booking' */
+    reason: text("reason").notNull(),
+    /** 'pending' | 'sent' | 'skipped' | 'failed' */
+    status: text("status").notNull().default("pending"),
+    skipReason: text("skip_reason"),
+    /** 'sms' | 'ai_call' */
+    channel: text("channel"),
+    sendAfter: timestamp("send_after", { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    /** Retell call id when the AI phoned them back. */
+    retellCallId: text("retell_call_id"),
+    error: text("error"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("call_callbacks_call_id_idx").on(t.callId),
+    index("call_callbacks_client_phone_idx").on(t.clientId, t.customerPhone, t.createdAt),
+    index("call_callbacks_status_send_after_idx").on(t.status, t.sendAfter),
   ],
 );
 
@@ -1317,6 +1430,8 @@ export type NewWaitlistEntry = typeof waitlistEntries.$inferInsert;
 export type Reminder = typeof reminders.$inferSelect;
 export type NewReminder = typeof reminders.$inferInsert;
 export type SmsMessageRow = typeof smsMessages.$inferSelect;
+export type SmsThreadRow = typeof smsThreads.$inferSelect;
+export type CallCallbackRow = typeof callCallbacks.$inferSelect;
 export type RebookOfferRow = typeof rebookOffers.$inferSelect;
 export type NewSmsMessageRow = typeof smsMessages.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;

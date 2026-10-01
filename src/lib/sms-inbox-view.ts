@@ -2,6 +2,10 @@
  * Pure helpers for the portal Messages pages — no DB, no server-only, so they
  * can be unit-tested and shared.
  */
+import { isAiKind } from "./sms-ai/rules";
+
+/** True for messages the AI wrote (AI replies + its templated handoff note). */
+export const isAiMessage = isAiKind;
 
 const KIND_LABELS: Record<string, string> = {
   appointment_confirmation: "Booking confirmation",
@@ -13,9 +17,12 @@ const KIND_LABELS: Record<string, string> = {
   waitlist_offer: "Waitlist opening",
   deposit_request: "Deposit request",
   lead_followup: "Follow-up",
+  ai_reply: "AI reply",
+  ai_handoff: "AI passed this to you",
   opt_out: "Opted out (STOP)",
   opt_in: "Opted back in",
   help: "Asked for help (HELP)",
+  missed_call_text: "Missed-call text-back",
   rebook_offer: "Rebooking offer",
   rebook_reply: "Rebooking update",
 };
@@ -54,10 +61,16 @@ export function nameFor(index: Record<string, string>, phone: string): string | 
 }
 
 /** One-line preview for the conversation list. */
-export function previewText(body: string, direction: "inbound" | "outbound", max = 90): string {
+export function previewText(
+  body: string,
+  direction: "inbound" | "outbound",
+  max = 90,
+  kind?: string | null,
+): string {
   const flat = body.replace(/\s+/g, " ").trim();
   const clipped = flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat;
-  return direction === "outbound" ? `You: ${clipped}` : clipped;
+  if (direction !== "outbound") return clipped;
+  return isAiKind(kind) ? `AI: ${clipped}` : `You: ${clipped}`;
 }
 
 /**

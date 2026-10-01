@@ -22,9 +22,12 @@ import { env } from "./env";
 
 const TOKEN_PREFIX = "agent-tools:v1:";
 const CHAT_KEY_PREFIX = "chat-tools:v1:";
+const SMS_KEY_PREFIX = "sms-tools:v1:";
 /** Signed chat tool calls older than this are refused (replay window). */
 export const CHAT_SIGNATURE_TOLERANCE_MS = 5 * 60_000;
 export const CHAT_SIGNATURE_HEADER = "x-frontdesk-chat-signature";
+/** Our own AI-text-reply → tool calls. The signed body carries the texting number. */
+export const SMS_SIGNATURE_HEADER = "x-frontdesk-sms-signature";
 
 function hmac(key: string, data: string, encoding: "hex" | "base64url"): string {
   return createHmac("sha256", key).update(data, "utf8").digest(encoding);
@@ -66,4 +69,34 @@ export function verifyChatToolSignature(
   const [, ts, digest] = m;
   if (Math.abs(now - Number(ts)) > CHAT_SIGNATURE_TOLERANCE_MS) return false;
   return safeEqual(hmac(chatKey(clientId), `${ts}.${rawBody}`, "hex"), digest);
+}
+
+function smsKey(clientId: string): string {
+  return hmac(env.AGENT_TOOLS_SECRET, SMS_KEY_PREFIX + clientId, "hex");
+}
+
+/**
+ * Header value for an AI-text-reply tool call. Same shape as the chat
+ * signature but a different (domain-separated) key, so a chat signature can
+ * never pass as an SMS one. The SMS channel trusts `call.from_number` in the
+ * signed body as caller ID — only our Twilio-verified webhook path signs it.
+ */
+export function signSmsToolRequest(clientId: string, rawBody: string, now = Date.now()): string {
+  if (!env.AGENT_TOOLS_SECRET) return "";
+  const ts = String(now);
+  return `v=${ts},d=${hmac(smsKey(clientId), `${ts}.${rawBody}`, "hex")}`;
+}
+
+export function verifySmsToolSignature(
+  clientId: string,
+  rawBody: string,
+  header: string | null | undefined,
+  now = Date.now(),
+): boolean {
+  if (!env.AGENT_TOOLS_SECRET || !header || !clientId) return false;
+  const m = /^v=(\d+),d=([0-9a-f]+)$/.exec(header.trim());
+  if (!m) return false;
+  const [, ts, digest] = m;
+  if (Math.abs(now - Number(ts)) > CHAT_SIGNATURE_TOLERANCE_MS) return false;
+  return safeEqual(hmac(smsKey(clientId), `${ts}.${rawBody}`, "hex"), digest);
 }

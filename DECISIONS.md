@@ -175,6 +175,61 @@ Running log of choices and deviations (PRD §0). Newest first.
   review for a capability most local-service callers can't use; Meet/Teams ride the calendar
   connections we already hold.
 
+## 2026-09-30 — AI text replies (customer texts → Claude answers)
+
+- **Off by default, per business.** `clients.ai_text_replies_enabled` (default false),
+  Settings → Follow-ups → "AI text replies" (owner/admin only, audited). Trial/live
+  businesses only. Migration `drizzle/manual/0010_ai_text_replies.sql` (also adds
+  `clients.ai_text_pause_hours` and the `sms_threads` table) — **renumber at merge** if
+  another branch took 0010.
+- **Only ever a reply.** It runs on an inbound text, so the customer texted first — the
+  consent the published /sms-consent policy grants for a reply (same reasoning as owner
+  replies). STOP (`sms_opt_outs` + `client_sms_opt_outs` via `isOptedOut`, fail-safe) is
+  checked before the model and again right before sending. STOP/HELP keyword texts never
+  reach it. Customer texting hours (9:00–20:00 local, `withinTextingHours`) apply; outside
+  them the owner gets the normal reply alert and nothing is texted.
+- **Same booking logic as the phone agent.** check-availability / book / cancel are the
+  existing `/api/agent-tools/*` endpoints, called over HTTP exactly like the web chat does,
+  with a new per-client, domain-separated signature (`x-frontdesk-sms-signature`,
+  "sms-tools:v1:"). `authorizeAgentTool` reports channel `sms` only from that signature. The
+  signed `call.from_number` is the Twilio-verified sender, so:
+  - **cancel** treats it like voice caller ID: a texted request from the same number is
+    verified; a number typed into the conversation is refused; no code is texted.
+  - **book** always books under the texting number (a typed number is ignored), and starts
+    no consent receipt / confirmation-reminder series (the AI's reply is the confirmation).
+    **Open:** whether an SMS booking should count as consent for the day-before reminder.
+  - Reschedule = book the new time, then cancel the old one (prompt rule; the tools enforce
+    who may cancel). There is no separate reschedule endpoint.
+- **Prompt-injection posture** (`src/lib/sms-ai/rules.ts`, pure + tested): business facts
+  (services/hours/FAQ/guidance, `ownerText`-sanitized) first, our rules LAST and winning;
+  the thread goes in as a fenced `<transcript>` user turn with tag-like text neutralized,
+  labelled Customer / Business / You (AI). Tools are only availability/book/cancel plus two
+  decision tools (`send_reply`, `handoff_to_owner`) — nothing can touch the live agent,
+  knowledge or settings. Every draft passes `guardReply` (no links, phone numbers, prompt
+  talk, 6-digit codes; ≤320 chars) or it isn't sent and the thread is handed off.
+- **Handoffs.** Emergencies, "get me a person / call me", and sensitive topics (refunds,
+  complaints, legal, medical) are detected on the raw text BEFORE the model (so injection
+  can't argue past them). The model can also hand off when unsure. A handoff pauses AI in
+  that thread (`sms_threads.ai_paused`, reason `handoff:<why>`), sends a TEMPLATED holding
+  text (emergencies say "call 911"), and sends the existing reply-alert email with a
+  "Needs you:" subject and the reason. A model/tool error falls back to the plain alert.
+- **Owner stays in charge.** While the AI is handling a thread, the per-text reply-alert
+  email is skipped (the owner hears on handoff instead) — **open decision**: some owners may
+  want every text emailed anyway. A manual portal reply pauses the AI in that thread for
+  `ai_text_pause_hours` (default 12; 2/6/12/24/48), computed from `sms_messages` (no extra
+  write). Messages → conversation shows the AI status with **Pause AI / Resume AI** (staff
+  may use it; operator preview may not).
+- **Marked as AI.** Stored in `sms_messages` with kind `ai_reply` / `ai_handoff` (free-text
+  column, no enum change); the thread shows an "AI" badge and the list previews "AI: …".
+- **Caps** (from `sms_messages`, rolling 24h): 10 AI texts per thread, 200 per business. At
+  the thread cap the AI hands the conversation to the owner (no holding text).
+- **Concurrency.** A short claim on `sms_threads.ai_busy_until` stops two texts arriving
+  together from producing two replies; the run re-checks for a newer text before finishing.
+- **Model:** `CHAT_MODEL` (Haiku by default, env-overridable), same as the web chat.
+  Recovery's comment "unattended sends are templated, never LLM text" still holds for
+  outbound campaigns; this feature is a reply inside a conversation the customer started,
+  gated as above — but it IS model text leaving unattended, which is why it's opt-in.
+
 ## 2026-09-30 — Security hardening (audit follow-up)
 
 - **Agent-tool auth is per tenant and signed.** Tool URLs carry
@@ -331,6 +386,46 @@ everything else). This change closes the gaps rather than adding a parallel syst
 - **No per-person on/off switch for reply alerts yet.** Taking someone off duty in the alert
   roster stops all their alerts, including these.
 
+## 2026-09-30 — Daily owner briefing (morning email + Overview card)
+
+- **What it is.** An opt-in email around 7–8am in each business's own timezone: yesterday's
+  calls/bookings/cancellations, who needs a call back, today's schedule, anything urgent.
+  `src/lib/daily-briefing.ts` (pure: windows, grounding, rendering), `data/daily-briefing.ts`
+  (queries + dedupe), `agents/briefing.ts` (the model's part), `briefing-send.ts` (cron runner).
+- **Grounded by construction.** Names, phone numbers, times, counts and the schedule are rendered
+  from our tables, never from model output. The model (Haiku, one short call per business per
+  day) writes only a 2–3 sentence opening and picks the order to return calls in, citing
+  callbacks by ref (`C1`). `groundAiBriefing` drops unknown refs, strips digit runs from notes,
+  and throws away the whole opening if it contains any number that isn't one of the counts. No
+  key / model error / ungrounded output → our template opening. A quiet day never calls the model.
+- **Prompt injection.** Lead reasons/messages are caller-authored, so they go to the model inside
+  `<caller_data>` fences (fence-closing characters stripped, one line, capped), with a system rule
+  that fenced text is data, never instructions. Names and phone numbers aren't sent at all.
+- **"Needs a callback"** = leads still `new`, not replied to by text, from the last 7 days, plus
+  yesterday's calls where the call-health rules say a transfer hit voicemail / dropped, or the
+  caller asked for a person and didn't get one, and no message was taken. Urgent = the same kind
+  of keyword list as call health (flood, leak, ASAP, pain…). Product call, easy to tune.
+- **Schedule (Vercel Hobby).** Hobby only allows once-a-day crons and fires them anywhere in the
+  hour, so `vercel.json` registers `/api/cron/daily-briefing` eight times (daily at 10:00–17:00
+  UTC — 7am somewhere from Atlantic to Hawaii). Each run only touches opted-in businesses for
+  whom it's 7–10am locally; the 3-hour window lets a late or missed slot catch up. On Pro, these
+  can collapse to one hourly entry. Outside the Americas no slot lands at 7–10am local.
+- **Opt-in, off by default** (`setup_flags.dailyBriefing`, jsonb — **no migration**), Settings →
+  Alerts → "Morning briefing email", owner-only like the other alert toggles. Off by default so
+  existing customers don't get a new daily email unannounced. Sent to the owner email (like the
+  weekly summary), **email only — never SMS**.
+- **Dedupe:** one `notifications` row per business per local day (type `digest_daily`,
+  `payload.kind = 'daily_briefing'`, `payload.dayKey`), claimed under a `pg_advisory_xact_lock`
+  before sending (same pattern as reply alerts). Failed or provider-skipped days may be retried by
+  a later slot; sent days never resend.
+- **Preview:** `/portal/settings/daily-briefing` renders the real briefing for right now and never
+  sends or records anything (it does make one model call per view).
+- **Overview card** reads the copy stored with today's send — one indexed read, no model call on
+  page load. Businesses without the briefing on see a one-line pointer (owners only, once they
+  have calls).
+- **Not changed:** the existing daily SMS digest to the escalation number (`/api/cron/digest`)
+  still runs and isn't tied to this setting.
+
 ## 2026-09-30 — Weekly summary email (extends the Monday owner report)
 
 - **Extends what was there.** `/api/cron/weekly-report` (Mondays 15:00 UTC, already in
@@ -458,6 +553,150 @@ everything else). This change closes the gaps rather than adding a parallel syst
   every call); the calendar step links to Settings → Calendar. The "Receptionist is on"
   switch is hidden until an AI exists; owners no longer see "add a payment method in
   Retell" when a number can't be bought.
+
+## 2026-09-30 — Call recaps (messages + transfers → one alert per call)
+
+- **What triggers one.** An inbound call where the AI took a message (a lead on the call,
+  including on a call that also booked), or transferred the caller to a person: connected
+  (`transfer`) or failed (`transfer_failed`: rang out to voicemail, dropped right away, or
+  Retell `disconnection_reason = transfer_cancelled`). Transfer detection uses Retell's
+  `disconnection_reason` (`call_transfer` / `transfer_cancelled`) and `Transfer Target:`
+  transcript lines (`transferStatus` in `src/lib/call-recap.ts`). Outbound calls and spam
+  never recap.
+- **What it says:** who called (name and number, plus the callback number if it differs from
+  caller ID), whether they're an existing customer (past non-cancelled appointments, upcoming
+  appointment, prior calls), what they want (lead reason/service, then extraction, then
+  Retell's summary), urgency, the suggested reply (`call_insights.follow_up_draft` from
+  extract.ts, labelled as an AI draft), and a link to `/portal/calls/{id}`. Built by rules,
+  not a model, so it adds no new prompt-injection surface. Caller-derived text is escaped,
+  length-capped and shown as the caller's words.
+- **When:** on `call_analyzed`, right after `extractCallInsights` (chained in one `after`),
+  so the suggested reply is ready. Once per call: an advisory lock plus an existing
+  `notifications` row with `payload.kind = 'call_recap'` and `payload.callId`. A send that
+  failed doesn't count, so a retry can try again. No migration.
+- **Dedupe (one alert per call):**
+  - The message tool no longer sends the mid-call "New message" alert on inbound phone
+    calls that already have a call row. The recap replaces it. Web chat, and the rare voice
+    lead with no call row yet, still alert right away (`leadAlertDeferredToRecap`).
+  - The call-problem alert (`notifyOwnerCallProblem`) is skipped when a recap is due. Its
+    emergency and transfer-failure findings are folded into the recap.
+  - `analyzeCall` now gets `transferConnected` from the real transfer signal. It used to be
+    `outcome === "escalated"`, which nothing sets, so a caller who asked for a person and
+    was successfully transferred was alerted as "stranded".
+- **Channels:** email to `getAlertRecipients` emails, always. SMS to its phones **only when
+  `sms_alerts_enabled` is on AND that kind of alert already went by SMS**: messages (the old
+  lead alert texted), failed transfers (the old stranded-caller alert texted), and anything
+  urgent (the old emergency alert texted). A transfer that connected is email-only. It's
+  informational, and the owner's phone isn't the place for it.
+- **Trade-offs:**
+  - A voice message's alert now arrives when the call ends plus analysis time (usually
+    seconds), not mid-call.
+  - If Retell never sends `call_analyzed` for a call, the deferred message alert doesn't go
+    out. The lead is still in the portal.
+  - The call-problem alert for calls with no recap can still fire on both `call_ended` and
+    `call_analyzed` (existing behaviour, unchanged here).
+
+## 2026-09-30 — Multilingual answering (caller's language, configurable list)
+
+- **Setting:** Settings → Phone & AI → Languages. The owner picks which language calls open in
+  (English or Spanish, the two greetings we've written) and up to 3 other languages the AI
+  switches to when a caller speaks them. The default is English only. It's stored in the
+  existing `clients.languages` text column (no migration):
+  - `en`, `en-es` and `es` keep their meaning and are still written for those shapes.
+  - Anything else is a comma list, primary first (`en,es,fr`). See `src/lib/languages.ts`.
+  - The old selector in General was removed so there's one place to set this.
+- **Choices offered:** the ten languages Retell's legacy "multi" setting covered (en, es, fr, pt,
+  de, it, ru, hi, ja, nl). That set is known to work together in Retell's multilingual speech
+  recognition. Retell supports many more locales, but each combination must be covered by the
+  voice and by one recognition provider. Add more only after a test call.
+- **Retell:**
+  - Agent `language` is now an explicit locale array for multilingual agents (`["en-US","es-ES"]`,
+    primary first, which is also Retell's pronunciation fallback), or one locale.
+  - The scalar `"multi"` we used to send is deprecated. Retell still accepts it but stores it as
+    all ten legacy locales, which is the least accurate setup.
+  - Any non-English agent also pins `voice_model: eleven_flash_v2_5`, because our voices are
+    ElevenLabs and the English-only models can't speak other languages. English-only agents
+    are left on Retell's default.
+  - Applied on provisioning and on every sync (`agentSpeechSettings`).
+- **Prompt:** new rules right after the precedence rule:
+  - Detect the caller's language and switch.
+  - On switching, the first sentence repeats the AI disclosure (and recording notice when it's
+    on) in that language. Spanish has a fixed sentence; other languages get a faithful
+    translation.
+  - Ask the texting-consent question in the caller's language. Spanish is fixed; other
+    languages are translated with STOP kept in English.
+  - Pass `language` when booking.
+  - Don't translate names.
+  - A Spanish-first business opens in Spanish: a Spanish default greeting, and a Spanish fixed
+    disclosure is enforced just like the English one (`withRequiredDisclosure(..., { language: "es" })`).
+  - `disclosureGiven` (call health) now recognises Spanish disclosures.
+- **Texts:**
+  - `book_appointment` gets an optional `language` param. It's stored per business and phone in
+    the new `customer_languages` table, and the latest call wins.
+  - Confirmation and reminder texts use Spanish templates when the customer's language is
+    Spanish, with a Spanish date format. STOP stays in English. Every other language falls
+    back to English.
+  - Reads and writes are fail-soft, so a missing table just means English texts.
+- **Consent receipts:** a yes given in Spanish is stored as `booking-v1-es` (and so on for other
+  languages), so the receipt says which language the ask was in. `CONSENT_COVERAGE` treats
+  translations of booking-v1 as the same consent.
+- **Migration:** `drizzle/manual/0012_customer_languages.sql` (new table only, idempotent).
+  It's numbered 0012 because the AI text replies PR uses 0010 and the missed-call PR uses 0011. Order between them doesn't
+  matter.
+- **Cost:** Retell documents no per-language surcharge, and we add none. The trade-off is
+  accuracy (the cross-language recognition pipeline is less precise than single-language) and a
+  slightly longer prompt.
+
+## 2026-09-30 — Missed-call text-back (and optional AI callback)
+
+- **What triggers it.** Retell's `call_analyzed` webhook, after Agent #2's
+  extraction (so the intent/spam flag is available). Pure rules in
+  `src/lib/missed-call.ts` decide from Retell's `disconnection_reason`, call
+  length, outcome, and intent: **dropped** (`error_*`, concurrency/timeout),
+  **hung up early** (caller ended it in under 25s), or **left mid-booking**
+  (caller ended it / went silent with booking intent — from extraction, or the
+  *caller's* lines in the transcript, never the agent's). Everything else —
+  normal conversations, transfers, voicemail, messages taken — is left alone.
+- **Who is never texted.** Our own outbound calls (so AI callbacks can't loop),
+  spam (extraction flag, `scam_detected`, spam/sales/wrong-number intent, the
+  owner's blocked list), anyone who booked on the call or has an upcoming /
+  newly-made appointment, anyone who rang back since, non-US caller ID, anyone
+  opted out (`isOptedOut(phone, clientId)` — shared and per-business STOP), and
+  anyone without a stored consent covering the new `missed_call` purpose.
+- **Consent (open policy question).** `missed_call` is mapped to `booking-v1`
+  like every other purpose, with a TODO(Ari). In practice that means returning
+  customers who agreed to texts get the text-back; a first-time caller who hung
+  up after 5 seconds has agreed to nothing and is **not** texted. If counsel
+  decides a single reply to someone's own call needs no prior consent, the
+  `hasSmsConsent` gate in `src/lib/agents/missed-call-callback.ts` is the one
+  place to change.
+- **Templated, never model-written.** The text is fixed wording: business name,
+  one reason-specific opener, "reply here with a day and time", "Reply STOP to
+  opt out." Nothing the caller said is copied in; a service name appears only
+  when the extracted service exactly matches one of the business's own services
+  (and the business's name is what's printed). This is the prompt-injection
+  stance: a caller can't get words into an outbound text.
+- **Replies.** They land in the normal Messages inbox (sms_messages, kind
+  `missed_call_text` for ours). If AI text replies (PR "AI text replies") is on
+  for the business it answers and can book; otherwise the owner gets the usual
+  reply alert. No code coupling between the two.
+- **Limits.** One per caller per 7 days (advisory-locked per business+phone),
+  one row per call (unique `call_id`, so webhook replays are no-ops), 25/day per
+  business, 9am–8pm local. A call outside those hours is held as `pending` and
+  sent by the new daily sweep (`/api/cron/missed-call-callbacks`, 16:45 UTC) if
+  it's under 20 hours old; otherwise it expires. Every gate is re-checked at send.
+- **AI callback.** A second toggle, only effective when the platform env var
+  `MISSED_CALL_AI_CALLBACKS=on` is set, Retell is configured, the plan includes
+  `outbound_ai_calls`, and the business has a Retell number. It goes through the
+  same consent/opt-out/hours/cap gates as the text, uses the same disclosed
+  begin message pattern as "Call with AI" on leads, and is tagged
+  `direction: outbound` so it is never itself treated as a missed call. If the
+  call can't be placed, the text goes instead.
+- **Storage.** `clients.missed_call_texts_enabled`,
+  `clients.missed_call_ai_callbacks_enabled` (both default false) and the
+  `call_callbacks` ledger (manual migration
+  `drizzle/manual/0011_missed_call_callbacks.sql`; renumber at merge if needed).
+  The Settings → Follow-ups card shows last-7-day sent/held/skipped counts.
 
 ## 2026-09-30 — Smart rebooking (owner blocks time over existing bookings)
 

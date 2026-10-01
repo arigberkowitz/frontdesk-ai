@@ -31,13 +31,13 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     key: "business",
     label: "Business",
     href: "/portal/settings",
-    description: "Your business name, timezone and languages, and your setup progress.",
+    description: "Your business name and timezone, and your setup progress.",
   },
   {
     key: "phone",
     label: "Phone & AI",
     href: "/portal/settings/phone",
-    description: "Turn your receptionist on or off, forward your line, and choose when it hands callers to a person.",
+    description: "Turn your receptionist on or off, forward your line, choose when it hands callers to a person, and pick the languages it answers in.",
   },
   {
     key: "alerts",

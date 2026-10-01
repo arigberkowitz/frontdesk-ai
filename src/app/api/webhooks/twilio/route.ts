@@ -11,10 +11,13 @@ import { updateSmsDeliveryStatus } from "@/lib/data/sms-messages";
 import { explainSmsError } from "@/lib/notifier";
 import { audit } from "@/lib/data/audit";
 import { notifyOwnerTextReply } from "@/lib/reply-alerts";
-import { env, webhookUrl } from "@/lib/env";
+import { env, integrations, webhookUrl } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
+// AI text replies run after the response (next/server `after`) and may make a
+// few model + tool round trips.
+export const maxDuration = 60;
 
 /**
  * Inbound SMS webhook (configure on the Twilio number: Messaging → "A message
@@ -139,6 +142,7 @@ async function forwardReplyToOwner(
   params: Record<string, string>,
   from: string,
   body: string,
+  opts: { alertOwner: boolean } = { alertOwner: true },
 ): Promise<void> {
   // The owner is resolved once, in storeInboundMessage (see resolveInboundClient
   // for the To → last-texted fallback), so the inbox and this email always
@@ -172,6 +176,14 @@ async function forwardReplyToOwner(
     logger.info("sms.reply.no_lead", { clientId: owner.id });
   }
 
+  // AI text replies is answering this one: no email for a message the AI is
+  // handling. If it hands off (unsure, asks for a person, sensitive, limit),
+  // the alert goes out then, saying why.
+  if (!opts.alertOwner) {
+    logger.info("sms.reply.ai_handling", { clientId: owner.id, leadId: lead?.id ?? null });
+    return;
+  }
+
   // An alert failure must never turn into a webhook failure (Twilio would
   // retry, and the retry is deduped as a replay anyway).
   try {
@@ -188,6 +200,31 @@ async function forwardReplyToOwner(
     });
   }
   logger.info("sms.reply.forwarded", { clientId: owner.id, leadId: lead?.id ?? null });
+}
+
+/**
+ * Will AI text replies answer this text? Only for businesses that switched it
+ * on, with a model configured, and only when the thread is eligible (not
+ * STOPped, not paused, owner hasn't just replied, texting hours, caps). Any
+ * error → false, which is exactly the pre-feature behavior (owner alert).
+ */
+async function aiTakesThis(owner: Client, from: string): Promise<boolean> {
+  if (!owner.aiTextRepliesEnabled || !integrations.anthropic()) return false;
+  try {
+    // Loaded only for businesses that turned the feature on, so the STOP path
+    // never waits on the model/booking modules.
+    const { planAiReply } = await import("@/lib/agents/text-reply");
+    const plan = await planAiReply(owner, from);
+    // At the daily cap the AI can't answer, but the run hands the thread to
+    // the owner (with the reason) — let it do that instead of a plain alert.
+    return plan.ok || plan.reason === "thread_cap" || plan.reason === "client_cap";
+  } catch (err) {
+    logger.error("sms.reply.ai_plan_failed", {
+      clientId: owner.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return false;
+  }
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -360,7 +397,16 @@ export async function POST(req: Request): Promise<Response> {
       }
     }
     // Twilio replays a webhook it thinks failed; don't email the owner twice.
-    if (inbound.isNew) await forwardReplyToOwner(inbound.owner, params, from, body);
+    if (inbound.isNew) {
+      const ai = owner ? await aiTakesThis(owner, from) : false;
+      await forwardReplyToOwner(owner, params, from, body, { alertOwner: !ai });
+      if (ai && owner) {
+        after(async () => {
+          const { runAiTextReply } = await import("@/lib/agents/text-reply");
+          await runAiTextReply(owner, from);
+        });
+      }
+    }
     return twiml();
   } catch (err) {
     logger.error("webhook.twilio.failed", {

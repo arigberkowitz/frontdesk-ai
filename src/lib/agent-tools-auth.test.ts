@@ -158,3 +158,58 @@ describe("authorizeAgentTool", () => {
     expect((await authorizeAgentTool(toolReq({ client: "x", token: "t", body: {} }))).ok).toBe(false);
   });
 });
+
+describe("AI text replies → tools (sms channel)", () => {
+  it("a valid SMS signature yields channel 'sms' with the signed texting number as caller ID", async () => {
+    const { signSmsToolRequest, SMS_SIGNATURE_HEADER } = await import("./agent-tool-token");
+    const body = JSON.stringify({ args: {}, call: { channel: "sms", from_number: "+14155550100" } });
+    const res = await authorizeAgentTool(
+      toolReq({
+        client: CLIENT_A,
+        token: agentToolToken(CLIENT_A),
+        body,
+        headers: { [SMS_SIGNATURE_HEADER]: signSmsToolRequest(CLIENT_A, body) },
+      }),
+    );
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.channel).toBe("sms");
+      expect(res.call.fromNumber).toBe("+14155550100");
+    }
+  });
+
+  it("rejects a forged/edited SMS call: other client's key, edited from_number, chat key, legacy token", async () => {
+    const { signSmsToolRequest, SMS_SIGNATURE_HEADER } = await import("./agent-tool-token");
+    const body = JSON.stringify({ args: {}, call: { from_number: "+14155550100" } });
+    const edited = JSON.stringify({ args: {}, call: { from_number: "+12125550199" } });
+    const tries = [
+      { token: agentToolToken(CLIENT_A), body, sig: signSmsToolRequest(CLIENT_B, body) },
+      { token: agentToolToken(CLIENT_A), body: edited, sig: signSmsToolRequest(CLIENT_A, body) },
+      { token: agentToolToken(CLIENT_A), body, sig: signChatToolRequest(CLIENT_A, body) },
+      { token: SECRET, body, sig: signSmsToolRequest(CLIENT_A, body) },
+    ];
+    for (const t of tries) {
+      const res = await authorizeAgentTool(
+        toolReq({ client: CLIENT_A, token: t.token, body: t.body, headers: { [SMS_SIGNATURE_HEADER]: t.sig } }),
+      );
+      expect(res.ok).toBe(false);
+    }
+  });
+
+  it("a request carrying both chat and SMS signatures is refused", async () => {
+    const { signSmsToolRequest, SMS_SIGNATURE_HEADER } = await import("./agent-tool-token");
+    const body = JSON.stringify({ args: {} });
+    const res = await authorizeAgentTool(
+      toolReq({
+        client: CLIENT_A,
+        token: agentToolToken(CLIENT_A),
+        body,
+        headers: {
+          [SMS_SIGNATURE_HEADER]: signSmsToolRequest(CLIENT_A, body),
+          [CHAT_SIGNATURE_HEADER]: signChatToolRequest(CLIENT_A, body),
+        },
+      }),
+    );
+    expect(res.ok).toBe(false);
+  });
+});
