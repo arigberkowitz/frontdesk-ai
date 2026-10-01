@@ -1,6 +1,7 @@
 import { DAYS } from "@/config/options";
 import { formatCurrencyCents } from "./format";
 import { hasCustomVocab, vocabFor } from "./vocab";
+import { languagePromptRules, parseLanguages } from "./languages";
 
 /**
  * Builds the Retell LLM `general_prompt` from a client's profile, services,
@@ -32,24 +33,13 @@ export interface PromptClient {
   handoffMode?: "always" | "open_hours" | "never";
   /** Freeform note on when a human is actually reachable, e.g. "weekdays 9–5". */
   humanHoursNote?: string | null;
-  /** Spoken languages: 'en' | 'en-es' (bilingual) | 'es'. */
+  /** Spoken languages, primary first — see `parseLanguages` (lib/languages.ts). */
   languages?: string | null;
   /** Whether a calendar is connected so the agent can actually book. When false,
    *  the agent must not promise booking — it takes a message to schedule instead. */
   bookingEnabled?: boolean;
 }
 
-/** The agent's language instruction for the prompt, by setting. */
-function languageRule(languages: string | null | undefined): string | null {
-  switch (languages) {
-    case "en-es":
-      return "You are fully bilingual in English and Spanish. Open in English, but the moment a caller speaks Spanish or asks for Spanish, switch and continue the entire call in natural, fluent Spanish — and switch back if they do. Always match the caller's language.";
-    case "es":
-      return "Habla con las personas que llaman en español de forma natural y fluida por defecto. Si la persona prefiere inglés, cambia al inglés. (Speak with callers in fluent, natural Spanish by default; switch to English if the caller prefers.)";
-    default:
-      return null; // English-only: no special instruction needed.
-  }
-}
 export interface PromptService {
   name: string;
   durationMin: number;
@@ -207,21 +197,55 @@ export function hasRecordingNotice(text: string): boolean {
   return RECORDING_RE.test(text);
 }
 
+// The same two checks for a Spanish-first business, whose opening line is Spanish.
+const AI_DISCLOSURE_ES_RE =
+  /inteligencia artificial|asistente (virtual|automatizad[oa]|de IA)|recepcionista (virtual|de IA)/i;
+const AI_DENIAL_ES_RE = /no soy (un[ao]? )?(IA|robot|bot|m[aá]quina)|persona real|soy (un[ao]? )?(humano|humana|persona)\b/i;
+const RECORDING_ES_RE = /(puede|podr[ií]a|ser[aá]|est[aá]|es)\s+(ser\s+|siendo\s+)?grabad[ao]|llamada grabada|se graba/i;
+
+export function hasAiDisclosureEs(text: string): boolean {
+  return AI_DISCLOSURE_ES_RE.test(text) && !AI_DENIAL_ES_RE.test(text);
+}
+
+export function hasRecordingNoticeEs(text: string): boolean {
+  return RECORDING_ES_RE.test(text);
+}
+
+export function defaultGreetingEs(client: { name: string }, agentName = DEFAULT_AGENT_NAME): string {
+  return `¡Hola, gracias por llamar a ${client.name}! Soy ${agentName}, el asistente de inteligencia artificial. ¿En qué le puedo ayudar?`;
+}
+
 export function withRequiredDisclosure(
   greeting: string,
-  opts: { businessName: string; recording: boolean; customLine?: string | null },
+  opts: {
+    businessName: string;
+    recording: boolean;
+    customLine?: string | null;
+    /** The language the opening line is in. Spanish-first businesses open in Spanish. */
+    language?: "en" | "es";
+  },
 ): string {
+  const es = opts.language === "es";
+  const saysAi = es ? hasAiDisclosureEs : hasAiDisclosure;
+  const saysRec = es ? hasRecordingNoticeEs : hasRecordingNotice;
   const base = greeting.trim();
   let prefix = "";
   const custom = opts.customLine?.trim();
-  if (custom && (!hasAiDisclosure(base) || (opts.recording && !hasRecordingNotice(base)))) {
+  if (custom && (!saysAi(base) || (opts.recording && !saysRec(base)))) {
     prefix = custom;
   }
   const soFar = `${prefix} ${base}`;
-  const needAi = !hasAiDisclosure(soFar);
-  const needRec = opts.recording && !hasRecordingNotice(soFar);
-  const fixed =
-    needAi && needRec
+  const needAi = !saysAi(soFar);
+  const needRec = opts.recording && !saysRec(soFar);
+  const fixed = es
+    ? needAi && needRec
+      ? `Hola, se ha comunicado con el asistente de inteligencia artificial de ${opts.businessName}, y esta llamada puede ser grabada.`
+      : needAi
+        ? `Hola, se ha comunicado con el asistente de inteligencia artificial de ${opts.businessName}.`
+        : needRec
+          ? "Le informo que esta llamada puede ser grabada."
+          : ""
+    : needAi && needRec
       ? `Hi, you've reached the AI assistant for ${opts.businessName}, and this call may be recorded.`
       : needAi
         ? `Hi, you've reached the AI assistant for ${opts.businessName}.`
@@ -238,13 +262,21 @@ export function openingLine(client: {
   agentName?: string | null;
   recordingDisclosureEnabled: boolean;
   recordingDisclosureLine?: string | null;
+  /** Spanish-first businesses open in Spanish, disclosure included. */
+  languages?: string | null;
 }): string {
+  const language = parseLanguages(client.languages)[0] === "es" ? "es" : "en";
+  const agentName = client.agentName?.trim() || DEFAULT_AGENT_NAME;
   const greeting =
-    client.greeting?.trim() || defaultGreeting({ name: client.name }, client.agentName?.trim() || DEFAULT_AGENT_NAME);
+    client.greeting?.trim() ||
+    (language === "es"
+      ? defaultGreetingEs({ name: client.name }, agentName)
+      : defaultGreeting({ name: client.name }, agentName));
   return withRequiredDisclosure(greeting, {
     businessName: client.name,
     recording: client.recordingDisclosureEnabled,
     customLine: client.recordingDisclosureEnabled ? client.recordingDisclosureLine : null,
+    language,
   });
 }
 
@@ -270,13 +302,18 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
   const handoffMode = client.handoffMode ?? "always";
   const handoff = client.humanHandoffEnabled !== false && handoffMode !== "never";
   const humanHours = client.humanHoursNote?.trim();
-  const language = languageRule(client.languages);
+  // Detect-and-switch, plus the AI disclosure and the texting consent ask in
+  // the caller's language (lib/languages.ts).
+  const languageRules = languagePromptRules(parseLanguages(client.languages), {
+    business: client.name,
+    recording: Boolean(disclosure),
+  });
   const canBook = client.bookingEnabled !== false; // default on (preserves prior behavior)
   const vocab = vocabFor(client.industry);
 
   const rules = [
     RULES_PRECEDENCE,
-    language,
+    ...languageRules,
     hasCustomVocab(vocab)
       ? `Refer to callers as "${vocab.customers}" and bookings as "${vocab.appointments}" where natural.`
       : null,

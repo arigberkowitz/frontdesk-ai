@@ -140,6 +140,16 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
   Twilio number twice within a minute; exactly one email should arrive, linking to that
   conversation in Messages.
 
+- **Multilingual answering — MIGRATION:** apply `drizzle/manual/0011_customer_languages.sql`
+  (Neon SQL editor, idempotent). The code is fail-soft without it (texts just stay English), so
+  order doesn't matter, but run it to get Spanish texts. No env vars.
+  - **After deploying, run Settings → Re-sync agents.** Bilingual businesses' Retell agents
+    move from the deprecated `"multi"` (ten languages) to their exact locales plus the
+    `eleven_flash_v2_5` voice model.
+  - Smoke test: set Phone & AI → Languages to English + Spanish, then call and speak Spanish.
+    The AI should switch, repeat the AI/recording notice in Spanish, and ask the texting
+    question in Spanish. Book with "sí", and the confirmation text should arrive in Spanish.
+
 - **Weekly summary email — MIGRATION REQUIRED:** apply `drizzle/manual/0008_weekly_summary.sql`
   (Neon SQL editor, idempotent) **before** the deploy. It adds `clients.weekly_summary_enabled`
   and the `weekly_summary_sends` dedupe table. It uses the existing Monday cron

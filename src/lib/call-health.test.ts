@@ -407,3 +407,11 @@ describe("the first real call", () => {
     expect(r.problems).not.toContain("stranded_asking_for_human");
   });
 });
+
+describe("disclosure check understands Spanish", () => {
+  it("a Spanish disclosure counts", async () => {
+    const { disclosureGiven } = await import("./call-health");
+    expect(disclosureGiven("le informo que soy un asistente de inteligencia artificial de acme y que esta llamada puede ser grabada.")).toEqual({ ai: true, recording: true });
+    expect(disclosureGiven("hola, ¿en qué le puedo ayudar?")).toEqual({ ai: false, recording: false });
+  });
+});
