@@ -35,6 +35,9 @@ import { formatCurrencyCents, formatDateTime, formatPhone } from "@/lib/format";
 import { weekOverWeek } from "@/lib/trend";
 import { capVocab, vocabFor } from "@/lib/vocab";
 import { countOnDay, greetingForHour, heroStatus, hourInZone } from "@/lib/portal-hero";
+import { DailyBriefingCard } from "@/components/portal/daily-briefing-card";
+import { getStoredBriefingCard } from "@/lib/data/daily-briefing";
+import { tzTodayKey } from "@/lib/tz";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -65,6 +68,10 @@ export default async function PortalOverviewPage({
       countUnreadMessages(clientId),
       getPortalEditAccess(clientId),
     ]);
+  // Today's stored morning briefing (one indexed read; never a model call).
+  const briefingCard = client
+    ? await getStoredBriefingCard(clientId, tzTodayKey(client.timezone))
+    : null;
   // First name for the greeting — never the operator's own name in a preview.
   const me = preview ? null : await currentUser().catch(() => null);
   const tz = client?.timezone;
@@ -249,6 +256,12 @@ export default async function PortalOverviewPage({
           </Card>
         ) : null}
       </div>
+
+      <DailyBriefingCard
+        card={briefingCard}
+        enabled={client?.setupFlags?.dailyBriefing === true}
+        canEnable={editAccess.isAdmin && m.totalCalls > 0}
+      />
 
       {/* Setup first while it's unfinished — it's the one thing a new owner
           has to do. It removes itself once done (or hidden), leaving the
