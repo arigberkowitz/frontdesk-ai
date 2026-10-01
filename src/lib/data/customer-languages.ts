@@ -9,7 +9,7 @@ import { normalizePhone } from "./sms-optouts";
 /**
  * Remember which language a customer spoke, so texts can follow it.
  *
- * Fail-soft both ways: a missing table (migration 0011 not applied yet) or a
+ * Fail-soft both ways: a missing table (migration 0012 not applied yet) or a
  * DB hiccup must never fail a booking, and the worst case is a text in
  * English, which is what every customer got before.
  */

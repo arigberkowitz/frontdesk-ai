@@ -140,7 +140,7 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
   Twilio number twice within a minute; exactly one email should arrive, linking to that
   conversation in Messages.
 
-- **Multilingual answering — MIGRATION:** apply `drizzle/manual/0011_customer_languages.sql`
+- **Multilingual answering — MIGRATION:** apply `drizzle/manual/0012_customer_languages.sql`
   (Neon SQL editor, idempotent). The code is fail-soft without it (texts just stay English), so
   order doesn't matter, but run it to get Spanish texts. No env vars.
   - **After deploying, run Settings → Re-sync agents.** Bilingual businesses' Retell agents

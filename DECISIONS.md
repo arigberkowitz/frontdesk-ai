@@ -503,8 +503,8 @@ everything else). This change closes the gaps rather than adding a parallel syst
 - **Consent receipts:** a yes given in Spanish is stored as `booking-v1-es` (and so on for other
   languages), so the receipt says which language the ask was in. `CONSENT_COVERAGE` treats
   translations of booking-v1 as the same consent.
-- **Migration:** `drizzle/manual/0011_customer_languages.sql` (new table only, idempotent).
-  It's numbered 0011 because the AI text replies PR uses 0010. Order between them doesn't
+- **Migration:** `drizzle/manual/0012_customer_languages.sql` (new table only, idempotent).
+  It's numbered 0012 because the AI text replies PR uses 0010 and the missed-call PR uses 0011. Order between them doesn't
   matter.
 - **Cost:** Retell documents no per-language surcharge, and we add none. The trade-off is
   accuracy (the cross-language recognition pipeline is less precise than single-language) and a

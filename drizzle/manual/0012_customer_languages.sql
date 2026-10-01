@@ -6,8 +6,8 @@
 -- Additive only, idempotent (safe to run twice), safe on a live database.
 -- Hand-written like 0001–0009 (drizzle/meta snapshots have drifted from prod).
 --
--- Numbered 0011 because the AI text replies PR uses 0010. If that one merges
--- later or is renumbered, the order between them doesn't matter: they touch
+-- Numbered 0012 because open PRs use 0010 (AI text replies) and 0011
+-- (missed-call callbacks). The order between them doesn't matter: they touch
 -- different tables.
 --
 -- Run before (or after) deploying: the code reads/writes this table

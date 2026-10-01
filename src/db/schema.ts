@@ -724,7 +724,7 @@ export const clientSmsOptOuts = pgTable(
  * The language a customer spoke with the AI (per business, per phone), so
  * their confirmation and reminder texts go out in it. Written when the agent
  * books and passes `language`; the latest call wins.
- * Migration: drizzle/manual/0011_customer_languages.sql. Reads and writes are
+ * Migration: drizzle/manual/0012_customer_languages.sql. Reads and writes are
  * fail-soft, so a deploy that runs before the migration just texts in English.
  */
 export const customerLanguages = pgTable(

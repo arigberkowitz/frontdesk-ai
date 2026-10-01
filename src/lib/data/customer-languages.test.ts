@@ -11,7 +11,7 @@ vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn, error: vi.fn() }
 const pg = ((await import("@/db")) as unknown as { __pg: import("@electric-sql/pglite").PGlite }).__pg;
 const { rememberCustomerLanguage, getCustomerLanguage } = await import("./customer-languages");
 
-const MIGRATION = readFileSync(path.resolve(__dirname, "../../../drizzle/manual/0011_customer_languages.sql"), "utf8");
+const MIGRATION = readFileSync(path.resolve(__dirname, "../../../drizzle/manual/0012_customer_languages.sql"), "utf8");
 const ORG = "00000000-0000-4000-8000-000000000001";
 const A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -23,7 +23,7 @@ beforeEach(async () => {
   warn.mockClear();
 });
 
-describe("migration 0011", () => {
+describe("migration 0012", () => {
   it("applies to a pre-feature database and is safe to run twice", async () => {
     const { PGlite } = await import("@electric-sql/pglite");
     const fresh = new PGlite();
