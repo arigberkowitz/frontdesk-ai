@@ -85,6 +85,7 @@ Not needed for customer #1: run a free pilot or invoice manually
 | `/api/cron/digest` | 14:00 | Owner daily digests |
 | `/api/cron/weekly-report` | Mon 15:00 | Weekly summary email (+ weekly SMS digest) |
 | `/api/cron/outbound-recovery` | 17:00 | Texts cold leads/no-shows (opt-in clients only) |
+| `/api/cron/missed-call-callbacks` | 16:45 | Sends missed-call text-backs held overnight (opt-in clients only) |
 
 All require `CRON_SECRET` (already set). Manual trigger for testing:
 `curl -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/cron/qa-review`
@@ -97,6 +98,13 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
   call the number in front of them. Nothing sells it better.
 
 ## Notes / known limits
+
+- **Missed-call text-back** (Settings → Follow-ups, off by default): run
+  `drizzle/manual/0011_missed_call_callbacks.sql` before deploying. Only texts
+  callers with a stored SMS consent (see DECISIONS.md — first-time callers
+  usually have none). The AI phone-callback option stays inert until you set
+  `MISSED_CALL_AI_CALLBACKS=on` in Vercel; leave it unset until you've decided
+  you want robots dialing people back.
 
 - **Calendar sync (Google / Outlook one-click).** No migration. Needs
   `CREDENTIALS_SECRET` (long random string; encrypts tokens). Each option stays

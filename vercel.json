@@ -44,6 +44,10 @@
     {
       "path": "/api/cron/recall",
       "schedule": "30 18 * * *"
+    },
+    {
+      "path": "/api/cron/missed-call-callbacks",
+      "schedule": "45 16 * * *"
     }
   ]
 }

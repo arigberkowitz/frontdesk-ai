@@ -38,6 +38,8 @@ interface RetellCall {
   };
   call_cost?: { combined_cost?: number };
   metadata?: { direction?: string };
+  /** Why the call ended (user_hangup, agent_hangup, error_*, inactivity, …). Kept in raw_payload. */
+  disconnection_reason?: string;
 }
 interface RetellWebhook {
   event?: string;
@@ -184,9 +186,31 @@ export async function POST(req: Request): Promise<Response> {
 
     // Agent #2 — post-call extraction (intent, entities, spam, follow-up draft).
     // Runs after the response is sent so Retell never waits on the model.
-    if (event === "call_analyzed" && row && values.transcript) {
+    //
+    // Missed/dropped-call text-back chains after it, because it reads the
+    // extracted intent/spam flag. Only loaded when the business turned it on
+    // (off by default), so a business without it pays nothing.
+    if (event === "call_analyzed" && row) {
       const callDbId = row.id;
-      after(() => extractCallInsights(callDbId));
+      const transcript = values.transcript;
+      const textBack = client.missedCallTextsEnabled;
+      if (transcript || textBack) {
+        after(async () => {
+          if (transcript) {
+            await extractCallInsights(callDbId).catch((err) =>
+              logger.error("webhook.retell.extract_failed", {
+                callId: callDbId,
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            );
+          }
+          if (textBack) {
+            const { considerMissedCall } = await import("@/lib/agents/missed-call-callback");
+            const result = await considerMissedCall(callDbId);
+            logger.info("webhook.retell.missed_call", { clientId: client.id, callId: callDbId, result });
+          }
+        });
+      }
     }
 
     // `call_analyzed`, not `call_ended`: this is the event that carries the
