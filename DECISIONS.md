@@ -498,3 +498,45 @@ everything else). This change closes the gaps rather than adding a parallel syst
   every call); the calendar step links to Settings → Calendar. The "Receptionist is on"
   switch is hidden until an AI exists; owners no longer see "add a payment method in
   Retell" when a number can't be bought.
+
+## 2026-09-30 — Call recaps (messages + transfers → one alert per call)
+
+- **What triggers one.** An inbound call where the AI took a message (a lead on the call,
+  including on a call that also booked), or transferred the caller to a person: connected
+  (`transfer`) or failed (`transfer_failed`: rang out to voicemail, dropped right away, or
+  Retell `disconnection_reason = transfer_cancelled`). Transfer detection uses Retell's
+  `disconnection_reason` (`call_transfer` / `transfer_cancelled`) and `Transfer Target:`
+  transcript lines (`transferStatus` in `src/lib/call-recap.ts`). Outbound calls and spam
+  never recap.
+- **What it says:** who called (name and number, plus the callback number if it differs from
+  caller ID), whether they're an existing customer (past non-cancelled appointments, upcoming
+  appointment, prior calls), what they want (lead reason/service, then extraction, then
+  Retell's summary), urgency, the suggested reply (`call_insights.follow_up_draft` from
+  extract.ts, labelled as an AI draft), and a link to `/portal/calls/{id}`. Built by rules,
+  not a model, so it adds no new prompt-injection surface. Caller-derived text is escaped,
+  length-capped and shown as the caller's words.
+- **When:** on `call_analyzed`, right after `extractCallInsights` (chained in one `after`),
+  so the suggested reply is ready. Once per call: an advisory lock plus an existing
+  `notifications` row with `payload.kind = 'call_recap'` and `payload.callId`. A send that
+  failed doesn't count, so a retry can try again. No migration.
+- **Dedupe (one alert per call):**
+  - The message tool no longer sends the mid-call "New message" alert on inbound phone
+    calls that already have a call row. The recap replaces it. Web chat, and the rare voice
+    lead with no call row yet, still alert right away (`leadAlertDeferredToRecap`).
+  - The call-problem alert (`notifyOwnerCallProblem`) is skipped when a recap is due. Its
+    emergency and transfer-failure findings are folded into the recap.
+  - `analyzeCall` now gets `transferConnected` from the real transfer signal. It used to be
+    `outcome === "escalated"`, which nothing sets, so a caller who asked for a person and
+    was successfully transferred was alerted as "stranded".
+- **Channels:** email to `getAlertRecipients` emails, always. SMS to its phones **only when
+  `sms_alerts_enabled` is on AND that kind of alert already went by SMS**: messages (the old
+  lead alert texted), failed transfers (the old stranded-caller alert texted), and anything
+  urgent (the old emergency alert texted). A transfer that connected is email-only. It's
+  informational, and the owner's phone isn't the place for it.
+- **Trade-offs:**
+  - A voice message's alert now arrives when the call ends plus analysis time (usually
+    seconds), not mid-call.
+  - If Retell never sends `call_analyzed` for a call, the deferred message alert doesn't go
+    out. The lead is still in the portal.
+  - The call-problem alert for calls with no recap can still fire on both `call_ended` and
+    `call_analyzed` (existing behaviour, unchanged here).

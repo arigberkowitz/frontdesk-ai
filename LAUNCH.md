@@ -148,6 +148,13 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
   daily crons). Check it at `/portal/settings/daily-briefing` (preview only, sends nothing), or
   trigger a run with the curl above; a business only gets one per local day.
 
+- **Call recaps** (message taken / call transferred → one alert per call) need no migration
+  or env var. They use `RESEND_API_KEY`, the alert roster and, only where SMS alerts already
+  applied, Twilio. The Retell agent must deliver `call_analyzed` to `/api/webhooks/retell`
+  (it already does for extraction). Smoke test: call, ask the AI to take a message, hang up.
+  Within about a minute you should get exactly one "<name> left a message" email, and no
+  separate "New message" email.
+
 - **Weekly summary email — MIGRATION REQUIRED:** apply `drizzle/manual/0008_weekly_summary.sql`
   (Neon SQL editor, idempotent) **before** the deploy. It adds `clients.weekly_summary_enabled`
   and the `weekly_summary_sends` dedupe table. It uses the existing Monday cron

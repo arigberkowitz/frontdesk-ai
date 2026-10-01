@@ -146,7 +146,7 @@ function agentLines(transcript: string): string[] {
  * existed until a real call went through. They're neither agent nor caller, so
  * they were being silently dropped, and dropping them hid the failure below.
  */
-function transferLines(transcript: string): string[] {
+export function transferLines(transcript: string): string[] {
   return transcript
     .split(/\r?\n/)
     .map((l) => l.trim())
