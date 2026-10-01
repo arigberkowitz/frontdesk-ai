@@ -84,6 +84,7 @@ Not needed for customer #1: run a free pilot or invoice manually
 | `/api/cron/nightly-improve` | 09:00 | Drafts knowledge/guidance suggestions |
 | `/api/cron/digest` | 14:00 | Owner daily digests |
 | `/api/cron/weekly-report` | Mon 15:00 | Weekly summary email (+ weekly SMS digest) |
+| `/api/cron/daily-briefing` | daily 10:00–17:00 (8 entries) | Morning briefing email, 7–10am in each opted-in business's zone |
 | `/api/cron/outbound-recovery` | 17:00 | Texts cold leads/no-shows (opt-in clients only) |
 | `/api/cron/missed-call-callbacks` | 16:45 | Sends missed-call text-backs held overnight (opt-in clients only) |
 
@@ -127,6 +128,15 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
     calendar, call and ask for that exact time (should be refused), book a free
     time (event appears), cancel it (event disappears).
 
+- **AI text replies — MIGRATION REQUIRED:** apply `drizzle/manual/0010_ai_text_replies.sql`
+  (Neon SQL editor, idempotent) **before** the deploy (renumber if another branch merged a
+  0010 first). No new env vars: uses `ANTHROPIC_API_KEY` (optional `CHAT_MODEL`),
+  `AGENT_TOOLS_SECRET`, `APP_URL`, Twilio. Off for every business until the owner turns it on
+  in Settings → Follow-ups. Smoke test on a test business with a calendar: turn it on, text
+  the number "do you have anything Tuesday?", confirm an AI-badged reply; text "can I talk to
+  a person" and confirm the thread pauses and the "Needs you:" email arrives; reply from
+  Messages and confirm the AI stays quiet; press Resume AI.
+
 - **Per-business texting numbers** (optional): apply
   `drizzle/manual/0009_client_sms_numbers.sql` (Neon SQL editor, idempotent)
   **before** deploying that code. No env vars. To give a business its own number:
@@ -147,6 +157,30 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
   existing `RESEND_API_KEY` + alert roster and never text anyone. Smoke test: text the
   Twilio number twice within a minute; exactly one email should arrive, linking to that
   conversation in Messages.
+
+- **Daily owner briefing** needs no migration and no new env vars (uses `RESEND_API_KEY`,
+  `ANTHROPIC_API_KEY` — optional, falls back to a template — and `CRON_SECRET`). It's off for
+  every business until the owner turns it on (Settings → Alerts → Morning briefing email).
+  `vercel.json` adds eight daily entries for `/api/cron/daily-briefing` (Hobby allows only
+  daily crons). Check it at `/portal/settings/daily-briefing` (preview only, sends nothing), or
+  trigger a run with the curl above; a business only gets one per local day.
+
+- **Call recaps** (message taken / call transferred → one alert per call) need no migration
+  or env var. They use `RESEND_API_KEY`, the alert roster and, only where SMS alerts already
+  applied, Twilio. The Retell agent must deliver `call_analyzed` to `/api/webhooks/retell`
+  (it already does for extraction). Smoke test: call, ask the AI to take a message, hang up.
+  Within about a minute you should get exactly one "<name> left a message" email, and no
+  separate "New message" email.
+
+- **Multilingual answering — MIGRATION:** apply `drizzle/manual/0012_customer_languages.sql`
+  (Neon SQL editor, idempotent). The code is fail-soft without it (texts just stay English), so
+  order doesn't matter, but run it to get Spanish texts. No env vars.
+  - **After deploying, run Settings → Re-sync agents.** Bilingual businesses' Retell agents
+    move from the deprecated `"multi"` (ten languages) to their exact locales plus the
+    `eleven_flash_v2_5` voice model.
+  - Smoke test: set Phone & AI → Languages to English + Spanish, then call and speak Spanish.
+    The AI should switch, repeat the AI/recording notice in Spanish, and ask the texting
+    question in Spanish. Book with "sí", and the confirmation text should arrive in Spanish.
 
 - **Weekly summary email — MIGRATION REQUIRED:** apply `drizzle/manual/0008_weekly_summary.sql`
   (Neon SQL editor, idempotent) **before** the deploy. It adds `clients.weekly_summary_enabled`

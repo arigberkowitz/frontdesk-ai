@@ -3,6 +3,7 @@ import { toE164 } from "@/lib/format";
 import { getCallByRetellId } from "@/lib/data/calls";
 import { createLead } from "@/lib/data/leads";
 import { notifyOwnerLead } from "@/lib/notify";
+import { leadAlertDeferredToRecap } from "@/lib/call-recap";
 import { emitWebhook } from "@/lib/webhooks-emit";
 import { after } from "next/server";
 
@@ -11,7 +12,7 @@ export const runtime = "nodejs";
 export async function POST(req: Request): Promise<Response> {
   const auth = await authorizeAgentTool(req);
   if (!auth.ok) return auth.response;
-  const { client, args, retellCallId } = auth;
+  const { client, args, retellCallId, channel } = auth;
 
   // Normalize the number the moment it arrives. A message whose phone field
   // holds "four one five..." or a half-heard string is a lead the business
@@ -38,7 +39,13 @@ export async function POST(req: Request): Promise<Response> {
     status: "new",
   });
 
-  await notifyOwnerLead(client, lead);
+  // On a phone call, the alert waits for the call to end: the call recap
+  // (lib/call-recap.ts) then sends ONE alert with who called, what they want,
+  // urgency and a suggested reply — instead of a bare "New message" now and a
+  // second email later. Web chat (no call to recap) still alerts right away.
+  if (!leadAlertDeferredToRecap({ channel, call: callRow ?? null })) {
+    await notifyOwnerLead(client, lead);
+  }
 
   // The caller is still on the line, so this goes after the response. A CRM
   // that is slow, or down, must never become dead air on a phone call.

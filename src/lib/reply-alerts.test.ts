@@ -170,4 +170,12 @@ describe("replyAlertEmail", () => {
     expect(e.text).toContain("paused");
     expect(e.text).toContain(base.link);
   });
+
+  it("says when the AI handed the conversation over, and why (escaped)", () => {
+    const e = replyAlertEmail({ ...base, aiHandoff: "the customer asked for a person <now>" });
+    expect(e.subject.startsWith("Needs you: ")).toBe(true);
+    expect(e.html).toContain("stopped replying");
+    expect(e.html).toContain("asked for a person &lt;now&gt;");
+    expect(e.text).toContain("Resume AI");
+  });
 });

@@ -11,6 +11,8 @@ import { toE164 } from "@/lib/format";
 import { notifyOwnerBooking } from "@/lib/notify";
 import { sendBookingConfirmation } from "@/lib/appointment-texts";
 import { recordSmsConsent } from "@/lib/data/sms-consents";
+import { rememberCustomerLanguage } from "@/lib/data/customer-languages";
+import { normalizeCustomerLanguage } from "@/lib/languages";
 import { allowChatSms } from "@/lib/data/chat-limits";
 import { after } from "next/server";
 import { logger } from "@/lib/logger";
@@ -44,7 +46,7 @@ export const runtime = "nodejs";
 export async function POST(req: Request): Promise<Response> {
   const auth = await authorizeAgentTool(req);
   if (!auth.ok) return auth.response;
-  const { client, args, retellCallId, channel } = auth;
+  const { client, args, retellCallId, channel, call } = auth;
 
   const startAt = parseInClientTimezone(String(args.datetime ?? ""), client.timezone);
   if (!startAt) {
@@ -69,7 +71,11 @@ export async function POST(req: Request): Promise<Response> {
   // chase — and "ended with no way to call back" is one of the failures we
   // report to the business. Better to ask again on the call than to write a
   // record that quietly can't be acted on.
-  const spokenPhone = String(args.phone ?? "").trim();
+  // AI text replies (channel "sms"): the booking goes under the number that is
+  // texting — the signed, Twilio-verified sender — never a number typed into
+  // the conversation, so a text thread can't book (and later text) a stranger.
+  const spokenPhone =
+    channel === "sms" ? String(call.fromNumber ?? "").trim() : String(args.phone ?? "").trim();
   if (!spokenPhone) {
     return Response.json({ message: "What's the best callback number to put on the booking?" });
   }
@@ -252,7 +258,18 @@ export async function POST(req: Request): Promise<Response> {
 
   // Declared before the after() callbacks below that read it (it used to be
   // declared after them, which only worked because after() runs later).
-  const consented = args.sms_consent === true || String(args.sms_consent) === "true";
+  // By text there is no separate "may we text you?" ask: the customer is
+  // already in a text conversation and the AI's reply confirms the booking.
+  // So no consent receipt and no separate confirmation/reminder series is
+  // started from an SMS booking (an open product decision — see DECISIONS.md).
+  const consented =
+    channel !== "sms" && (args.sms_consent === true || String(args.sms_consent) === "true");
+  // The language the caller spoke (multilingual agents pass it), so their
+  // texts follow it. Unknown or unsupported → null → English, as before.
+  const language = normalizeCustomerLanguage(args.language);
+  if (language) {
+    after(() => rememberCustomerLanguage({ clientId: client.id, phone: customerPhone, language }));
+  }
   // On the anonymous web chat, "yes, text me" is typed by whoever is at the
   // keyboard about whatever number they typed. Cap how many texts the chat can
   // make this business send, per number and per day, so it can't be used to
@@ -298,12 +315,12 @@ export async function POST(req: Request): Promise<Response> {
     // milliseconds as a tool argument and vanished — the one fact a business
     // needs if a text is ever disputed, and we were throwing it away.
     after(() =>
-      recordSmsConsent({ clientId: client.id, phone: customerPhone, callId: callRow?.id }),
+      recordSmsConsent({ clientId: client.id, phone: customerPhone, callId: callRow?.id, language }),
     );
   }
   if (mayText) {
     after(() =>
-      sendBookingConfirmation(client, appt, service.name).catch((err) =>
+      sendBookingConfirmation(client, appt, service.name, language).catch((err) =>
         logger.error("agent-tools.book.confirmation_failed", {
           clientId: client.id,
           appointmentId: appt.id,

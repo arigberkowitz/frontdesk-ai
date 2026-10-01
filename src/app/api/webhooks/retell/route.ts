@@ -9,6 +9,8 @@ import { upsertCallByRetellId } from "@/lib/data/calls";
 import { analyzeCall } from "@/lib/call-health";
 import { isBlocked, normalizeForBlock } from "@/lib/spam";
 import { notifyOwnerCallProblem } from "@/lib/notify";
+import { recapKindFor, transferStatus, type RecapKind } from "@/lib/call-recap";
+import { sendCallRecap } from "@/lib/call-recap-send";
 import {
   deleteWebhookEvent,
   markWebhookProcessed,
@@ -38,7 +40,7 @@ interface RetellCall {
   };
   call_cost?: { combined_cost?: number };
   metadata?: { direction?: string };
-  /** Why the call ended (user_hangup, agent_hangup, error_*, inactivity, …). Kept in raw_payload. */
+  /** Why the call ended, e.g. "user_hangup", "agent_hangup", "call_transfer", "transfer_cancelled", "voicemail_reached", error_*, inactivity. Kept in raw_payload. */
   disconnection_reason?: string;
 }
 interface RetellWebhook {
@@ -154,21 +156,49 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     // Classify only on terminal events (appointments/leads now exist).
+    let recap: { kind: RecapKind; problems: string[] } | null = null;
     if ((event === "call_ended" || event === "call_analyzed") && row) {
       const outcome = await classifyOutcome(row.id, custom);
       await upsertCallByRetellId({ ...values, outcome });
 
-      // Two failures are worth waking someone for: a caller who asked for a
-      // person and never got one, and anything that sounded like an emergency.
-      // Both still have a window where a callback fixes them; by the time
-      // either shows up on a dashboard, it usually doesn't.
+      // Did the AI hand this call to a person, and did it get through?
+      const transfer = transferStatus({
+        transcript: values.transcript,
+        disconnectionReason: call.disconnection_reason,
+        durationSec: values.durationSec,
+      });
       const health = analyzeCall({
         transcript: values.transcript,
         durationSec: values.durationSec,
         outcome,
-        transferConnected: outcome === "escalated",
+        // A transfer that reached a person is not a stranded caller. This used
+        // to be `outcome === "escalated"`, which nothing sets, so every caller
+        // who asked for a person and GOT one was alerted as stranded.
+        transferConnected: transfer.attempted && !transfer.failed,
       });
-      if (health.problems.some((p) => p === "possible_emergency" || p === "stranded_asking_for_human")) {
+
+      // A message taken or a transfer → one recap after the call (below), which
+      // carries the urgency and transfer findings. Everything else keeps the
+      // call-problem alert: a caller who asked for a person and never got one,
+      // and anything that sounded like an emergency. Both still have a window
+      // where a callback fixes them.
+      // The message tool defers its alert to this recap, so a message taken on
+      // a call that ALSO booked must still be recapped, not dropped.
+      const hasLead =
+        outcome === "lead" ||
+        (outcome === "booked" &&
+          Boolean(await db.query.leads.findFirst({ where: eq(leads.callId, row.id) })));
+      const kind = recapKindFor({
+        direction: values.direction,
+        outcome,
+        hasLead,
+        transfer,
+      });
+      if (kind) recap = { kind, problems: health.problems };
+      if (
+        !kind &&
+        health.problems.some((p) => p === "possible_emergency" || p === "stranded_asking_for_human")
+      ) {
         after(() =>
           notifyOwnerCallProblem(
             client,
@@ -184,19 +214,22 @@ export async function POST(req: Request): Promise<Response> {
       }
     }
 
-    // Agent #2 — post-call extraction (intent, entities, spam, follow-up draft).
+    // Agent #2 — post-call extraction (intent, entities, spam, follow-up draft),
+    // then the call recap, which reuses the extraction's suggested reply.
     // Runs after the response is sent so Retell never waits on the model.
     //
-    // Missed/dropped-call text-back chains after it, because it reads the
+    // Missed/dropped-call text-back chains after them, because it reads the
     // extracted intent/spam flag. Only loaded when the business turned it on
-    // (off by default), so a business without it pays nothing.
+    // (off by default), so a business without it pays nothing. It skips calls
+    // that were transferred or where a message was taken (those get the recap).
     if (event === "call_analyzed" && row) {
       const callDbId = row.id;
-      const transcript = values.transcript;
+      const hasTranscript = Boolean(values.transcript);
+      const pending = recap;
       const textBack = client.missedCallTextsEnabled;
-      if (transcript || textBack) {
+      if (hasTranscript || pending || textBack) {
         after(async () => {
-          if (transcript) {
+          if (hasTranscript) {
             await extractCallInsights(callDbId).catch((err) =>
               logger.error("webhook.retell.extract_failed", {
                 callId: callDbId,
@@ -204,6 +237,7 @@ export async function POST(req: Request): Promise<Response> {
               }),
             );
           }
+          if (pending) await sendCallRecap(client, callDbId, pending);
           if (textBack) {
             const { considerMissedCall } = await import("@/lib/agents/missed-call-callback");
             const result = await considerMissedCall(callDbId);

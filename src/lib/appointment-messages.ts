@@ -89,15 +89,44 @@ function firstName(name: string | null): string {
   return first ? ` ${first}` : "";
 }
 
+/**
+ * Which template language to use for a customer. Only Spanish has
+ * hand-written templates. Every other language, or an unknown one, gets
+ * English, the text every customer received before.
+ */
+export function textLanguage(language: string | null | undefined): "en" | "es" {
+  return language === "es" ? "es" : "en";
+}
+
+/** The appointment time, in the text's language and the business's timezone. */
+export function formatWhen(at: Date, timeZone: string, language?: string | null): string {
+  return new Intl.DateTimeFormat(textLanguage(language) === "es" ? "es-US" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone,
+  }).format(at);
+}
+
 export function confirmationText(opts: {
   business: string;
   customerName: string | null;
   serviceName?: string | null;
   when: string;
   meetingUrl?: string | null;
+  /** The customer's language code, when known. */
+  language?: string | null;
 }): string {
   const business = stripPhoneNumbers(opts.business);
   const serviceName = stripPhoneNumbers(opts.serviceName);
+  if (textLanguage(opts.language) === "es") {
+    // STOP stays in English: it's the carrier's opt-out keyword.
+    return (
+      `Hola${firstName(opts.customerName)}, su cita con ${business} está confirmada: ${serviceName ? `${serviceName}, ` : ""}${opts.when}.` +
+      (opts.meetingUrl ? ` Únase por video: ${opts.meetingUrl}` : "") +
+      ` ¿Necesita cambiarla? Llame a ${business}.` +
+      ` Responda STOP para no recibir más mensajes.`
+    );
+  }
   const service = serviceName ? `${serviceName} ` : "";
   return (
     `Hi${firstName(opts.customerName)}, you're booked with ${business} — ${service}on ${opts.when}.` +
@@ -112,8 +141,18 @@ export function reminderText(opts: {
   customerName: string | null;
   when: string;
   meetingUrl?: string | null;
+  /** The customer's language code, when known. */
+  language?: string | null;
 }): string {
   const business = stripPhoneNumbers(opts.business);
+  if (textLanguage(opts.language) === "es") {
+    return (
+      `Hola${firstName(opts.customerName)}, le recordamos su cita con ${business}: ${opts.when}.` +
+      (opts.meetingUrl ? ` Únase por video: ${opts.meetingUrl}` : "") +
+      ` ¿Necesita cambiarla? Llame a ${business}.` +
+      ` Responda STOP para no recibir más mensajes.`
+    );
+  }
   return (
     `Hi${firstName(opts.customerName)}, a reminder of your appointment with ${business} ${opts.when}.` +
     (opts.meetingUrl ? ` Join by video: ${opts.meetingUrl}` : "") +

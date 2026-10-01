@@ -13,6 +13,8 @@ import { DepositsCard } from "@/components/portal/deposits-card";
 import { ChatWidgetCard } from "@/components/portal/chat-widget-card";
 import { WebhookCard } from "@/components/portal/webhook-card";
 import { toSafeClient } from "@/lib/client-safe";
+import { AiTextRepliesCard } from "@/components/portal/ai-text-replies-card";
+import { getBookingProviderForClient } from "@/lib/booking";
 import { MissedCallCard } from "@/components/portal/missed-call-card";
 import { callbackStats } from "@/lib/data/call-callbacks";
 
@@ -38,6 +40,19 @@ export default async function PortalSettingsFollowUpsPage() {
   return (
     <div className="space-y-6">
       <RecoveryTextsForm client={toSafeClient(client)} />
+      <AiTextRepliesCard
+        clientId={clientId}
+        enabled={client.aiTextRepliesEnabled}
+        pauseHours={client.aiTextPauseHours}
+        isAdmin={editAccess.isAdmin}
+        bookingEnabled={(() => {
+          try {
+            return getBookingProviderForClient(client).isConfigured();
+          } catch {
+            return false;
+          }
+        })()}
+      />
       <MissedCallCard
         clientId={clientId}
         businessName={client.name}

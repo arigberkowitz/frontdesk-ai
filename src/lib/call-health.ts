@@ -123,10 +123,14 @@ export const EMERGENCY =
  */
 export function disclosureGiven(agentSaid: string): { ai: boolean; recording: boolean } {
   return {
-    ai: /\b(a\.?i\.?|artificial intelligence|virtual assistant|automated assistant|ai assistant|virtual receptionist|automated system)\b/i.test(
-      agentSaid,
-    ),
-    recording: /\b(record(ed|ing)?|monitored|transcri(bed|ption))\b/i.test(agentSaid),
+    // English, plus Spanish for agents that open or switch to Spanish.
+    ai:
+      /\b(a\.?i\.?|artificial intelligence|virtual assistant|automated assistant|ai assistant|virtual receptionist|automated system)\b/i.test(
+        agentSaid,
+      ) || /inteligencia artificial|asistente (virtual|automatizad[oa]|de ia)/i.test(agentSaid),
+    recording:
+      /\b(record(ed|ing)?|monitored|transcri(bed|ption))\b/i.test(agentSaid) ||
+      /\b(grabad[ao]s?|grabaci[oó]n|grabando)\b/i.test(agentSaid),
   };
 }
 
@@ -146,7 +150,7 @@ function agentLines(transcript: string): string[] {
  * existed until a real call went through. They're neither agent nor caller, so
  * they were being silently dropped, and dropping them hid the failure below.
  */
-function transferLines(transcript: string): string[] {
+export function transferLines(transcript: string): string[] {
   return transcript
     .split(/\r?\n/)
     .map((l) => l.trim())

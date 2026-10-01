@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   confirmationText,
+  formatWhen,
+  textLanguage,
   dueForReminder,
   reminderText,
   withinTextingHours,
@@ -194,5 +196,28 @@ describe("stripPhoneNumbers", () => {
     expect(stripPhoneNumbers("+1 408 832 9827")).toBe("");
     expect(stripPhoneNumbers("Suite 200, 2:00 PM")).toBe("Suite 200, 2:00 PM");
     expect(stripPhoneNumbers(null)).toBe("");
+  });
+});
+
+describe("texts in the customer's language", () => {
+  const at = new Date("2026-10-06T19:00:00Z");
+  it("Spanish confirmation and reminder, STOP kept, no phone numbers", () => {
+    const when = formatWhen(at, "America/New_York", "es");
+    expect(when).toMatch(/oct/i);
+    expect(when).not.toMatch(/Oct 6/);
+    const c = confirmationText({ business: "Acme 415-555-0100", customerName: "María López", serviceName: "Limpieza", when, language: "es" });
+    expect(c).toBe(`Hola María, su cita con Acme está confirmada: Limpieza, ${when}. ¿Necesita cambiarla? Llame a Acme. Responda STOP para no recibir más mensajes.`);
+    const r = reminderText({ business: "Acme", customerName: null, when, meetingUrl: "https://meet.test/x", language: "es" });
+    expect(r).toBe(`Hola, le recordamos su cita con Acme: ${when}. Únase por video: https://meet.test/x ¿Necesita cambiarla? Llame a Acme. Responda STOP para no recibir más mensajes.`);
+  });
+
+  it("English and unknown/unsupported languages get the English text, unchanged", () => {
+    const when = formatWhen(at, "America/New_York", null);
+    expect(when).toBe("Oct 6, 2026, 3:00 PM");
+    const en = confirmationText({ business: "Acme", customerName: "Pat", when });
+    expect(confirmationText({ business: "Acme", customerName: "Pat", when, language: "fr" })).toBe(en);
+    expect(confirmationText({ business: "Acme", customerName: "Pat", when, language: "en" })).toBe(en);
+    expect(textLanguage("fr")).toBe("en");
+    expect(textLanguage("es")).toBe("es");
   });
 });
