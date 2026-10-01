@@ -27,7 +27,7 @@ function useSavedToast(state: ActionState, fallback: string) {
   }, [state, fallback]);
 }
 
-/** Name, timezone, languages. */
+/** Name and timezone. (Languages live in Settings → Phone & AI.) */
 export function BusinessDetailsForm({ client }: { client: Client }) {
   const [profile, profileAction, profilePending] = useActionState(
     savePortalProfileAction,
@@ -55,16 +55,6 @@ export function BusinessDetailsForm({ client }: { client: Client }) {
               ))}
             </NativeSelect>
           </Field>
-          <Field
-            label="Languages your AI speaks"
-            hint="Bilingual mode answers in English and switches to fluent Spanish the moment a caller speaks it — no extra staff, no extra cost."
-          >
-            <NativeSelect name="languages" defaultValue={client.languages}>
-              <option value="en">English only</option>
-              <option value="en-es">English + Spanish (bilingual)</option>
-              <option value="es">Spanish first</option>
-            </NativeSelect>
-          </Field>
           <div className="flex justify-end">
             <SubmitButton pending={profilePending}>Save</SubmitButton>
           </div>
@@ -74,7 +64,7 @@ export function BusinessDetailsForm({ client }: { client: Client }) {
   );
 }
 
-/** Alert email + phone, text alerts on/off, weekly summary email. */
+/** Alert email + phone, text alerts on/off, weekly summary + daily briefing emails. */
 export function AlertsForm({ client, isAdmin = true }: { client: Client; isAdmin?: boolean }) {
   const [alerts, alertsAction, alertsPending] = useActionState(
     savePortalProfileAction,
@@ -162,6 +152,28 @@ export function AlertsForm({ client, isAdmin = true }: { client: Client; isAdmin
               className="mt-1 inline-block text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
             >
               Preview this week&apos;s summary
+            </a>
+          </div>
+          <div id="daily-briefing" className="scroll-mt-24">
+            <Field
+              label="Morning briefing email"
+              hint="Each morning (between 7 and 8am your time): yesterday's calls, bookings and cancellations, who needs a call back, today's schedule, and anything urgent — written by your AI from your call log. Sent to the alerts email above."
+            >
+              <NativeSelect
+                name="dailyBriefingEnabled"
+                defaultValue={client.setupFlags?.dailyBriefing === true ? "on" : "off"}
+              >
+                <option value="on">On — email me a briefing every morning</option>
+                <option value="off">Off — no morning briefing</option>
+              </NativeSelect>
+            </Field>
+            <a
+              href="/portal/settings/daily-briefing"
+              target="_blank"
+              rel="noopener"
+              className="mt-1 inline-block text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Preview this morning&apos;s briefing
             </a>
           </div>
           <div className="flex justify-end">

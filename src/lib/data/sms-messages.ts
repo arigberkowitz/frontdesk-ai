@@ -181,6 +181,8 @@ export interface Conversation {
   customerPhone: string;
   lastBody: string;
   lastDirection: "inbound" | "outbound";
+  /** `kind` of the latest message (e.g. "ai_reply"), for the list preview. */
+  lastKind: string | null;
   lastAt: Date;
   unread: number;
   total: number;
@@ -208,6 +210,7 @@ export async function listConversations(clientId: string, limit = 200): Promise<
       customerPhone: smsMessages.customerPhone,
       body: smsMessages.body,
       direction: smsMessages.direction,
+      kind: smsMessages.kind,
     })
     .from(smsMessages)
     .where(
@@ -228,6 +231,7 @@ export async function listConversations(clientId: string, limit = 200): Promise<
       customerPhone: g.customerPhone,
       lastBody: last?.body ?? "",
       lastDirection: last?.direction ?? "outbound",
+      lastKind: last?.kind ?? null,
       lastAt: g.lastAt ? new Date(g.lastAt) : new Date(0),
       unread: Number(g.unread) || 0,
       total: Number(g.total) || 0,

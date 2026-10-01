@@ -25,6 +25,24 @@ function zonedInstant(tz: string, date: string, time: string): Date | null {
   return zonedTime(tz, Number(m[1]), Number(m[2]) - 1, Number(m[3]), hh, mm);
 }
 
+/** Best-effort: how many booked appointments the new block lands on. */
+async function affectedCount(
+  clientId: string,
+  tz: string,
+  block: Parameters<typeof import("@/lib/rebooking").countAffectedByBlock>[1],
+): Promise<number> {
+  try {
+    const { countAffectedByBlock } = await import("@/lib/rebooking");
+    return await countAffectedByBlock(clientId, block, tz);
+  } catch (err) {
+    logger.warn("availability.block.affected_count_failed", {
+      clientId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return 0;
+  }
+}
+
 /**
  * Add a break or closure. Two shapes:
  *   kind=recurring  → dayOfWeek ("" = every day) + startTime/endTime
@@ -52,6 +70,7 @@ export async function addAvailabilityBlockAction(
   const providerRaw = String(formData.get("providerId") ?? "").trim();
   const providerId = providerRaw || null;
   const kind = String(formData.get("kind") ?? "recurring");
+  let affected = 0;
 
   if (kind === "recurring") {
     const startTime = String(formData.get("startTime") ?? "");
@@ -75,6 +94,7 @@ export async function addAvailabilityBlockAction(
       startTime,
       endTime,
     });
+    affected = await affectedCount(clientId, tz, { providerId, dayOfWeek, startTime, endTime });
   } else {
     const startDate = String(formData.get("startDate") ?? "");
     const endDate = String(formData.get("endDate") ?? "") || startDate;
@@ -89,6 +109,7 @@ export async function addAvailabilityBlockAction(
       return { ok: false, fieldErrors: { endDate: ["The end has to be after the start."] } };
     }
     await db.insert(availabilityBlocks).values({ clientId, providerId, label, startsAt, endsAt });
+    affected = await affectedCount(clientId, tz, { providerId, startsAt, endsAt });
   }
 
   // The prompt tells callers what the AI can do; republish so it reflects reality.
@@ -96,9 +117,15 @@ export async function addAvailabilityBlockAction(
   logger.info("availability.block.added", { clientId, kind });
   revalidatePath("/portal/hours");
   revalidatePath("/portal", "layout");
+  // Blocking time never touches existing bookings on its own. Say so, and
+  // point at the Hours page list where the owner decides what to do.
+  const heads =
+    affected > 0
+      ? ` ${affected} booked ${affected === 1 ? "appointment falls" : "appointments fall"} in this time — see "Appointments in blocked time" below.`
+      : "";
   return {
     ok: true,
-    message: withSyncNote(`Added "${label}" — your AI won't book over it.`, sync),
+    message: withSyncNote(`Added "${label}" — your AI won't book over it.${heads}`, sync),
   };
 }
 

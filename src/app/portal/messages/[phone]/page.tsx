@@ -10,7 +10,12 @@ import { isOptedOut } from "@/lib/data/sms-optouts";
 import { hasSmsConsent } from "@/lib/data/sms-consents";
 import { stripPhoneNumbers } from "@/lib/appointment-messages";
 import { MessageReply } from "@/components/portal/message-reply";
-import { messageKindLabel, parseThreadParam } from "@/lib/sms-inbox-view";
+import { isAiMessage, messageKindLabel, parseThreadParam } from "@/lib/sms-inbox-view";
+import { getThreadStateSafe } from "@/lib/data/sms-threads";
+import { threadAiView } from "@/lib/sms-ai/rules";
+import { ThreadAiControl } from "@/components/portal/thread-ai-control";
+import { Badge } from "@/components/ui/badge";
+import { PORTAL_REPLY_KIND } from "@/lib/sms-reply";
 import { formatDateTime, formatPhone } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
 import { InitialsAvatar } from "@/components/portal/visual";
@@ -54,10 +59,26 @@ export default async function PortalMessageThreadPage({
 
   // Who may be texted from here — the send action enforces the same rules.
   const customerTexted = messages.some((m) => m.direction === "inbound");
-  const [optedOut, consented] = await Promise.all([
+  const [optedOut, consented, threadState] = await Promise.all([
     isOptedOut(phone, clientId),
     customerTexted ? Promise.resolve(true) : hasSmsConsent(clientId, phone, "portal_reply"),
+    client?.aiTextRepliesEnabled ? getThreadStateSafe(clientId, phone) : Promise.resolve(null),
   ]);
+
+  // AI text replies: status line + Pause/Resume (only when the business has it on).
+  const lastOwnerReply = [...messages]
+    .reverse()
+    .find((m) => m.direction === "outbound" && m.kind === PORTAL_REPLY_KIND);
+  const aiView = threadAiView({
+    enabled: Boolean(client?.aiTextRepliesEnabled),
+    optedOut,
+    paused: Boolean(threadState?.aiPaused),
+    pausedReason: threadState?.aiPausedReason ?? null,
+    lastOwnerReplyAt: lastOwnerReply?.createdAt ?? null,
+    resumedAt: threadState?.aiResumedAt ?? null,
+    pauseHours: client?.aiTextPauseHours ?? 12,
+    now: new Date(),
+  });
 
   return (
     <div className="space-y-6">
@@ -104,6 +125,23 @@ export default async function PortalMessageThreadPage({
         ) : null}
       </PageHeader>
 
+      {aiView ? (
+        <Card>
+          <CardContent>
+            <ThreadAiControl
+              phone={phone}
+              status={aiView.status}
+              detail={
+                aiView.resumesAt
+                  ? `${aiView.detail ?? ""} It can answer again after ${formatDateTime(aiView.resumesAt, tz)}.`.trim()
+                  : aiView.detail
+              }
+              canPause={!preview && aiView.canPause}
+              canResume={!preview && aiView.canResume}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
       <Card className="fd-thread">
         <CardContent>
           <ol className="space-y-4">
@@ -129,6 +167,11 @@ export default async function PortalMessageThreadPage({
                       {m.body}
                     </div>
                     <p className="px-1 text-[11px] text-muted-foreground">
+                      {isAiMessage(m.kind) ? (
+                        <Badge variant="secondary" className="mr-1 align-middle" title="Written and sent by your AI">
+                          AI
+                        </Badge>
+                      ) : null}
                       {outbound ? "Sent" : "Received"}
                       {label ? ` · ${label}` : ""} · {formatDateTime(m.createdAt, tz)}
                       {outbound && m.status === "delivered" ? " · Delivered" : ""}

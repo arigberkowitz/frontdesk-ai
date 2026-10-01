@@ -13,6 +13,11 @@ import { DepositsCard } from "@/components/portal/deposits-card";
 import { ChatWidgetCard } from "@/components/portal/chat-widget-card";
 import { WebhookCard } from "@/components/portal/webhook-card";
 import { toSafeClient } from "@/lib/client-safe";
+import { AiTextRepliesCard } from "@/components/portal/ai-text-replies-card";
+import { getBookingProviderForClient } from "@/lib/booking";
+import { MissedCallCard } from "@/components/portal/missed-call-card";
+import { callbackStats } from "@/lib/data/call-callbacks";
+import { SmartRebookingCard } from "@/components/portal/smart-rebooking-card";
 
 export const metadata: Metadata = { title: "Follow-ups · Settings" };
 
@@ -29,9 +34,35 @@ export default async function PortalSettingsFollowUpsPage() {
     ? (await listWaiting(clientId).catch(() => [])).length
     : 0;
 
+  const missedCallStats = client.missedCallTextsEnabled
+    ? await callbackStats(clientId).catch(() => null)
+    : null;
+
   return (
     <div className="space-y-6">
       <RecoveryTextsForm client={toSafeClient(client)} />
+      <AiTextRepliesCard
+        clientId={clientId}
+        enabled={client.aiTextRepliesEnabled}
+        pauseHours={client.aiTextPauseHours}
+        isAdmin={editAccess.isAdmin}
+        bookingEnabled={(() => {
+          try {
+            return getBookingProviderForClient(client).isConfigured();
+          } catch {
+            return false;
+          }
+        })()}
+      />
+      <MissedCallCard
+        clientId={clientId}
+        businessName={client.name}
+        enabled={client.missedCallTextsEnabled}
+        aiCallbacksEnabled={client.missedCallAiCallbacksEnabled}
+        aiCallbacksAvailable={env.MISSED_CALL_AI_CALLBACKS}
+        stats={missedCallStats ?? { sent: 0, skipped: 0, pending: 0, failed: 0 }}
+        isAdmin={editAccess.isAdmin}
+      />
       <ReviewRequestsCard
         clientId={clientId}
         enabled={client.reviewRequestsEnabled}
@@ -42,6 +73,11 @@ export default async function PortalSettingsFollowUpsPage() {
         clientId={clientId}
         enabled={client.recallEnabled}
         recallServiceCount={recallServiceCount}
+        isAdmin={editAccess.isAdmin}
+      />
+      <SmartRebookingCard
+        clientId={clientId}
+        enabled={client.smartRebookingEnabled}
         isAdmin={editAccess.isAdmin}
       />
       <WaitlistCard

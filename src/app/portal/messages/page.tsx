@@ -87,7 +87,7 @@ export default async function PortalMessagesPage() {
                           unread ? "text-foreground" : "text-muted-foreground",
                         )}
                       >
-                        {previewText(c.lastBody, c.lastDirection)}
+                        {previewText(c.lastBody, c.lastDirection, 90, c.lastKind)}
                       </p>
                       {unread ? (
                         <span className="shrink-0 rounded-full bg-indigo-500 bg-(image:--primary-image) px-2 py-0.5 text-xs font-medium text-white tabular-nums shadow-(--primary-shadow)">
