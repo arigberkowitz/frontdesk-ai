@@ -76,6 +76,10 @@
     {
       "path": "/api/cron/daily-briefing",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/missed-call-callbacks",
+      "schedule": "45 16 * * *"
     }
   ]
 }

@@ -79,7 +79,13 @@ export type ConsentPurpose =
    * a customer who texted in is conversational and isn't gated on this — see
    * DECISIONS.md "Messages: reply by text".
    */
-  | "portal_reply";
+  | "portal_reply"
+  /**
+   * The one templated "sorry we missed you — reply to book" text after a call
+   * that ended early or dropped without a booking. See DECISIONS.md
+   * "Missed-call text-back".
+   */
+  | "missed_call";
 
 /**
  * Which recorded consent wordings cover which kind of text.
@@ -99,6 +105,13 @@ export const CONSENT_COVERAGE: Record<ConsentPurpose, readonly string[]> = {
   recovery_no_show: BOOKING_V1_WORDINGS,
   lead_followup: BOOKING_V1_WORDINGS,
   portal_reply: BOOKING_V1_WORDINGS,
+  // TODO(Ari): same policy call as above. booking-v1 covers it so a returning
+  // customer who agreed to texts can be texted back after a dropped call. A
+  // first-time caller who hung up early has usually agreed to nothing, so they
+  // will NOT be texted until a consent wording covers this purpose (or counsel
+  // decides a one-off reply to their own call needs none — then this gate in
+  // src/lib/agents/missed-call-callback.ts is the single place to change).
+  missed_call: BOOKING_V1_WORDINGS,
 };
 
 /** Pure: the set of numbers (normalized digits) whose consent rows cover `purpose`. */

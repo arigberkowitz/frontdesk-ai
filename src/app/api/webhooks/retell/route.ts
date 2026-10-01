@@ -40,7 +40,7 @@ interface RetellCall {
   };
   call_cost?: { combined_cost?: number };
   metadata?: { direction?: string };
-  /** e.g. "user_hangup", "agent_hangup", "call_transfer", "transfer_cancelled", "voicemail_reached". */
+  /** Why the call ended, e.g. "user_hangup", "agent_hangup", "call_transfer", "transfer_cancelled", "voicemail_reached", error_*, inactivity. Kept in raw_payload. */
   disconnection_reason?: string;
 }
 interface RetellWebhook {
@@ -217,14 +217,34 @@ export async function POST(req: Request): Promise<Response> {
     // Agent #2 — post-call extraction (intent, entities, spam, follow-up draft),
     // then the call recap, which reuses the extraction's suggested reply.
     // Runs after the response is sent so Retell never waits on the model.
-    if (event === "call_analyzed" && row && (values.transcript || recap)) {
+    //
+    // Missed/dropped-call text-back chains after them, because it reads the
+    // extracted intent/spam flag. Only loaded when the business turned it on
+    // (off by default), so a business without it pays nothing. It skips calls
+    // that were transferred or where a message was taken (those get the recap).
+    if (event === "call_analyzed" && row) {
       const callDbId = row.id;
       const hasTranscript = Boolean(values.transcript);
       const pending = recap;
-      after(async () => {
-        if (hasTranscript) await extractCallInsights(callDbId);
-        if (pending) await sendCallRecap(client, callDbId, pending);
-      });
+      const textBack = client.missedCallTextsEnabled;
+      if (hasTranscript || pending || textBack) {
+        after(async () => {
+          if (hasTranscript) {
+            await extractCallInsights(callDbId).catch((err) =>
+              logger.error("webhook.retell.extract_failed", {
+                callId: callDbId,
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            );
+          }
+          if (pending) await sendCallRecap(client, callDbId, pending);
+          if (textBack) {
+            const { considerMissedCall } = await import("@/lib/agents/missed-call-callback");
+            const result = await considerMissedCall(callDbId);
+            logger.info("webhook.retell.missed_call", { clientId: client.id, callId: callDbId, result });
+          }
+        });
+      }
     }
 
     // `call_analyzed`, not `call_ended`: this is the event that carries the

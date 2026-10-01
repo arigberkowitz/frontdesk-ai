@@ -646,3 +646,54 @@ everything else). This change closes the gaps rather than adding a parallel syst
 - **Cost:** Retell documents no per-language surcharge, and we add none. The trade-off is
   accuracy (the cross-language recognition pipeline is less precise than single-language) and a
   slightly longer prompt.
+
+## 2026-09-30 — Missed-call text-back (and optional AI callback)
+
+- **What triggers it.** Retell's `call_analyzed` webhook, after Agent #2's
+  extraction (so the intent/spam flag is available). Pure rules in
+  `src/lib/missed-call.ts` decide from Retell's `disconnection_reason`, call
+  length, outcome, and intent: **dropped** (`error_*`, concurrency/timeout),
+  **hung up early** (caller ended it in under 25s), or **left mid-booking**
+  (caller ended it / went silent with booking intent — from extraction, or the
+  *caller's* lines in the transcript, never the agent's). Everything else —
+  normal conversations, transfers, voicemail, messages taken — is left alone.
+- **Who is never texted.** Our own outbound calls (so AI callbacks can't loop),
+  spam (extraction flag, `scam_detected`, spam/sales/wrong-number intent, the
+  owner's blocked list), anyone who booked on the call or has an upcoming /
+  newly-made appointment, anyone who rang back since, non-US caller ID, anyone
+  opted out (`isOptedOut(phone, clientId)` — shared and per-business STOP), and
+  anyone without a stored consent covering the new `missed_call` purpose.
+- **Consent (open policy question).** `missed_call` is mapped to `booking-v1`
+  like every other purpose, with a TODO(Ari). In practice that means returning
+  customers who agreed to texts get the text-back; a first-time caller who hung
+  up after 5 seconds has agreed to nothing and is **not** texted. If counsel
+  decides a single reply to someone's own call needs no prior consent, the
+  `hasSmsConsent` gate in `src/lib/agents/missed-call-callback.ts` is the one
+  place to change.
+- **Templated, never model-written.** The text is fixed wording: business name,
+  one reason-specific opener, "reply here with a day and time", "Reply STOP to
+  opt out." Nothing the caller said is copied in; a service name appears only
+  when the extracted service exactly matches one of the business's own services
+  (and the business's name is what's printed). This is the prompt-injection
+  stance: a caller can't get words into an outbound text.
+- **Replies.** They land in the normal Messages inbox (sms_messages, kind
+  `missed_call_text` for ours). If AI text replies (PR "AI text replies") is on
+  for the business it answers and can book; otherwise the owner gets the usual
+  reply alert. No code coupling between the two.
+- **Limits.** One per caller per 7 days (advisory-locked per business+phone),
+  one row per call (unique `call_id`, so webhook replays are no-ops), 25/day per
+  business, 9am–8pm local. A call outside those hours is held as `pending` and
+  sent by the new daily sweep (`/api/cron/missed-call-callbacks`, 16:45 UTC) if
+  it's under 20 hours old; otherwise it expires. Every gate is re-checked at send.
+- **AI callback.** A second toggle, only effective when the platform env var
+  `MISSED_CALL_AI_CALLBACKS=on` is set, Retell is configured, the plan includes
+  `outbound_ai_calls`, and the business has a Retell number. It goes through the
+  same consent/opt-out/hours/cap gates as the text, uses the same disclosed
+  begin message pattern as "Call with AI" on leads, and is tagged
+  `direction: outbound` so it is never itself treated as a missed call. If the
+  call can't be placed, the text goes instead.
+- **Storage.** `clients.missed_call_texts_enabled`,
+  `clients.missed_call_ai_callbacks_enabled` (both default false) and the
+  `call_callbacks` ledger (manual migration
+  `drizzle/manual/0011_missed_call_callbacks.sql`; renumber at merge if needed).
+  The Settings → Follow-ups card shows last-7-day sent/held/skipped counts.

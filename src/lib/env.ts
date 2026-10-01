@@ -89,6 +89,11 @@ export const env = {
   // a table that gets exported, backed up, or rendered onto a page by mistake.
   // Unset means no such code exists, and the check below fails closed.
   COMP_ACCESS_CODE: process.env.COMP_ACCESS_CODE ?? "",
+  // Platform-wide second key for AI phone callbacks after a missed/dropped
+  // call. A business's own toggle does nothing unless this is exactly "on":
+  // a robot dialing consumers unprompted needs a deliberate operator decision
+  // (and a legal one — see DECISIONS.md "Missed-call text-back").
+  MISSED_CALL_AI_CALLBACKS: process.env.MISSED_CALL_AI_CALLBACKS === "on",
 } as const;
 
 /** Runtime guards — true only when an integration has the keys it needs. */

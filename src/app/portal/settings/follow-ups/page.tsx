@@ -15,6 +15,8 @@ import { WebhookCard } from "@/components/portal/webhook-card";
 import { toSafeClient } from "@/lib/client-safe";
 import { AiTextRepliesCard } from "@/components/portal/ai-text-replies-card";
 import { getBookingProviderForClient } from "@/lib/booking";
+import { MissedCallCard } from "@/components/portal/missed-call-card";
+import { callbackStats } from "@/lib/data/call-callbacks";
 
 export const metadata: Metadata = { title: "Follow-ups · Settings" };
 
@@ -31,6 +33,10 @@ export default async function PortalSettingsFollowUpsPage() {
     ? (await listWaiting(clientId).catch(() => [])).length
     : 0;
 
+  const missedCallStats = client.missedCallTextsEnabled
+    ? await callbackStats(clientId).catch(() => null)
+    : null;
+
   return (
     <div className="space-y-6">
       <RecoveryTextsForm client={toSafeClient(client)} />
@@ -46,6 +52,15 @@ export default async function PortalSettingsFollowUpsPage() {
             return false;
           }
         })()}
+      />
+      <MissedCallCard
+        clientId={clientId}
+        businessName={client.name}
+        enabled={client.missedCallTextsEnabled}
+        aiCallbacksEnabled={client.missedCallAiCallbacksEnabled}
+        aiCallbacksAvailable={env.MISSED_CALL_AI_CALLBACKS}
+        stats={missedCallStats ?? { sent: 0, skipped: 0, pending: 0, failed: 0 }}
+        isAdmin={editAccess.isAdmin}
       />
       <ReviewRequestsCard
         clientId={clientId}

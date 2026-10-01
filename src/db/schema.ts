@@ -383,6 +383,14 @@ export const clients = pgTable(
     // After the owner replies by hand in a thread, the AI stays quiet in that
     // thread for this many hours.
     aiTextPauseHours: integer("ai_text_pause_hours").notNull().default(12),
+    // Missed/dropped-call text-back: when a call ends without a booking because
+    // the caller hung up early, the line dropped, or they left mid-booking,
+    // text them (templated) offering to finish booking. OFF by default like
+    // every automated customer text. (drizzle/manual/0011_missed_call_callbacks.sql)
+    missedCallTextsEnabled: boolean("missed_call_texts_enabled").notNull().default(false),
+    // Optional: have the AI phone them back instead of texting. Separate switch,
+    // and also needs MISSED_CALL_AI_CALLBACKS=on in the environment. Off by default.
+    missedCallAiCallbacksEnabled: boolean("missed_call_ai_callbacks_enabled").notNull().default(false),
     ...timestamps,
     ...softDelete,
   },
@@ -938,6 +946,44 @@ export const smsThreads = pgTable(
   (t) => [uniqueIndex("sms_threads_client_phone_idx").on(t.clientId, t.customerPhone)],
 );
 
+/**
+ * Missed/dropped-call callbacks: one row per call we considered (unique
+ * call_id = idempotent across Retell webhook replays and the sweep cron).
+ * (drizzle/manual/0011_missed_call_callbacks.sql)
+ */
+export const callCallbacks = pgTable(
+  "call_callbacks",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    callId: uuid("call_id")
+      .notNull()
+      .references(() => calls.id, { onDelete: "cascade" }),
+    /** Normalized digits of the caller ("14155550100"). */
+    customerPhone: text("customer_phone").notNull(),
+    /** 'hung_up_early' | 'dropped' | 'abandoned_booking' */
+    reason: text("reason").notNull(),
+    /** 'pending' | 'sent' | 'skipped' | 'failed' */
+    status: text("status").notNull().default("pending"),
+    skipReason: text("skip_reason"),
+    /** 'sms' | 'ai_call' */
+    channel: text("channel"),
+    sendAfter: timestamp("send_after", { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    /** Retell call id when the AI phoned them back. */
+    retellCallId: text("retell_call_id"),
+    error: text("error"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("call_callbacks_call_id_idx").on(t.callId),
+    index("call_callbacks_client_phone_idx").on(t.clientId, t.customerPhone, t.createdAt),
+    index("call_callbacks_status_send_after_idx").on(t.status, t.sendAfter),
+  ],
+);
+
 /** Outbound notification log (`recipient` instead of reserved word `to`). */
 export const notifications = pgTable(
   "notifications",
@@ -1335,6 +1381,7 @@ export type Reminder = typeof reminders.$inferSelect;
 export type NewReminder = typeof reminders.$inferInsert;
 export type SmsMessageRow = typeof smsMessages.$inferSelect;
 export type SmsThreadRow = typeof smsThreads.$inferSelect;
+export type CallCallbackRow = typeof callCallbacks.$inferSelect;
 export type NewSmsMessageRow = typeof smsMessages.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
