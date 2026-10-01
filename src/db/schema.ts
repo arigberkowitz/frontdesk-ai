@@ -273,6 +273,12 @@ export const clients = pgTable(
          * phone number) is running, so a double-click or two tabs can't buy two.
          */
         provisioningAt?: string;
+        /**
+         * Daily owner briefing email (portal Settings → Alerts). Opt-in: off
+         * unless the owner turns it on. jsonb rather than a column so the
+         * feature ships without a migration (dedupe lives in notifications).
+         */
+        dailyBriefing?: boolean;
         /** When each trial-lifecycle email went out (ISO). Dedupe state, not business data. */
         trialEmails?: { welcome?: string; d7?: string; d1?: string };
       }>()

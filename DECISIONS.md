@@ -331,6 +331,46 @@ everything else). This change closes the gaps rather than adding a parallel syst
 - **No per-person on/off switch for reply alerts yet.** Taking someone off duty in the alert
   roster stops all their alerts, including these.
 
+## 2026-09-30 — Daily owner briefing (morning email + Overview card)
+
+- **What it is.** An opt-in email around 7–8am in each business's own timezone: yesterday's
+  calls/bookings/cancellations, who needs a call back, today's schedule, anything urgent.
+  `src/lib/daily-briefing.ts` (pure: windows, grounding, rendering), `data/daily-briefing.ts`
+  (queries + dedupe), `agents/briefing.ts` (the model's part), `briefing-send.ts` (cron runner).
+- **Grounded by construction.** Names, phone numbers, times, counts and the schedule are rendered
+  from our tables, never from model output. The model (Haiku, one short call per business per
+  day) writes only a 2–3 sentence opening and picks the order to return calls in, citing
+  callbacks by ref (`C1`). `groundAiBriefing` drops unknown refs, strips digit runs from notes,
+  and throws away the whole opening if it contains any number that isn't one of the counts. No
+  key / model error / ungrounded output → our template opening. A quiet day never calls the model.
+- **Prompt injection.** Lead reasons/messages are caller-authored, so they go to the model inside
+  `<caller_data>` fences (fence-closing characters stripped, one line, capped), with a system rule
+  that fenced text is data, never instructions. Names and phone numbers aren't sent at all.
+- **"Needs a callback"** = leads still `new`, not replied to by text, from the last 7 days, plus
+  yesterday's calls where the call-health rules say a transfer hit voicemail / dropped, or the
+  caller asked for a person and didn't get one, and no message was taken. Urgent = the same kind
+  of keyword list as call health (flood, leak, ASAP, pain…). Product call, easy to tune.
+- **Schedule (Vercel Hobby).** Hobby only allows once-a-day crons and fires them anywhere in the
+  hour, so `vercel.json` registers `/api/cron/daily-briefing` eight times (daily at 10:00–17:00
+  UTC — 7am somewhere from Atlantic to Hawaii). Each run only touches opted-in businesses for
+  whom it's 7–10am locally; the 3-hour window lets a late or missed slot catch up. On Pro, these
+  can collapse to one hourly entry. Outside the Americas no slot lands at 7–10am local.
+- **Opt-in, off by default** (`setup_flags.dailyBriefing`, jsonb — **no migration**), Settings →
+  Alerts → "Morning briefing email", owner-only like the other alert toggles. Off by default so
+  existing customers don't get a new daily email unannounced. Sent to the owner email (like the
+  weekly summary), **email only — never SMS**.
+- **Dedupe:** one `notifications` row per business per local day (type `digest_daily`,
+  `payload.kind = 'daily_briefing'`, `payload.dayKey`), claimed under a `pg_advisory_xact_lock`
+  before sending (same pattern as reply alerts). Failed or provider-skipped days may be retried by
+  a later slot; sent days never resend.
+- **Preview:** `/portal/settings/daily-briefing` renders the real briefing for right now and never
+  sends or records anything (it does make one model call per view).
+- **Overview card** reads the copy stored with today's send — one indexed read, no model call on
+  page load. Businesses without the briefing on see a one-line pointer (owners only, once they
+  have calls).
+- **Not changed:** the existing daily SMS digest to the escalation number (`/api/cron/digest`)
+  still runs and isn't tied to this setting.
+
 ## 2026-09-30 — Weekly summary email (extends the Monday owner report)
 
 - **Extends what was there.** `/api/cron/weekly-report` (Mondays 15:00 UTC, already in

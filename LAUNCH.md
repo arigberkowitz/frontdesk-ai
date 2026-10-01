@@ -84,6 +84,7 @@ Not needed for customer #1: run a free pilot or invoice manually
 | `/api/cron/nightly-improve` | 09:00 | Drafts knowledge/guidance suggestions |
 | `/api/cron/digest` | 14:00 | Owner daily digests |
 | `/api/cron/weekly-report` | Mon 15:00 | Weekly summary email (+ weekly SMS digest) |
+| `/api/cron/daily-briefing` | daily 10:00–17:00 (8 entries) | Morning briefing email, 7–10am in each opted-in business's zone |
 | `/api/cron/outbound-recovery` | 17:00 | Texts cold leads/no-shows (opt-in clients only) |
 
 All require `CRON_SECRET` (already set). Manual trigger for testing:
@@ -139,6 +140,13 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
   existing `RESEND_API_KEY` + alert roster and never text anyone. Smoke test: text the
   Twilio number twice within a minute; exactly one email should arrive, linking to that
   conversation in Messages.
+
+- **Daily owner briefing** needs no migration and no new env vars (uses `RESEND_API_KEY`,
+  `ANTHROPIC_API_KEY` — optional, falls back to a template — and `CRON_SECRET`). It's off for
+  every business until the owner turns it on (Settings → Alerts → Morning briefing email).
+  `vercel.json` adds eight daily entries for `/api/cron/daily-briefing` (Hobby allows only
+  daily crons). Check it at `/portal/settings/daily-briefing` (preview only, sends nothing), or
+  trigger a run with the curl above; a business only gets one per local day.
 
 - **Weekly summary email — MIGRATION REQUIRED:** apply `drizzle/manual/0008_weekly_summary.sql`
   (Neon SQL editor, idempotent) **before** the deploy. It adds `clients.weekly_summary_enabled`
