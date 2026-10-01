@@ -174,7 +174,7 @@ export function PortalTabBar({
             className="fixed inset-0 z-40 bg-(color:--scrim) backdrop-blur-[2px]"
             onClick={() => setMoreOpen(false)}
           />
-          <div className="fd-glass fixed inset-x-3 bottom-20 z-50 max-h-[70vh] space-y-3 overflow-y-auto rounded-2xl border bg-popover p-2 shadow-xl shadow-(--overlay-shadow)">
+          <div className="fd-glass fixed inset-x-3 bottom-24 z-50 max-h-[70vh] space-y-3 overflow-y-auto rounded-2xl border bg-popover p-2 shadow-xl shadow-(--overlay-shadow)">
             {moreGroups.map((group, gi) => (
               <div key={group.label ?? `g${gi}`}>
                 {group.label ? (
@@ -199,7 +199,7 @@ export function PortalTabBar({
 
       <nav
         aria-label="Primary"
-        className="fd-glass fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background/85 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+        className="fd-glass fd-dock fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 grid grid-cols-5 rounded-2xl border bg-background/85 px-1 backdrop-blur"
       >
         {BAR.map((item) => {
           const active = isPortalNavActive(pathname, item.href) && !moreOpen;
@@ -209,13 +209,13 @@ export function PortalTabBar({
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors duration-200",
-                active
-                  ? "text-brand before:absolute before:inset-x-6 before:top-0 before:h-0.5 before:rounded-full before:bg-brand before:bg-(image:--primary-image)"
-                  : "text-muted-foreground",
+                "relative flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors duration-200",
+                active ? "text-brand" : "text-muted-foreground",
               )}
             >
-              <item.icon className="size-5" />
+              <span className="fd-dock-icon">
+                <item.icon className="size-5" />
+              </span>
               {item.label}
             </Link>
           );
@@ -225,16 +225,16 @@ export function PortalTabBar({
           aria-expanded={moreOpen}
           onClick={() => setMoreOpen(!moreOpen)}
           className={cn(
-            "relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors duration-200",
+            "relative flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors duration-200",
             moreOpen || moreActive ? "text-brand" : "text-muted-foreground",
           )}
         >
-          <span className="relative">
+          <span className="fd-dock-icon relative">
             {moreOpen ? <X className="size-5" /> : <MoreHorizontal className="size-5" />}
             {unreadMessages > 0 && !moreOpen ? (
               <span
                 aria-label={`${unreadMessages} unread messages`}
-                className="absolute -right-1 -top-0.5 size-2 rounded-full bg-indigo-500 bg-(image:--primary-image)"
+                className="absolute right-2 top-0.5 size-2 rounded-full bg-indigo-500 bg-(image:--primary-image)"
               />
             ) : null}
           </span>

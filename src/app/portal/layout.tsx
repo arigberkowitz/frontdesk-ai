@@ -5,7 +5,6 @@ import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { countUnreadMessages } from "@/lib/data/sms-messages";
 import { PortalSidebar, PortalTabBar } from "@/components/portal/portal-nav";
 import { UserMenuButton } from "@/components/user-menu-button";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
 import { ChatBubble } from "@/components/portal/chat-bubble";
 import { LiveCallStrip } from "@/components/portal/live-call-strip";
@@ -40,7 +39,7 @@ export default async function PortalLayout({ children }: { children: React.React
       <header className="fd-header sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur sm:px-6">
         <div
           className="fd-mark flex size-8 items-center justify-center rounded-lg text-white"
-          style={{ background: "linear-gradient(135deg,#6366f1,#10b981)" }}
+          style={{ background: "linear-gradient(135deg,#6a3df5,#0e7490)" }}
         >
           <Phone className="size-4" />
         </div>
@@ -52,7 +51,6 @@ export default async function PortalLayout({ children }: { children: React.React
         </div>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <CommandPalette portal />
-          <ThemeToggle />
           <UserMenuButton />
         </div>
       </header>

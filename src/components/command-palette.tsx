@@ -109,21 +109,21 @@ export function CommandPalette({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex items-center gap-2 rounded-full border bg-card/70 px-3 py-1.5 text-sm text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         aria-label="Search (Command K)"
       >
         <Search className="size-4" />
         <span className="hidden sm:inline">Search</span>
-        <kbd className="hidden rounded border px-1 text-[11px] sm:inline">⌘K</kbd>
+        <kbd className="fd-kbd hidden sm:inline-flex">⌘K</kbd>
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <DialogContent className="fd-cmd gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-lg">
           <DialogHeader className="sr-only">
             <DialogTitle>Command menu</DialogTitle>
           </DialogHeader>
-          <div className="flex items-center gap-2 border-b px-3">
-            <Search className="size-4 shrink-0 text-muted-foreground" />
+          <div className="flex items-center gap-2.5 border-b px-4">
+            <Search className="size-4 shrink-0 text-brand" />
             <input
               autoFocus
               value={q}
@@ -132,10 +132,10 @@ export function CommandPalette({
                 if (e.key === "Enter") go(filtered[0]?.href);
               }}
               placeholder={portal ? "Jump to a page…" : "Jump to a client, page, or action…"}
-              className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="h-14 w-full bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
             />
           </div>
-          <ul className="max-h-80 overflow-auto p-1.5">
+          <ul className="max-h-80 overflow-auto p-2">
             {filtered.length === 0 ? (
               <li className="px-3 py-6 text-center text-sm text-muted-foreground">No matches.</li>
             ) : (
@@ -144,16 +144,29 @@ export function CommandPalette({
                   <button
                     type="button"
                     onClick={() => go(item.href)}
-                    className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                    data-cmd-item
+                    className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <item.icon className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="flex-1 truncate">{item.label}</span>
-                    <span className="text-xs text-muted-foreground">{item.group}</span>
+                    <span className="fd-cmd-icon" aria-hidden>
+                      <item.icon className="size-4" />
+                    </span>
+                    <span className="flex-1 truncate font-medium">{item.label}</span>
+                    <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+                      {item.group}
+                    </span>
                   </button>
                 </li>
               ))
             )}
           </ul>
+          <div className="flex items-center justify-between gap-3 border-t bg-muted/40 px-4 py-2 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <kbd className="fd-kbd">↵</kbd> open first match
+            </span>
+            <span className="flex items-center gap-1.5">
+              <kbd className="fd-kbd">esc</kbd> close
+            </span>
+          </div>
         </DialogContent>
       </Dialog>
     </>

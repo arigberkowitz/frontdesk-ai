@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { PORTAL_REPLY_KIND } from "@/lib/sms-reply";
 import { formatDateTime, formatPhone } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
+import { InitialsAvatar } from "@/components/portal/visual";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -91,7 +92,12 @@ export default async function PortalMessageThreadPage({
         <ArrowLeft className="size-4" /> All messages
       </Button>
       <PageHeader
-        title={title}
+        title={
+          <span className="flex items-center gap-3">
+            <InitialsAvatar name={caller.name} seed={phone} size="lg" className="max-sm:hidden" />
+            <span className="min-w-0">{title}</span>
+          </span>
+        }
         description={caller.name ? formatPhone(phone) : "Texts with this customer."}
       >
         <Button
@@ -147,7 +153,7 @@ export default async function PortalMessageThreadPage({
                   <div className={cn("max-w-[85%] space-y-1", outbound ? "items-end text-right" : "")}>
                     <div
                       className={cn(
-                        "whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-left text-sm leading-relaxed",
+                        "whitespace-pre-wrap break-words rounded-[1.25rem] px-4 py-2.5 text-left text-sm leading-relaxed",
                         outbound
                           ? "rounded-br-sm bg-indigo-500 text-white"
                           : "rounded-bl-sm bg-muted text-foreground",
@@ -160,7 +166,7 @@ export default async function PortalMessageThreadPage({
                     >
                       {m.body}
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="px-1 text-[11px] text-muted-foreground">
                       {isAiMessage(m.kind) ? (
                         <Badge variant="secondary" className="mr-1 align-middle" title="Written and sent by your AI">
                           AI
@@ -182,7 +188,7 @@ export default async function PortalMessageThreadPage({
           </ol>
         </CardContent>
       </Card>
-      <Card>
+      <Card className="fd-composer">
         <CardContent>
           {preview ? (
             <p className="text-sm text-muted-foreground">

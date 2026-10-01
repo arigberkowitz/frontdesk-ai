@@ -3,6 +3,8 @@
 import { seekRecording } from "@/components/portal/call-audio-player";
 import { clock, type Turn } from "@/lib/call-moment";
 import { cn } from "@/lib/utils";
+import { Sparkles } from "lucide-react";
+import { InitialsAvatar } from "@/components/portal/visual";
 
 /**
  * The transcript as a conversation, not a wall of text: the AI on the left,
@@ -13,8 +15,13 @@ export function CallTranscript({
   turns,
   flagged,
   hasRecording,
+  callerName,
+  callerSeed,
 }: {
   turns: Turn[];
+  /** Shown as initials beside the caller's turns (display only). */
+  callerName?: string | null;
+  callerSeed?: string | null;
   /** Indices of turns the health check pointed at. */
   flagged: number[];
   hasRecording: boolean;
@@ -25,7 +32,7 @@ export function CallTranscript({
   const hot = new Set(flagged);
 
   return (
-    <ol className="space-y-3">
+    <ol className="space-y-3.5">
       {turns.map((t, i) => {
         const isAgent = t.role === "agent";
         const isHot = hot.has(i);
@@ -34,42 +41,56 @@ export function CallTranscript({
           <li
             key={i}
             id={`turn-${i}`}
-            className={cn("flex scroll-mt-24 flex-col", isAgent ? "items-start" : "items-end")}
+            className={cn(
+              "flex scroll-mt-24 items-end gap-2.5",
+              isAgent ? "flex-row" : "flex-row-reverse",
+            )}
           >
-            <div
-              className={cn(
-                "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed transition-shadow",
-                isAgent
-                  ? "rounded-tl-sm bg-indigo-500/10 text-foreground"
-                  : t.role === "user"
-                    ? "rounded-tr-sm bg-muted text-foreground"
-                    : "bg-muted/60 text-muted-foreground",
-                isHot && "ring-2 ring-amber-500/70 ring-offset-2 ring-offset-background",
-              )}
-            >
-              {t.text}
-            </div>
-            <div className="mt-1 flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground">
-              <span>{t.speaker}</span>
-              {t.startSec != null ? (
-                canSeek ? (
-                  <button
-                    type="button"
-                    onClick={() => seekRecording(t.startSec!)}
-                    className="rounded px-1 tabular-nums underline-offset-2 hover:bg-muted hover:underline"
-                    title="Play the recording from here"
-                  >
-                    {clock(t.startSec)}
-                  </button>
-                ) : (
-                  <span className="tabular-nums">{clock(t.startSec)}</span>
-                )
-              ) : null}
-              {isHot ? (
-                <span className="rounded-full bg-amber-500/15 px-1.5 font-medium text-amber-700 dark:text-amber-300">
-                  flagged
-                </span>
-              ) : null}
+            {isAgent ? (
+              <span className="fd-ai-dot mb-5" aria-hidden>
+                <Sparkles className="size-3.5" />
+              </span>
+            ) : t.role === "user" ? (
+              <InitialsAvatar name={callerName} seed={callerSeed} size="sm" className="mb-5" />
+            ) : (
+              <span className="size-7 shrink-0" aria-hidden />
+            )}
+            <div className={cn("flex min-w-0 flex-col", isAgent ? "items-start" : "items-end")}>
+              <div
+                className={cn(
+                  "max-w-[min(34rem,100%)] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed transition-shadow",
+                  isAgent
+                    ? "fd-turn-agent rounded-bl-md text-foreground"
+                    : t.role === "user"
+                      ? "fd-turn-user rounded-br-md text-foreground"
+                      : "bg-muted/60 text-muted-foreground",
+                  isHot && "ring-2 ring-amber-500/70 ring-offset-2 ring-offset-background",
+                )}
+              >
+                {t.text}
+              </div>
+              <div className="mt-1 flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground">
+                <span className="font-medium">{t.speaker}</span>
+                {t.startSec != null ? (
+                  canSeek ? (
+                    <button
+                      type="button"
+                      onClick={() => seekRecording(t.startSec!)}
+                      className="rounded px-1 tabular-nums underline-offset-2 hover:bg-muted hover:underline"
+                      title="Play the recording from here"
+                    >
+                      {clock(t.startSec)}
+                    </button>
+                  ) : (
+                    <span className="tabular-nums">{clock(t.startSec)}</span>
+                  )
+                ) : null}
+                {isHot ? (
+                  <span className="rounded-full bg-amber-500/15 px-1.5 font-medium text-amber-800 dark:text-amber-300">
+                    flagged
+                  </span>
+                ) : null}
+              </div>
             </div>
           </li>
         );

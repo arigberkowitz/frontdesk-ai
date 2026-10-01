@@ -10,13 +10,18 @@ interface EmptyStateProps {
 /** Guiding empty state (§11: "Empty states should guide the operator to the next action"). */
 export function EmptyState({ icon: Icon, title, description, children }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-card/50 px-6 py-12 text-center">
+    <div className="fd-glass flex flex-col items-center justify-center rounded-2xl border border-dashed bg-card/60 px-6 py-12 text-center">
       {Icon ? (
-        <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-brand-soft">
-          <Icon className="size-6 text-brand" />
+        // Decoration: the icon on a lit tile inside two quiet orbit rings.
+        <div className="fd-empty-art mb-5" aria-hidden>
+          <span className="fd-empty-spark right-2 top-3" />
+          <span className="fd-empty-spark bottom-4 left-2" />
+          <span className="fd-empty-icon">
+            <Icon className="size-6" />
+          </span>
         </div>
       ) : null}
-      <h3 className="font-heading text-base font-medium">{title}</h3>
+      <h3 className="font-heading text-lg font-semibold">{title}</h3>
       {description ? (
         <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
       ) : null}

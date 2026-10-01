@@ -760,3 +760,706 @@ html:not(.dark):has([data-fd-app]) :is(a, summary, [role="tab"], [role="button"]
     --lift: 0px;
   }
 }
+
+/* ============================================================================
+ * PORTAL POLISH II — shared list, chip, avatar, agent and loading pieces.
+ *
+ * The new classes below work in any context (they read the theme tokens) so a
+ * shared component like the calls list still looks right in the operator app;
+ * the light portal skin adds the glow. Text colors are chosen for WCAG AA on
+ * their own fills. Every animation stops under prefers-reduced-motion.
+ * ========================================================================== */
+
+@layer components {
+/* ---- Initials avatar: a softly lit gradient disc. */
+.fd-avatar {
+  --av: #6a3df5;
+  --av-2: #4b56e0;
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  font-family: var(--font-heading);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+  background:
+    radial-gradient(circle at 30% 22%, rgb(255 255 255 / 0.35), transparent 46%),
+    linear-gradient(140deg, var(--av), var(--av-2));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    0 6px 16px -8px color-mix(in oklab, var(--av) 75%, transparent);
+}
+.fd-avatar[data-size="sm"] { width: 2rem; height: 2rem; font-size: 0.6875rem; }
+.fd-avatar[data-size="lg"] { width: 3.5rem; height: 3.5rem; font-size: 1.125rem; }
+.fd-avatar[data-tone="1"] { --av: #0e7490; --av-2: #0369a1; }
+.fd-avatar[data-tone="2"] { --av: #047857; --av-2: #0f766e; }
+.fd-avatar[data-tone="3"] { --av: #b45309; --av-2: #c2410c; }
+.fd-avatar[data-tone="4"] { --av: #be123c; --av-2: #9d174d; }
+.fd-avatar[data-tone="5"] { --av: #1d4ed8; --av-2: #4338ca; }
+
+/* ---- Chips: quiet tinted pills. */
+.fd-chip {
+  --chip-bg: #f1f2f7;
+  --chip-fg: #474e68;
+  --chip-ring: rgb(71 78 104 / 0.14);
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.3125rem;
+  height: 1.5rem;
+  padding: 0 0.5625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--chip-fg);
+  background: var(--chip-bg);
+  box-shadow: inset 0 0 0 1px var(--chip-ring);
+}
+.fd-chip-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: currentColor;
+}
+.fd-chip[data-tone="violet"] { --chip-bg: #f1edff; --chip-fg: #5a2fd8; --chip-ring: rgb(106 61 245 / 0.18); }
+.fd-chip[data-tone="emerald"] { --chip-bg: #ecfdf5; --chip-fg: #047857; --chip-ring: rgb(4 120 87 / 0.18); }
+.fd-chip[data-tone="sky"] { --chip-bg: #eff6ff; --chip-fg: #1d4ed8; --chip-ring: rgb(29 78 216 / 0.16); }
+.fd-chip[data-tone="cyan"] { --chip-bg: #ecfeff; --chip-fg: #0e7490; --chip-ring: rgb(14 116 144 / 0.2); }
+.fd-chip[data-tone="amber"] { --chip-bg: #fffbeb; --chip-fg: #92400e; --chip-ring: rgb(180 83 9 / 0.2); }
+.fd-chip[data-tone="rose"] { --chip-bg: #fff1f2; --chip-fg: #be123c; --chip-ring: rgb(190 18 60 / 0.16); }
+.dark .fd-chip { --chip-bg: rgb(255 255 255 / 0.06); --chip-fg: var(--foreground); --chip-ring: rgb(255 255 255 / 0.12); }
+
+/* ---- Rich list rows (calls, messages, leads): card-like, lift on hover. */
+.fd-row {
+  position: relative;
+  border-radius: 1rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+html:not(.dark):has([data-fd-app]) .fd-row {
+  border-color: transparent;
+  box-shadow: 0 0 0 1px var(--card-ring), var(--card-shadow);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+html:not(.dark):has([data-fd-app]) .fd-row:hover,
+html:not(.dark):has([data-fd-app]) details.fd-row[open] {
+  box-shadow: var(--card-shadow-hover);
+}
+html:not(.dark):has([data-fd-app]) .fd-row:hover {
+  transform: translateY(var(--lift));
+}
+
+/* Unread conversations: a Signal edge and a faint violet wash. */
+.fd-unread {
+  background:
+    linear-gradient(90deg, rgb(124 92 255 / 0.07), transparent 55%),
+    var(--color-card);
+}
+.fd-unread::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.875rem;
+  bottom: 0.875rem;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #7c5cff, #22d3ee);
+  box-shadow: 0 0 12px rgb(124 92 255 / 0.65);
+}
+.fd-unread .fd-avatar::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: -1px;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 9999px;
+  background: #6a3df5;
+  border: 2px solid #fff;
+  box-shadow: 0 0 10px rgb(124 92 255 / 0.9);
+}
+
+/* ---- Section "eyebrow" with a short Signal tick before it. */
+.fd-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+.fd-eyebrow::before {
+  content: "";
+  width: 0.875rem;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #7c5cff, #22d3ee);
+}
+
+/* ---- Feature panels (call header, agent card): the hero's glass + edge. */
+.fd-panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+}
+html:not(.dark):has([data-fd-app]) .fd-panel {
+  border-color: transparent;
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.95) 0%, rgb(255 255 255 / 0.8) 60%, rgb(247 245 255 / 0.74) 100%);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 24px 50px -32px rgb(106 61 245 / 0.42),
+    0 12px 30px -24px rgb(14 116 144 / 0.32);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+}
+html:not(.dark):has([data-fd-app]) .fd-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(120deg, rgb(124 92 255 / 0.6), rgb(34 211 238 / 0.45) 35%, rgb(227 229 239 / 0.9) 62%, rgb(124 92 255 / 0.3));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+/* Soft accent wash in the top-right corner of a panel. */
+.fd-panel-glow {
+  position: absolute;
+  z-index: -1;
+  top: -60%;
+  right: -20%;
+  width: 70%;
+  aspect-ratio: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(closest-side at 40% 45%, rgb(124 92 255 / 0.2), transparent),
+    radial-gradient(closest-side at 65% 40%, rgb(34 211 238 / 0.18), transparent);
+  filter: blur(6px);
+}
+.dark .fd-panel-glow { display: none; }
+
+/* Small stat tiles inside a panel. */
+.fd-stat {
+  border-radius: 0.875rem;
+  border: 1px solid var(--color-border);
+  background: color-mix(in oklab, var(--color-card) 70%, transparent);
+  padding: 0.75rem 0.875rem;
+}
+html:not(.dark):has([data-fd-app]) .fd-stat {
+  background: rgb(255 255 255 / 0.72);
+  border-color: rgb(35 40 90 / 0.08);
+  box-shadow: inset 0 1px 0 #fff, 0 8px 22px -18px rgb(76 58 200 / 0.4);
+}
+
+/* ---- Call transcript: speaker avatars and a center rail. */
+.fd-turn-agent {
+  background: linear-gradient(135deg, #f3efff, #eef6ff);
+  box-shadow: inset 0 0 0 1px rgb(106 61 245 / 0.12);
+}
+.fd-turn-user {
+  background: #fff;
+  box-shadow: inset 0 0 0 1px var(--color-border), 0 4px 14px -10px rgb(14 16 36 / 0.25);
+}
+.dark .fd-turn-agent { background: rgb(129 140 248 / 0.14); box-shadow: none; }
+.dark .fd-turn-user { background: var(--color-muted); box-shadow: none; }
+.fd-ai-dot {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 32% 26%, rgb(255 255 255 / 0.55), transparent 40%),
+    radial-gradient(circle at 72% 78%, rgb(34 211 238 / 0.9), transparent 60%),
+    linear-gradient(135deg, #6a3df5, #0e7490);
+  box-shadow: 0 4px 12px -4px rgb(106 61 245 / 0.6);
+}
+
+/* ---- Agenda: a time rail with service-colored dots. */
+.fd-rail {
+  position: relative;
+}
+.fd-rail::before {
+  content: "";
+  position: absolute;
+  left: 4.75rem;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--color-border) 12%, var(--color-border) 88%, transparent);
+}
+.fd-rail-dot {
+  position: absolute;
+  left: calc(4.75rem - 0.3125rem);
+  top: 1.05rem;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  background: var(--chip-fg, #6a3df5);
+  box-shadow: 0 0 0 3px var(--color-background), 0 0 10px color-mix(in oklab, var(--chip-fg, #6a3df5) 60%, transparent);
+}
+.fd-event {
+  border-left: 3px solid var(--chip-fg, #6a3df5);
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--chip-bg, #f1edff) 90%, transparent), var(--color-card) 70%);
+}
+:is(.fd-event, .fd-cal-pill, .fd-rail-dot)[data-tone="violet"] { --chip-bg: #f1edff; --chip-fg: #5a2fd8; }
+:is(.fd-event, .fd-cal-pill, .fd-rail-dot)[data-tone="emerald"] { --chip-bg: #ecfdf5; --chip-fg: #047857; }
+:is(.fd-event, .fd-cal-pill, .fd-rail-dot)[data-tone="sky"] { --chip-bg: #eff6ff; --chip-fg: #1d4ed8; }
+:is(.fd-event, .fd-cal-pill, .fd-rail-dot)[data-tone="cyan"] { --chip-bg: #ecfeff; --chip-fg: #0e7490; }
+:is(.fd-event, .fd-cal-pill, .fd-rail-dot)[data-tone="amber"] { --chip-bg: #fffbeb; --chip-fg: #b45309; }
+:is(.fd-event, .fd-cal-pill, .fd-rail-dot)[data-tone="rose"] { --chip-bg: #fff1f2; --chip-fg: #be123c; }
+:is(.fd-event, .fd-cal-pill, .fd-rail-dot)[data-tone="slate"] { --chip-bg: #f1f2f7; --chip-fg: #64748b; }
+.dark .fd-event { background: var(--color-card); }
+/* Month-grid pills share the service color. */
+.fd-cal-pill {
+  color: #1b1e3a;
+  background: color-mix(in oklab, var(--chip-bg, #f1edff) 100%, transparent);
+  box-shadow: inset 2px 0 0 var(--chip-fg, #6a3df5);
+}
+.fd-cal-pill:hover { background: color-mix(in oklab, var(--chip-fg, #6a3df5) 14%, #fff); }
+.dark .fd-cal-pill { color: var(--foreground); background: rgb(255 255 255 / 0.06); }
+
+/* ---- Lead pipeline: connected stage chips. */
+.fd-stage-chip {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.875rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+}
+html:not(.dark):has([data-fd-app]) .fd-stage-chip {
+  border-color: rgb(35 40 90 / 0.08);
+  background: rgb(255 255 255 / 0.78);
+  box-shadow: inset 0 1px 0 #fff, 0 10px 26px -20px rgb(76 58 200 / 0.45);
+}
+.fd-stage-chip[data-active="true"] {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--stage) 40%, transparent), 0 10px 26px -16px color-mix(in oklab, var(--stage) 70%, transparent);
+}
+.fd-stage-bar {
+  height: 3px;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--stage) 22%, transparent);
+  overflow: hidden;
+}
+.fd-stage-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--stage);
+}
+
+/* ---- Voice orb: the receptionist, breathing. */
+.fd-orb {
+  position: relative;
+  flex-shrink: 0;
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 32% 26%, rgb(255 255 255 / 0.85) 0, rgb(255 255 255 / 0) 30%),
+    radial-gradient(circle at 74% 76%, rgb(34 211 238 / 0.95), transparent 58%),
+    radial-gradient(circle at 24% 78%, rgb(167 139 250 / 0.9), transparent 55%),
+    linear-gradient(140deg, #6a3df5 10%, #4b56e0 50%, #0e7490 100%);
+  box-shadow:
+    inset 0 -8px 18px rgb(14 16 36 / 0.18),
+    inset 0 2px 0 rgb(255 255 255 / 0.5),
+    0 22px 44px -16px rgb(106 61 245 / 0.65),
+    0 0 50px -8px rgb(34 211 238 / 0.45);
+  animation: fd-orb-breathe 4.8s ease-in-out infinite;
+}
+.fd-orb-swirl {
+  position: absolute;
+  inset: 8%;
+  border-radius: inherit;
+  background: conic-gradient(from 0deg, transparent 0 20%, rgb(255 255 255 / 0.5) 30%, transparent 45% 65%, rgb(34 211 238 / 0.55) 78%, transparent 90%);
+  filter: blur(6px);
+  mix-blend-mode: soft-light;
+  animation: fd-orb-spin 9s linear infinite;
+}
+.fd-orb::before,
+.fd-orb::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: inherit;
+  border: 1.5px solid rgb(124 92 255 / 0.35);
+  opacity: 0;
+  animation: fd-orb-ring 3.6s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+.fd-orb::after { animation-delay: 1.8s; border-color: rgb(34 211 238 / 0.4); }
+@media (min-width: 640px) {
+  .fd-orb { width: 6.5rem; height: 6.5rem; }
+}
+.fd-orb[data-state="idle"] {
+  filter: saturate(0.35) brightness(1.06);
+  animation: none;
+}
+.fd-orb[data-state="idle"]::before,
+.fd-orb[data-state="idle"]::after,
+.fd-orb[data-state="idle"] .fd-orb-swirl { animation: none; opacity: 0; }
+@keyframes fd-orb-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+@keyframes fd-orb-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes fd-orb-ring {
+  0% { transform: scale(0.92); opacity: 0.9; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+
+/* Waveform: bars that idle like someone listening. */
+.fd-wave {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 1.75rem;
+}
+.fd-wave > span {
+  display: block;
+  width: 3px;
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #7c5cff, #22d3ee);
+  transform-origin: center;
+  transform: scaleY(0.3);
+  animation: fd-wave 1.6s ease-in-out infinite;
+}
+.fd-wave > span:nth-child(2n) { animation-duration: 1.3s; }
+.fd-wave > span:nth-child(3n) { animation-duration: 1.9s; }
+.fd-wave > span:nth-child(1) { animation-delay: -0.2s; }
+.fd-wave > span:nth-child(2) { animation-delay: -0.9s; }
+.fd-wave > span:nth-child(3) { animation-delay: -0.4s; }
+.fd-wave > span:nth-child(4) { animation-delay: -1.2s; }
+.fd-wave > span:nth-child(5) { animation-delay: -0.6s; }
+.fd-wave > span:nth-child(6) { animation-delay: -1.5s; }
+.fd-wave > span:nth-child(7) { animation-delay: -0.1s; }
+.fd-wave > span:nth-child(8) { animation-delay: -1s; }
+.fd-wave > span:nth-child(9) { animation-delay: -0.7s; }
+.fd-wave > span:nth-child(10) { animation-delay: -1.3s; }
+.fd-wave > span:nth-child(11) { animation-delay: -0.3s; }
+.fd-wave > span:nth-child(12) { animation-delay: -0.8s; }
+.fd-wave[data-state="idle"] > span { animation: none; background: var(--color-border); }
+@keyframes fd-wave {
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1); }
+}
+
+/* ---- Skeletons: a soft violet shimmer instead of a gray blink. */
+.fd-skel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background: var(--color-muted);
+}
+.fd-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.75), rgb(124 92 255 / 0.08), transparent);
+  animation: fd-shimmer 1.6s ease-in-out infinite;
+}
+.dark .fd-skel::after { background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.06), transparent); }
+@keyframes fd-shimmer {
+  to { transform: translateX(100%); }
+}
+/* ---- Empty states: an icon orb inside quiet orbit rings. */
+.fd-empty-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 7rem;
+  height: 7rem;
+}
+.fd-empty-art::before,
+.fd-empty-art::after {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  border: 1px dashed color-mix(in oklab, var(--brand) 30%, transparent);
+}
+.fd-empty-art::before { inset: 0; }
+.fd-empty-art::after { inset: 14px; border-style: solid; border-color: color-mix(in oklab, var(--brand) 14%, transparent); }
+.fd-empty-icon {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1.125rem;
+  color: #fff;
+  background:
+    radial-gradient(circle at 30% 22%, rgb(255 255 255 / 0.4), transparent 45%),
+    linear-gradient(140deg, #6a3df5, #4b56e0 50%, #0e7490);
+  box-shadow: 0 16px 32px -14px rgb(106 61 245 / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.4);
+}
+.fd-empty-spark {
+  position: absolute;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: #22d3ee;
+  box-shadow: 0 0 10px rgb(34 211 238 / 0.8);
+}
+.fd-empty-spark:nth-of-type(2) { width: 0.375rem; height: 0.375rem; background: #7c5cff; box-shadow: 0 0 10px rgb(124 92 255 / 0.8); }
+
+/* ---- Segmented tab bar (Settings). */
+.fd-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.3125rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-muted);
+}
+html:not(.dark):has([data-fd-app]) .fd-tabs {
+  border-color: rgb(35 40 90 / 0.08);
+  background: rgb(255 255 255 / 0.62);
+  box-shadow: inset 0 1px 2px rgb(14 16 36 / 0.04), 0 10px 26px -22px rgb(76 58 200 / 0.5);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+.fd-tab {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  padding: 0.4375rem 0.9375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-muted-foreground);
+  transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.fd-tab:hover { color: var(--color-foreground); background: color-mix(in oklab, var(--color-card) 70%, transparent); }
+.fd-tab[aria-current="page"] {
+  color: var(--color-foreground);
+  background: var(--color-card);
+  box-shadow: 0 1px 2px rgb(14 16 36 / 0.06), 0 0 0 1px var(--color-border);
+}
+html:not(.dark):has([data-fd-app]) .fd-tab[aria-current="page"] {
+  color: #4a2fd6;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgb(106 61 245 / 0.16),
+    0 6px 16px -8px rgb(106 61 245 / 0.5);
+}
+html:not(.dark):has([data-fd-app]) .fd-tab[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 9999px;
+  background: var(--signal-bright);
+}
+
+.fd-cmd-icon {
+  color: #fff;
+  background: var(--signal);
+  box-shadow: 0 6px 14px -6px rgb(106 61 245 / 0.6);
+}
+.fd-cmd-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 0.625rem;
+  color: var(--color-muted-foreground);
+  background: var(--color-muted);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.fd-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 1.25rem;
+  padding: 0 0.375rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-muted-foreground);
+  box-shadow: 0 1px 0 var(--color-border);
+}
+
+.fd-dock-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fd-row,
+  .fd-tab,
+  .fd-cmd-icon,
+  .fd-dock-icon { transition: none; }
+  html:not(.dark):has([data-fd-app]) .fd-row:hover { transform: none; }
+  .fd-orb,
+  .fd-orb-swirl,
+  .fd-orb::before,
+  .fd-orb::after,
+  .fd-wave > span,
+  .fd-skel::after,
+  html:not(.dark):has([data-fd-app]) [data-slot="skeleton"]::after {
+    animation: none;
+  }
+  .fd-orb::before,
+  .fd-orb::after { opacity: 0; }
+  .fd-wave > span { transform: scaleY(0.55); }
+  .fd-wave > span:nth-child(3n) { transform: scaleY(0.85); }
+  .fd-wave > span:nth-child(4n) { transform: scaleY(0.35); }
+}
+} /* @layer components */
+
+/* Portal-skin overrides that must beat utility classes or third-party
+   styles (sonner injects unlayered CSS), so they live outside the layer. */
+/* ---- Composer: one rounded field with the send button docked inside. */
+html:not(.dark):has([data-fd-app]) .fd-composer textarea {
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: inset 0 1px 2px rgb(14 16 36 / 0.04);
+  padding: 0.75rem 0.875rem;
+  min-height: 5.5rem;
+}
+html:not(.dark):has([data-fd-app]) .fd-composer textarea:focus-visible {
+  border-color: #7c5cff;
+  box-shadow: 0 0 0 3px rgb(124 92 255 / 0.16), var(--focus-glow);
+}
+html:not(.dark):has([data-fd-app]) .fd-composer button[type="submit"] {
+  border-radius: 9999px;
+  padding-inline: 1rem;
+}
+
+html:not(.dark):has([data-fd-app]) [data-slot="skeleton"] {
+  animation: none;
+  position: relative;
+  overflow: hidden;
+}
+html:not(.dark):has([data-fd-app]) [data-slot="skeleton"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.75), rgb(124 92 255 / 0.08), transparent);
+  animation: fd-shimmer 1.6s ease-in-out infinite;
+}
+
+/* ---- Command palette. */
+html:not(.dark):has([data-fd-app]) .fd-cmd [data-cmd-item]:hover,
+html:not(.dark):has([data-fd-app]) .fd-cmd [data-cmd-item]:focus-visible {
+  background: linear-gradient(90deg, rgb(124 92 255 / 0.12), rgb(34 211 238 / 0.05));
+  box-shadow: inset 0 0 0 1px rgb(106 61 245 / 0.12);
+}
+html:not(.dark):has([data-fd-app]) .fd-cmd [data-cmd-item]:hover .fd-cmd-icon,
+html:not(.dark):has([data-fd-app]) .fd-cmd [data-cmd-item]:focus-visible
+
+/* ---- Toasts: a colored icon tile and a hairline accent by type. */
+html:not(.dark):has([data-fd-app]) [data-sonner-toast].cn-toast {
+  border-radius: 1rem;
+  padding: 0.875rem 1rem;
+  border-color: rgb(35 40 90 / 0.08);
+}
+html:not(.dark):has([data-fd-app]) [data-sonner-toast].cn-toast [data-icon] {
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: 0 0.25rem 0 0;
+  border-radius: 0.625rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #5a2fd8;
+  background: #f1edff;
+}
+html:not(.dark):has([data-fd-app]) [data-sonner-toast][data-type="success"] [data-icon] { color: #047857; background: #ecfdf5; }
+html:not(.dark):has([data-fd-app]) [data-sonner-toast][data-type="error"] [data-icon] { color: #be123c; background: #fff1f2; }
+html:not(.dark):has([data-fd-app]) [data-sonner-toast][data-type="warning"] [data-icon] { color: #92400e; background: #fffbeb; }
+html:not(.dark):has([data-fd-app]) [data-sonner-toast].cn-toast::after {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(124 92 255 / 0.6), rgb(34 211 238 / 0.5), transparent);
+  pointer-events: none;
+}
+
+/* Rich colors become one glass card; the type shows in the icon tile. */
+html:not(.dark):has([data-fd-app]) [data-sonner-toaster] {
+  --success-bg: rgb(255 255 255 / 0.94);
+  --success-border: rgb(4 120 87 / 0.18);
+  --success-text: #0e1024;
+  --error-bg: rgb(255 255 255 / 0.94);
+  --error-border: rgb(190 18 60 / 0.2);
+  --error-text: #0e1024;
+  --warning-bg: rgb(255 255 255 / 0.94);
+  --warning-border: rgb(180 83 9 / 0.22);
+  --warning-text: #0e1024;
+  --info-bg: rgb(255 255 255 / 0.94);
+  --info-border: rgb(106 61 245 / 0.18);
+  --info-text: #0e1024;
+}
+/* On phones, toasts sit above the floating tab bar instead of on it. */
+@media (max-width: 767px) {
+  html:not(.dark):has([data-fd-app]) [data-sonner-toaster] {
+    --mobile-offset-bottom: 6rem !important;
+  }
+}
+
+/* ---- Phone tab bar: a floating glass dock. */
+html:not(.dark):has([data-fd-app]) nav[aria-label="Primary"].fd-dock {
+  background: rgb(255 255 255 / 0.8);
+  border: 1px solid rgb(35 40 90 / 0.08);
+  box-shadow: 0 18px 40px -18px rgb(40 30 120 / 0.4), 0 4px 14px -8px rgb(14 16 36 / 0.15), inset 0 1px 0 #fff;
+}
+
+html:not(.dark):has([data-fd-app]) [aria-current="page"] > .fd-dock-icon,
+html:not(.dark):has([data-fd-app]) [aria-expanded="true"] > .fd-dock-icon {
+  background: linear-gradient(90deg, rgb(124 92 255 / 0.16), rgb(34 211 238 / 0.1));
+  box-shadow: inset 0 0 0 1px rgb(106 61 245 / 0.14), 0 6px 14px -8px rgb(106 61 245 / 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not(.dark):has([data-fd-app]) [data-slot="skeleton"]::after { animation: none; }
+}

@@ -1,29 +1,11 @@
 import Link from "next/link";
-import { ChevronDown, Moon, Phone, PhoneOutgoing, Repeat } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ChevronDown, Clock, Moon, Phone, PhoneOutgoing, Repeat } from "lucide-react";
+import { Chip, InitialsAvatar, OUTCOME_TONE, SENTIMENT_CHIP } from "@/components/portal/visual";
 import { EmptyState } from "@/components/empty-state";
 import { formatDateTime, formatDuration, formatPhone } from "@/lib/format";
 import { CALL_OUTCOME_LABELS } from "@/config/options";
-import { CHART_COLORS } from "@/components/charts/theme";
-import type { Call, CallOutcome } from "@/db/schema";
+import type { Call } from "@/db/schema";
 import { callerName, ordinal, otherParty, priorCalls, type CallerIndex } from "@/lib/callers";
-
-// Same palette as the outcomes donut, so an outcome reads identically everywhere.
-const OUTCOME_COLOR: Record<CallOutcome, string> = {
-  booked: CHART_COLORS.booked,
-  lead: CHART_COLORS.message,
-  faq_answered: CHART_COLORS.answered,
-  escalated: CHART_COLORS.escalated,
-  spam: CHART_COLORS.other,
-  missed: CHART_COLORS.missed,
-  other: CHART_COLORS.other,
-};
-
-const SENTIMENT: Record<string, { label: string; dot: string }> = {
-  positive: { label: "Happy caller", dot: "bg-emerald-500" },
-  neutral: { label: "Neutral", dot: "bg-slate-400" },
-  negative: { label: "Frustrated caller", dot: "bg-rose-500" },
-};
 
 /**
  * The call log, readable without leaving it.
@@ -61,72 +43,79 @@ export function CallsTable({
   }
 
   return (
-    <ul className="space-y-2">
+    <ul className="fd-stagger space-y-2">
       {calls.map((c) => {
-        const sentiment = c.sentiment ? SENTIMENT[c.sentiment] : null;
+        const sentiment = c.sentiment ? SENTIMENT_CHIP[c.sentiment] : null;
         const hasBody = Boolean(c.summary || c.recordingUrl);
         const party = otherParty(c);
         const name = callers ? callerName(callers, party) : null;
         const before = callers ? priorCalls(callers, c) : 0;
-        const who = name
-          ? `${name} · ${formatPhone(party)}`
-          : formatPhone(party) || (c.direction === "outbound" ? "them" : "Unknown caller");
+        const phone = formatPhone(party);
+        const title = name ?? (phone || (c.direction === "outbound" ? "them" : "Unknown caller"));
+        const chips = (
+          <>
+            {c.outcome ? (
+              <Chip tone={OUTCOME_TONE[c.outcome] ?? "slate"} dot>
+                {CALL_OUTCOME_LABELS[c.outcome]}
+              </Chip>
+            ) : (
+              <span className="text-sm text-muted-foreground">—</span>
+            )}
+            {sentiment ? (
+              <Chip tone={sentiment.tone} icon={sentiment.icon} title={`Caller sentiment: ${sentiment.label}`}>
+                {sentiment.label}
+              </Chip>
+            ) : null}
+          </>
+        );
         const header = (
           <>
-            <span className="min-w-0">
-              <span className="font-medium">{formatDateTime(c.startAt, timezone)}</span>
-              {c.isAfterHours ? (
-                <Moon
-                  className="ml-1.5 inline size-3.5 text-indigo-500/70"
-                  aria-label="After hours"
-                />
-              ) : null}
-              <span className="ml-2 hidden text-muted-foreground sm:inline">
+            <InitialsAvatar name={name} seed={party ?? c.id} />
+            <span className="min-w-0 flex-1">
+              <span className="flex min-w-0 items-center gap-1.5">
                 {c.direction === "outbound" ? (
-                  <span className="inline-flex items-center gap-1">
-                    <PhoneOutgoing className="size-3.5" aria-hidden />
-                    AI called {who}
-                  </span>
-                ) : (
-                  who
-                )}
-              </span>
-              {before > 0 ? (
-                <span
-                  className="ml-2 inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-1.5 py-0.5 text-[11px] font-medium text-indigo-600 dark:text-indigo-400"
-                  title={`This number has called ${before} time${before === 1 ? "" : "s"} before`}
-                >
-                  <Repeat className="size-3" aria-hidden />
-                  {ordinal(before + 1)} call
+                  <PhoneOutgoing className="size-3.5 shrink-0 text-muted-foreground" aria-label="AI called" />
+                ) : null}
+                <span className="truncate font-medium text-foreground">
+                  {c.direction === "outbound" ? `AI called ${title}` : title}
                 </span>
-              ) : null}
-            </span>
-            <span className="ml-auto flex shrink-0 items-center gap-2.5">
-              <span className="hidden text-sm text-muted-foreground md:inline">
-                {formatDuration(c.durationSec)}
-              </span>
-              {sentiment ? (
-                <span
-                  className="hidden items-center gap-1.5 text-xs text-muted-foreground lg:flex"
-                  title={sentiment.label}
-                >
-                  <span className={`size-2 rounded-full ${sentiment.dot}`} aria-hidden />
-                  {sentiment.label}
-                </span>
-              ) : null}
-              {c.outcome ? (
-                <Badge variant="outline" className="gap-1.5">
+                {name && phone ? (
+                  <span className="hidden shrink-0 text-muted-foreground sm:inline">{phone}</span>
+                ) : null}
+                {before > 0 ? (
                   <span
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ background: OUTCOME_COLOR[c.outcome] }}
-                    aria-hidden="true"
-                  />
-                  {CALL_OUTCOME_LABELS[c.outcome]}
-                </Badge>
-              ) : (
-                <span className="text-sm text-muted-foreground">—</span>
-              )}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-soft px-1.5 py-0.5 text-[11px] font-medium text-brand"
+                    title={`This number has called ${before} time${before === 1 ? "" : "s"} before`}
+                  >
+                    <Repeat className="size-3" aria-hidden />
+                    {ordinal(before + 1)} call
+                  </span>
+                ) : null}
+              </span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-muted-foreground">
+                <span className="tabular-nums">{formatDateTime(c.startAt, timezone)}</span>
+                {c.durationSec != null ? (
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap tabular-nums">
+                    <Clock className="size-3" aria-hidden />
+                    {formatDuration(c.durationSec)}
+                  </span>
+                ) : null}
+                {c.isAfterHours ? (
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                    <Moon className="size-3" aria-hidden />
+                    After hours
+                  </span>
+                ) : null}
+              </span>
+              {c.summary ? (
+                <span className="mt-1 hidden truncate text-[13px] text-muted-foreground sm:block">
+                  {c.summary}
+                </span>
+              ) : null}
+              {/* Phones: the chips get their own line so the time never wraps. */}
+              <span className="mt-1.5 flex flex-wrap gap-1.5 sm:hidden">{chips}</span>
             </span>
+            <span className="hidden shrink-0 items-center gap-2 sm:flex">{chips}</span>
           </>
         );
 
@@ -137,10 +126,10 @@ export function CallsTable({
             <li key={c.id}>
               <Link
                 href={hrefFor(c.id)}
-                className="flex items-center gap-2 rounded-xl border bg-card px-4 py-3 text-sm transition-colors hover:bg-muted/40"
+                className="fd-row flex items-center gap-3 px-3.5 py-3 text-sm sm:px-4"
               >
                 {header}
-                <ChevronDown className="size-4 -rotate-90 text-muted-foreground/60" aria-hidden />
+                <ChevronDown className="size-4 shrink-0 -rotate-90 text-muted-foreground/60" aria-hidden />
               </Link>
             </li>
           );
@@ -148,17 +137,17 @@ export function CallsTable({
 
         return (
           <li key={c.id}>
-            <details className="group rounded-xl border bg-card">
-              <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
+            <details className="fd-row group">
+              <summary className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-3 text-sm sm:px-4 [&::-webkit-details-marker]:hidden">
                 {header}
                 <ChevronDown
-                  className="size-4 shrink-0 text-muted-foreground/60 transition-transform group-open:rotate-180"
+                  className="size-4 shrink-0 text-muted-foreground/60 transition-transform group-open:rotate-180 motion-reduce:transition-none"
                   aria-hidden
                 />
               </summary>
-              <div className="space-y-3 border-t px-4 py-4">
+              <div className="space-y-3 border-t border-border/70 px-4 py-4 sm:pl-[4.25rem]">
                 {c.summary ? (
-                  <p className="text-sm leading-relaxed text-muted-foreground">{c.summary}</p>
+                  <p className="text-sm leading-relaxed text-foreground/80">{c.summary}</p>
                 ) : null}
                 {c.recordingUrl ? (
                   <audio controls preload="none" src={c.recordingUrl} className="h-9 w-full" />
@@ -166,7 +155,7 @@ export function CallsTable({
                 <p className="text-sm">
                   <Link
                     href={hrefFor(c.id)}
-                    className="font-medium underline underline-offset-2 hover:text-foreground"
+                    className="font-medium text-brand underline-offset-2 hover:underline"
                   >
                     Full transcript & details →
                   </Link>
