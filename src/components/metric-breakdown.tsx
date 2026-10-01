@@ -39,7 +39,7 @@ export function MetricBreakdown({ label, value, sub, hint, icon, breakdown, href
   const s = METRIC_SIZES[size];
 
   return (
-    <Card className={cn("fd-lift overflow-hidden", className)}>
+    <Card className={cn("fd-lift overflow-hidden", size === "hero" && "fd-hero-tile", className)}>
       <CardContent className={s.pad}>
         <button
           type="button"

@@ -98,7 +98,7 @@ export default async function PortalMessageThreadPage({
         ) : null}
       </PageHeader>
 
-      <Card>
+      <Card className="fd-thread">
         <CardContent>
           <ol className="space-y-4">
             {messages.map((m) => {
@@ -109,11 +109,15 @@ export default async function PortalMessageThreadPage({
                   <div className={cn("max-w-[85%] space-y-1", outbound ? "items-end text-right" : "")}>
                     <div
                       className={cn(
-                        "whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-left text-sm",
+                        "whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-left text-sm leading-relaxed",
                         outbound
                           ? "rounded-br-sm bg-indigo-500 text-white"
                           : "rounded-bl-sm bg-muted text-foreground",
-                        m.status === "failed" && "bg-destructive/10 text-foreground ring-1 ring-destructive/40",
+                        m.status === "failed"
+                          ? "bg-destructive/10 text-foreground ring-1 ring-destructive/40"
+                          : outbound
+                            ? "fd-bubble-out"
+                            : "fd-bubble-in",
                       )}
                     >
                       {m.body}

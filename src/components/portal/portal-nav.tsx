@@ -45,7 +45,7 @@ const ICONS: Record<PortalNavKey, LucideIcon> = {
 function UnreadPill({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-indigo-500 px-1.5 text-[11px] font-semibold leading-5 text-white">
+    <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-indigo-500 bg-(image:--primary-image) px-1.5 text-[11px] font-semibold leading-5 text-white tabular-nums shadow-(--primary-shadow)">
       <span className="sr-only">, </span>
       {count > 99 ? "99+" : count}
       <span className="sr-only"> unread</span>
@@ -70,11 +70,11 @@ function NavLink({
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2.5 rounded-lg font-medium transition-colors",
+        "fd-nav-link relative flex items-center gap-2.5 rounded-lg font-medium transition-all duration-200 ease-out motion-reduce:transition-none",
         size === "lg" ? "px-3 py-2.5 text-sm" : "px-2.5 py-1.5 text-sm",
         active
-          ? "bg-indigo-500/12 text-indigo-600 dark:text-indigo-400"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          ? "bg-brand-soft text-brand"
+          : "text-muted-foreground hover:translate-x-0.5 hover:bg-muted hover:text-foreground motion-reduce:hover:translate-x-0",
       )}
     >
       <Icon className="size-4 shrink-0" aria-hidden />
@@ -109,7 +109,7 @@ export function PortalSidebar({
           className={cn(gi === groups.length - 1 && !group.label && "border-t pt-4")}
         >
           {group.label ? (
-            <p className="mb-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+            <p className="mb-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               {group.label}
             </p>
           ) : null}
@@ -171,14 +171,14 @@ export function PortalTabBar({
         <>
           <button
             aria-label="Close menu"
-            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-(color:--scrim) backdrop-blur-[2px]"
             onClick={() => setMoreOpen(false)}
           />
-          <div className="fixed inset-x-3 bottom-20 z-50 max-h-[70vh] space-y-3 overflow-y-auto rounded-2xl border bg-card p-2 shadow-xl">
+          <div className="fd-glass fixed inset-x-3 bottom-20 z-50 max-h-[70vh] space-y-3 overflow-y-auto rounded-2xl border bg-popover p-2 shadow-xl shadow-(--overlay-shadow)">
             {moreGroups.map((group, gi) => (
               <div key={group.label ?? `g${gi}`}>
                 {group.label ? (
-                  <p className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                  <p className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                     {group.label}
                   </p>
                 ) : null}
@@ -199,7 +199,7 @@ export function PortalTabBar({
 
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+        className="fd-glass fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background/85 pb-[env(safe-area-inset-bottom)] backdrop-blur"
       >
         {BAR.map((item) => {
           const active = isPortalNavActive(pathname, item.href) && !moreOpen;
@@ -209,8 +209,10 @@ export function PortalTabBar({
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium",
-                active ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground",
+                "relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors duration-200",
+                active
+                  ? "text-brand before:absolute before:inset-x-6 before:top-0 before:h-0.5 before:rounded-full before:bg-brand before:bg-(image:--primary-image)"
+                  : "text-muted-foreground",
               )}
             >
               <item.icon className="size-5" />
@@ -223,10 +225,8 @@ export function PortalTabBar({
           aria-expanded={moreOpen}
           onClick={() => setMoreOpen(!moreOpen)}
           className={cn(
-            "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium",
-            moreOpen || moreActive
-              ? "text-indigo-600 dark:text-indigo-400"
-              : "text-muted-foreground",
+            "relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors duration-200",
+            moreOpen || moreActive ? "text-brand" : "text-muted-foreground",
           )}
         >
           <span className="relative">
@@ -234,7 +234,7 @@ export function PortalTabBar({
             {unreadMessages > 0 && !moreOpen ? (
               <span
                 aria-label={`${unreadMessages} unread messages`}
-                className="absolute -right-1 -top-0.5 size-2 rounded-full bg-indigo-500"
+                className="absolute -right-1 -top-0.5 size-2 rounded-full bg-indigo-500 bg-(image:--primary-image)"
               />
             ) : null}
           </span>
