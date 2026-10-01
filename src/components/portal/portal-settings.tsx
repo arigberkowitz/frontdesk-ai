@@ -64,7 +64,7 @@ export function BusinessDetailsForm({ client }: { client: Client }) {
   );
 }
 
-/** Alert email + phone, text alerts on/off, weekly summary email. */
+/** Alert email + phone, text alerts on/off, weekly summary + daily briefing emails. */
 export function AlertsForm({ client, isAdmin = true }: { client: Client; isAdmin?: boolean }) {
   const [alerts, alertsAction, alertsPending] = useActionState(
     savePortalProfileAction,
@@ -152,6 +152,28 @@ export function AlertsForm({ client, isAdmin = true }: { client: Client; isAdmin
               className="mt-1 inline-block text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
             >
               Preview this week&apos;s summary
+            </a>
+          </div>
+          <div id="daily-briefing" className="scroll-mt-24">
+            <Field
+              label="Morning briefing email"
+              hint="Each morning (between 7 and 8am your time): yesterday's calls, bookings and cancellations, who needs a call back, today's schedule, and anything urgent — written by your AI from your call log. Sent to the alerts email above."
+            >
+              <NativeSelect
+                name="dailyBriefingEnabled"
+                defaultValue={client.setupFlags?.dailyBriefing === true ? "on" : "off"}
+              >
+                <option value="on">On — email me a briefing every morning</option>
+                <option value="off">Off — no morning briefing</option>
+              </NativeSelect>
+            </Field>
+            <a
+              href="/portal/settings/daily-briefing"
+              target="_blank"
+              rel="noopener"
+              className="mt-1 inline-block text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Preview this morning&apos;s briefing
             </a>
           </div>
           <div className="flex justify-end">

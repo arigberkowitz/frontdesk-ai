@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { languagesFromForm, parseLanguages, serializeLanguages } from "@/lib/languages";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { users, type NewClient } from "@/db/schema";
+import { clients, users, type NewClient } from "@/db/schema";
 import {
   assertClientAccess,
   OWNER_ONLY_ERROR,
@@ -130,7 +130,25 @@ export async function savePortalProfileAction(
     patch.weeklySummaryEnabled = String(formData.get("weeklySummaryEnabled")) === "on";
   }
 
-  if (Object.keys(patch).length === 0) return { ok: false, error: "Nothing to save." };
+  // Daily briefing lives in setup_flags (jsonb, no migration). Merge just this
+  // key so a concurrent write to another flag isn't clobbered.
+  let briefingSaved = false;
+  if (formData.has("dailyBriefingEnabled")) {
+    const on = String(formData.get("dailyBriefingEnabled")) === "on";
+    await db
+      .update(clients)
+      .set({ setupFlags: sql`${clients.setupFlags} || jsonb_build_object('dailyBriefing', ${on}::boolean)` })
+      .where(eq(clients.id, clientId));
+    briefingSaved = true;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    if (briefingSaved) {
+      revalidatePath("/portal", "layout");
+      return { ok: true, message: "Saved." };
+    }
+    return { ok: false, error: "Nothing to save." };
+  }
 
   // Renaming the business must not leave a stale name inside the spoken
   // greeting ("thanks for calling Your Business…"). If the saved greeting
