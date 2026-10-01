@@ -5,12 +5,13 @@ import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { AiNumberCard } from "@/components/portal/ai-number-card";
 import { HandoffCard } from "@/components/portal/handoff-card";
 import { HumanTouchForm } from "@/components/portal/portal-settings";
+import { LanguagesCard } from "@/components/portal/languages-card";
 import { ReceptionistPower } from "@/components/portal/receptionist-power";
 import { toSafeClient } from "@/lib/client-safe";
 
 export const metadata: Metadata = { title: "Phone & AI · Settings" };
 
-/** Settings → Phone & AI: on/off, the AI's number + forwarding, and handing callers to a person. */
+/** Settings → Phone & AI: on/off, the AI's number + forwarding, handing callers to a person, and languages. */
 export default async function PortalSettingsPhonePage() {
   const { clientId } = await resolvePortalClient();
   const editAccess = await getPortalEditAccess(clientId);
@@ -41,6 +42,7 @@ export default async function PortalSettingsPhonePage() {
         escalationNumber={client.escalationNumber}
       />
       <HumanTouchForm client={toSafeClient(client)} />
+      <LanguagesCard clientId={clientId} languages={client.languages} canEdit={editAccess.canEdit} />
     </div>
   );
 }

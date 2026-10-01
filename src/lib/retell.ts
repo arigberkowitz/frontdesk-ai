@@ -5,6 +5,13 @@ import { env, integrations } from "./env";
 import { toE164 } from "@/lib/format";
 import { logger } from "./logger";
 import { agentToolToken } from "./agent-tool-token";
+import {
+  MULTILINGUAL_VOICE_MODEL,
+  parseLanguages,
+  retellLanguage,
+  voiceModelFor,
+  type RetellLocale,
+} from "./languages";
 
 /**
  * Single entry point for Retell (§9). The rest of the app never imports the SDK
@@ -215,6 +222,11 @@ export function buildAgentTools(
             description:
               "True ONLY if the caller clearly agreed to be texted the confirmation and a reminder after you asked them in those words. Anything less than a clear yes is false. Giving you a phone number is not agreement.",
           },
+          language: {
+            type: "string",
+            description:
+              'Optional: the language the caller spoke, as a code ("en", "es", "fr"…). Their texts are sent in it.',
+          },
         },
         required: ["service", "datetime", "name", "phone", "sms_consent"],
       },
@@ -346,7 +358,7 @@ export interface ProvisionAgentInput {
   handoffMode?: "always" | "open_hours" | "never";
   /** Opening hours in one line, quoted in the transfer tool's description. */
   openHoursNote?: string | null;
-  /** Client languages setting — "en" or "en-es". Decides the agent's speech model. */
+  /** Client languages setting (see lib/languages.ts). Decides the agent's speech model. */
   languages?: string | null;
   voiceId?: string | null;
   boostedKeywords?: string[];
@@ -370,9 +382,19 @@ export interface ProvisionAgentResult {
   phoneError?: string | null;
 }
 
-/** "en" stays on the US English model; anything bilingual gets auto-detection. */
-function agentLanguage(languages?: string | null): "en-US" | "multi" {
-  return languages && languages !== "en" ? "multi" : "en-US";
+/**
+ * The agent's speech settings for a business's languages: `language` (one
+ * locale, or an explicit locale array for a multilingual agent; Retell
+ * deprecated the scalar "multi") and, when it speaks anything but English, a
+ * multilingual ElevenLabs voice model. Shared by provisioning and every sync.
+ */
+export function agentSpeechSettings(languages?: string | null): {
+  language: RetellLocale | RetellLocale[];
+  voice_model?: typeof MULTILINGUAL_VOICE_MODEL;
+} {
+  const codes = parseLanguages(languages);
+  const voiceModel = voiceModelFor(codes);
+  return { language: retellLanguage(codes), ...(voiceModel ? { voice_model: voiceModel } : {}) };
 }
 
 /** Create or update the Retell LLM + agent + phone number for a client (§9.1). */
@@ -416,10 +438,11 @@ export async function provisionAgentForClient(
     // The homepage's headline claim — "switches to fluent Spanish the second a
     // caller speaks it" — was sitting above an agent hard-coded to en-US. The
     // Settings toggle changed prompt text and nothing else, so the one thing
-    // that decides what the caller can actually speak never moved. "multi" is
-    // Retell's auto-detecting mode; the prompt already carries the language
-    // rule that tells the model when to switch.
-    language: agentLanguage(input.languages),
+    // that decides what the caller can actually speak never moved. Now the
+    // agent gets the exact locales the business picked (Retell deprecated the
+    // catch-all "multi", which meant ten languages and the least accurate
+    // recognition) plus a voice model that can pronounce them.
+    ...agentSpeechSettings(input.languages),
     // End dead-air calls (butt dials / fake numbers) instead of holding the line
     // open for 10 minutes, with one reminder so real callers who paused aren't cut off.
     end_call_after_silence_ms: END_CALL_AFTER_SILENCE_MS,

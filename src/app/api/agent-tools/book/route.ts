@@ -11,6 +11,8 @@ import { toE164 } from "@/lib/format";
 import { notifyOwnerBooking } from "@/lib/notify";
 import { sendBookingConfirmation } from "@/lib/appointment-texts";
 import { recordSmsConsent } from "@/lib/data/sms-consents";
+import { rememberCustomerLanguage } from "@/lib/data/customer-languages";
+import { normalizeCustomerLanguage } from "@/lib/languages";
 import { allowChatSms } from "@/lib/data/chat-limits";
 import { after } from "next/server";
 import { logger } from "@/lib/logger";
@@ -262,6 +264,12 @@ export async function POST(req: Request): Promise<Response> {
   // started from an SMS booking (an open product decision — see DECISIONS.md).
   const consented =
     channel !== "sms" && (args.sms_consent === true || String(args.sms_consent) === "true");
+  // The language the caller spoke (multilingual agents pass it), so their
+  // texts follow it. Unknown or unsupported → null → English, as before.
+  const language = normalizeCustomerLanguage(args.language);
+  if (language) {
+    after(() => rememberCustomerLanguage({ clientId: client.id, phone: customerPhone, language }));
+  }
   // On the anonymous web chat, "yes, text me" is typed by whoever is at the
   // keyboard about whatever number they typed. Cap how many texts the chat can
   // make this business send, per number and per day, so it can't be used to
@@ -307,12 +315,12 @@ export async function POST(req: Request): Promise<Response> {
     // milliseconds as a tool argument and vanished — the one fact a business
     // needs if a text is ever disputed, and we were throwing it away.
     after(() =>
-      recordSmsConsent({ clientId: client.id, phone: customerPhone, callId: callRow?.id }),
+      recordSmsConsent({ clientId: client.id, phone: customerPhone, callId: callRow?.id, language }),
     );
   }
   if (mayText) {
     after(() =>
-      sendBookingConfirmation(client, appt, service.name).catch((err) =>
+      sendBookingConfirmation(client, appt, service.name, language).catch((err) =>
         logger.error("agent-tools.book.confirmation_failed", {
           clientId: client.id,
           appointmentId: appt.id,

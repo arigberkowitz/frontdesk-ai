@@ -273,6 +273,12 @@ export const clients = pgTable(
          * phone number) is running, so a double-click or two tabs can't buy two.
          */
         provisioningAt?: string;
+        /**
+         * Daily owner briefing email (portal Settings → Alerts). Opt-in: off
+         * unless the owner turns it on. jsonb rather than a column so the
+         * feature ships without a migration (dedupe lives in notifications).
+         */
+        dailyBriefing?: boolean;
         /** When each trial-lifecycle email went out (ISO). Dedupe state, not business data. */
         trialEmails?: { welcome?: string; d7?: string; d1?: string };
       }>()
@@ -306,8 +312,9 @@ export const clients = pgTable(
     // tells the AI when a human is actually reachable, e.g. "weekdays 9–5".
     humanHandoffEnabled: boolean("human_handoff_enabled").notNull().default(true),
     humanHoursNote: text("human_hours_note"),
-    // Spoken languages the AI handles: 'en' | 'en-es' (bilingual) | 'es'.
-    // Drives the agent's language behavior (match the caller, switch on request).
+    // Spoken languages the AI handles, primary first: 'en' | 'en-es' | 'es' |
+    // a comma list like 'en,es,fr' (see lib/languages.ts). Drives the agent's
+    // Retell locales, voice model and prompt (match the caller, switch on request).
     languages: text("languages").notNull().default("en"),
     // Agent #5 opt-in: the recovery loop may text this client's cold leads and
     // no-shows. Off by default — outbound to real customers is opt-in only.
@@ -726,6 +733,29 @@ export const clientSmsOptOuts = pgTable(
     ...timestamps,
   },
   (t) => [uniqueIndex("client_sms_opt_outs_phone_client_idx").on(t.phone, t.clientId)],
+);
+
+/**
+ * The language a customer spoke with the AI (per business, per phone), so
+ * their confirmation and reminder texts go out in it. Written when the agent
+ * books and passes `language`; the latest call wins.
+ * Migration: drizzle/manual/0012_customer_languages.sql. Reads and writes are
+ * fail-soft, so a deploy that runs before the migration just texts in English.
+ */
+export const customerLanguages = pgTable(
+  "customer_languages",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    /** Normalized digits, same format as sms_opt_outs.phone. */
+    phone: text("phone").notNull(),
+    /** One of LANGUAGE_OPTIONS codes (lib/languages.ts), e.g. "es". */
+    language: text("language").notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("customer_languages_client_phone_idx").on(t.clientId, t.phone)],
 );
 
 /**
