@@ -99,7 +99,7 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
 ## Notes / known limits
 
 - **Smart rebooking** (Settings → Follow-ups, off by default): run
-  `drizzle/manual/0012_smart_rebooking.sql` before deploying. Needs a connected
+  `drizzle/manual/0013_smart_rebooking.sql` before deploying. Needs a connected
   calendar to find new times; sends only when the owner confirms on the Hours
   page.
 

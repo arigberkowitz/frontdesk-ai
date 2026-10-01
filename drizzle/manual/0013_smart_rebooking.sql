@@ -1,8 +1,8 @@
 -- Smart rebooking — per-business switch (OFF by default) and the offers table.
 -- Additive only, idempotent, safe on a live database. Hand-written like 0001–0009.
 --
--- NUMBERING: 0012 assumes 0010 (AI text replies) and 0011 (missed-call
--- callbacks) land first. Other branches in flight may also use 0010+; renumber
+-- NUMBERING: 0013 assumes 0010 (AI text replies), 0011 (missed-call
+-- callbacks) and 0012 (multilingual answering, #22) land first; renumber
 -- at merge time — nothing depends on the number.
 --
 -- Run BEFORE deploying the code: the Hours page and the Twilio webhook read

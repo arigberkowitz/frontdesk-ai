@@ -51,7 +51,7 @@ export default async function PortalHoursPage() {
   }));
 
   // Bookings that a block now sits on top of. Best-effort: the Hours page must
-  // render even if this lookup fails (e.g. before the 0012 migration runs).
+  // render even if this lookup fails (e.g. before the 0013 migration runs).
   const now = new Date();
   const affected = await listAffectedAppointments(clientId, now).catch(() => []);
   const affectedRows: AffectedRow[] = affected.map((a) => ({

@@ -507,5 +507,5 @@ everything else). This change closes the gaps rather than adding a parallel syst
   **before** the AI reply (open offers take precedence). Merge-order note in
   the PR.
 - **Storage.** `rebook_offers` (manual migration
-  `drizzle/manual/0012_smart_rebooking.sql`; renumber at merge if needed).
+  `drizzle/manual/0013_smart_rebooking.sql`; renumber at merge if needed).
   Messages are logged to `sms_messages` as `rebook_offer` / `rebook_reply`.

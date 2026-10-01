@@ -370,7 +370,7 @@ export const clients = pgTable(
     // Smart rebooking: when the owner blocks time over booked appointments,
     // let them (and only them, on confirmation) text those customers 2–3 new
     // times and handle the "1 / 2 / 3 / NO" replies. OFF by default.
-    // (drizzle/manual/0012_smart_rebooking.sql)
+    // (drizzle/manual/0013_smart_rebooking.sql)
     smartRebookingEnabled: boolean("smart_rebooking_enabled").notNull().default(false),
     ...timestamps,
     ...softDelete,
@@ -879,7 +879,7 @@ export const smsMessages = pgTable(
 /**
  * Smart rebooking offers: "we need to move your appointment — reply 1, 2 or 3".
  * One live offer per appointment (partial unique index on status = 'sent').
- * (drizzle/manual/0012_smart_rebooking.sql)
+ * (drizzle/manual/0013_smart_rebooking.sql)
  */
 export const rebookOffers = pgTable(
   "rebook_offers",
