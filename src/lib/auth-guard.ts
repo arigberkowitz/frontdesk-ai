@@ -381,16 +381,49 @@ export async function requireBusinessCreator(): Promise<User> {
   redirect("/portal");
 }
 
-/** After a signup creates their business, bind their account to it. */
-export async function attachCreatorToClient(user: User, clientId: string): Promise<void> {
-  if (user.role === "operator") return;
-  await db.update(users).set({ clientId }).where(eq(users.id, user.id));
+/**
+ * After a signup creates their business, bind their account to it — atomically.
+ *
+ * Returns false when this account already has a business, in which case the
+ * one just created is discarded (soft-deleted) and the caller must stop. The
+ * setup form's two buttons (and a double-click, or a replayed POST) could each
+ * pass `requireBusinessCreator` before either had attached, so one signup made
+ * two or more businesses, and every one of them went on to provision its own
+ * agent and buy its own phone number. Claiming here, BEFORE drafting or
+ * provisioning, means only one request per account gets past this line.
+ */
+export async function attachCreatorToClient(user: User, clientId: string): Promise<boolean> {
+  if (user.role === "operator") {
+    // /welcome is for a workspace's FIRST business (the page redirects once one
+    // exists; agencies add clients from the dashboard). The earliest live
+    // business in the org wins, so concurrent submits can't both pass.
+    const first = await db.query.clients.findFirst({
+      where: and(eq(clients.orgId, user.orgId), isNull(clients.deletedAt)),
+      orderBy: (c, { asc }) => [asc(c.createdAt), asc(c.id)],
+      columns: { id: true },
+    });
+    if (first && first.id !== clientId) {
+      await discardDuplicateBusiness(clientId);
+      return false;
+    }
+    return true;
+  }
+
+  const claimed = await db
+    .update(users)
+    .set({ clientId })
+    .where(and(eq(users.id, user.id), isNull(users.clientId)))
+    .returning({ id: users.id });
+  if (claimed.length === 0) {
+    await discardDuplicateBusiness(clientId);
+    return false;
+  }
 
   // The creator is the owner: pre-fill where alerts go so nothing starts
   // empty. Their email becomes the owner contact AND the first on-duty person
   // on the alert roster — both editable later in portal Settings.
   const email = user.email?.trim();
-  if (!email) return;
+  if (!email) return true;
   const ownerName = email.split("@")[0] || "Owner";
   await db
     .update(clients)
@@ -400,6 +433,13 @@ export async function attachCreatorToClient(user: User, clientId: string): Promi
     .insert(alertContacts)
     .values({ clientId, name: ownerName, email, onDuty: true })
     .onConflictDoNothing();
+  return true;
+}
+
+/** Soft-delete a business created by a losing duplicate signup request. */
+async function discardDuplicateBusiness(clientId: string): Promise<void> {
+  await db.update(clients).set({ deletedAt: new Date() }).where(eq(clients.id, clientId));
+  logger.warn("signup.duplicate_business_discarded", { clientId });
 }
 
 /**
@@ -528,6 +568,18 @@ export async function requireClientEditor(
       error: err instanceof Error ? err.message : "Editing is limited to your admin.",
     };
   }
+}
+
+/**
+ * Route-handler form of the editor rule (`assertClientEditor`): may this user
+ * change what shapes the live AI for this client? Owners and operators yes;
+ * staff only with the edit code unlocked. Callers still pair it with an org
+ * check for operators, as with `userMayAccessClient`.
+ */
+export async function userMayEditClient(user: User, clientId: string): Promise<boolean> {
+  if (!userMayAccessClient(user, clientId)) return false;
+  if (user.role === "operator" || user.role === "client_admin") return true;
+  return (await getPortalEditAccess(clientId)).canEdit;
 }
 
 /** Set the unlock cookie after a correct code entry (12h, per client+user). */

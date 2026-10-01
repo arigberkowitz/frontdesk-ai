@@ -8,6 +8,7 @@ import { dbRoleToTeam } from "@/lib/team-rules";
 import { logger } from "@/lib/logger";
 import { TeamAccess } from "@/components/portal/team-access";
 import { EditCodeForm } from "@/components/portal/portal-settings";
+import { toSafeClient } from "@/lib/client-safe";
 
 export const metadata: Metadata = { title: "Team access · Settings" };
 
@@ -49,7 +50,7 @@ export default async function PortalTeamAccessPage() {
       />
       {/* Lives with the sign-ins it governs: the code staff enter to unlock
           editing your AI. Owner-only, like this whole section. */}
-      <EditCodeForm client={client} isAdmin />
+      <EditCodeForm client={toSafeClient(client)} isAdmin />
     </div>
   );
 }

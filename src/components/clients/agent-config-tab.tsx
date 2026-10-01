@@ -165,7 +165,7 @@ export function AgentConfigTab({
             </Field>
             <Field
               label="What the AI may say"
-              hint="Guardrails — highest priority. The client can also edit this in their portal."
+              hint="Guardrails. Followed closely, but never over the built-in safety and disclosure rules. The client can also edit this in their portal."
             >
               <Textarea
                 name="agentGuidance"

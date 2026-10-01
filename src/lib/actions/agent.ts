@@ -10,7 +10,7 @@ import { agentToolsFor, buildPromptForClient } from "@/lib/agent-publish";
 import { DEFAULT_VOICE_ID, getRetellClient, updateAgentVoice } from "@/lib/retell";
 import { integrations } from "@/lib/env";
 import { clientMayActivate } from "@/lib/data/trial";
-import { runProvision } from "@/lib/provision";
+import { OWNER_PHONE_ERROR, runProvision } from "@/lib/provision";
 import { type ActionState, fieldErrorsOf } from "./types";
 
 export async function saveAgentConfigAction(
@@ -115,7 +115,12 @@ export async function provisionAgentPortalAction(
         "Activation unlocks with a plan or an approved free trial — enter your trial code on this page, or contact us.",
     };
   }
-  return runProvision(user, clientId);
+  const result = await runProvision(user, clientId);
+  const data = result.data as { phoneNumber?: string | null; phoneError?: string | null } | undefined;
+  if (user.role !== "operator" && data?.phoneError) {
+    return { ...result, data: { ...data, phoneError: OWNER_PHONE_ERROR } };
+  }
+  return result;
 }
 
 /** Snapshot a new version and push the rebuilt prompt to Retell (§B5). */

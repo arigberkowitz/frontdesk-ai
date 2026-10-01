@@ -42,6 +42,40 @@ export function firstDayClosingBeforeOpening(days: DayHours[]): string | null {
   return null;
 }
 
+/** 24-hour "HH:MM" — the only time format business_hours stores. */
+export const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * The first day whose open/close isn't a real "HH:MM" time, or null.
+ *
+ * The hours form posts free text, and whatever it held went straight into
+ * business_hours and from there into the live agent's prompt — so "9am" broke
+ * availability, and anything longer was text we injected into the prompt.
+ */
+export function firstDayWithBadTime(days: DayHours[]): string | null {
+  for (const d of days) {
+    if (d.isClosed) continue;
+    for (const t of [d.openTime, d.closeTime]) {
+      if (t && !HHMM_RE.test(t)) return DAY_NAMES[d.dayOfWeek] ?? "One of your days";
+    }
+  }
+  return null;
+}
+
+/**
+ * Keep only days that are usable as-is: closed, or open with valid "HH:MM"
+ * times that close after they open. For hours drafted from a website, where a
+ * bad row should be dropped (the owner fills it in) rather than saved.
+ */
+export function usableDayHours<T extends DayHours>(days: T[]): T[] {
+  return days.filter((d) => {
+    if (d.dayOfWeek < 0 || d.dayOfWeek > 6) return false;
+    if (d.isClosed) return true;
+    if (!d.openTime || !d.closeTime) return false;
+    return HHMM_RE.test(d.openTime) && HHMM_RE.test(d.closeTime) && d.closeTime > d.openTime;
+  });
+}
+
 const WEEKDAY_INDEX: Record<string, number> = {
   Sunday: 0,
   Monday: 1,

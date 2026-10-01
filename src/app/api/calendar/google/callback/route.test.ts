@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const USER = { id: "u1", orgId: "org1", role: "client_admin", clientId: "c1" };
 let cookieNonce: string | undefined = "n1";
+let mayEdit = true;
 const updateClient = vi.fn(async (..._a: unknown[]) => {});
 const applyClientEdit = vi.fn(async (..._a: unknown[]) => "synced");
 const exchangeCodeForTokens = vi.fn(async (_code: string) => ({
@@ -22,6 +23,7 @@ vi.mock("next/headers", () => ({
 vi.mock("@/lib/auth-guard", () => ({
   getCurrentDbUserSafe: async () => USER,
   userMayAccessClient: (u: typeof USER, id: string) => u.clientId === id,
+  userMayEditClient: async (u: typeof USER, id: string) => u.clientId === id && mayEdit,
 }));
 vi.mock("@/lib/data/clients", () => ({
   getClient: async (_o: string, id: string) => ({ id }),
@@ -38,6 +40,7 @@ const hit = async (state: string, code = "code-1") =>
 
 beforeEach(() => {
   cookieNonce = "n1";
+  mayEdit = true;
   updateClient.mockClear();
   applyClientEdit.mockClear();
   exchangeCodeForTokens.mockClear();
@@ -71,6 +74,14 @@ describe("Google calendar OAuth callback", () => {
   it("refuses another business's client id", async () => {
     const res = await hit("c-other:n1");
     expect(res.status).toBe(403);
+    expect(updateClient).not.toHaveBeenCalled();
+  });
+
+  it("refuses staff who can't edit the AI (connecting replaces the calendar it books into)", async () => {
+    mayEdit = false;
+    const res = await hit("c1:n1:settings");
+    expect(res.status).toBe(403);
+    expect(exchangeCodeForTokens).not.toHaveBeenCalled();
     expect(updateClient).not.toHaveBeenCalled();
   });
 

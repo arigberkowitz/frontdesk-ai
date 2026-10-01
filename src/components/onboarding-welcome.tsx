@@ -43,6 +43,36 @@ function SubmitButton({ idle, busy }: { idle: string; busy: string }) {
   );
 }
 
+/** The template button. Disabled while EITHER button's submit is running —
+ *  clicking it mid-build used to start a second business. */
+function TemplateButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      variant="ghost"
+      size="sm"
+      className="w-full text-muted-foreground"
+      formAction={createStarterClientAction}
+      disabled={pending}
+    >
+      Or start from a pre-filled template instead
+    </Button>
+  );
+}
+
+/** While setup runs: what's happening, under the button (not crammed into it). */
+function BusyNote() {
+  const { pending } = useFormStatus();
+  if (!pending) return null;
+  return (
+    <p role="status" className="text-center text-xs text-muted-foreground">
+      Reading your website and building your receptionist — this can take up to a minute. Keep
+      this page open.
+    </p>
+  );
+}
+
 /** Draft the whole receptionist from the company's own website. */
 /** Browser-detected IANA timezone, read at submit time (empty during SSR is fine —
  *  the server action falls back to the platform default). */
@@ -59,9 +89,9 @@ function TimezoneField() {
 }
 
 /** Industry picker feeding the starter packs — value must match INDUSTRIES. */
-function IndustrySelect() {
+function IndustrySelect({ defaultValue = "" }: { defaultValue?: string }) {
   return (
-    <NativeSelect name="industry" defaultValue="" className="h-9">
+    <NativeSelect name="industry" defaultValue={defaultValue} className="h-9">
       <option value="">Pick one (or skip)…</option>
       {INDUSTRIES.map((i) => (
         <option key={i} value={i}>
@@ -77,26 +107,36 @@ function IndustrySelect() {
  *  either, the portal checklist walks the owner through the rest step by step. */
 function SetupForm({ plan }: { plan: string | null }) {
   const [state, action] = useActionState(onboardFromWebsitePortalAction, initialActionState);
+  // Echoed back by the action on a validation error (see submittedSetupValues).
+  const v = ((state.data as { values?: Record<string, string> } | undefined)?.values ?? {});
   return (
-    <form action={action} className="space-y-3 text-left">
+    // Keyed on the echoed values so the fields re-mount holding what was typed.
+    <form key={JSON.stringify(v)} action={action} className="space-y-3 text-left">
       <TimezoneField />
       {/* The pricing card they clicked, still travelling with them. */}
       {plan ? <input type="hidden" name="plan" value={plan} /> : null}
       <Field label="Business name" error={state.fieldErrors?.name}>
-        <Input name="name" placeholder="Bright Smile Dental" required />
+        <Input name="name" placeholder="Bright Smile Dental" required maxLength={120} defaultValue={v.name ?? ""} />
       </Field>
       <Field
         label="What kind of business?"
         hint="Starts you with real services, hours, and FAQs for your industry — all editable."
       >
-        <IndustrySelect />
+        <IndustrySelect defaultValue={v.industry ?? ""} />
       </Field>
       <Field
         label="Website (optional)"
         hint="Have one? We'll read it and draft your services, hours, and FAQ for you."
         error={state.fieldErrors?.websiteUrl}
       >
-        <Input name="websiteUrl" type="text" inputMode="url" placeholder="yourbusiness.com" />
+        <Input
+          name="websiteUrl"
+          type="text"
+          inputMode="url"
+          autoComplete="url"
+          placeholder="yourbusiness.com"
+          defaultValue={v.websiteUrl ?? ""}
+        />
       </Field>
       <Field
         label="Who's answering the phones?"
@@ -104,7 +144,7 @@ function SetupForm({ plan }: { plan: string | null }) {
       >
         <select
           name="companySize"
-          defaultValue="solo"
+          defaultValue={v.companySize || "solo"}
           className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <option value="solo">Just me</option>
@@ -112,19 +152,9 @@ function SetupForm({ plan }: { plan: string | null }) {
           <option value="big">A bigger operation</option>
         </select>
       </Field>
-      <SubmitButton
-        idle="Set up my receptionist"
-        busy="Building your receptionist — reading your website and getting its phone number, up to a minute…"
-      />
-      <Button
-        type="submit"
-        variant="ghost"
-        size="sm"
-        className="w-full text-muted-foreground"
-        formAction={createStarterClientAction}
-      >
-        Or start from a pre-filled template instead
-      </Button>
+      <SubmitButton idle="Set up my receptionist" busy="Building your receptionist…" />
+      <BusyNote />
+      <TemplateButton />
       <p className="text-center text-xs text-muted-foreground">
         Either way, a short checklist walks you through the rest — and you can change anything
         later.

@@ -1,5 +1,6 @@
 "use server";
 
+import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
@@ -34,8 +35,9 @@ import { type ActionState } from "./types";
 function generateTrialCode(): string {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let out = "";
+  // CSPRNG: this code grants free service. Math.random isn't meant for secrets.
   for (let i = 0; i < 6; i++) {
-    out += alphabet[Math.floor(Math.random() * alphabet.length)];
+    out += alphabet[randomInt(alphabet.length)];
   }
   return `FD-${out}`;
 }

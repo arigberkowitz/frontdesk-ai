@@ -41,8 +41,8 @@ describe("buildSetupSteps", () => {
       "calendar",
       "alerts",
       "live",
-      "forwarding",
       "testcall",
+      "forwarding",
     ]);
   });
 
@@ -60,6 +60,20 @@ describe("buildSetupSteps", () => {
     expect(s.hours.href).toBe("/portal/hours");
     expect(s.forwarding.href).toBe("/portal/settings/phone#forwarding");
     expect(s.testcall.href).toBe("/portal/guidelines#test-call");
+    expect(s.calendar.href).toBe("/portal/settings/calendar");
+  });
+
+  it("asks for a test call before the business line is forwarded", () => {
+    const keys = buildSetupSteps(fresh).map((s) => s.key);
+    expect(keys.indexOf("testcall")).toBeLessThan(keys.indexOf("forwarding"));
+  });
+
+  it("Missed-Call Rescue gets no-answer forwarding, not the forward-everything *72 code", () => {
+    const rescue = byKey({ ...fresh, aiNumber: "(415) 555-0100", answeringMode: "missed_only" }).forwarding;
+    expect(rescue.hint).toMatch(/no-answer forwarding/);
+    expect(rescue.hint).not.toMatch(/\*72/);
+    const full = byKey({ ...fresh, aiNumber: "(415) 555-0100", answeringMode: "all_calls" }).forwarding;
+    expect(full.hint).toMatch(/\*72/);
   });
 
   it("hours only count when at least one day is open", () => {

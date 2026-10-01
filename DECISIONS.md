@@ -418,3 +418,43 @@ everything else). This change closes the gaps rather than adding a parallel syst
   live business — also enforced by a partial unique index). A number whose "A message
   comes in" webhook doesn't point at `/api/webhooks/twilio` is saved with a warning.
   Assign/remove are written to `audit_log`.
+
+## 2026-09-30 — Setup: smoother onboarding + security hardening (setup-flow audit)
+
+- **One signup, one business, one phone number.** `attachCreatorToClient` now claims the
+  account atomically (`UPDATE users … WHERE client_id IS NULL`) *before* website drafting
+  and provisioning; a losing request (the setup form's second button, a double-click, a
+  replayed POST) soft-deletes the business it created and stops. Operators may only use
+  `/welcome` for a workspace's first business (earliest wins). A first provision (the
+  one that buys a Retell number) takes a short lock in `setup_flags.provisioningAt`
+  (`src/lib/provision-lock.ts`, 3-minute expiry, jsonb, **no migration**), so a
+  double-clicked Activate can't buy two numbers.
+- **Credentials stay on the server.** Portal settings pages passed the whole `clients`
+  row to client components, which put `calendar_secret` (encrypted OAuth refresh token /
+  Cal.com key) and `edit_code_hash` into the page payload — for staff too. They now pass
+  `toSafeClient()` (`src/lib/client-safe.ts`). The operator dashboard still passes full
+  rows (agency operators only); worth the same treatment later.
+- **Owner/website text is data, and our rules win.** Guidance was labelled "highest
+  priority — follow this exactly" above the safety/disclosure rules, and guidance is
+  auto-drafted from any website a signup names. The prompt now opens its Rules with
+  `RULES_PRECEDENCE` (rules beat business text), the guidance heading says "within the
+  Rules", and owner text (guidance, booking rules, services, FAQ) has line-leading `#`
+  stripped so it can't open a fake section (`ownerText` / `ownerLine`). Drafted content
+  is capped to the manual forms' limits (40 items; same char limits).
+- **Validation.** Hours must be 24-hour `HH:MM` (form and website draft; bad drafted days
+  are dropped). Drafted phone → E.164. Intake: zod limits (guidance 4,000 chars), bare
+  domains accepted, the cell-number error is actually shown, values survive an error,
+  6 submits/link/hour (in-memory, per instance), no website re-draft once services/FAQs
+  exist (it used to duplicate them and re-run the paid scrape), and changes republish a
+  live agent. Signup form keeps what was typed on a validation error (React 19 resets
+  forms after an action).
+- **Role checks.** Google/Microsoft calendar connect + callback require editor rights
+  (`userMayEditClient`), matching the Cal.com action; staff see the unlock banner.
+  Self-serve checkout refuses a business that's already subscribed or comped.
+- **Smaller:** website import caps HTML at 2 MB and blocks a few more private ranges
+  (198.18/15, 192.0.0/24, fec0::, NAT64, ::127.x); trial codes use `crypto.randomInt`.
+- **Setup checklist:** test call now comes *before* forwarding the business line;
+  Missed-Call Rescue gets a no-answer-forwarding hint instead of `*72` (which forwards
+  every call); the calendar step links to Settings → Calendar. The "Receptionist is on"
+  switch is hidden until an AI exists; owners no longer see "add a payment method in
+  Retell" when a number can't be bought.

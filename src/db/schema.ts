@@ -268,6 +268,11 @@ export const clients = pgTable(
          * properly.
          */
         handoffMode?: "always" | "open_hours" | "never";
+        /**
+         * Short-lived lock (ISO) while a first provision (the one that buys the
+         * phone number) is running, so a double-click or two tabs can't buy two.
+         */
+        provisioningAt?: string;
         /** When each trial-lifecycle email went out (ISO). Dedupe state, not business data. */
         trialEmails?: { welcome?: string; d7?: string; d1?: string };
       }>()

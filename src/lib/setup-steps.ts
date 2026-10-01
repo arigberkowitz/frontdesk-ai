@@ -41,6 +41,8 @@ export interface SetupFacts {
   aiNumber: string | null;
   calls: number;
   flags: SetupFlags;
+  /** "all_calls" (forward everything) or "missed_only" (Missed-Call Rescue). */
+  answeringMode?: string | null;
 }
 
 export function buildSetupSteps(f: SetupFacts): SetupStep[] {
@@ -65,7 +67,9 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
     {
       key: "calendar",
       label: "Connect your calendar",
-      href: "/portal/appointments",
+      // Settings → Calendar is where connecting lives now (#13); the bookings
+      // page only links onward to it.
+      href: "/portal/settings/calendar",
       done: f.calendarConnected || Boolean(flags.calendarSkipped),
       skippable: true,
       hint: "So the AI can book appointments — or skip for now and it takes messages.",
@@ -104,6 +108,20 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
         ? "Your AI is built but hasn't been given a phone number yet. Tell us and we'll sort it — nothing else here works until it has one."
         : "Go live — this is when your business gets its own AI phone number.",
     },
+    // Test BEFORE forwarding: once the business line forwards, real customers
+    // are the first to hear the AI. The checklist used to put the test call last.
+    {
+      key: "testcall",
+      label: "Make a test call — hear it answer",
+      // The hint tells you to use the browser test call, which lives on Your AI.
+      // Sending you to the (empty) call log instead was a dead end at the exact
+      // moment you were trying to do the thing.
+      href: "/portal/guidelines#test-call",
+      done: f.calls > 0,
+      hint: aiNumber
+        ? `Call your AI at ${aiNumber}. This checks itself off when your first call appears.`
+        : "No number yet? Use “Test call in browser” on the Your AI page. This checks itself off when your first call appears.",
+    },
     {
       key: "forwarding",
       label: "Forward your business line",
@@ -117,20 +135,12 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
       // Every business gets its own dedicated AI number at activation — show
       // the real one here the moment it exists instead of "your AI number".
       hint: aiNumber
-        ? `From your business phone, dial *72 ${aiNumber} (most carriers; AT&T/T-Mobile: **21*${aiNumber.replace(/[^\d+]/g, "")}#). ~2 minutes, undo with *73.`
+        ? f.answeringMode === "missed_only"
+          ? // Missed-Call Rescue needs NO-ANSWER forwarding. *72 forwards every
+            // call, which silently turns a backup into a full receptionist.
+            `Turn on no-answer forwarding to ${aiNumber} so the AI only picks up calls you miss. The code depends on your carrier — Settings → Phone & AI shows yours.`
+          : `From your business phone, dial *72 ${aiNumber} (most carriers; AT&T/T-Mobile: **21*${aiNumber.replace(/[^\d+]/g, "")}#). ~2 minutes, undo with *73.`
         : "The dial code contains your AI's own phone number, so it appears here once that number is assigned. Until then, try your AI with a test call in your browser (Your AI page).",
-    },
-    {
-      key: "testcall",
-      label: "Make a test call — hear it answer",
-      // The hint tells you to use the browser test call, which lives on Your AI.
-      // Sending you to the (empty) call log instead was a dead end at the exact
-      // moment you were trying to do the thing.
-      href: "/portal/guidelines#test-call",
-      done: f.calls > 0,
-      hint: aiNumber
-        ? `Call your AI at ${aiNumber}. This checks itself off when your first call appears.`
-        : "No number yet? Use “Test call in browser” on the Your AI page. This checks itself off when your first call appears.",
     },
   ];
 }

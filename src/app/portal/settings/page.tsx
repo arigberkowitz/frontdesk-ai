@@ -7,6 +7,7 @@ import { BusinessDetailsForm } from "@/components/portal/portal-settings";
 import { SetupChecklist } from "@/components/portal/setup-checklist";
 import { DangerZone } from "@/components/portal/danger-zone";
 import { LegacySettingsHash } from "@/components/portal/legacy-settings-hash";
+import { toSafeClient } from "@/lib/client-safe";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -31,7 +32,7 @@ export default async function PortalSettingsPage({
   return (
     <div className="space-y-6">
       <LegacySettingsHash />
-      <BusinessDetailsForm client={client} />
+      <BusinessDetailsForm client={toSafeClient(client)} />
       <SetupChecklist
         clientId={clientId}
         variant="settings"

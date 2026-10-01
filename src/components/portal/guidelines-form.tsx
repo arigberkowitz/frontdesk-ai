@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/form/field";
 import { SubmitButton } from "@/components/form/submit-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Client } from "@/db/schema";
+import type { SafeClient as Client } from "@/lib/client-safe";
 
 type GuidelineField = "greeting" | "agentGuidance" | "bookingInstructions";
 
@@ -72,7 +72,7 @@ export function GuidelinesForm({ client }: { client: Client }) {
         clientId={client.id}
         field="agentGuidance"
         title="What your receptionist can say"
-        description="Tell it what to emphasize and what to avoid — these take priority over everything else."
+        description="Tell it what to emphasize and what to avoid. It follows these closely — though it will always say it’s an AI, handle emergencies, and ask before texting anyone."
         label="Talking points & limits"
         rows={6}
         defaultValue={client.agentGuidance ?? ""}

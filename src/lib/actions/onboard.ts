@@ -26,6 +26,15 @@ const onboardSchema = z.object({
     .transform((v) => v || null),
 });
 
+/** The setup form's own fields, echoed back so a failed submit keeps them. */
+function submittedSetupValues(formData: FormData): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of ["name", "websiteUrl", "industry", "companySize"]) {
+    out[key] = String(formData.get(key) ?? "").slice(0, 300);
+  }
+  return out;
+}
+
 /** Validate a browser-supplied IANA timezone; anything dodgy → platform default. */
 function safeTimezone(raw: unknown): string {
   const tz = String(raw ?? "").trim();
@@ -90,17 +99,33 @@ export async function onboardFromWebsitePortalAction(
     name: formData.get("name"),
     websiteUrl: formData.get("websiteUrl"),
   });
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
+  if (!parsed.success) {
+    // React 19 resets a form after its action runs, so without these the
+    // owner who mistyped their website also lost their business name and
+    // every choice they'd made, and was told to "fill out this field".
+    return {
+      ok: false,
+      fieldErrors: fieldErrorsOf(parsed.error),
+      data: { values: submittedSetupValues(formData) },
+    };
+  }
 
-  const { clientId, drafted } = await runWebsiteOnboard(
-    user.orgId,
-    // "lifetime chiro" is what people type on a phone; "Lifetime Chiro" is
-    // what should show on their customers' caller ID and every email.
-    tidyBusinessName(parsed.data.name),
-    parsed.data.websiteUrl,
-    safeTimezone(formData.get("timezone")),
-  );
-  await attachCreatorToClient(user, clientId);
+  // "lifetime chiro" is what people type on a phone; "Lifetime Chiro" is
+  // what should show on their customers' caller ID and every email.
+  const name = tidyBusinessName(parsed.data.name);
+  const client = await createClient(user.orgId, {
+    name,
+    websiteUrl: parsed.data.websiteUrl,
+    timezone: safeTimezone(formData.get("timezone")),
+  });
+  // Claim BEFORE the slow, paid parts (website drafting, provisioning): a
+  // second submit from the same account stops here instead of building a
+  // second business with its own phone number.
+  if (!(await attachCreatorToClient(user, client.id))) redirect("/portal");
+  const clientId = client.id;
+  const drafted = parsed.data.websiteUrl
+    ? await applyWebsiteToClient(user.orgId, clientId, name, parsed.data.websiteUrl)
+    : false;
 
   // Setup profile: teams start with per-person booking ready to go.
   const sizeRaw = String(formData.get("companySize") ?? "solo");

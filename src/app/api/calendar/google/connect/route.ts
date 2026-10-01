@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildCalendarOAuthState, calendarReturnFrom } from "@/lib/calendar-oauth";
 import { randomBytes } from "node:crypto";
-import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
+import { getCurrentDbUserSafe, userMayEditClient } from "@/lib/auth-guard";
 import { getClient } from "@/lib/data/clients";
 import { googleAuthUrl, googleConfigured } from "@/lib/google-calendar";
 
@@ -21,7 +21,10 @@ export async function GET(req: Request): Promise<Response> {
   if (!googleConfigured()) return new Response("Google Calendar isn't configured.", { status: 400 });
   // Tenant rule lives in one place — a role-specific check here would let a
   // client_admin act on another business in the same house-agency org.
-  if (!userMayAccessClient(user, clientId)) {
+  // Editor rule, not just tenant access: connecting replaces the calendar the
+  // AI books into, which the Cal.com connect action already limits to
+  // editors. Staff could do it here with a plain link.
+  if (!(await userMayEditClient(user, clientId))) {
     return new Response("Forbidden", { status: 403 });
   }
   const client = await getClient(user.orgId, clientId);
