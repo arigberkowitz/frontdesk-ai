@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { cancelAppointmentAction } from "@/lib/actions/appointments";
 import { initialActionState } from "@/lib/actions/types";
 import {
+  addDays,
   addMonths,
   eachDayOfInterval,
   endOfMonth,
@@ -24,6 +25,7 @@ import {
   Download,
   List as ListIcon,
   Phone,
+  Rows3,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +40,6 @@ import { cn } from "@/lib/utils";
 import { formatPhone } from "@/lib/format";
 import {
   tzDateLong,
-  tzDateTime,
   tzDayKey,
   tzTime,
   tzTimeShort,
@@ -47,6 +48,7 @@ import {
 } from "@/lib/tz";
 import { AppointmentReminders, type ReminderLog } from "@/components/portal/appointment-reminders";
 import { DepositRow } from "@/components/portal/deposit-row";
+import { Chip, SERVICE_TONES, serviceTone, type ChipTone } from "@/components/portal/visual";
 
 export interface CalendarAppointment {
   id: string;
@@ -98,6 +100,113 @@ function icsHref(a: Item): string {
     "END:VCALENDAR",
   ];
   return `data:text/calendar;charset=utf-8,${encodeURIComponent(lines.join("\r\n"))}`;
+}
+
+/** Status chip for anything other than a plain booking. */
+const STATUS_CHIP: Record<string, { label: string; tone: ChipTone }> = {
+  cancelled: { label: "Cancelled", tone: "rose" },
+  no_show: { label: "No-show", tone: "amber" },
+  confirmed: { label: "Confirmed", tone: "emerald" },
+  completed: { label: "Completed", tone: "slate" },
+};
+
+function isOff(a: Item): boolean {
+  return a.status === "cancelled" || a.status === "no_show";
+}
+
+/** "2026-09-30" → that calendar day as a plain local Date (for labels only). */
+function dateFromDayKey(key: string): Date {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/**
+ * One day of the agenda: a time rail on the left, each visit a card tinted
+ * with its service color. Display only — tapping opens the same details
+ * dialog the month grid does.
+ */
+function AgendaDay({
+  label,
+  isToday,
+  items,
+  timeZone,
+  onSelect,
+  showEmpty,
+  toneOf,
+}: {
+  toneOf: (service: string | null) => ChipTone;
+  label: string;
+  isToday: boolean;
+  items: Item[];
+  timeZone: string;
+  onSelect: (a: Item) => void;
+  showEmpty: boolean;
+}) {
+  if (!items.length && !showEmpty) return null;
+  return (
+    <section className="space-y-2">
+      <h3 className="flex items-center gap-2 text-sm font-medium">
+        {isToday ? (
+          <span className="rounded-full bg-indigo-500 bg-(image:--primary-image) px-2 py-0.5 text-[11px] font-semibold text-white shadow-(--primary-shadow)">
+            Today
+          </span>
+        ) : null}
+        <span className={cn(isToday ? "text-foreground" : "text-foreground/85")}>{label}</span>
+        {items.length ? (
+          <span className="text-xs font-normal text-muted-foreground">
+            · {items.length} {items.length === 1 ? "visit" : "visits"}
+          </span>
+        ) : null}
+      </h3>
+      {items.length ? (
+        <ol className="fd-rail space-y-2">
+          {items.map((a) => {
+            const tone = isOff(a) ? "slate" : toneOf(a.serviceName);
+            const mins = a.endDate ? Math.round((a.endDate.getTime() - a.date.getTime()) / 60_000) : null;
+            const status = STATUS_CHIP[a.status];
+            return (
+              <li key={a.id} className="relative grid grid-cols-[4.25rem_1fr] gap-x-4">
+                <div className="pt-2.5 text-right">
+                  <p className="text-xs font-semibold whitespace-nowrap tabular-nums">{tzTime(a.date, timeZone)}</p>
+                  {mins && mins > 0 ? (
+                    <p className="text-[11px] text-muted-foreground tabular-nums">{mins} min</p>
+                  ) : null}
+                </div>
+                <span aria-hidden data-tone={tone} className="fd-rail-dot" />
+                <button
+                  type="button"
+                  onClick={() => onSelect(a)}
+                  data-tone={tone}
+                  className="fd-event fd-lift flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-xl px-3.5 py-2.5 text-left outline-none ring-1 ring-(color:--card-ring) focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="min-w-0">
+                    <span className={cn("block truncate text-sm font-medium", isOff(a) && "text-muted-foreground line-through")}>
+                      {a.customerName ?? "Caller"}
+                    </span>
+                    {a.customerPhone ? (
+                      <span className="block text-xs text-muted-foreground tabular-nums">
+                        {formatPhone(a.customerPhone)}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    {a.serviceName ? (
+                      <Chip tone={tone} dot>
+                        {a.serviceName}
+                      </Chip>
+                    ) : null}
+                    {status ? <Chip tone={status.tone}>{status.label}</Chip> : null}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className="pl-[5.25rem] text-xs text-muted-foreground">Nothing booked.</p>
+      )}
+    </section>
+  );
 }
 
 /** Two-step cancel: first click arms, second confirms — no accidental cancellations. */
@@ -191,7 +300,7 @@ export function AppointmentsView({
     [appointments],
   );
 
-  const [view, setView] = useState<"calendar" | "list">("calendar");
+  const [view, setView] = useState<"week" | "calendar" | "list">("week");
   const [selected, setSelected] = useState<Item | null>(null);
   // Snapshot once on mount — render-time Date.now() violates react-hooks/purity.
   const [now] = useState(() => Date.now());
@@ -217,37 +326,101 @@ export function AppointmentsView({
     return map;
   }, [items, timeZone]);
 
+  // Week agenda: opens on the business's current week.
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(dateFromDayKey(todayKey)));
+  const weekDays = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) });
+  const thisWeek = startOfWeek(dateFromDayKey(todayKey)).getTime() === weekStart.getTime();
+  const listDays = useMemo(() => [...byDay.keys()].sort(), [byDay]);
+  // Each service keeps one color across the whole screen. Assigned in name
+  // order so the palette is spread evenly (a plain hash can give two services
+  // the same color).
+  const toneOf = useMemo(() => {
+    const names = [...new Set(items.map((a) => a.serviceName).filter((n): n is string => Boolean(n)))].sort();
+    const map = new Map(names.map((n, i) => [n, SERVICE_TONES[i % SERVICE_TONES.length]]));
+    return (name: string | null) => (name ? (map.get(name) ?? serviceTone(name)) : "slate");
+  }, [items]);
+
   const days = eachDayOfInterval({
     start: startOfWeek(startOfMonth(month)),
     end: endOfWeek(endOfMonth(month)),
   });
 
-  const tab = (active: boolean) =>
-    cn(
-      "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-      active ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
-    );
+  const tab = "fd-tab flex items-center gap-1.5 px-3 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  const navBtn =
+    "inline-flex size-8 items-center justify-center rounded-full border bg-card text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring";
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex rounded-lg border p-0.5">
-          <button type="button" onClick={() => setView("calendar")} className={tab(view === "calendar")}>
-            <CalendarDays className="size-4" />
-            Calendar
+        <div className="fd-tabs inline-flex" role="group" aria-label="View">
+          <button
+            type="button"
+            onClick={() => setView("week")}
+            aria-current={view === "week" ? "page" : undefined}
+            className={tab}
+          >
+            <Rows3 className="size-4" />
+            Week
           </button>
-          <button type="button" onClick={() => setView("list")} className={tab(view === "list")}>
+          <button
+            type="button"
+            onClick={() => setView("calendar")}
+            aria-current={view === "calendar" ? "page" : undefined}
+            className={tab}
+          >
+            <CalendarDays className="size-4" />
+            Month
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("list")}
+            aria-current={view === "list" ? "page" : undefined}
+            className={tab}
+          >
             <ListIcon className="size-4" />
-            List
+            All
           </button>
         </div>
 
         {/* Say which clock these times are on. Without it, an owner checking the
             portal from another state can't tell whether 2:00 PM means their
             time or the shop's. */}
-        <span className="text-xs text-muted-foreground">
+        <span className="order-last w-full text-xs text-muted-foreground sm:order-none sm:w-auto">
           All times in {zoneLabel}
         </span>
+
+        {view === "week" ? (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setWeekStart((w) => addDays(w, -7))}
+              aria-label="Previous week"
+              className={navBtn}
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <span className="min-w-[9.5rem] text-center font-heading text-sm font-semibold tabular-nums">
+              {format(weekStart, "MMM d")} – {format(addDays(weekStart, 6), "MMM d")}
+            </span>
+            <button
+              type="button"
+              onClick={() => setWeekStart((w) => addDays(w, 7))}
+              aria-label="Next week"
+              className={navBtn}
+            >
+              <ChevronRight className="size-4" />
+            </button>
+            {!thisWeek ? (
+              <button
+                type="button"
+                onClick={() => setWeekStart(startOfWeek(dateFromDayKey(todayKey)))}
+                className="ml-1 rounded-full border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                This week
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         {view === "calendar" ? (
           <div className="flex items-center gap-1">
@@ -255,18 +428,18 @@ export function AppointmentsView({
               type="button"
               onClick={() => setMonth((m) => addMonths(m, -1))}
               aria-label="Previous month"
-              className="inline-flex size-8 items-center justify-center rounded-md border text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+              className={navBtn}
             >
               <ChevronLeft className="size-4" />
             </button>
-            <span className="min-w-[9.5rem] text-center text-sm font-medium tabular-nums">
+            <span className="min-w-[9.5rem] text-center font-heading text-sm font-semibold tabular-nums">
               {format(month, "MMMM yyyy")}
             </span>
             <button
               type="button"
               onClick={() => setMonth((m) => addMonths(m, 1))}
               aria-label="Next month"
-              className="inline-flex size-8 items-center justify-center rounded-md border text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+              className={navBtn}
             >
               <ChevronRight className="size-4" />
             </button>
@@ -276,7 +449,7 @@ export function AppointmentsView({
               <button
                 type="button"
                 onClick={() => setMonth(monthFromDayKey(todayKey))}
-                className="ml-1 rounded-md border px-2 py-1.5 text-xs font-medium text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                className="ml-1 rounded-full border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Today
               </button>
@@ -285,8 +458,26 @@ export function AppointmentsView({
         ) : null}
       </div>
 
-      {view === "calendar" ? (
-        <div className="overflow-hidden rounded-xl border">
+      {view === "week" ? (
+        <div className="fd-panel space-y-5 p-4 sm:p-5">
+          {weekDays.map((day) => {
+            const key = format(day, "yyyy-MM-dd");
+            return (
+              <AgendaDay
+                key={key}
+                label={format(day, "EEEE, MMM d")}
+                isToday={key === todayKey}
+                items={byDay.get(key) ?? []}
+                timeZone={timeZone}
+                onSelect={setSelected}
+                showEmpty
+                toneOf={toneOf}
+              />
+            );
+          })}
+        </div>
+      ) : view === "calendar" ? (
+        <div className="fd-glass overflow-hidden rounded-2xl border bg-card">
           <div className="grid grid-cols-7 border-b bg-muted/40 text-center text-xs font-medium text-muted-foreground">
             {WEEKDAYS.map((d) => (
               <div key={d} className="py-2">
@@ -303,8 +494,9 @@ export function AppointmentsView({
                 <div
                   key={key}
                   className={cn(
-                    "min-h-20 border-b border-r p-1.5 [&:nth-child(7n)]:border-r-0",
-                    !inMonth && "bg-muted/20",
+                    "min-h-20 border-b border-r border-border/70 p-1.5 [&:nth-child(7n)]:border-r-0",
+                    !inMonth && "bg-muted/30",
+                    key === todayKey && "bg-brand-soft/60",
                   )}
                 >
                   <div
@@ -314,7 +506,7 @@ export function AppointmentsView({
                     )}
                   >
                     {format(day, "yyyy-MM-dd") === todayKey ? (
-                      <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
+                      <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary bg-(image:--primary-image) text-[11px] font-semibold text-primary-foreground shadow-(--primary-shadow)">
                         {format(day, "d")}
                       </span>
                     ) : (
@@ -328,11 +520,12 @@ export function AppointmentsView({
                         key={a.id}
                         onClick={() => setSelected(a)}
                         title={`${a.customerName ?? "Caller"}${a.serviceName ? ` · ${a.serviceName}` : ""} · ${tzTime(a.date, timeZone)}`}
+                        data-tone={isOff(a) ? undefined : toneOf(a.serviceName)}
                         className={cn(
-                          "block w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] leading-tight outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                          a.status === "cancelled" || a.status === "no_show"
+                          "block w-full truncate rounded-md px-1.5 py-0.5 text-left text-[11px] leading-tight outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                          isOff(a)
                             ? "bg-muted text-muted-foreground line-through hover:bg-muted/80"
-                            : "bg-primary/10 text-foreground hover:bg-primary/20",
+                            : "fd-cal-pill",
                         )}
                       >
                         <span className="font-medium tabular-nums">{tzTimeShort(a.date, timeZone)}</span>{" "}
@@ -351,29 +544,20 @@ export function AppointmentsView({
           </div>
         </div>
       ) : (
-        <ul className="divide-y rounded-xl border">
-          {items.map((a) => (
-            <li key={a.id}>
-              <button
-                type="button"
-                onClick={() => setSelected(a)}
-                className="flex w-full items-center justify-between gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-              >
-                <div>
-                  <p className="font-medium">{a.customerName ?? "Caller"}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {a.serviceName ? `${a.serviceName} · ` : ""}
-                    {tzDateTime(a.date, timeZone)}
-                    {a.customerPhone ? ` · ${formatPhone(a.customerPhone)}` : ""}
-                  </p>
-                </div>
-                <Badge variant="secondary" className="capitalize">
-                  {a.status.replace("_", " ")}
-                </Badge>
-              </button>
-            </li>
+        <div className="fd-panel space-y-5 p-4 sm:p-5">
+          {listDays.map((key) => (
+            <AgendaDay
+              key={key}
+              label={format(dateFromDayKey(key), "EEEE, MMM d, yyyy")}
+              isToday={key === todayKey}
+              items={byDay.get(key) ?? []}
+              timeZone={timeZone}
+              onSelect={setSelected}
+              showEmpty={false}
+              toneOf={toneOf}
+            />
           ))}
-        </ul>
+        </div>
       )}
 
       <Dialog

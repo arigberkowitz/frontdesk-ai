@@ -6,6 +6,7 @@ import { DEFAULT_VOICE_ID, listRetellVoices } from "@/lib/retell";
 import { integrations } from "@/lib/env";
 import { isStripeTestMode } from "@/lib/stripe";
 import { PageHeader } from "@/components/page-header";
+import { AgentHero } from "@/components/portal/agent-hero";
 import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GuidelinesForm } from "@/components/portal/guidelines-form";
@@ -77,6 +78,19 @@ export default async function PortalGuidelinesPage({
         title="Your AI"
         description="Set what your receptionist says and how it books — then hear it. Changes go live right away."
       />
+      <AgentHero
+        agentName={agentName}
+        businessName={client.name}
+        phoneNumber={client.retellPhoneNumber}
+        state={client.status === "paused" ? "paused" : client.retellAgentId ? "ready" : "setup"}
+        cta={
+          client.retellAgentId && (!canManage || mayActivate)
+            ? "test"
+            : !client.retellAgentId && canManage && mayActivate
+              ? "activate"
+              : null
+        }
+      />
       {/* Coming back from Stripe. Without this the customer lands on the same
           page they left, with no acknowledgement that they just paid. */}
       {billing === "success" ? (
@@ -106,15 +120,17 @@ export default async function PortalGuidelinesPage({
           {/* Activation comes first for anyone entitled to it — which, now that
               every signup starts on a free trial, is almost everybody. */}
           {mayActivate ? (
-            <ProvisionCard
-              clientId={client.id}
-              hasAgent={Boolean(client.retellAgentId)}
-              phoneNumber={client.retellPhoneNumber}
-              agentName={agentName}
-              retellReady={retellReady}
-              onTrial={client.status === "trial"}
-              ownerPhone={client.escalationNumber}
-            />
+            <div id="activate" className="scroll-mt-24">
+              <ProvisionCard
+                clientId={client.id}
+                hasAgent={Boolean(client.retellAgentId)}
+                phoneNumber={client.retellPhoneNumber}
+                agentName={agentName}
+                retellReady={retellReady}
+                onTrial={client.status === "trial"}
+                ownerPhone={client.escalationNumber}
+              />
+            </div>
           ) : null}
 
           {/* Plans and the code box stay reachable throughout the trial. They
@@ -165,7 +181,7 @@ export default async function PortalGuidelinesPage({
           ) : null}
         </div>
       ) : client.retellAgentId ? (
-        <Card>
+        <Card id="test-call" className="scroll-mt-24">
           <CardHeader>
             <CardTitle>Hear your receptionist</CardTitle>
             <CardDescription>

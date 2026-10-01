@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarCheck, Clock, Repeat, Smile, Sparkles, User } from "lucide-react";
+import { ArrowLeft, AudioLines, Clock, Gauge, MessageSquareText, Moon, PhoneIncoming, PhoneOutgoing, Repeat, Sparkles, User } from "lucide-react";
 import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getCallForClient, getCallGrade } from "@/lib/data/calls";
 import { getInsightForCall } from "@/lib/data/insights";
@@ -9,21 +9,14 @@ import { getCallerContext } from "@/lib/data/callers";
 import { ordinal, otherParty } from "@/lib/callers";
 import { analyzeCall } from "@/lib/call-health";
 import { findMoments, turnsForCall } from "@/lib/call-moment";
-import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CallAudioPlayer } from "@/components/portal/call-audio-player";
 import { CallMoment } from "@/components/portal/call-moment";
 import { CallTranscript } from "@/components/portal/call-transcript";
 import { formatDateTime, formatDuration, formatPhone } from "@/lib/format";
 import { CALL_OUTCOME_LABELS } from "@/config/options";
-
-const SENTIMENT_LABEL: Record<string, string> = {
-  positive: "Positive",
-  neutral: "Neutral",
-  negative: "Negative",
-};
+import { Chip, InitialsAvatar, OUTCOME_TONE, SENTIMENT_CHIP } from "@/components/portal/visual";
 
 export default async function PortalCallPage({
   params,
@@ -79,44 +72,124 @@ export default async function PortalCallPage({
         Calls
       </Button>
 
-      <PageHeader title="Call detail" description={formatDateTime(call.startAt, call.client.timezone)}>
-        {call.outcome ? <Badge>{CALL_OUTCOME_LABELS[call.outcome]}</Badge> : null}
-      </PageHeader>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">
-              {call.direction === "outbound" ? "AI called" : "From"}
+      {/* Call header: who, when, how it went — the hero's glass, one call's worth. */}
+      <section aria-labelledby="call-title" className="fd-panel fd-fade-up p-5 sm:p-6">
+        <div aria-hidden className="fd-panel-glow" />
+        <div className="flex items-start gap-4">
+          <InitialsAvatar name={caller.name} seed={party ?? call.id} size="lg" />
+          <div className="min-w-0 flex-1">
+            <p className="fd-eyebrow">
+              {call.direction === "outbound" ? "Call your AI made" : "Call detail"}
             </p>
-            <p className="font-medium">{caller.name ?? formatPhone(party)}</p>
-            {caller.name ? (
-              <p className="text-xs text-muted-foreground">{formatPhone(party)}</p>
-            ) : null}
-            {caller.priorCalls > 0 ? (
-              <Link
-                href={`/portal/calls?from=${encodeURIComponent(party ?? "")}`}
-                className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400"
-              >
-                <Repeat className="size-3" aria-hidden />
-                {ordinal(caller.priorCalls + 1)} call from this number
-              </Link>
-            ) : null}
+            <h1
+              id="call-title"
+              className="mt-1 truncate font-heading text-2xl leading-tight font-semibold tracking-tight sm:text-[1.75rem]"
+            >
+              {caller.name ?? (formatPhone(party) || "Unknown caller")}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {caller.name && party ? `${formatPhone(party)} · ` : ""}
+              {formatDateTime(call.startAt, call.client.timezone)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-1.5">
+          {call.outcome ? (
+            <Chip tone={OUTCOME_TONE[call.outcome] ?? "slate"} dot>
+              {CALL_OUTCOME_LABELS[call.outcome]}
+            </Chip>
+          ) : null}
+          {call.sentiment && SENTIMENT_CHIP[call.sentiment] ? (
+            <Chip
+              tone={SENTIMENT_CHIP[call.sentiment].tone}
+              icon={SENTIMENT_CHIP[call.sentiment].icon}
+              title="Caller sentiment"
+            >
+              {SENTIMENT_CHIP[call.sentiment].label} caller
+            </Chip>
+          ) : null}
+          {grade ? (
+            <Chip
+              tone={grade.score >= 4 ? "emerald" : grade.score === 3 ? "amber" : "rose"}
+              icon={Gauge}
+              title="How well your AI handled this call (1–5)"
+            >
+              Score {grade.score}/5
+            </Chip>
+          ) : null}
+          {call.isAfterHours ? (
+            <Chip tone="violet" icon={Moon}>
+              After hours
+            </Chip>
+          ) : null}
+        </div>
+
+        <dl className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+          <div className="fd-stat col-span-2 sm:col-span-1">
+            <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {call.direction === "outbound" ? (
+                <PhoneOutgoing className="size-3.5" aria-hidden />
+              ) : (
+                <PhoneIncoming className="size-3.5" aria-hidden />
+              )}
+              {call.direction === "outbound" ? "AI called" : "From"}
+            </dt>
+            <dd className="mt-1 truncate text-sm font-medium tabular-nums">
+              {formatPhone(party) || "Unknown"}
+            </dd>
+          </div>
+          <div className="fd-stat">
+            <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Clock className="size-3.5" aria-hidden />
+              Length
+            </dt>
+            <dd className="mt-1 font-heading text-lg leading-tight font-semibold tabular-nums">
+              {formatDuration(call.durationSec)}
+            </dd>
+          </div>
+          <div className="fd-stat">
+            <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Moon className="size-3.5" aria-hidden />
+              After hours
+            </dt>
+            <dd className="mt-1 text-sm font-medium">{call.isAfterHours ? "Yes" : "No"}</dd>
+          </div>
+        </dl>
+        {caller.priorCalls > 0 ? (
+          <Link
+            href={`/portal/calls?from=${encodeURIComponent(party ?? "")}`}
+            className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand underline-offset-2 hover:underline"
+          >
+            <Repeat className="size-3" aria-hidden />
+            {ordinal(caller.priorCalls + 1)} call from this number
+          </Link>
+        ) : null}
+      </section>
+
+      {call.summary ? (
+        <Card className="fd-hero-tile">
+          <CardContent className="p-5">
+            <div className="mb-2.5 flex items-center gap-2">
+              <span className="fd-ai-dot" aria-hidden>
+                <Sparkles className="size-3.5" />
+              </span>
+              <span className="text-sm font-medium">AI summary</span>
+            </div>
+            <p className="text-[15px] leading-relaxed">{call.summary}</p>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {call.appointments[0]?.customerName || call.leads[0]?.name ? (
+                <Chip icon={User}>{call.appointments[0]?.customerName ?? call.leads[0]?.name}</Chip>
+              ) : null}
+              {call.durationSec != null ? (
+                <Chip icon={Clock}>{formatDuration(call.durationSec)}</Chip>
+              ) : null}
+              {entities.service ? <Chip tone="violet">Wanted: {entities.service}</Chip> : null}
+              {entities.requestedDate ? <Chip tone="cyan">When: {entities.requestedDate}</Chip> : null}
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Length</p>
-            <p className="font-medium">{formatDuration(call.durationSec)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">After hours</p>
-            <p className="font-medium">{call.isAfterHours ? "Yes" : "No"}</p>
-          </CardContent>
-        </Card>
-      </div>
+      ) : null}
 
       {wentWrong ? (
         <CallMoment
@@ -134,7 +207,10 @@ export default async function PortalCallPage({
       {call.recordingUrl ? (
         <Card>
           <CardHeader>
-            <CardTitle>Listen to the call</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <AudioLines className="size-4 text-brand" aria-hidden />
+              Listen to the call
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <CallAudioPlayer src={call.recordingUrl} />
@@ -147,64 +223,22 @@ export default async function PortalCallPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Transcript</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquareText className="size-4 text-brand" aria-hidden />
+            Transcript
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <CallTranscript
             turns={turns}
             flagged={moments.map((m) => m.turnIndex)}
             hasRecording={Boolean(call.recordingUrl)}
+            callerName={caller.name}
+            callerSeed={party ?? call.id}
           />
         </CardContent>
       </Card>
 
-      {call.summary ? (
-        <Card className="border-indigo-500/30">
-          <CardContent className="p-5">
-            <div className="mb-2.5 flex items-center gap-2">
-              <Sparkles className="size-4 text-indigo-600 dark:text-indigo-400" />
-              <span className="text-sm font-medium">AI summary</span>
-            </div>
-            <p className="text-sm leading-relaxed">{call.summary}</p>
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              {call.outcome ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                  <CalendarCheck className="size-3.5" />
-                  {CALL_OUTCOME_LABELS[call.outcome]}
-                </span>
-              ) : null}
-              {call.sentiment && SENTIMENT_LABEL[call.sentiment] ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                  <Smile className="size-3.5" />
-                  {SENTIMENT_LABEL[call.sentiment]}
-                </span>
-              ) : null}
-              {call.appointments[0]?.customerName || call.leads[0]?.name ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                  <User className="size-3.5" />
-                  {call.appointments[0]?.customerName ?? call.leads[0]?.name}
-                </span>
-              ) : null}
-              {call.durationSec != null ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                  <Clock className="size-3.5" />
-                  {formatDuration(call.durationSec)}
-                </span>
-              ) : null}
-              {entities.service ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:text-indigo-400">
-                  Wanted: {entities.service}
-                </span>
-              ) : null}
-              {entities.requestedDate ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:text-indigo-400">
-                  When: {entities.requestedDate}
-                </span>
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
     </div>
   );
 }
