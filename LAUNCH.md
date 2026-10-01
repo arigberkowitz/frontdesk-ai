@@ -107,6 +107,11 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
   `MISSED_CALL_AI_CALLBACKS=on` in Vercel; leave it unset until you've decided
   you want robots dialing people back.
 
+- **Smart rebooking** (Settings → Follow-ups, off by default): run
+  `drizzle/manual/0013_smart_rebooking.sql` before deploying. Needs a connected
+  calendar to find new times; sends only when the owner confirms on the Hours
+  page.
+
 - **Calendar sync (Google / Outlook one-click).** No migration. Needs
   `CREDENTIALS_SECRET` (long random string; encrypts tokens). Each option stays
   hidden until its keys are set:

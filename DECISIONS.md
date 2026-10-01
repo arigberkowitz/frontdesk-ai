@@ -697,3 +697,54 @@ everything else). This change closes the gaps rather than adding a parallel syst
   `call_callbacks` ledger (manual migration
   `drizzle/manual/0011_missed_call_callbacks.sql`; renumber at merge if needed).
   The Settings → Follow-ups card shows last-7-day sent/held/skipped counts.
+
+## 2026-09-30 — Smart rebooking (owner blocks time over existing bookings)
+
+- **Nothing is automatic.** Adding a closure, time off, or a person's leave never
+  moves or messages anyone. The "added" toast says how many bookings it lands
+  on, and the Hours page lists them ("Appointments in blocked time"). Texts go
+  out only when the owner presses "Ask customers to rebook" **and** confirms,
+  and only if the business turned on Settings → Follow-ups → "Rebook when you
+  block time" (`clients.smart_rebooking_enabled`, default false).
+- **Who is affected.** Upcoming (90 days) booked/confirmed appointments that an
+  active block overlaps; a provider-specific block affects only that
+  provider's appointments (`isAffected` in `src/lib/rebook.ts`).
+- **Who is texted.** US mobile on the appointment, not opted out
+  (`isOptedOut(phone, clientId)`), and permission: a stored consent covering the
+  new `rebook` purpose (booking-v1) **or** a delivered text about this
+  appointment (the same inheritance the day-before reminder uses). 9am–8pm
+  local only (the button refuses outside it), 50 offers per business per day,
+  one live offer per appointment (partial unique index). Skipped customers are
+  listed with the reason so the owner can call them.
+- **What they get.** A fixed template: business name, the business's own
+  service name, the old time, 2–3 numbered openings, "Reply 1, 2 or 3 to
+  switch, or NO to cancel. Reply STOP to opt out." Not "CANCEL" — carriers
+  treat it as an opt-out keyword. Openings come from the business's booking
+  provider (same call as the voice agent's check-availability), are spread one
+  per day where possible, are not shared between customers in the same batch,
+  and each is re-checked against the booking rules before it's offered.
+- **Replies are matched, never interpreted.** `parseRebookReply` accepts a lone
+  option number ("2", "#2", "option 2", "the second one", "2 please") or a short
+  "no"; anything else ("2 doesn't work", "1 or 2", questions, instructions) is
+  marked "needs you" and goes to the owner as a normal reply alert. No model
+  ever sees the text. Only the number the appointment is booked under can
+  answer, since the offer is looked up by sender (the caller-ID rule).
+- **Reschedule = the booking tool's sequence.** Hours/blocks (`checkSlot`),
+  capacity or a free team member, real-calendar free/busy, provider booking,
+  atomic `reserveAppointment`, and release the calendar event if the reserve
+  loses. Only then is the old appointment cancelled (provider + local). If the
+  slot is gone, nothing changes, the customer is told someone will text them,
+  and the owner is alerted. The offer is claimed (`sent → processing`) first, so
+  a Twilio replay or a double reply can't book twice.
+- **Decline = cancel + waitlist backfill, if the time is bookable.** The cancel
+  tool's `offerFreedSlot` runs only when the freed time isn't inside a
+  business-wide block, because a slot inside the owner's own closure isn't an
+  opening. A single provider's leave still lets the slot go to the waitlist.
+- **Webhook order.** In `/api/webhooks/twilio`, after STOP/HELP handling and
+  storing the message, a reply from a number with an open offer (feature on) is
+  handled in `after()`. With the AI text replies branch, this check must run
+  **before** the AI reply (open offers take precedence). Merge-order note in
+  the PR.
+- **Storage.** `rebook_offers` (manual migration
+  `drizzle/manual/0013_smart_rebooking.sql`; renumber at merge if needed).
+  Messages are logged to `sms_messages` as `rebook_offer` / `rebook_reply`.

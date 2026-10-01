@@ -85,7 +85,14 @@ export type ConsentPurpose =
    * that ended early or dropped without a booking. See DECISIONS.md
    * "Missed-call text-back".
    */
-  | "missed_call";
+  | "missed_call"
+  /**
+   * Smart rebooking: "we have to move your appointment — reply 1, 2 or 3",
+   * sent only when the owner confirms in the portal. Also allowed when the
+   * customer already received this appointment's confirmation text (the same
+   * inheritance the day-before reminder uses) — see src/lib/rebooking.ts.
+   */
+  | "rebook";
 
 /**
  * Which recorded consent wordings cover which kind of text.
@@ -112,6 +119,9 @@ export const CONSENT_COVERAGE: Record<ConsentPurpose, readonly string[]> = {
   // decides a one-off reply to their own call needs none — then this gate in
   // src/lib/agents/missed-call-callback.ts is the single place to change).
   missed_call: BOOKING_V1_WORDINGS,
+  // A text about an appointment they booked and agreed to texts about —
+  // squarely what booking-v1 ("confirmation and a reminder") describes.
+  rebook: BOOKING_V1_WORDINGS,
 };
 
 /** Pure: the set of numbers (normalized digits) whose consent rows cover `purpose`. */

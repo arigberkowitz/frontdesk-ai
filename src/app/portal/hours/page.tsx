@@ -10,6 +10,10 @@ import { HoursTab } from "@/components/clients/hours-tab";
 import { TimeOffCard } from "@/components/portal/time-off-card";
 import { WeekGrid } from "@/components/portal/week-grid";
 import { TimezoneCard } from "@/components/portal/timezone-card";
+import { AffectedAppointmentsCard, type AffectedRow } from "@/components/portal/affected-appointments-card";
+import { listAffectedAppointments } from "@/lib/rebooking";
+import { rebookStatusLabel, shortWhen } from "@/lib/rebook";
+import { formatPhone } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Hours" };
 
@@ -46,6 +50,19 @@ export default async function PortalHoursPage() {
       b.startsAt && b.endsAt ? `${fmt(new Date(b.startsAt))} – ${fmt(new Date(b.endsAt))}` : null,
   }));
 
+  // Bookings that a block now sits on top of. Best-effort: the Hours page must
+  // render even if this lookup fails (e.g. before the 0013 migration runs).
+  const now = new Date();
+  const affected = await listAffectedAppointments(clientId, now).catch(() => []);
+  const affectedRows: AffectedRow[] = affected.map((a) => ({
+    id: a.id,
+    who: a.customerName?.trim() || (a.customerPhone ? formatPhone(a.customerPhone) : "Customer"),
+    when: shortWhen(a.startAt, tz),
+    serviceName: a.serviceName,
+    status: rebookStatusLabel(a.offer, now),
+    askable: !a.offer || ["skipped", "failed"].includes(a.offer.status),
+  }));
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -75,6 +92,12 @@ export default async function PortalHoursPage() {
             providerName: b.providerName,
           }))}
         providers={team.filter((p) => p.isActive).map((p) => ({ id: p.id, name: p.name }))}
+        canEdit={editAccess.canEdit}
+      />
+      <AffectedAppointmentsCard
+        clientId={clientId}
+        rows={affectedRows}
+        enabled={Boolean(client?.smartRebookingEnabled)}
         canEdit={editAccess.canEdit}
       />
       <TimeOffCard

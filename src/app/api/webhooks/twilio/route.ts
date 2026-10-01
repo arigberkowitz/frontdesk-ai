@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { after } from "next/server";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { leads } from "@/db/schema";
@@ -11,7 +12,6 @@ import { explainSmsError } from "@/lib/notifier";
 import { audit } from "@/lib/data/audit";
 import { notifyOwnerTextReply } from "@/lib/reply-alerts";
 import { env, integrations, webhookUrl } from "@/lib/env";
-import { after } from "next/server";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
@@ -362,9 +362,42 @@ export async function POST(req: Request): Promise<Response> {
     // question ("who were they talking to?") without depending on a per-tenant
     // number we don't yet issue.
     const inbound = await store(kind);
+    // Smart rebooking: a reply to "we have to move your appointment — reply
+    // 1, 2 or 3" is handled before anything else (including any automated
+    // reply), and only for businesses that turned the feature on. Loaded
+    // lazily so nothing else in this webhook pays for the booking stack.
+    // Any failure here falls through to the normal owner alert.
+    const owner = inbound.owner;
+    if (inbound.isNew && owner?.smartRebookingEnabled) {
+      try {
+        const { findOpenOffer, handleRebookReply } = await import("@/lib/rebooking");
+        const offer = await findOpenOffer(owner, from);
+        if (offer) {
+          // Calendar calls can take seconds; Twilio shouldn't wait on them.
+          after(async () => {
+            try {
+              const outcome = await handleRebookReply(owner, offer, body);
+              logger.info("sms.rebook_reply", { clientId: owner.id, result: outcome.result });
+              if (outcome.alertOwner) await forwardReplyToOwner(owner, params, from, body);
+            } catch (err) {
+              logger.error("sms.rebook_reply_failed", {
+                clientId: owner.id,
+                error: err instanceof Error ? err.message : String(err),
+              });
+              await forwardReplyToOwner(owner, params, from, body);
+            }
+          });
+          return twiml();
+        }
+      } catch (err) {
+        logger.error("sms.rebook_lookup_failed", {
+          clientId: owner.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
     // Twilio replays a webhook it thinks failed; don't email the owner twice.
     if (inbound.isNew) {
-      const owner = inbound.owner;
       const ai = owner ? await aiTakesThis(owner, from) : false;
       await forwardReplyToOwner(owner, params, from, body, { alertOwner: !ai });
       if (ai && owner) {
