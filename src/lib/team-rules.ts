@@ -27,7 +27,7 @@ export function parseTeamRole(raw: unknown): TeamRole | null {
 
 /**
  * Fields of the portal profile form that only the owner may change: where
- * alerts go (incl. the SMS-alert and Monday weekly-summary email toggles). The
+ * alerts go (incl. the SMS-alert, Monday weekly-summary and daily-briefing email toggles). The
  * alert phone is also the live-transfer number, so a staff member pointing it
  * at their own cell would reroute every transfer.
  */
@@ -36,6 +36,7 @@ export const OWNER_ONLY_PROFILE_FIELDS = [
   "alertPhone",
   "smsAlertsEnabled",
   "weeklySummaryEnabled",
+  "dailyBriefingEnabled",
 ] as const;
 
 export function ownerOnlyFieldsIn(formData: FormData): string[] {
