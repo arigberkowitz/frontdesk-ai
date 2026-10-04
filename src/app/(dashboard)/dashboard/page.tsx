@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
-import { Building2, MessageSquare, Plus } from "lucide-react";
+import { Building2, Plus } from "lucide-react";
 import { requireOperator } from "@/lib/auth-guard";
 import { env } from "@/lib/env";
 import { getOrgCallQuality, getPortfolioMetrics } from "@/lib/data/metrics";
 import { getAgentActivity } from "@/lib/data/agent-runs";
+import { getTodayInbox } from "@/lib/data/today-inbox";
 import { countOpenGrades } from "@/lib/agents/qa";
 import { AgentActivityPanel } from "@/components/agent-activity";
 import { Greeting } from "@/components/greeting";
@@ -18,6 +19,8 @@ import { CallsChart } from "@/components/charts/calls-chart";
 import { OutcomesChart } from "@/components/charts/outcomes-chart";
 import { ClientSummaryCard } from "@/components/clients/client-summary-card";
 import { TrialsCard, type TrialRow } from "@/components/trials-card";
+import { TodayInbox } from "@/components/today-inbox";
+import { BillingWarnings } from "@/components/billing-warnings";
 import { formatCurrencyCents, formatPercent } from "@/lib/format";
 import { db } from "@/db";
 import { clients, organizations } from "@/db/schema";
@@ -27,12 +30,13 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const user = await requireOperator();
-  const [m, cu, agentActivity, openReviews, quality] = await Promise.all([
+  const [m, cu, agentActivity, openReviews, quality, inbox] = await Promise.all([
     getPortfolioMetrics(user.orgId),
     currentUser(),
     getAgentActivity(user.orgId),
     countOpenGrades(user.orgId),
     getOrgCallQuality(user.orgId),
+    getTodayInbox(user.orgId),
   ]);
   const firstName = cu?.firstName ?? undefined;
 
@@ -62,7 +66,6 @@ export default async function DashboardPage() {
 
   const money = formatCurrencyCents;
   const perClientOverhead = m.activeClients ? Math.round(m.overheadCents / m.activeClients) : 0;
-  const clientsWithNew = m.clients.filter((c) => c.newLeads > 0);
 
   // Earned and upcoming are shown as two separate lines on purpose. Blending
   // them is how a dashboard ends up quoting money that hasn't happened.
@@ -92,7 +95,7 @@ export default async function DashboardPage() {
     `${m.afterHoursThisWeek} after-hours call${m.afterHoursThisWeek === 1 ? "" : "s"} this week`,
   ];
   const mrrBreakdown = [
-    "Recurring monthly revenue from clients on an active or trial plan.",
+    "Recurring monthly revenue: live or trial clients whose subscription is active or trialing. Paused, churned and draft clients don't count.",
     ...(m.mrrByClient.length
       ? m.mrrByClient.map((s) => `${s.name} — ${money(s.cents)}/mo`)
       : ["No paid plans yet."]),
@@ -118,38 +121,14 @@ export default async function DashboardPage() {
         </Button>
       </PageHeader>
 
+      <TodayInbox items={inbox.items} />
+
       <TrialsCard
         code={org?.trialAccessCode ?? null}
         compCode={env.COMP_ACCESS_CODE || null}
         pending={trialPending}
         active={trialActive}
       />
-
-      {m.newLeads > 0 ? (
-        <Card className="border-amber-500/40 bg-amber-500/5">
-          <CardContent className="flex items-start gap-3 p-4">
-            <MessageSquare className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <div className="text-sm">
-              <p className="font-medium">
-                {m.newLeads} new message{m.newLeads === 1 ? "" : "s"} waiting for follow-up
-              </p>
-              <p className="text-muted-foreground">
-                {clientsWithNew.map((c, i) => (
-                  <span key={c.id}>
-                    {i > 0 ? " · " : ""}
-                    <Link
-                      href={`/clients/${c.id}`}
-                      className="underline underline-offset-2 hover:text-foreground"
-                    >
-                      {c.name} ({c.newLeads})
-                    </Link>
-                  </span>
-                ))}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
 
       <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard icon="revenue" label="Revenue captured this month" value={money(m.estRevenueMonthCents)} sub={m.upcomingRevenueCents > 0 ? `+ ${money(m.upcomingRevenueCents)} booked ahead` : undefined} hint="Earned once the appointment happens" href="/clients" breakdown={revenueBreakdown} spark={m.callsByDay.map((d) => d.bookings)} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
@@ -207,10 +186,11 @@ export default async function DashboardPage() {
         <h2 className="fd-section-label">Business health</h2>
         <div className="fd-stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard icon="clients" label="Active clients" value={String(m.activeClients)} hint="Live + trial" href="/clients" breakdown={activeBreakdown} size="sm" />
-          <MetricCard icon="mrr" label="MRR" value={money(m.mrrCents)} hint="Recurring revenue" href="/clients" breakdown={mrrBreakdown} size="sm" />
+          <MetricCard icon="mrr" label="MRR" value={money(m.mrrCents)} hint={m.billingWarnings.length ? "Live + trial only — see billing note" : "Live + trial clients"} href="/clients" breakdown={mrrBreakdown} size="sm" />
           <MetricCard icon="margin" label="Est. margin" value={money(m.marginCents)} hint="Price − vendor cost, this month" breakdown={marginBreakdown} size="sm" />
           <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursThisWeek)} hint="This week" breakdown={afterHoursBreakdown} size="sm" />
         </div>
+        <BillingWarnings warnings={m.billingWarnings} />
       </div>
 
       {m.clients.length === 0 ? (

@@ -29,10 +29,10 @@ export default async function ClientPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ onboarded?: string; billing?: string }>;
+  searchParams: Promise<{ onboarded?: string; billing?: string; tab?: string }>;
 }) {
   const { id } = await params;
-  const { onboarded, billing: billingResult } = await searchParams;
+  const { onboarded, billing: billingResult, tab } = await searchParams;
   const user = await requireOperator();
   const client = await getClient(user.orgId, id);
   if (!client) notFound();
@@ -147,6 +147,7 @@ export default async function ClientPage({
         voices={voices}
         billing={billing}
         intakeUrl={`${env.APP_URL}/intake/${signIntakeToken(client.id)}`}
+        initialTab={tab}
       />
       <PromptChangelog versions={versions} />
     </div>

@@ -11,6 +11,7 @@ import {
   subscriptions,
 } from "@/db/schema";
 import { COST_ASSUMPTIONS } from "@/config/plans";
+import { computeMrr, type BillingWarning } from "@/lib/mrr";
 
 /**
  * Analytics aggregates (§EPIC F). All counts come from SQL so they scale, and
@@ -388,6 +389,8 @@ export interface PortfolioMetrics {
   retellCostMonthCents: number;
   overheadCents: number;
   mrrByClient: { name: string; cents: number }[];
+  /** Where a subscription's status and its client's status disagree (see src/lib/mrr.ts). */
+  billingWarnings: BillingWarning[];
   // Chart series across all clients.
   callsByDay: DayPoint[];
   outcomes: { outcome: string; count: number }[];
@@ -418,6 +421,7 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     retellCostMonthCents: 0,
     overheadCents: 0,
     mrrByClient: [],
+    billingWarnings: [],
     callsByDay: fillDays([], 14, "UTC"),
     outcomes: [],
   };
@@ -468,10 +472,19 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     .from(services)
     .where(and(inArray(services.clientId, ids), eq(services.isActive, true), isNull(services.deletedAt)));
 
-  const [{ mrr }] = await db
-    .select({ mrr: sql<number>`coalesce(sum(${subscriptions.monthlyPriceCents}) filter (where ${subscriptions.status} in ('active','trialing')), 0)::int` })
+  // MRR needs BOTH the subscription's status and the client's status — a
+  // paused client whose Stripe row still says "active" is not revenue. The
+  // rule (and the mismatch warnings) live in src/lib/mrr.ts.
+  const subRows = await db
+    .select({
+      clientId: subscriptions.clientId,
+      status: subscriptions.status,
+      monthlyPriceCents: subscriptions.monthlyPriceCents,
+      currentPeriodEnd: subscriptions.currentPeriodEnd,
+    })
     .from(subscriptions)
     .where(and(inArray(subscriptions.clientId, ids), isNull(subscriptions.deletedAt)));
+  const { mrrCents: mrr, mrrByClient, warnings: billingWarnings } = computeMrr(rows, subRows);
 
   const callsByClient = await db
     .select({
@@ -491,18 +504,6 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     .from(appointments)
     .where(and(inArray(appointments.clientId, ids), isNull(appointments.deletedAt)))
     .groupBy(appointments.clientId);
-
-  const mrrRows = await db
-    .select({ name: clients.name, cents: subscriptions.monthlyPriceCents })
-    .from(subscriptions)
-    .innerJoin(clients, eq(subscriptions.clientId, clients.id))
-    .where(
-      and(
-        inArray(subscriptions.clientId, ids),
-        isNull(subscriptions.deletedAt),
-        sql`${subscriptions.status} in ('active','trialing')`,
-      ),
-    );
 
   const byDayRows = await db
     .select({
@@ -550,7 +551,7 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
   const upcomingBookings = apptAgg?.upcomingBookings ?? 0;
   const overheadCents = activeClients * COST_ASSUMPTIONS.overheadPerClientCents;
   const retellCostMonthCents = callAgg?.retellCostMonth ?? 0;
-  const marginCents = (mrr ?? 0) - retellCostMonthCents - overheadCents;
+  const marginCents = mrr - retellCostMonthCents - overheadCents;
 
   return {
     totalClients: rows.length,
@@ -559,7 +560,7 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     bookingsToday: apptAgg?.today ?? 0,
     afterHoursThisWeek: callAgg?.afterHoursWeek ?? 0,
     newLeads,
-    mrrCents: mrr ?? 0,
+    mrrCents: mrr,
     estRevenueMonthCents,
     upcomingRevenueCents,
     upcomingBookings,
@@ -577,7 +578,8 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     avgServiceCents,
     retellCostMonthCents,
     overheadCents,
-    mrrByClient: mrrRows.map((r) => ({ name: r.name, cents: r.cents ?? 0 })),
+    mrrByClient: mrrByClient.map((r) => ({ name: r.name, cents: r.cents })),
+    billingWarnings,
     callsByDay: fillDays(byDayRows, 14, "UTC"),
     outcomes: outcomeRows,
   };

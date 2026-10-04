@@ -430,10 +430,12 @@ summary:focus-visible {
 /* ============================================================================
  * PORTAL SKIN — "Signal" (light, bright, clean)
  *
- * The customer portal marks its root with [data-fd-app]. `html:has(...)` puts
- * these tokens on <html>, so dialogs, toasts and menus that portal into <body>
- * pick them up too. Light only: `:not(.dark)` leaves the existing dark mode
- * exactly as it was. Nothing here applies to marketing or the operator app.
+ * The customer portal (`data-fd-app="portal"`) and the operator app
+ * (`data-fd-app="operator"`) mark their roots with [data-fd-app].
+ * `html:has(...)` puts these tokens on <html>, so dialogs, toasts and menus
+ * that portal into <body> pick them up too. Both are light only (the theme
+ * provider forces it on their routes); `:not(.dark)` is a belt-and-braces
+ * guard. Nothing here applies to marketing.
  *
  * Palette
  *   Ink          #0E1024  body text            (17.4:1 on the page)
@@ -1462,4 +1464,126 @@ html:not(.dark):has([data-fd-app]) [aria-expanded="true"] > .fd-dock-icon {
 
 @media (prefers-reduced-motion: reduce) {
   html:not(.dark):has([data-fd-app]) [data-slot="skeleton"]::after { animation: none; }
+}
+
+/* ============================================================================
+ * OPERATOR SHELL — the Signal skin's frosted rail and dashboard pieces.
+ *
+ * The operator app wears the portal's Signal tokens via [data-fd-app]; these
+ * rules only cover what the portal doesn't have: the light frosted sidebar
+ * (replacing the old dark navy one) and the dashboard's Today inbox and
+ * billing-warning rows. Text colors are AA on their fills; every motion stops
+ * under prefers-reduced-motion.
+ * ========================================================================== */
+.fd-op-sidebar {
+  position: relative;
+  background: rgb(245 246 251 / 0.86);
+  border-right: 1px solid #e3e5ef;
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+}
+/* A faint violet glow at the top of the rail, behind the logo. */
+.fd-op-sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 12rem;
+  pointer-events: none;
+  background: radial-gradient(18rem 9rem at 0% 0%, rgb(124 92 255 / 0.1), transparent 70%);
+}
+/* Active item: the glowing Signal marker on the rail edge (desktop rail only). */
+html:not(.dark):has([data-fd-app]) nav[aria-label="Operator"] .fd-nav-link[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: -0.75rem;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #7c5cff, #22d3ee);
+  box-shadow: 0 0 10px rgb(124 92 255 / 0.7);
+}
+
+/* ---- Today inbox rows: a tone-colored rail and icon, lift on hover. */
+.fd-inbox-row {
+  --tone: #6a3df5;
+  --tone-bg: #f1edff;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 0.875rem;
+  padding: 0.625rem 0.75rem 0.625rem 0.875rem;
+  background: rgb(255 255 255 / 0.66);
+  box-shadow: inset 0 0 0 1px rgb(35 40 90 / 0.07);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.fd-inbox-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.75rem;
+  bottom: 0.75rem;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--tone);
+  opacity: 0.85;
+}
+.fd-inbox-row:hover {
+  background: #fff;
+  transform: translateY(var(--lift, 0px));
+  box-shadow: inset 0 0 0 1px rgb(106 61 245 / 0.2), 0 14px 30px -20px rgb(106 61 245 / 0.45);
+}
+.fd-inbox-row:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.fd-inbox-row[data-tone="action"] { --tone: #6a3df5; --tone-bg: #f1edff; --tone-fg: #4a2fd6; }
+.fd-inbox-row[data-tone="warning"] { --tone: #d97706; --tone-bg: #fffbeb; --tone-fg: #92400e; }
+.fd-inbox-row[data-tone="info"] { --tone: #0e7490; --tone-bg: #ecfeff; --tone-fg: #0e7490; }
+.fd-inbox-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  color: var(--tone-fg, #4a2fd6);
+  background: var(--tone-bg, #f1edff);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 18%, transparent);
+}
+.fd-inbox-count {
+  display: inline-flex;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0 0.4375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--tone-fg, #4a2fd6);
+  background: var(--tone-bg, #f1edff);
+}
+/* The inbox card's header count: a small Signal-gradient pill (white on #6a3df5→#0e7490, ≥5.4:1). */
+.fd-signal-pill {
+  display: inline-flex;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: linear-gradient(115deg, #6a3df5 0%, #4b56e0 45%, #0e7490 100%);
+  box-shadow: 0 6px 14px -6px rgb(106 61 245 / 0.6);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fd-inbox-row { transition: none; }
+  .fd-inbox-row:hover { transform: none; }
 }
