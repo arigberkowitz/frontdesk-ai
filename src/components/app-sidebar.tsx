@@ -30,44 +30,55 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   TrendingUp,
 };
 
-const linkClass = (active: boolean, dark?: boolean) =>
+/**
+ * Operator nav item. `fd-nav-link` picks up the Signal skin's active pill (a
+ * soft violet wash); inside the desktop rail (`nav[aria-label="Operator"]`)
+ * the active item also gets the glowing violet→cyan marker on the rail edge.
+ * Colors: ink-on-mist inactive (#5B6078 on #F5F6FB, 5.7:1) and brand violet
+ * on the active wash (≥6:1) — both WCAG AA.
+ */
+const linkClass = (active: boolean) =>
   cn(
-    "relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
-    dark
-      ? active
-        ? "bg-indigo-500/20 text-white"
-        : "text-zinc-400 hover:bg-white/5 hover:text-white"
-      : active
-        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-        : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
+    "fd-nav-link relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-all duration-200 ease-out motion-reduce:transition-none",
+    active
+      ? "bg-brand-soft text-brand"
+      : "text-muted-foreground hover:translate-x-0.5 hover:bg-white/80 hover:text-foreground motion-reduce:hover:translate-x-0",
   );
 
-/** Slim brand tick marking the active item — quieter than a filled background alone. */
-const ActiveTick = ({ dark }: { dark?: boolean }) => (
-  <span
-    aria-hidden
-    className={cn(
-      "absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full",
-      dark ? "bg-indigo-400" : "bg-indigo-500",
-    )}
-  />
-);
+/** Open QA findings on the Review item: a quiet amber pill, violet when the item is active. */
+function ReviewBadge({ count, active }: { count: number; active: boolean }) {
+  return (
+    <span
+      className={cn(
+        "ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none tabular-nums ring-1 ring-inset",
+        active
+          ? "bg-white text-brand ring-[rgb(106_61_245/0.22)]"
+          : "bg-[#fffbeb] text-[#92400e] ring-[rgb(180_83_9/0.22)]",
+      )}
+    >
+      {count > 99 ? "99+" : count}
+      <span className="sr-only"> open {count === 1 ? "grade" : "grades"}</span>
+    </span>
+  );
+}
 
 export function NavLinks({
   onNavigate,
   superAdmin,
-  dark,
   reviewCount = 0,
+  label = "Operator",
 }: {
   onNavigate?: () => void;
   superAdmin?: boolean;
-  dark?: boolean;
   /** Open QA findings — shown as a badge on the Review item. */
   reviewCount?: number;
+  /** Accessible name; the desktop rail uses "Operator" (the CSS marker keys off it). */
+  label?: string;
 }) {
   const pathname = usePathname();
+  const platformActive = pathname.startsWith("/platform");
   return (
-    <nav className="space-y-1">
+    <nav aria-label={label} className="space-y-0.5">
       {OPERATOR_NAV.map((item) => {
         const Icon = ICONS[item.icon];
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -77,32 +88,44 @@ export function NavLinks({
             href={item.href}
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
-            className={linkClass(active, dark)}
+            className={linkClass(active)}
           >
-            {active ? <ActiveTick dark={dark} /> : null}
-            <Icon className="size-4 shrink-0" />
-            {item.label}
+            <Icon className="size-4 shrink-0" aria-hidden />
+            <span className="truncate">{item.label}</span>
             {item.href === "/review" && reviewCount > 0 ? (
-              <span className="ml-auto rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-amber-600 dark:text-amber-400">
-                {reviewCount > 99 ? "99+" : reviewCount}
-              </span>
+              <ReviewBadge count={reviewCount} active={active} />
             ) : null}
           </Link>
         );
       })}
       {superAdmin ? (
-        <Link
-          href="/platform"
-          onClick={onNavigate}
-          aria-current={pathname.startsWith("/platform") ? "page" : undefined}
-          className={linkClass(pathname.startsWith("/platform"), dark)}
-        >
-          {pathname.startsWith("/platform") ? <ActiveTick dark={dark} /> : null}
-          <Globe className="size-4 shrink-0" />
-          Platform
-        </Link>
+        <>
+          <div className="mx-2.5 my-3 h-px bg-border" aria-hidden />
+          <Link
+            href="/platform"
+            onClick={onNavigate}
+            aria-current={platformActive ? "page" : undefined}
+            className={linkClass(platformActive)}
+          >
+            <Globe className="size-4 shrink-0" aria-hidden />
+            Platform
+          </Link>
+        </>
       ) : null}
     </nav>
+  );
+}
+
+/** The brand mark: the Signal gradient tile with a soft glow. */
+export function BrandMark({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn("fd-mark flex size-8 shrink-0 items-center justify-center rounded-lg text-white", className)}
+      style={{ background: "linear-gradient(115deg,#6a3df5 0%,#4b56e0 45%,#0e7490 100%)" }}
+      aria-hidden
+    >
+      <Phone className="size-4" />
+    </span>
   );
 }
 
@@ -114,18 +137,18 @@ export function AppSidebar({
   reviewCount?: number;
 }) {
   return (
-    <aside className="hidden w-52 shrink-0 flex-col border-r border-white/5 bg-[#11131c] md:flex">
-      <div className="flex h-16 items-center gap-2.5 border-b border-white/5 px-4">
-        <div
-          className="flex size-7 items-center justify-center rounded-lg text-white"
-          style={{ background: "linear-gradient(135deg,#6366f1,#10b981)" }}
-        >
-          <Phone className="size-4" />
+    <aside className="fd-op-sidebar hidden w-56 shrink-0 md:block">
+      <div className="sticky top-0 flex h-screen flex-col">
+        <div className="flex h-16 items-center gap-2.5 px-4">
+          <BrandMark />
+          <div className="min-w-0 leading-tight">
+            <p className="truncate font-heading text-sm font-semibold tracking-tight text-foreground">{APP_NAME}</p>
+            <p className="text-[11px] font-medium text-muted-foreground">Operator</p>
+          </div>
         </div>
-        <span className="font-heading font-semibold tracking-tight text-white">{APP_NAME}</span>
-      </div>
-      <div className="flex-1 overflow-y-auto p-3">
-        <NavLinks superAdmin={superAdmin} dark reviewCount={reviewCount} />
+        <div className="flex-1 overflow-y-auto px-3 py-4">
+          <NavLinks superAdmin={superAdmin} reviewCount={reviewCount} />
+        </div>
       </div>
     </aside>
   );

@@ -1,11 +1,11 @@
 /** Shared chart styling so every graph in the app reads as one set. */
 export const CHART_COLORS = {
-  calls: "#6366f1", // indigo
+  calls: "#6a3df5", // Signal violet
   bookings: "#10b981", // emerald
   // call outcomes
   booked: "#10b981",
-  answered: "#3b82f6",
-  message: "#6366f1",
+  answered: "#0891b2", // Signal cyan
+  message: "#6a3df5",
   escalated: "#f59e0b",
   missed: "#94a3b8",
   other: "#cbd5e1",

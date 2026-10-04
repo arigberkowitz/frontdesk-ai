@@ -8,6 +8,10 @@ import { AppTopbar } from "@/components/app-topbar";
  * Operator shell. `requireOperator()` gates every dashboard route and bootstraps
  * the operator + agency org on first login. Calling `auth()` makes this subtree
  * dynamic, so nothing here is statically prerendered at build.
+ *
+ * `data-fd-app="operator"` opts the operator app into the same light "Signal"
+ * skin as the customer portal (tokens, glass cards, violet→cyan glow — see
+ * globals.css). The theme provider forces light on these routes.
  */
 export default async function DashboardLayout({
   children,
@@ -23,10 +27,10 @@ export default async function DashboardLayout({
   const clients = clientRows.map((c) => ({ id: c.id, name: c.name }));
 
   return (
-    <div className="flex min-h-screen w-full">
+    <div data-fd-app="operator" className="flex min-h-screen w-full">
       <AppSidebar superAdmin={superAdmin} reviewCount={reviewCount} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppTopbar clients={clients} />
+        <AppTopbar clients={clients} superAdmin={superAdmin} reviewCount={reviewCount} />
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <div className="fd-fade-up mx-auto w-full max-w-6xl">{children}</div>
         </main>

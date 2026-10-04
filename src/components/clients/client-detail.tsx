@@ -50,6 +50,8 @@ interface Props {
   voices: VoiceMeta[];
   billing: BillingInfo;
   intakeUrl: string;
+  /** `?tab=` deep link (e.g. the dashboard's Today inbox → leads). Unknown values open Overview. */
+  initialTab?: string;
 }
 
 function sentimentLabel(score: number | null): string {
@@ -108,13 +110,15 @@ export function ClientDetail(props: Props) {
     voices,
     billing,
     intakeUrl,
+    initialTab,
   } = props;
+  const startTab = TABS.find((t) => t === initialTab) ?? "overview";
 
   const bd = clientMetricBreakdowns(metrics);
   const v = vocabFor(client.industry);
 
   return (
-    <Tabs defaultValue="overview">
+    <Tabs defaultValue={startTab}>
       <div className="overflow-x-auto">
         <TabsList className="mb-4">
           {TABS.map((t) => (
