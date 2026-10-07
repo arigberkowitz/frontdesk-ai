@@ -805,3 +805,43 @@ pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
 - **Storage.** `rebook_offers` (manual migration
   `drizzle/manual/0013_smart_rebooking.sql`; renumber at merge if needed).
   Messages are logged to `sms_messages` as `rebook_offer` / `rebook_reply`.
+
+## 2026-10-07 — Signup safety: numbers wait for a card or finished setup; setup links lock after sign-in
+
+- **The number waits, the agent doesn't.** `finishSignup` still builds the Retell
+  LLM + agent (free until called; it's what the browser test call uses) but no
+  longer buys a phone number for a self-serve trial. The rule lives in one pure
+  function, `numberGate` (`src/lib/number-gate.ts`), checked inside
+  `runProvision`, so every path (signup, Activate, Re-sync, webhook) obeys it.
+- **What unlocks a number:** an operator doing it (operator dashboard, or an
+  operator's own /welcome business); a Stripe subscription that is `active` or
+  `trialing` (card on file); comped; status `live`; an operator-approved trial
+  (`setup_flags.trialApprovedAt`, stamped by `approveTrialAction`); or guided
+  setup finished: every checklist step except `live` and `forwarding` (which
+  need the number) done, **including a test call** (a browser test call counts).
+  The test call is what makes "finish setup" cost a throwaway signup real effort.
+- **Card path is automatic, setup path is a button.** The Stripe webhook schedules
+  `provisionNumberAfterPayment` in `after()` for `active`/`trialing`; it only acts
+  on a business that already built an agent and has no number, and the existing
+  first-provision lock stops replays buying twice. Once setup unlocks a number,
+  Your AI shows "Get my phone number" (the same portal action).
+- **Reserved state** on Your AI ("Your number is reserved once you add a card or
+  finish setup", with both paths and the open steps), on Settings → Phone & AI,
+  in the checklist hints, and in the welcome email. "Add a card" links to
+  `/portal/guidelines?plans=open#plans`, which opens the mid-trial plans panel.
+- **Intake links lock once the owner has signed in.** "Signed in" = a non-deleted
+  `client_admin`/`client_viewer` user row for the client (created at first
+  sign-in), so no migration. The page redirects to
+  `/sign-in?reason=setup-link-used` (which shows a one-line notice) and the submit
+  action does the same; the 30-day expiry is unchanged. The operator's intake
+  card says when a link is locked.
+- No migration, no new env vars.
+
+## 2026-10-07 — Trial-to-paid nudges: countdown, real trial summary, one-click upgrade
+
+- **Countdown everywhere, detail on Overview.** The Overview trial banner now shows days left, the end date in the business's timezone, a progress bar, and three tiles (calls handled, appointments booked, after-hours calls) computed from real data since the trial started (`getTrialProgress`). Every other portal page gets a slim strip (headline + one-line summary + Upgrade); it hides itself on `/portal` so the banner isn't duplicated.
+- **Honest numbers.** Calls exclude spam. "Booked" counts only appointments linked to a call (`callId` not null) and not cancelled/no-show, so manual entries by the owner never inflate what "your AI" did. Trial start = `trialEndsAt − TRIAL_DAYS`, never before the client's `createdAt`.
+- **Upgrade uses the existing checkout.** The button posts to `startSelfServeCheckoutAction` (owner-only, monthly) for the plan picked at signup, else Starter; the Stripe webhook still owns the subscription row. Viewers, operator previews, and setups without Stripe see a "Choose a plan" link instead.
+- **Reminder email is opt-in.** A new d3 email ("You asked us for this reminder…") only sends if the owner ticks "Email me 3 days before it ends" (`setup_flags.trialReminderOptIn`, default off). It rides the existing `runTrialReminders` in the daily retention cron — no new cron, `vercel.json` untouched. The existing automatic d7/d1 emails are unchanged; if d3 went out, d7 is skipped so owners never get two in a row. Tests mock the notifier — no sends.
+- **postgres-js gotcha.** Raw `Date` values inside `sql\`\`` fragments throw on postgres-js (PGlite accepts them); pass `toISOString()` with `::timestamptz`.
+- No migration; no new env vars.

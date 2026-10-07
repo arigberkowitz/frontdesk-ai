@@ -50,6 +50,8 @@ interface Props {
   voices: VoiceMeta[];
   billing: BillingInfo;
   intakeUrl: string;
+  /** The owner has signed in, so the intake link now redirects to sign-in. */
+  intakeLocked?: boolean;
   /** `?tab=` deep link (e.g. the dashboard's Today inbox → leads). Unknown values open Overview. */
   initialTab?: string;
 }
@@ -110,6 +112,7 @@ export function ClientDetail(props: Props) {
     voices,
     billing,
     intakeUrl,
+    intakeLocked = false,
     initialTab,
   } = props;
   const startTab = TABS.find((t) => t === initialTab) ?? "overview";
@@ -240,7 +243,7 @@ export function ClientDetail(props: Props) {
         <AgentConfigTab client={client} retellReady={retellReady} voices={voices} />
       </TabsContent>
       <TabsContent value="settings">
-        <SettingsTab client={client} billing={billing} intakeUrl={intakeUrl} />
+        <SettingsTab client={client} billing={billing} intakeUrl={intakeUrl} intakeLocked={intakeLocked} />
       </TabsContent>
     </Tabs>
   );

@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { after } from "next/server";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { getStripe, subscriptionPeriodEnd } from "@/lib/stripe";
@@ -10,6 +11,7 @@ import {
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { PLANS, type PlanKey } from "@/config/plans";
+import { provisionNumberAfterPayment } from "@/lib/provision";
 
 export const runtime = "nodejs";
 
@@ -34,7 +36,7 @@ function mapStatus(s: Stripe.Subscription.Status): SubStatus {
   }
 }
 
-async function upsert(clientId: string, sub: Stripe.Subscription): Promise<void> {
+async function upsert(clientId: string, sub: Stripe.Subscription): Promise<SubStatus> {
   const planKey = sub.metadata?.plan as PlanKey | undefined;
   const plan = planKey ? PLANS[planKey] : undefined;
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
@@ -54,6 +56,25 @@ async function upsert(clientId: string, sub: Stripe.Subscription): Promise<void>
     .insert(subscriptions)
     .values(values)
     .onConflictDoUpdate({ target: subscriptions.clientId, set: values });
+  return values.status;
+}
+
+/**
+ * A self-serve business's phone number waits for a card (number-gate.ts). The
+ * moment one is on file, hand it over — after the response, so Stripe isn't
+ * kept waiting on the voice vendor. Idempotent: a business that already has a
+ * number is skipped, and the first-provision lock stops a replay buying twice.
+ */
+function unlockNumberIfPaid(clientId: string, status: SubStatus): void {
+  if (status !== "active" && status !== "trialing") return;
+  after(() =>
+    provisionNumberAfterPayment(clientId).catch((err) =>
+      logger.warn("stripe.webhook.number_after_payment_failed", {
+        clientId,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    ),
+  );
 }
 
 /**
@@ -109,12 +130,12 @@ export async function POST(req: Request): Promise<Response> {
       if (clientId && session.subscription) {
         const subId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
         const sub = await getStripe().subscriptions.retrieve(subId);
-        await upsert(clientId, sub);
+        unlockNumberIfPaid(clientId, await upsert(clientId, sub));
       }
     } else if (event.type.startsWith("customer.subscription.")) {
       const sub = event.data.object as Stripe.Subscription;
       const clientId = sub.metadata?.clientId;
-      if (clientId) await upsert(clientId, sub);
+      if (clientId) unlockNumberIfPaid(clientId, await upsert(clientId, sub));
     }
   } catch (err) {
     logger.error("stripe.webhook.handler_failed", {
