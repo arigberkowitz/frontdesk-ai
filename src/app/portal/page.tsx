@@ -23,6 +23,9 @@ import { CallHealthPanel } from "@/components/portal/call-health-panel";
 import { BlockedCallers } from "@/components/portal/blocked-callers";
 import { TextingBrokenBanner } from "@/components/portal/texting-broken-banner";
 import { TrialBanner } from "@/components/portal/trial-banner";
+import { getTrialProgress } from "@/lib/data/trial-progress";
+import { integrations } from "@/lib/env";
+import { upgradePlan } from "@/lib/trial-progress";
 import { RoiPanel } from "@/components/portal/roi-panel";
 import { SetupChecklist } from "@/components/portal/setup-checklist";
 import { WeeklyRecap } from "@/components/portal/weekly-recap";
@@ -68,6 +71,9 @@ export default async function PortalOverviewPage({
       countUnreadMessages(clientId),
       getPortalEditAccess(clientId),
     ]);
+  // What the AI has done this trial — only read while there's a clock to show.
+  const trialProgress =
+    trial.active || trial.expired ? await getTrialProgress(clientId) : null;
   // Today's stored morning briefing (one indexed read; never a model call).
   const briefingCard = client
     ? await getStoredBriefingCard(clientId, tzTodayKey(client.timezone))
@@ -217,7 +223,26 @@ export default async function PortalOverviewPage({
           <LiveAlerts />
         </PortalHero>
 
-        <TrialBanner state={trial} />
+        <TrialBanner
+          state={trial}
+          progress={trialProgress}
+          hasNumber={Boolean(client?.retellPhoneNumber)}
+          timezone={client?.timezone}
+          upgrade={
+            client
+              ? {
+                  clientId,
+                  plan: upgradePlan(client.setupFlags?.intendedPlan),
+                  canCheckout: editAccess.isAdmin && integrations.stripe(),
+                }
+              : null
+          }
+          reminder={
+            editAccess.isAdmin
+              ? { clientId, on: Boolean(client?.setupFlags?.trialReminderOptIn) }
+              : null
+          }
+        />
 
         <TextingBrokenBanner
           count={failedTexts.count}
