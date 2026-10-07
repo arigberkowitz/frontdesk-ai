@@ -6,30 +6,11 @@ import type { BriefingCard } from "@/lib/daily-briefing";
 /**
  * Today's morning briefing on the Overview. Reads the copy stored when the
  * briefing was emailed — no model call on page load. Renders nothing when
- * there's no briefing for today; an owner who hasn't turned it on gets a
- * one-line pointer instead.
+ * there's no briefing for today. (The on/off switch lives in the Overview's
+ * "AI features" card and in Settings → Alerts.)
  */
-export function DailyBriefingCard({
-  card,
-  enabled,
-  canEnable,
-}: {
-  card: BriefingCard | null;
-  enabled: boolean;
-  canEnable: boolean;
-}) {
-  if (!card) {
-    if (enabled || !canEnable) return null;
-    return (
-      <p className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Sun className="size-3.5" />
-        Want this page in your inbox each morning?{" "}
-        <Link href="/portal/settings/alerts#daily-briefing" className="underline underline-offset-2 hover:text-foreground">
-          Turn on the morning briefing
-        </Link>
-      </p>
-    );
-  }
+export function DailyBriefingCard({ card }: { card: BriefingCard | null }) {
+  if (!card) return null;
   return (
     <Card className="border-amber-500/30 bg-amber-500/5">
       <CardContent className="space-y-3 p-4 text-sm">

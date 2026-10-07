@@ -29,6 +29,9 @@ const m = vi.hoisted(() => ({
   createBooking: vi.fn(async (..._a: unknown[]) => ({ externalBookingId: "ext-new", startAt: "", endAt: "" })),
   cancelBooking: vi.fn(async (..._a: unknown[]) => undefined),
   offerFreedSlot: vi.fn(async (..._a: unknown[]) => 0),
+  canMove: false,
+  moveBooking: vi.fn(async (..._a: unknown[]) => undefined),
+  dbSets: [] as Record<string, unknown>[],
 }));
 
 vi.mock("@/db", () => ({
@@ -39,6 +42,9 @@ vi.mock("@/db", () => ({
         findFirst: async () => m.apptById,
       },
     },
+    update: () => ({
+      set: (v: Record<string, unknown>) => ({ where: async () => void m.dbSets.push(v) }),
+    }),
   },
 }));
 vi.mock("@/lib/data/clients", () => ({ getClientByIdUnsafe: async () => m.client }));
@@ -72,6 +78,7 @@ vi.mock("@/lib/booking", () => ({
     getAvailability: async () => m.slots,
     createBooking: (...a: unknown[]) => m.createBooking(...a),
     cancelBooking: (...a: unknown[]) => m.cancelBooking(...a),
+    ...(m.canMove ? { moveBooking: (...a: unknown[]) => m.moveBooking(...a) } : {}),
   }),
   calendarSlotIsFree: async () => m.calendarFree,
 }));
@@ -132,6 +139,9 @@ beforeEach(() => {
   m.slots = [slot("2026-10-07T13:00:00.000Z"), slot("2026-10-08T14:00:00.000Z"), slot("2026-10-09T15:00:00.000Z")];
   m.overlap = false;
   m.calendarFree = true;
+  m.canMove = false;
+  m.dbSets.length = 0;
+  m.moveBooking.mockReset();
   for (const f of [m.reserve, m.cancel, m.insertOffer, m.transition, m.markReplied, m.sendSms, m.createBooking, m.cancelBooking, m.offerFreedSlot]) {
     f.mockClear();
   }
@@ -298,5 +308,75 @@ describe("handleRebookReply", () => {
     await handleRebookReply(owner, offer, "1", NOW);
     expect(m.reserve).toHaveBeenCalled();
     expect(m.sendSms).not.toHaveBeenCalled();
+  });
+});
+
+describe("handleRebookReply × Google/Outlook event move (calendar sync gap 3)", () => {
+  const offer = {
+    id: "o1",
+    clientId: "c1",
+    appointmentId: "a1",
+    customerPhone: "14155550100",
+    slots: [slot("2026-10-07T13:00:00.000Z"), slot("2026-10-08T14:00:00.000Z")],
+    status: "sent",
+    expiresAt: new Date("2026-10-07T15:00:00Z"),
+  } as unknown as RebookOfferRow;
+  const owner = { id: "c1", smartRebookingEnabled: true } as unknown as Client;
+
+  it("moves the old event to the new time (same id) instead of create + delete", async () => {
+    m.canMove = true;
+    m.reserve.mockResolvedValueOnce({
+      id: "new-appt",
+      startAt: new Date("2026-10-08T14:00:00Z"),
+      endAt: new Date("2026-10-08T14:30:00Z"),
+      customerName: "Pat",
+      customerPhone: "+14155550100",
+    });
+    const r = await handleRebookReply(owner, offer, "2", NOW);
+    expect(r).toEqual({ handled: true, result: "rescheduled", alertOwner: false });
+    expect(m.reserve).toHaveBeenCalledWith(
+      "c1",
+      expect.objectContaining({ startAt: new Date("2026-10-08T14:00:00.000Z"), externalBookingId: null }),
+      expect.anything(),
+    );
+    expect(m.moveBooking).toHaveBeenCalledWith("ext-old", {
+      startAt: "2026-10-08T14:00:00.000Z",
+      durationMin: 30,
+      timezone: TZ,
+    });
+    expect(m.createBooking).not.toHaveBeenCalled();
+    // The moved event must NOT be deleted when the old appointment is released.
+    expect(m.cancelBooking).not.toHaveBeenCalled();
+    expect(m.cancel).toHaveBeenCalledWith("c1", "a1");
+    expect(m.dbSets).toEqual([{ externalBookingId: "ext-old", meetingUrl: null }, { externalBookingId: null }]);
+  });
+
+  it("a failed move never blocks the reschedule: new event, old one deleted", async () => {
+    m.canMove = true;
+    m.moveBooking.mockRejectedValueOnce(new Error("Graph event update failed: 503"));
+    m.reserve.mockResolvedValueOnce({ id: "new-appt", startAt: new Date("2026-10-07T13:00:00Z"), endAt: new Date("2026-10-07T13:30:00Z") });
+    const r = await handleRebookReply(owner, offer, "1", NOW);
+    expect(r.result).toBe("rescheduled");
+    expect(m.createBooking).toHaveBeenCalledTimes(1);
+    expect(m.cancelBooking).toHaveBeenCalledTimes(1);
+    expect(m.cancelBooking).toHaveBeenCalledWith("ext-old", expect.any(String));
+    expect(m.cancel).toHaveBeenCalledWith("c1", "a1");
+  });
+
+  it("losing the local race touches neither the event nor the old appointment", async () => {
+    m.canMove = true;
+    m.reserve.mockResolvedValueOnce(null);
+    const r = await handleRebookReply(owner, offer, "1", NOW);
+    expect(r.result).toBe("slot_gone");
+    expect(m.moveBooking).not.toHaveBeenCalled();
+    expect(m.cancelBooking).not.toHaveBeenCalled();
+    expect(m.cancel).not.toHaveBeenCalled();
+  });
+
+  it("'NO' still deletes the event (cancel path)", async () => {
+    m.canMove = true;
+    await handleRebookReply(owner, offer, "no", NOW);
+    expect(m.cancelBooking).toHaveBeenCalledWith("ext-old", expect.any(String));
+    expect(m.moveBooking).not.toHaveBeenCalled();
   });
 });

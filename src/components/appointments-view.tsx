@@ -61,6 +61,13 @@ export interface CalendarAppointment {
   serviceName: string | null;
   depositStatus?: string;
   depositAmountCents?: number | null;
+  /**
+   * Calendar sync status, only when a Google / Outlook calendar is connected:
+   * true = this appointment has an event there, false = it doesn't (added
+   * before the calendar was connected, or the write failed). Undefined = no
+   * own calendar connected, so nothing to show.
+   */
+  onCalendar?: boolean;
 }
 
 type Item = CalendarAppointment & { date: Date; endDate: Date | null };
@@ -273,8 +280,11 @@ export function AppointmentsView({
   clientId,
   reminders,
   timeZone,
+  calendarLabel,
 }: {
   appointments: CalendarAppointment[];
+  /** "Google Calendar" / "Outlook" when one is connected — shows per-appointment sync status. */
+  calendarLabel?: string | null;
   /** Base path for the source-call link, e.g. "/portal/calls" or "/clients/<id>/calls". */
   callBasePath?: string;
   /** When set, enables per-appointment reminder controls (portal). */
@@ -590,6 +600,18 @@ export function AppointmentsView({
                     {selected.customerPhone ? formatPhone(selected.customerPhone) : "—"}
                   </dd>
                 </div>
+                {calendarLabel && selected.onCalendar !== undefined && !isOff(selected) ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">Your calendar</dt>
+                    <dd>
+                      {selected.onCalendar ? (
+                        <Chip tone="emerald">On {calendarLabel}</Chip>
+                      ) : (
+                        <Chip tone="amber">Not on {calendarLabel}</Chip>
+                      )}
+                    </dd>
+                  </div>
+                ) : null}
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-muted-foreground">Status</dt>
                   <dd>

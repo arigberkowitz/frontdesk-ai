@@ -258,6 +258,12 @@ export const clients = pgTable(
          * so nothing that chases a business for payment should chase this one.
          */
         comped?: boolean;
+        /**
+         * When an operator approved this business's free trial (trial-code
+         * flow). Someone vouched for it, so it may get a phone number without
+         * a card — self-serve trials wait for a card or finished setup.
+         */
+        trialApprovedAt?: string;
         /** The pricing card they clicked before signing up. Preselects checkout. */
         intendedPlan?: string;
         /**
@@ -280,7 +286,12 @@ export const clients = pgTable(
          */
         dailyBriefing?: boolean;
         /** When each trial-lifecycle email went out (ISO). Dedupe state, not business data. */
-        trialEmails?: { welcome?: string; d7?: string; d1?: string };
+        trialEmails?: { welcome?: string; d7?: string; d3?: string; d1?: string };
+        /**
+         * Owner asked for the "3 days left" trial reminder email (opt-in, off by
+         * default; the 7-day and 1-day check-ins are separate and unchanged).
+         */
+        trialReminderOptIn?: boolean;
       }>()
       .notNull()
       .default({}),
@@ -304,6 +315,10 @@ export const clients = pgTable(
     calendarId: text("calendar_id"), // cal.com eventTypeId or google calendarId
     calendarSecret: text("calendar_secret"), // encrypted (api key or refresh token)
     calendarConnectedAt: timestamp("calendar_connected_at", { withTimezone: true }),
+    // Extra calendars whose events also block booking (Google calendar ids typed
+    // by the owner, or Graph calendar ids picked from the Outlook list). Null /
+    // empty = only the calendar we book into. Cleared on connect/disconnect.
+    calendarBusyIds: jsonb("calendar_busy_ids").$type<string[]>(),
     // §12 recording/AI disclosure toggle (default-on) + optional custom line.
     recordingDisclosureEnabled: boolean("recording_disclosure_enabled").notNull().default(true),
     recordingDisclosureLine: text("recording_disclosure_line"),

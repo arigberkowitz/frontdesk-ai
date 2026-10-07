@@ -16,8 +16,29 @@ export const metadata: Metadata = { title: "Sign in" };
  * Checked on the server so a signed-in visitor never sees the form at all.
  * "/" is where the app routes a signed-in user to their own home.
  */
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ reason?: string }>;
+}) {
   const { userId } = await auth();
   if (userId) redirect("/");
-  return <SignInPage />;
+  const { reason } = await searchParams;
+  return (
+    <>
+      {/* A setup link that's already done its job lands here (intake page). */}
+      {reason === "setup-link-used" ? (
+        <div
+          role="status"
+          className="relative z-50 border-b border-brand/20 bg-brand-soft px-4 py-2.5 text-center text-sm"
+        >
+          <span className="font-medium">That setup link has already been used.</span>{" "}
+          <span className="text-muted-foreground">
+            Your business has an account now — sign in to keep setting it up.
+          </span>
+        </div>
+      ) : null}
+      <SignInPage />
+    </>
+  );
 }

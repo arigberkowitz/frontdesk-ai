@@ -112,6 +112,15 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
   calendar to find new times; sends only when the owner confirms on the Hours
   page.
 
+- **Calendar sync gaps (busy calendars, manual pushes, reschedules) — MIGRATION REQUIRED:**
+  apply `drizzle/manual/0016_calendar_busy_calendars.sql` (Neon SQL editor, idempotent,
+  adds nullable `clients.calendar_busy_ids`) **before** deploying — every clients query
+  selects the new column. No env vars, no new OAuth scopes. Smoke test on the demo
+  business: (1) Settings → Calendar → add a second calendar (Google: paste its Calendar
+  ID; Outlook: tick it), put a busy event on it, call and ask for that time — refused;
+  (2) Appointments → New appointment → it appears on Google/Outlook; cancel it — gone;
+  (3) text the AI to move a booking — the same event moves (same Meet link).
+
 - **Phone notifications (web push) + "Add to Home Screen"** (Settings → Alerts,
   owner opt-in per device). Run `drizzle/manual/0017_push_subscriptions.sql`
   before deploying. The home-screen install (manifest + icons) works with no
@@ -153,6 +162,10 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
   - Smoke test: connect in portal → Settings → Calendar, put a busy event on the
     calendar, call and ask for that exact time (should be refused), book a free
     time (event appears), cancel it (event disappears).
+  - Scopes stay `calendar.events` + `calendar.freebusy` (Google) and
+    `Calendars.ReadWrite` (Microsoft). Listing Google calendars would need
+    `calendar.calendarlist.readonly` — deliberately not requested while
+    verification is pending (owners type extra calendar IDs instead).
 
 - **AI text replies — MIGRATION REQUIRED:** apply `drizzle/manual/0010_ai_text_replies.sql`
   (Neon SQL editor, idempotent) **before** the deploy (renumber if another branch merged a

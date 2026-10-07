@@ -8,9 +8,10 @@ import { logger } from "./logger";
 import {
   computeFreeSlots,
   deleteEvent,
-  freeBusy,
+  freeBusyMany,
   getAccessToken,
   insertEvent,
+  patchEventTime,
   type AvailabilityBlockLite,
   type BusinessHourLite,
 } from "./google-calendar";
@@ -48,6 +49,15 @@ export interface CreateBookingInput {
   timezone: string;
   /** Video-friendly service: attach a Meet/Teams link when the provider can. */
   virtual?: boolean;
+  /** Who made it — sets the event description. Default "ai". */
+  source?: "ai" | "manual";
+}
+
+/** A new time for an existing calendar event (reschedule). */
+export interface MoveBookingInput {
+  startAt: string; // ISO
+  durationMin: number;
+  timezone: string;
 }
 
 export interface BookingResult {
@@ -71,6 +81,27 @@ export interface BookingProvider {
    * booking path can check a caller-named time against the real calendar.
    */
   busyBetween?(startIso: string, endIso: string): Promise<Array<{ start: string; end: string }>>;
+  /**
+   * Move an existing event to a new time in place (same event id, same
+   * Meet/Teams link). Google and Microsoft only; Cal.com reschedules mint a
+   * new booking uid, so it keeps the create-new + cancel-old path.
+   */
+  moveBooking?(externalBookingId: string, input: MoveBookingInput): Promise<void>;
+}
+
+/** Event text: say who made it, so the owner can tell AI bookings from their own. */
+export function eventDescription(input: Pick<CreateBookingInput, "customerPhone" | "notes" | "source">): string {
+  const lead = input.source === "manual" ? "Added in FrontDesk AI." : "Booked by your AI receptionist.";
+  return `${lead}${input.customerPhone ? ` Phone: ${input.customerPhone}.` : ""}${input.notes ? `\n${input.notes}` : ""}`;
+}
+
+/**
+ * Is this the business's own Google / Outlook calendar (as opposed to Cal.com
+ * or nothing)? Manual portal appointments are pushed only to these: a Cal.com
+ * booking would email a made-up attendee address.
+ */
+export function isOwnCalendarProvider(provider: BookingProvider): boolean {
+  return provider.name === "google-calendar" || provider.name === "microsoft-calendar";
 }
 
 /** Does [startMs, endMs) overlap any busy period? Touching edges don't count. */
@@ -221,6 +252,16 @@ class CalcomBookingProvider implements BookingProvider {
 export interface GoogleCalendarConfig {
   refreshToken: string;
   calendarId: string;
+  /** Extra calendars whose events also count as busy (owner's picks). */
+  busyCalendarIds?: string[];
+  /** For logs when an extra calendar can't be read. */
+  clientId?: string;
+}
+
+/** Log, don't fail, when one of the owner's extra "busy" calendars can't be read. */
+function logSkippedCalendar(provider: string, clientId: string | undefined) {
+  return (calendarId: string, reason: string) =>
+    logger.warn("booking.busy_calendar_skipped", { provider, clientId, calendarId, reason });
 }
 
 /**
@@ -236,14 +277,24 @@ class GoogleCalendarBookingProvider implements BookingProvider {
     return Boolean(this.config.refreshToken && integrations.google());
   }
 
+  private busyIds(): string[] {
+    return [this.config.calendarId, ...(this.config.busyCalendarIds ?? [])];
+  }
+
   async busyBetween(startIso: string, endIso: string) {
     const token = await getAccessToken(this.config.refreshToken);
-    return freeBusy(token, this.config.calendarId, startIso, endIso);
+    return freeBusyMany(token, this.busyIds(), startIso, endIso, logSkippedCalendar(this.name, this.config.clientId));
   }
 
   async getAvailability(query: AvailabilityQuery): Promise<TimeSlot[]> {
     const token = await getAccessToken(this.config.refreshToken);
-    const busy = await freeBusy(token, this.config.calendarId, query.rangeStart, query.rangeEnd);
+    const busy = await freeBusyMany(
+      token,
+      this.busyIds(),
+      query.rangeStart,
+      query.rangeEnd,
+      logSkippedCalendar(this.name, this.config.clientId),
+    );
     return computeFreeSlots({
       busy,
       businessHours: query.businessHours ?? [],
@@ -262,7 +313,7 @@ class GoogleCalendarBookingProvider implements BookingProvider {
     const end = new Date(start.getTime() + input.durationMin * 60_000);
     const { id, meetingUrl } = await insertEvent(token, this.config.calendarId, {
       summary: input.customerName ? `Appointment — ${input.customerName}` : "Appointment",
-      description: `Booked by your AI receptionist.${input.customerPhone ? ` Phone: ${input.customerPhone}.` : ""}${input.notes ? `\n${input.notes}` : ""}`,
+      description: eventDescription(input),
       start: start.toISOString(),
       end: end.toISOString(),
       timeZone: input.timezone,
@@ -276,6 +327,17 @@ class GoogleCalendarBookingProvider implements BookingProvider {
     };
   }
 
+  async moveBooking(externalBookingId: string, input: MoveBookingInput): Promise<void> {
+    const token = await getAccessToken(this.config.refreshToken);
+    const start = new Date(input.startAt);
+    const end = new Date(start.getTime() + input.durationMin * 60_000);
+    await patchEventTime(token, this.config.calendarId, externalBookingId, {
+      start: start.toISOString(),
+      end: end.toISOString(),
+      timeZone: input.timezone,
+    });
+  }
+
   async cancelBooking(externalBookingId: string): Promise<void> {
     const token = await getAccessToken(this.config.refreshToken);
     await deleteEvent(token, this.config.calendarId, externalBookingId);
@@ -284,6 +346,9 @@ class GoogleCalendarBookingProvider implements BookingProvider {
 
 export interface MicrosoftCalendarConfig {
   refreshToken: string;
+  /** Extra calendars (Graph calendar ids) whose events also count as busy. */
+  busyCalendarIds?: string[];
+  clientId?: string;
   /** Persist a rotated refresh token — Microsoft rotates them on use. */
   onTokenRotate?: (newRefreshToken: string) => Promise<void>;
 }
@@ -318,13 +383,25 @@ class MicrosoftBookingProvider implements BookingProvider {
 
   async busyBetween(startIso: string, endIso: string) {
     const { msBusyTimes } = await import("./microsoft-calendar");
-    return msBusyTimes(await this.token(), startIso, endIso);
+    return msBusyTimes(
+      await this.token(),
+      startIso,
+      endIso,
+      this.config.busyCalendarIds ?? [],
+      logSkippedCalendar(this.name, this.config.clientId),
+    );
   }
 
   async getAvailability(query: AvailabilityQuery): Promise<TimeSlot[]> {
     const { msBusyTimes } = await import("./microsoft-calendar");
     const token = await this.token();
-    const busy = await msBusyTimes(token, query.rangeStart, query.rangeEnd);
+    const busy = await msBusyTimes(
+      token,
+      query.rangeStart,
+      query.rangeEnd,
+      this.config.busyCalendarIds ?? [],
+      logSkippedCalendar(this.name, this.config.clientId),
+    );
     const { computeFreeSlots: compute } = await import("./google-calendar");
     return compute({
       busy,
@@ -345,7 +422,7 @@ class MicrosoftBookingProvider implements BookingProvider {
     const end = new Date(start.getTime() + input.durationMin * 60_000);
     const { id, meetingUrl } = await msInsertEvent(token, {
       summary: input.customerName ? `Appointment — ${input.customerName}` : "Appointment",
-      description: `Booked by your AI receptionist.${input.customerPhone ? ` Phone: ${input.customerPhone}.` : ""}${input.notes ? `\n${input.notes}` : ""}`,
+      description: eventDescription(input),
       start: start.toISOString(),
       end: end.toISOString(),
       timeZone: "UTC",
@@ -357,6 +434,19 @@ class MicrosoftBookingProvider implements BookingProvider {
       endAt: end.toISOString(),
       meetingUrl,
     };
+  }
+
+  async moveBooking(externalBookingId: string, input: MoveBookingInput): Promise<void> {
+    const { msUpdateEventTime } = await import("./microsoft-calendar");
+    const token = await this.token();
+    const start = new Date(input.startAt);
+    const end = new Date(start.getTime() + input.durationMin * 60_000);
+    // Same convention as msInsertEvent: UTC instants, UTC zone.
+    await msUpdateEventTime(token, externalBookingId, {
+      start: start.toISOString(),
+      end: end.toISOString(),
+      timeZone: "UTC",
+    });
   }
 
   async cancelBooking(externalBookingId: string): Promise<void> {
@@ -398,6 +488,8 @@ export interface ClientCalendarConnection {
   calendarProvider?: string | null;
   calendarSecret?: string | null;
   calendarId?: string | null;
+  /** Extra calendars the owner marked as "counts as busy" (Google ids / Graph ids). */
+  calendarBusyIds?: string[] | null;
 }
 
 /**
@@ -419,12 +511,16 @@ export function getBookingProviderForClient(client: ClientCalendarConnection): B
     return new GoogleCalendarBookingProvider({
       refreshToken: secret,
       calendarId: client.calendarId ?? "primary",
+      busyCalendarIds: client.calendarBusyIds ?? [],
+      clientId: client.id,
     });
   }
   if (provider === "microsoft" && secret) {
     const clientRowId = client.id;
     return new MicrosoftBookingProvider({
       refreshToken: secret,
+      busyCalendarIds: client.calendarBusyIds ?? [],
+      clientId: client.id,
       onTokenRotate: clientRowId
         ? async (newToken) => {
             await db

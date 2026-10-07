@@ -15,6 +15,7 @@ import { ProvisionCard } from "@/components/portal/provision-card";
 import { TrialCodeCard } from "@/components/portal/trial-code-card";
 import { ChoosePlan } from "@/components/portal/choose-plan";
 import { clientMayActivate, getTrialState } from "@/lib/data/trial";
+import { getNumberGate } from "@/lib/data/number-gate";
 import { TestCallButton } from "@/components/clients/test-call-button";
 import { CallMeNow } from "@/components/portal/call-me-now";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
@@ -31,9 +32,9 @@ export const metadata: Metadata = { title: "Your AI" };
 export default async function PortalGuidelinesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ billing?: string }>;
+  searchParams: Promise<{ billing?: string; plans?: string }>;
 }) {
-  const { billing } = await searchParams;
+  const { billing, plans } = await searchParams;
   const { clientId } = await resolvePortalClient();
   const editAccess = await getPortalEditAccess(clientId);
   const [client, me] = await Promise.all([getClientByIdUnsafe(clientId), getCurrentDbUser()]);
@@ -44,6 +45,9 @@ export default async function PortalGuidelinesPage({
   const canManage = me.role === "operator" || me.role === "client_admin";
   const mayActivate = me.role === "operator" ? true : await clientMayActivate(clientId);
   const trial = await getTrialState(clientId);
+  // No number yet: may this business get one (card / finished setup), or is it reserved?
+  const numberGate =
+    canManage && !client.retellPhoneNumber ? await getNumberGate(clientId, me.role) : null;
   const retellReady = integrations.retell();
   const agentName = client.agentName?.trim() || DEFAULT_AGENT_NAME;
 
@@ -98,7 +102,12 @@ export default async function PortalGuidelinesPage({
           <CardContent className="py-4 text-sm">
             <span className="font-medium">You&apos;re subscribed — thank you.</span>{" "}
             <span className="text-muted-foreground">
-              Your receipt is on its way by email. Activate below and your AI takes its first call.
+              Your receipt is on its way by email.{" "}
+              {client.retellPhoneNumber
+                ? "Your AI keeps answering on the same number."
+                : client.retellAgentId
+                  ? "Your phone number is being assigned now — refresh in a minute, or press Get my phone number below."
+                  : "Activate below and your AI takes its first call."}
             </span>
           </CardContent>
         </Card>
@@ -129,6 +138,7 @@ export default async function PortalGuidelinesPage({
                 retellReady={retellReady}
                 onTrial={client.status === "trial"}
                 ownerPhone={client.escalationNumber}
+                numberGate={numberGate}
               />
             </div>
           ) : null}
@@ -154,7 +164,13 @@ export default async function PortalGuidelinesPage({
               // Mid-trial, pricing is one line that opens on request — not a
               // wall of cards between a new owner and the thing they came to
               // hear. The Overview banner counts the days.
-              <details id="plans" className="group scroll-mt-24 rounded-xl border bg-card">
+              // "Add a card" links arrive with ?plans=open so they land on the
+              // plans themselves, not on a closed summary line.
+              <details
+                id="plans"
+                open={plans === "open"}
+                className="group scroll-mt-24 rounded-xl border bg-card"
+              >
                 <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 text-sm [&::-webkit-details-marker]:hidden">
                   <span className="font-medium">Free trial</span>
                   <span className="text-muted-foreground">
