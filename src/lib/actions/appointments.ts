@@ -19,6 +19,7 @@ import {
   hasOverlappingAppointment,
 } from "@/lib/data/appointments";
 import { getBookingProviderForClient } from "@/lib/booking";
+import { pushAppointmentToCalendar } from "@/lib/calendar-events";
 import { logger } from "@/lib/logger";
 import { isProviderFree, listProviders } from "@/lib/data/providers";
 import { parseInClientTimezone } from "@/lib/hours-util";
@@ -123,10 +124,27 @@ export async function createManualAppointmentAction(
     callId: null,
   });
 
+  // Put it on the owner's Google / Outlook calendar too, so the calendar they
+  // actually look at matches the portal (and a later cancel or reschedule can
+  // find the event). Never blocks: the appointment above is already saved.
+  const pushed = await pushAppointmentToCalendar(client, created, {
+    virtual: Boolean(service?.virtualOk),
+  });
+
   revalidatePath("/portal/appointments");
   revalidatePath("/portal");
   revalidatePath(`/clients/${clientId}`);
-  return { ok: true, message: `${v.appointment[0].toUpperCase()}${v.appointment.slice(1)} added.` };
+  const noun = `${v.appointment[0].toUpperCase()}${v.appointment.slice(1)}`;
+  if (pushed.status === "pushed") {
+    return { ok: true, message: `${noun} added and put on your calendar.` };
+  }
+  if (pushed.status === "failed") {
+    return {
+      ok: true,
+      message: `${noun} added here, but we couldn't add it to your calendar — add it there yourself, or reconnect your calendar in Settings.`,
+    };
+  }
+  return { ok: true, message: `${noun} added.` };
 }
 
 /**

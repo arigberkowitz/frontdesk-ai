@@ -23,6 +23,12 @@ import { env } from "./env";
  * An unset secret fails closed: nothing signs, nothing verifies.
  */
 const TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+/**
+ * Where a setup link sends you once the business's owner has signed in (see
+ * `ownerHasSignedIn`). The expiry above still applies on top of this.
+ */
+export const INTAKE_USED_SIGN_IN = "/sign-in?reason=setup-link-used";
 const SUBKEY_LABEL = "intake-link:v1";
 /** Last moment a legacy (raw-secret) token may still be valid. See above. */
 export const LEGACY_TOKEN_CUTOFF_MS = Date.parse("2026-11-30T00:00:00Z");

@@ -25,6 +25,8 @@ export async function saveSmartRebookingSettingsAction(
   await db.update(clients).set({ smartRebookingEnabled: enabled }).where(eq(clients.id, clientId));
   void audit({ clientId, actor: user.id, action: "settings.smart_rebooking", detail: { enabled } });
   revalidatePath("/portal/settings", "layout");
+  // The Overview's "AI features" switchboard shows this switch too.
+  revalidatePath("/portal");
   revalidatePath("/portal/hours");
   return {
     ok: true,

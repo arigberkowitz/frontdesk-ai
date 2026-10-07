@@ -91,7 +91,7 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
     {
       key: "live",
       label: "Activate your receptionist",
-      href: "/portal/guidelines",
+      href: "/portal/guidelines#activate",
       // An agent without a number cannot answer a phone. Provisioning the
       // number is deliberately allowed to fail without losing the agent, which
       // is right — but this step used to go green on the agent alone, so the
@@ -105,8 +105,9 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
         ? "Live. Your AI picks up changes automatically whenever you save in Services, Hours, Knowledge or Your AI."
         : undefined,
       hint: f.agentId && !aiNumber
-        ? "Your AI is built but hasn't been given a phone number yet. Tell us and we'll sort it — nothing else here works until it has one."
-        : "Go live — this is when your business gets its own AI phone number.",
+        ? // Self-serve numbers wait for a card or finished setup (number-gate.ts).
+          "Your AI is built. Its phone number is reserved until you add a card or finish the other steps here (a browser test call counts) — then press Get my phone number on Your AI."
+        : "Build your AI so you can hear it. Its phone number comes once you add a card or finish setup.",
     },
     // Test BEFORE forwarding: once the business line forwards, real customers
     // are the first to hear the AI. The checklist used to put the test call last.
@@ -120,7 +121,7 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
       done: f.calls > 0,
       hint: aiNumber
         ? `Call your AI at ${aiNumber}. This checks itself off when your first call appears.`
-        : "No number yet? Use “Test call in browser” on the Your AI page. This checks itself off when your first call appears.",
+        : "Use “Test call in browser” on the Your AI page. This checks itself off when your first call appears — and it's one of the steps that unlocks your phone number.",
     },
     {
       key: "forwarding",

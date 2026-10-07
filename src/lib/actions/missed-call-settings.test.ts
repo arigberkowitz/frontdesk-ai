@@ -16,6 +16,7 @@ vi.mock("@/lib/auth-guard", () => ({
 vi.mock("@/lib/data/clients", () => ({ assertClientInOrg: async () => undefined }));
 vi.mock("@/lib/env", () => ({ env: m.env }));
 
+import { revalidatePath } from "next/cache";
 import { saveMissedCallSettingsAction } from "./missed-call-settings";
 
 function form(fields: Record<string, string>): FormData {
@@ -55,5 +56,11 @@ describe("saveMissedCallSettingsAction", () => {
     expect(m.set).toHaveBeenLastCalledWith({ missedCallTextsEnabled: false, missedCallAiCallbacksEnabled: false });
     await saveMissedCallSettingsAction({ ok: false }, form({ enabled: "on", aiCallbacks: "on" }));
     expect(m.set).toHaveBeenLastCalledWith({ missedCallTextsEnabled: true, missedCallAiCallbacksEnabled: true });
+  });
+
+  it("refreshes the Overview switchboard as well as Settings", async () => {
+    await saveMissedCallSettingsAction({ ok: false }, form({ enabled: "on" }));
+    expect(revalidatePath).toHaveBeenCalledWith("/portal");
+    expect(revalidatePath).toHaveBeenCalledWith("/portal/settings", "layout");
   });
 });

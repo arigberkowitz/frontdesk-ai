@@ -48,7 +48,7 @@ export function smsTools(opts: { bookingEnabled: boolean }): SmsTool[] {
         def: {
           name: "book_appointment",
           description:
-            "Book an appointment after the customer clearly said yes to the service and time. It is booked under the number that is texting.",
+            "Book an appointment after the customer clearly said yes to the service and time. It is booked under the number that is texting. To reschedule, pass reschedule_from with the old appointment's start.",
           input_schema: {
             type: "object",
             additionalProperties: false,
@@ -57,6 +57,11 @@ export function smsTools(opts: { bookingEnabled: boolean }): SmsTool[] {
               datetime: { type: "string", description: "ISO 8601 start date-time from check_availability." },
               name: { type: "string", description: "Customer's name if they gave it, else empty." },
               person: { type: "string", description: "Optional staff member they asked for." },
+              reschedule_from: {
+                type: "string",
+                description:
+                  "Only when MOVING an existing appointment: ISO 8601 start of the appointment being moved. Moves it (and its calendar event) in one step — don't cancel it afterwards.",
+              },
             },
             required: ["service", "datetime"],
           },

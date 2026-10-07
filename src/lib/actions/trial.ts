@@ -176,7 +176,13 @@ export async function approveTrialAction(
   // behind a paid plan, so this IS the best version.
   await db
     .update(clients)
-    .set({ status: "trial", trialEndsAt })
+    .set({
+      status: "trial",
+      trialEndsAt,
+      // An operator vouched for this one, so it may get its phone number without
+      // a card (self-serve trials wait for a card or finished setup).
+      setupFlags: { ...(client.setupFlags ?? {}), trialApprovedAt: new Date().toISOString() },
+    })
     .where(eq(clients.id, clientId));
 
   // Let the owner know they're in — best-effort.

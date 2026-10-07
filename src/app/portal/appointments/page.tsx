@@ -41,6 +41,14 @@ export default async function PortalAppointmentsPage({
       vocab={{ customer: v.customer, appointment: v.appointment }}
     />
   );
+  // Per-appointment "is it on your calendar?" — Google / Outlook only (Cal.com
+  // bookings live in Cal.com and sync onward from there).
+  const calendarLabel =
+    client?.calendarProvider === "google"
+      ? "Google Calendar"
+      : client?.calendarProvider === "microsoft"
+        ? "Outlook"
+        : null;
   const items = appointments.map((a) => ({
     id: a.id,
     callId: a.callId,
@@ -52,6 +60,7 @@ export default async function PortalAppointmentsPage({
     serviceName: a.service?.name ?? null,
     depositStatus: a.depositStatus,
     depositAmountCents: a.depositAmountCents,
+    ...(calendarLabel ? { onCalendar: Boolean(a.externalBookingId) } : {}),
   }));
   // Serialize reminder rows to the lightweight shape the client view needs.
   const reminders: Record<string, { channel: string; status: string; at: string }[]> = {};
@@ -92,6 +101,7 @@ export default async function PortalAppointmentsPage({
           clientId={clientId}
           reminders={reminders}
           timeZone={client?.timezone ?? DEFAULT_TIMEZONE}
+          calendarLabel={calendarLabel}
         />
       )}
     </div>

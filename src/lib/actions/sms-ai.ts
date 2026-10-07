@@ -38,6 +38,8 @@ export async function saveAiTextRepliesSettingsAction(
     .where(eq(clients.id, clientId));
   void audit({ clientId, actor: user.id, action: "settings.ai_text_replies", detail: { enabled, pauseHours } });
   revalidatePath("/portal/settings", "layout");
+  // The Overview's "AI features" switchboard shows this switch too.
+  revalidatePath("/portal");
   return {
     ok: true,
     message: enabled

@@ -51,6 +51,7 @@ describe("disconnectCalendarAction", () => {
       calendarId: null,
       calendarAccount: null,
       calendarConnectedAt: null,
+      calendarBusyIds: null,
     });
     expect(applyClientEdit).toHaveBeenCalled();
   });

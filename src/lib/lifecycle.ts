@@ -20,6 +20,8 @@ import { logger } from "@/lib/logger";
  *   welcome   — the moment signup finishes: your number, call it, forward
  *               your line (the actual dial code), where alerts go.
  *   7 days    — what the AI has done so far, and the plans.
+ *   3 days    — OPT-IN only (the owner ticks "Email me 3 days before it
+ *               ends" on their Overview): what it's done, and the upgrade link.
  *   1 day     — tomorrow it ends; three days after that the number goes.
  *
  * Dedupe lives in setupFlags.trialEmails — per-client state, no migration.
@@ -78,9 +80,9 @@ export async function sendWelcomeEmail(clientId: string): Promise<void> {
       ]
     : [
         `Your AI receptionist is built and ready to talk to in your browser — <a href="${appUrl("/portal/guidelines")}">try a test call</a>.`,
-        `Its own phone number is on the way; if it isn't showing on the Your AI page by tomorrow, press <em>Re-sync</em> there or reply to this email and we'll sort it.`,
+        `Its own phone number is reserved for you: it's assigned as soon as you <a href="${appUrl("/portal/guidelines?plans=open#plans")}">add a card</a> or finish the setup checklist on your Overview (a quick test call in your browser is one of the steps).`,
         `Its services, hours and answers are drafted for your industry. <a href="${appUrl("/portal/services")}">Check the prices</a> especially — they're examples until you say otherwise.`,
-        `Your free trial runs ${TRIAL_DAYS} days with everything switched on. No card, nothing to set up.`,
+        `Your free trial runs ${TRIAL_DAYS} days with everything switched on, and you don't need a card to try it.`,
       ];
 
   const text = paragraphs.map((p) => p.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&")).join("\n\n");
@@ -94,7 +96,7 @@ export async function sendWelcomeEmail(clientId: string): Promise<void> {
 async function stamp(
   clientId: string,
   flags: (typeof clients.$inferSelect)["setupFlags"],
-  key: "welcome" | "d7" | "d1",
+  key: "welcome" | "d7" | "d3" | "d1",
 ): Promise<void> {
   await db
     .update(clients)
@@ -114,7 +116,24 @@ export interface TrialReminderResult {
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** Daily. Sends the 7-day and 1-day trial emails to whoever is due one. */
+/**
+ * Which trial email (if any) a business is due today. Windows, not exact days:
+ * a cron that ran late or skipped a night still sends once, never twice.
+ * The 3-day one only for owners who opted in; once it's gone, a late "one week
+ * left" would be wrong, so d7 is skipped after it.
+ */
+export function dueTrialEmail(
+  daysLeft: number,
+  done: { d7?: string; d3?: string; d1?: string },
+  optedIn: boolean,
+): "d7" | "d3" | "d1" | null {
+  if (daysLeft <= 1 && daysLeft >= 0) return done.d1 ? null : "d1";
+  if (optedIn && daysLeft <= 3 && daysLeft >= 2 && !done.d3) return "d3";
+  if (daysLeft <= 7 && daysLeft >= 2 && !done.d7 && !done.d3) return "d7";
+  return null;
+}
+
+/** Daily. Sends the 7-day and 1-day trial emails (and the opt-in 3-day one) to whoever is due one. */
 export async function runTrialReminders(now = new Date()): Promise<TrialReminderResult> {
   if (!integrations.resend()) return { sent: 0, failed: 0 };
   const rows = await db
@@ -144,14 +163,7 @@ export async function runTrialReminders(now = new Date()): Promise<TrialReminder
     if (c.setupFlags?.comped || !c.trialEndsAt || !c.ownerEmail) continue;
     const daysLeft = Math.ceil((c.trialEndsAt.getTime() - now.getTime()) / DAY);
     const done = c.setupFlags?.trialEmails ?? {};
-    // Windows, not exact days: a cron that ran late or skipped a night still
-    // sends once, never twice.
-    const key: "d7" | "d1" | null =
-      daysLeft <= 1 && daysLeft >= 0 && !done.d1
-        ? "d1"
-        : daysLeft <= 7 && daysLeft >= 2 && !done.d7
-          ? "d7"
-          : null;
+    const key = dueTrialEmail(daysLeft, done, Boolean(c.setupFlags?.trialReminderOptIn));
     if (!key) continue;
 
     try {
@@ -171,9 +183,18 @@ export async function runTrialReminders(now = new Date()): Promise<TrialReminder
       const subject =
         key === "d7"
           ? `${c.name}: one week left on your free trial`
-          : `${c.name}: your free trial ends tomorrow`;
+          : key === "d3"
+            ? `${c.name}: 3 days left on your free trial`
+            : `${c.name}: your free trial ends tomorrow`;
       const paragraphs =
-        key === "d7"
+        key === "d3"
+          ? [
+              `Your free trial has 3 days to go.`,
+              did,
+              `<a href="${plansUrl}">Upgrade in a minute</a> and nothing changes — ${esc(plansLine())}. Everything you've set up stays.`,
+              `You asked us for this reminder. Turn it off any time from your Overview.`,
+            ]
+          : key === "d7"
           ? [
               `Your free trial has a week to go.`,
               did,
