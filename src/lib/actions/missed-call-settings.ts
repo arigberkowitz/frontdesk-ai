@@ -47,6 +47,8 @@ export async function saveMissedCallSettingsAction(
     detail: { enabled, aiCallbacks },
   });
   revalidatePath("/portal/settings", "layout");
+  // The Overview's "AI features" switchboard shows this switch too.
+  revalidatePath("/portal");
   return {
     ok: true,
     message: !enabled

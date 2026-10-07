@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { BarChart3, BellRing, Inbox, MessagesSquare, Sparkles, Users } from "lucide-react";
 import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
@@ -29,6 +30,7 @@ import { WeeklyRecap } from "@/components/portal/weekly-recap";
 import { ActivityFeed } from "@/components/portal/activity-feed";
 import { AiLearnings } from "@/components/portal/ai-learnings";
 import { CopilotChat } from "@/components/portal/copilot-chat";
+import { AiFeaturesSection, AiFeaturesSkeleton } from "@/components/portal/ai-features-section";
 import { LiveAlerts } from "@/components/portal/live-alerts";
 import { Milestones } from "@/components/portal/milestones";
 import { formatCurrencyCents, formatDateTime, formatPhone } from "@/lib/format";
@@ -257,11 +259,8 @@ export default async function PortalOverviewPage({
         ) : null}
       </div>
 
-      <DailyBriefingCard
-        card={briefingCard}
-        enabled={client?.setupFlags?.dailyBriefing === true}
-        canEnable={editAccess.isAdmin && m.totalCalls > 0}
-      />
+      {/* Turning the briefing on now lives in the AI features card below. */}
+      <DailyBriefingCard card={briefingCard} />
 
       {/* Setup first while it's unfinished — it's the one thing a new owner
           has to do. It removes itself once done (or hidden), leaving the
@@ -332,6 +331,13 @@ export default async function PortalOverviewPage({
               the ones that went right. */}
           {healthNeedsYou ? callHealth : null}
         </section>
+      ) : null}
+
+      {/* The optional AI jobs, each with its own switch and what it did lately. */}
+      {client ? (
+        <Suspense fallback={<AiFeaturesSkeleton />}>
+          <AiFeaturesSection client={client} isAdmin={editAccess.isAdmin} />
+        </Suspense>
       ) : null}
 
       {m.totalCalls === 0 ? (
