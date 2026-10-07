@@ -87,13 +87,15 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
   const scope = and(eq(calls.clientId, clientId), isNull(calls.deletedAt));
 
   // Bucket the daily chart in the client's own timezone, not the DB session's (UTC).
-  const [clientRow] = await db
+  // These don't depend on each other, so they go out together (postgres-js
+  // pipelines them even on the single pooled connection used in production)
+  // instead of seven round trips one after another on every Overview load.
+  const tzQ = db
     .select({ tz: clients.timezone })
     .from(clients)
     .where(eq(clients.id, clientId));
-  const timeZone = clientRow?.tz ?? "America/Los_Angeles";
 
-  const [agg] = await db
+  const aggQ = db
     .select({
       total: sql<number>`count(*)::int`,
       afterHours: sql<number>`count(*) filter (where ${calls.isAfterHours})::int`,
@@ -110,8 +112,7 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
   // has actually happened (startAt <= now), valued at the ACTUAL booked
   // service's price — a $1,000 service adds $1,000, not an average. Future
   // bookings show in the bookings count but add $0 until they occur.
-  const [{ bookings, completedBookings, earnedRevenue, upcomingBookings, upcomingRevenue }] =
-    await db
+  const apptQ = db
     .select({
       bookings: sql<number>`count(*)::int`,
       completedBookings: sql<number>`count(*) filter (where ${appointments.startAt} <= now())::int`,
@@ -133,7 +134,7 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
       ),
     );
 
-  const [{ leadCount, newLeadCount }] = await db
+  const leadQ = db
     .select({
       leadCount: sql<number>`count(*)::int`,
       newLeadCount: sql<number>`count(*) filter (where ${leads.status} = 'new')::int`,
@@ -141,12 +142,27 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
     .from(leads)
     .where(and(eq(leads.clientId, clientId), isNull(leads.deletedAt)));
 
-  const [{ avgPrice }] = await db
+  const avgQ = db
     .select({ avgPrice: sql<number | null>`avg(${services.priceCents})` })
     .from(services)
     .where(and(eq(services.clientId, clientId), eq(services.isActive, true), isNull(services.deletedAt)));
 
-  const byDayRows = await db
+  const [[clientRow], [agg], [{ bookings, completedBookings, earnedRevenue, upcomingBookings, upcomingRevenue }], [{ leadCount, newLeadCount }], [{ avgPrice }], outcomes] =
+    await Promise.all([
+      tzQ,
+      aggQ,
+      apptQ,
+      leadQ,
+      avgQ,
+      db
+        .select({ outcome: sql<string>`coalesce(${calls.outcome}::text, 'unknown')`, count: sql<number>`count(*)::int` })
+        .from(calls)
+        .where(scope)
+        .groupBy(calls.outcome),
+    ]);
+  const timeZone = clientRow?.tz ?? "America/Los_Angeles";
+
+  const byDayQ = db
     .select({
       date: sql<string>`to_char(date_trunc('day', ${calls.startAt} AT TIME ZONE ${timeZone}), 'YYYY-MM-DD')`,
       calls: sql<number>`count(*)::int`,
@@ -164,7 +180,7 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
   // with the same "it has to have happened" rule as the headline number. The
   // revenue tile's trend line used to be the bookings count wearing a green
   // coat; a line that claims to be money should be money.
-  const revenueByDayRows = await db
+  const revenueByDayQ = db
     .select({
       date: sql<string>`to_char(date_trunc('day', ${appointments.startAt} AT TIME ZONE ${timeZone}), 'YYYY-MM-DD')`,
       cents: sql<number>`coalesce(sum(${services.priceCents}), 0)::int`,
@@ -182,11 +198,7 @@ export async function getClientMetrics(clientId: string): Promise<ClientMetrics>
     )
     .groupBy(sql`1`);
 
-  const outcomes = await db
-    .select({ outcome: sql<string>`coalesce(${calls.outcome}::text, 'unknown')`, count: sql<number>`count(*)::int` })
-    .from(calls)
-    .where(scope)
-    .groupBy(calls.outcome);
+  const [byDayRows, revenueByDayRows] = await Promise.all([byDayQ, revenueByDayQ]);
 
   const total = agg?.total ?? 0;
   const avgServicePriceCents = avgPrice != null ? Math.round(Number(avgPrice)) : null;

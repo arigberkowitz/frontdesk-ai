@@ -121,6 +121,27 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
   (2) Appointments → New appointment → it appears on Google/Outlook; cancel it — gone;
   (3) text the AI to move a booking — the same event moves (same Meet link).
 
+- **Phone notifications (web push) + "Add to Home Screen"** (Settings → Alerts,
+  owner opt-in per device). Run `drizzle/manual/0017_push_subscriptions.sql`
+  before deploying. The home-screen install (manifest + icons) works with no
+  setup; push stays hidden until all three VAPID vars are set:
+  1. On your own machine (never in a shared chat or a commit):
+     `npx web-push generate-vapid-keys` — prints a Public Key and a Private Key.
+  2. Vercel → Project → Settings → Environment Variables (Production, and
+     Preview if you want to test there):
+     - `VAPID_PUBLIC_KEY` = the Public Key
+     - `VAPID_PRIVATE_KEY` = the Private Key (mark it Sensitive)
+     - `VAPID_SUBJECT` = `mailto:support@frontdeskai.company`
+  3. Redeploy. Settings → Alerts now shows "Phone notifications".
+  4. Test: on an iPhone, open the portal in Safari → Share → **Add to Home
+     Screen**, open FrontDesk from the home screen (iOS only allows push for
+     installed apps, iOS 16.4+), Settings → Alerts → Turn on → **Send a test**.
+     Android/desktop Chrome work straight from the browser.
+  Set the pair once: rotating it silently orphans every existing subscription
+  (they fail with 403/410 and are deleted; owners have to turn it on again).
+  Notifications show the customer's name or number but never the message text,
+  so nothing private sits on a lock screen.
+
 - **Calendar sync (Google / Outlook one-click).** No migration. Needs
   `CREDENTIALS_SECRET` (long random string; encrypts tokens). Each option stays
   hidden until its keys are set:

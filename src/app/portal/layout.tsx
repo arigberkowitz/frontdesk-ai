@@ -1,3 +1,4 @@
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Phone } from "lucide-react";
 import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
@@ -14,6 +15,24 @@ import { getTrialProgress } from "@/lib/data/trial-progress";
 import { daysLeftLabel, trialStripSummary, upgradePlan } from "@/lib/trial-progress";
 import { formatCurrencyCents } from "@/lib/format";
 import { TrialStrip } from "@/components/portal/trial-strip";
+
+/**
+ * "Add to Home Screen" for owners: the portal installs as its own app
+ * (public/portal.webmanifest — a static file because browsers fetch manifests
+ * without cookies, and everything under /portal is behind sign-in). Only the
+ * portal links it, so the marketing site and operator dashboard don't offer
+ * an install that would land somewhere else.
+ */
+export const metadata: Metadata = {
+  manifest: "/portal.webmanifest",
+  appleWebApp: { capable: true, title: "FrontDesk", statusBarStyle: "default" },
+  icons: { apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }] },
+};
+
+/** Light browser chrome to match the light-only portal header. */
+export const viewport: Viewport = {
+  themeColor: "#f5f6fb",
+};
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const { clientId, preview } = await resolvePortalClient();

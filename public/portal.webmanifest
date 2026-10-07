@@ -1,0 +1,23 @@
+{
+  "id": "/portal",
+  "name": "FrontDesk AI",
+  "short_name": "FrontDesk",
+  "description": "Your AI receptionist: calls, texts and bookings, on your phone.",
+  "start_url": "/portal?source=home-screen",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f6fb",
+  "theme_color": "#f5f6fb",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Messages", "url": "/portal/messages", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Appointments", "url": "/portal/appointments", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Calls", "url": "/portal/calls", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

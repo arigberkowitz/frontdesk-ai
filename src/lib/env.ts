@@ -94,6 +94,16 @@ export const env = {
   // a robot dialing consumers unprompted needs a deliberate operator decision
   // (and a legal one — see DECISIONS.md "Missed-call text-back").
   MISSED_CALL_AI_CALLBACKS: process.env.MISSED_CALL_AI_CALLBACKS === "on",
+  // Web push (owner phone notifications for new texts and bookings). All three
+  // or nothing: without them the opt-in in Settings → Alerts is hidden and no
+  // push is ever attempted. Generate with `npx web-push generate-vapid-keys`
+  // (see LAUNCH.md). The public key is also handed to the browser, the private
+  // key never leaves the server. Rotating the pair orphans every existing
+  // subscription (they 403 and get cleaned up), so treat it as set-once.
+  VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY ?? "",
+  VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY ?? "",
+  // "mailto:you@yourdomain" or an https URL — push services contact it about abuse.
+  VAPID_SUBJECT: process.env.VAPID_SUBJECT ?? "",
 } as const;
 
 /** Runtime guards — true only when an integration has the keys it needs. */
@@ -107,6 +117,7 @@ export const integrations = {
   calcom: () => Boolean(env.CALCOM_API_KEY),
   google: () => Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
   microsoft: () => Boolean(env.MS_CLIENT_ID && env.MS_CLIENT_SECRET),
+  webPush: () => Boolean(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY && env.VAPID_SUBJECT),
 } as const;
 
 /** Absolute URL for webhook targets (Retell/Stripe call back into us). */

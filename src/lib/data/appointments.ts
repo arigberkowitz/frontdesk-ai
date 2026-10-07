@@ -13,6 +13,24 @@ export async function listAppointments(clientId: string) {
 }
 
 /**
+ * The Overview's view of appointments: time, status and name only, newest
+ * first and capped — not every appointment ever, each with its service row.
+ */
+export async function listAppointmentTimes(clientId: string, limit = 500) {
+  return db
+    .select({
+      id: appointments.id,
+      startAt: appointments.startAt,
+      status: appointments.status,
+      customerName: appointments.customerName,
+    })
+    .from(appointments)
+    .where(and(eq(appointments.clientId, clientId), isNull(appointments.deletedAt)))
+    .orderBy(desc(appointments.startAt))
+    .limit(limit);
+}
+
+/**
  * Double-booking guard, capacity-aware. A new booking for a service conflicts
  * when the SAME service already has as many overlapping active appointments as
  * it has people providing it (services.providerCount, default 1 = solo). With

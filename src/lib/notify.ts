@@ -6,6 +6,8 @@ import { getAlertRecipients } from "./data/alert-contacts";
 import { formatDateTime, formatPhone } from "./format";
 import { env } from "./env";
 import { logger } from "./logger";
+import { pushToClient } from "./push";
+import { bookingPushPayload } from "./push-payloads";
 
 /**
  * Owner alerts on booking / captured message (§E2), logged to `notifications` (§E4).
@@ -47,6 +49,19 @@ async function logNotification(
 }
 
 export async function notifyOwnerBooking(client: Client, appt: Appointment): Promise<void> {
+  // Phone notification to every device the owner opted in. No-op without
+  // VAPID keys or devices; never throws; 4s cap per device.
+  const push = pushToClient(
+    client.id,
+    "booking",
+    bookingPushPayload({
+      appointmentId: appt.id,
+      customerName: appt.customerName,
+      customerPhone: appt.customerPhone,
+      startAt: appt.startAt,
+      timeZone: client.timezone,
+    }),
+  );
   const who = appt.customerName ?? "a caller";
   const when = formatDateTime(appt.startAt, client.timezone);
   const phone = formatPhone(appt.customerPhone);
@@ -78,6 +93,9 @@ export async function notifyOwnerBooking(client: Client, appt: Appointment): Pro
     });
     await logNotification(client.id, "booking", "email", email, { subject, appointmentId: appt.id }, r);
   }
+  // Started first so it overlaps the SMS/email sends (this runs while the
+  // caller is still on the line); awaited so it finishes inside the request.
+  await push;
   if (!smsTargets.length && !emails.length)
     logger.info("notify.booking.no_owner_contact", { clientId: client.id });
 }

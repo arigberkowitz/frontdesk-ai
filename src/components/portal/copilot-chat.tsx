@@ -65,7 +65,7 @@ export function CopilotChat() {
                 key={s}
                 type="button"
                 onClick={() => send(s)}
-                className="rounded-full border px-3 py-1.5 text-xs text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="rounded-full border px-3 py-1.5 text-xs text-muted-foreground outline-none max-sm:py-2.5 max-sm:text-left transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {s}
               </button>
