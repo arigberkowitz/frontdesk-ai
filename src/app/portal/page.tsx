@@ -18,6 +18,7 @@ import { countUnreadMessages } from "@/lib/data/sms-messages";
 import { currentUser } from "@clerk/nextjs/server";
 import { PortalHero } from "@/components/portal/portal-hero";
 import { MetricCard } from "@/components/metric-card";
+import { ValueCardSection, ValueCardSkeleton } from "@/components/portal/value-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { CallActivity } from "@/components/portal/call-activity";
 import { CallHealthPanel } from "@/components/portal/call-health-panel";
@@ -295,6 +296,13 @@ export default async function PortalOverviewPage({
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
         canEdit={editAccess.canEdit}
       />
+
+      {/* What Frontdesk did for them this calendar month, in money first. */}
+      {client ? (
+        <Suspense fallback={<ValueCardSkeleton />}>
+          <ValueCardSection client={client} />
+        </Suspense>
+      ) : null}
 
       {/* The tiles stay even at zero — they're the promise, the picture of
           where the money will show up once the phone rings. */}
