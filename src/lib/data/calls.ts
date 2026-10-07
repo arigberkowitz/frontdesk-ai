@@ -15,6 +15,20 @@ export async function listCalls(clientId: string, limit = 100) {
   });
 }
 
+/**
+ * Just what the Overview needs from recent calls — when, and whether it was
+ * after hours. `listCalls` returns whole rows (transcript, raw Retell
+ * payload…), which made the Overview pull up to 100 transcripts on every load.
+ */
+export async function listRecentCallTimes(clientId: string, limit = 100) {
+  return db
+    .select({ id: calls.id, startAt: calls.startAt, isAfterHours: calls.isAfterHours })
+    .from(calls)
+    .where(and(eq(calls.clientId, clientId), isNull(calls.deletedAt)))
+    .orderBy(desc(calls.startAt), desc(calls.createdAt))
+    .limit(limit);
+}
+
 /** Operator-scoped single call (verifies the call's client belongs to the org). */
 export async function getCall(orgId: string, callId: string) {
   const call = await db.query.calls.findFirst({

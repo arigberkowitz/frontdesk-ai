@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import { Phone } from "lucide-react";
 import type { DayPoint } from "@/lib/data/metrics";
 import type { FollowUpCall } from "@/lib/data/follow-ups";
-import { CallsChart } from "@/components/charts/calls-chart";
-import { OutcomesChart } from "@/components/charts/outcomes-chart";
+// Loaded on view: these sit in the collapsed "Reports & trends" panel.
+import { LazyCallsChart as CallsChart, LazyOutcomesChart as OutcomesChart } from "@/components/charts/lazy-charts";
 import { LeadStatusControl } from "@/components/clients/lead-status-control";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

@@ -44,7 +44,7 @@ function FlagButton({
     else if (state.error) toast.error(state.error);
   }, [state]);
   return (
-    <form action={action} className="shrink-0">
+    <form action={action} className="shrink-0 max-sm:ml-[34px]">
       <input type="hidden" name="clientId" value={clientId} />
       <input type="hidden" name="flag" value={flag} />
       <input type="hidden" name="value" value="true" />
@@ -166,8 +166,10 @@ export function SetupChecklist({
   return (
     <Card>
       <CardContent className="p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <p className="font-heading text-xl font-semibold tracking-tight">
+        {/* Wraps on phones: at 390px the title, the count and "Hide for now"
+            used to squeeze into one line and overlap. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <p className="min-w-0 font-heading text-xl font-semibold tracking-tight">
             {variant === "settings" ? "Setup" : "Get your AI ready"}
           </p>
           {finished ? (
@@ -176,8 +178,8 @@ export function SetupChecklist({
               Complete{status.finishedAt ? ` · ${formatDateTime(new Date(status.finishedAt))}` : ""}
             </span>
           ) : (
-            <span className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground tabular-nums">
+            <span className="-mr-2 flex items-center gap-2">
+              <span className="whitespace-nowrap text-sm text-muted-foreground tabular-nums">
                 {status.doneCount} of {status.total} done
               </span>
               {canEdit && variant === "overview" ? (
@@ -242,16 +244,16 @@ export function SetupChecklist({
                   </span>
                   <Link
                     href={step.href}
-                    className="text-xs text-muted-foreground/70 transition-colors hover:text-foreground"
+                    className="-my-2 py-2 pl-2 text-xs text-muted-foreground/70 transition-colors hover:text-foreground"
                   >
                     Change
                   </Link>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 py-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
                   <Link
                     href={step.href}
-                    className="group flex min-w-0 flex-1 items-center gap-3 transition-colors hover:text-foreground"
+                    className="group flex min-w-0 flex-1 basis-56 items-center gap-3 transition-colors hover:text-foreground"
                   >
                     <span className="size-[22px] shrink-0 rounded-full border-[1.5px] border-muted-foreground/40" />
                     <span className="min-w-0 flex-1">

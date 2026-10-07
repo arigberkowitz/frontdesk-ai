@@ -7,8 +7,8 @@ import { getClientSetupStatus } from "@/lib/data/setup";
 import { getClientActivity } from "@/lib/data/activity";
 import { listOpenSuggestions } from "@/lib/data/suggestions";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
-import { listAppointments } from "@/lib/data/appointments";
-import { getCallHealth, listCalls } from "@/lib/data/calls";
+import { listAppointmentTimes } from "@/lib/data/appointments";
+import { getCallHealth, listRecentCallTimes } from "@/lib/data/calls";
 import { getFollowUpsForClient } from "@/lib/data/follow-ups";
 import { failedTextsSince } from "@/lib/data/reminders";
 import { getTrialState } from "@/lib/data/trial";
@@ -52,8 +52,8 @@ export default async function PortalOverviewPage({
     await Promise.all([
       getClientByIdUnsafe(clientId),
       getClientMetrics(clientId),
-      listAppointments(clientId),
-      listCalls(clientId),
+      listAppointmentTimes(clientId),
+      listRecentCallTimes(clientId),
       getFollowUpsForClient(clientId),
       getClientRoi(clientId),
       getClientSetupStatus(clientId),

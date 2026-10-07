@@ -1587,3 +1587,25 @@ html:not(.dark):has([data-fd-app]) nav[aria-label="Operator"] .fd-nav-link[aria-
   .fd-inbox-row { transition: none; }
   .fd-inbox-row:hover { transform: none; }
 }
+
+/* ----------------------------------------------------------------------------
+ * Portal on phones: comfortable tap targets.
+ * The 390px audit found most secondary buttons at 28px tall (size "sm") and
+ * the footer links at 16px — fiddly with a thumb. On narrow screens only, the
+ * small buttons grow to 36px and text links in the footer get padding.
+ * `html:has(...)` so dialogs and sheets portalled into <body> get it too.
+ * ------------------------------------------------------------------------- */
+@media (max-width: 639px) {
+  /* Button components and links styled as buttons (buttonVariants on <a>). */
+  html:has([data-fd-app="portal"]) :is(a, button, [data-slot="button"]):is(.h-7, .h-6) {
+    min-height: 2.25rem;
+  }
+  html:has([data-fd-app="portal"]) [data-slot="button"].size-8 {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+  [data-fd-app="portal"] > footer a {
+    display: inline-block;
+    padding: 0.625rem 0.25rem;
+  }
+}

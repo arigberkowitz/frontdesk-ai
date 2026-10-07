@@ -1034,6 +1034,45 @@ export const rebookOffers = pgTable(
   ],
 );
 
+/**
+ * Web push subscriptions: one row per browser/device an owner turned phone
+ * notifications on from (Settings → Alerts). The endpoint is the push
+ * service's URL for that device and is globally unique; p256dh/auth are the
+ * keys the payload is encrypted to. Rows are deleted when the push service
+ * says the subscription is gone (404/410) or the owner turns it off.
+ * (drizzle/manual/0017_push_subscriptions.sql)
+ */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    /** Shown in Settings so an owner can tell "iPhone" from "work laptop". */
+    userAgent: text("user_agent"),
+    notifyTexts: boolean("notify_texts").notNull().default(true),
+    notifyBookings: boolean("notify_bookings").notNull().default(true),
+    lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+    /** Consecutive non-fatal send failures; reset on success. */
+    failureCount: integer("failure_count").notNull().default(0),
+    lastError: text("last_error"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("push_subscriptions_endpoint_idx").on(t.endpoint),
+    index("push_subscriptions_client_idx").on(t.clientId),
+    index("push_subscriptions_user_idx").on(t.userId),
+  ],
+);
+
+
 /** Outbound notification log (`recipient` instead of reserved word `to`). */
 export const notifications = pgTable(
   "notifications",
@@ -1433,6 +1472,7 @@ export type SmsMessageRow = typeof smsMessages.$inferSelect;
 export type SmsThreadRow = typeof smsThreads.$inferSelect;
 export type CallCallbackRow = typeof callCallbacks.$inferSelect;
 export type RebookOfferRow = typeof rebookOffers.$inferSelect;
+export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
 export type NewSmsMessageRow = typeof smsMessages.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;

@@ -13,6 +13,8 @@ import { audit } from "@/lib/data/audit";
 import { notifyOwnerTextReply } from "@/lib/reply-alerts";
 import { env, integrations, webhookUrl } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { pushConfigured, pushToClient } from "@/lib/push";
+import { textPushPayload } from "@/lib/push-payloads";
 
 export const runtime = "nodejs";
 // AI text replies run after the response (next/server `after`) and may make a
@@ -400,6 +402,14 @@ export async function POST(req: Request): Promise<Response> {
     if (inbound.isNew) {
       const ai = owner ? await aiTakesThis(owner, from) : false;
       await forwardReplyToOwner(owner, params, from, body, { alertOwner: !ai });
+      // Phone notification for owners who opted in on a device (Settings →
+      // Alerts). After the response, so Twilio never waits on a push service;
+      // pushToClient never throws. Says who texted, never what.
+      if (owner && pushConfigured()) {
+        after(async () => {
+          await pushToClient(owner.id, "text", textPushPayload({ customerPhone: from, aiReplying: ai }));
+        });
+      }
       if (ai && owner) {
         after(async () => {
           const { runAiTextReply } = await import("@/lib/agents/text-reply");
