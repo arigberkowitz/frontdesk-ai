@@ -749,7 +749,7 @@ everything else). This change closes the gaps rather than adding a parallel syst
   `drizzle/manual/0013_smart_rebooking.sql`; renumber at merge if needed).
   Messages are logged to `sms_messages` as `rebook_offer` / `rebook_reply`.
 
-## Signup safety: numbers wait for a card or finished setup; setup links lock after sign-in
+## 2026-10-07 — Signup safety: numbers wait for a card or finished setup; setup links lock after sign-in
 
 - **The number waits, the agent doesn't.** `finishSignup` still builds the Retell
   LLM + agent (free until called; it's what the browser test call uses) but no
