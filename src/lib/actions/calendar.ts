@@ -7,6 +7,13 @@ import { applyClientEdit } from "@/lib/agent-publish";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { revokeGoogleToken } from "@/lib/google-calendar";
 import { logger } from "@/lib/logger";
+import {
+  MAX_BUSY_CALENDARS,
+  checkGoogleCalendarIds,
+  filterMicrosoftIds,
+  loadOwnerCalendars,
+  normalizeBusyIds,
+} from "@/lib/busy-calendars";
 import { type ActionState } from "./types";
 
 /**
@@ -65,6 +72,7 @@ export async function connectCalcomAction(
     calendarId: String(eventTypeId),
     calendarAccount: "Cal.com",
     calendarConnectedAt: new Date(),
+    calendarBusyIds: null,
   });
   // Booking just became possible — republish so the agent starts offering it.
   await applyClientEdit(user, clientId);
@@ -99,6 +107,7 @@ export async function disconnectCalendarAction(formData: FormData): Promise<void
     calendarId: null,
     calendarAccount: null,
     calendarConnectedAt: null,
+    calendarBusyIds: null,
   });
   await applyClientEdit(user, clientId);
   revalidatePath("/portal", "layout");
@@ -110,4 +119,61 @@ function readSecret(payload: string): string | null {
   } catch {
     return null; // unreadable (rotated key): nothing to revoke with
   }
+}
+
+/**
+ * Save which extra calendars count as busy. Google: typed calendar IDs, each
+ * checked with freeBusy (listing Google calendars would need a new OAuth
+ * scope). Microsoft: ticked calendars, each verified against the mailbox's
+ * own list. Changing this doesn't touch the agent's prompt, so no republish.
+ */
+export async function saveBusyCalendarsAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  const client = await assertClientInOrg(guard.user.orgId, clientId);
+
+  const raw = formData.getAll("calendarId");
+  const added = String(formData.get("addCalendarId") ?? "").trim();
+  if (added) raw.push(added);
+  if (normalizeBusyIds(raw, client.calendarId, Infinity).length > MAX_BUSY_CALENDARS) {
+    return { ok: false, error: `You can add up to ${MAX_BUSY_CALENDARS} extra calendars.` };
+  }
+  let ids = normalizeBusyIds(raw, client.calendarId);
+
+  if (client.calendarProvider === "google") {
+    const checked = await checkGoogleCalendarIds(client, ids);
+    if (!checked.ok) {
+      if ("error" in checked) return { ok: false, error: checked.error };
+      const names = checked.bad.map((b) => `"${b.id}"`).join(", ");
+      return {
+        ok: false,
+        fieldErrors: {
+          addCalendarId: [
+            `Google can't see ${names}. Check the Calendar ID, or share that calendar with ${client.calendarAccount ?? "your connected account"} (at least "See only free/busy").`,
+          ],
+        },
+      };
+    }
+  } else if (client.calendarProvider === "microsoft") {
+    const list = await loadOwnerCalendars(client);
+    if (list.kind !== "microsoft") {
+      return { ok: false, error: list.kind === "error" ? list.message : "Couldn't load your calendars." };
+    }
+    ids = filterMicrosoftIds(ids, list.calendars);
+  } else {
+    return { ok: false, error: "Connect Google Calendar or Outlook first." };
+  }
+
+  await updateClient(guard.user.orgId, clientId, { calendarBusyIds: ids.length ? ids : null });
+  revalidatePath("/portal/settings/calendar");
+  return {
+    ok: true,
+    message: ids.length
+      ? `Saved. Your AI now treats ${ids.length === 1 ? "1 more calendar" : `${ids.length} more calendars`} as busy.`
+      : "Saved. Only your main calendar counts as busy.",
+  };
 }

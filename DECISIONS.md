@@ -362,6 +362,63 @@ everything else). This change closes the gaps rather than adding a parallel syst
   appointments added by hand in the portal aren't pushed to the calendar; no
   reschedule sync (cancel + rebook works); Google "unverified app" review is still
   needed for production.
+  → The first three are closed on 2026-10-07 (next section); Google verification is still open.
+
+## 2026-10-07 — Calendar sync gaps closed (busy calendars, manual pushes, reschedules)
+
+Closes the three open items above. **No new OAuth scopes** (Google verification is
+pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
+`Calendars.ReadWrite`.
+
+- **Which calendars count as busy.** New nullable `clients.calendar_busy_ids` (jsonb
+  string array; migration `drizzle/manual/0016_calendar_busy_calendars.sql`, numbered
+  0016 so it can't collide with the 0014/0015 other in-flight PRs may take). Null =
+  only the booking calendar, exactly the old behaviour. Cleared on every connect /
+  disconnect (a reconnect may be a different account).
+  - **Outlook:** Settings → Calendar lists the mailbox's calendars (`GET /me/calendars`
+    — allowed under `Calendars.ReadWrite`; least-privileged is ReadBasic) as
+    checkboxes; the default calendar is always on. Busy = default `calendarView` plus
+    each picked calendar's `/me/calendars/{id}/calendarView`. Saved ids are checked
+    against the mailbox's own list.
+  - **Google: no calendar list — blocked by scope.** `calendarList.list` needs
+    `calendar.calendarlist.readonly` (or `calendar.readonly` / `calendar`), which would
+    reopen verification, so it was **not** added. Instead the owner types a calendar's
+    ID (Google Calendar → Settings → the calendar → "Calendar ID"); we check it with a
+    `freeBusy` call (only `calendar.freebusy`) and refuse ids Google can't see. Busy =
+    one `freeBusy` call with the booking calendar plus every picked id. Revisit
+    (a real picker) after verification is approved, if Ari wants to add the scope then.
+  - An extra calendar that errors (unshared, deleted) is **skipped with a warning**;
+    only the booking calendar failing still counts as "can't read the calendar".
+  - Cap: 10 extra calendars.
+- **Hand-entered portal appointments are pushed** to Google / Outlook on create
+  (`pushAppointmentToCalendar` in `src/lib/calendar-events.ts`), event text "Added in
+  FrontDesk AI.", event id stored so cancel/reschedule find it. Cal.com is skipped on
+  purpose (it would email a made-up attendee). A failed push never blocks: the
+  appointment is saved and the owner is told to add it to their calendar themselves.
+  No busy check — a hand booking is the owner's call (there's already a "book anyway").
+- **Reschedules move the event in place** (`BookingProvider.moveBooking`: Google
+  `events.patch`, Graph `PATCH /me/events/{id}`) so the event keeps its id, Meet/Teams
+  link and anything the owner added. Order: every check → busy check → reserve the new
+  time locally → move the event. If the move fails we make a new event and delete the
+  old one; if that fails too, it's logged and the booking stands. The old row's event id
+  is cleared after a move so cancelling it can never delete the moved event.
+  - **Smart rebooking (#23):** "1/2/3" replies use the move when the old appointment has
+    a Google/Outlook event; otherwise the old create-then-reserve path is unchanged.
+  - **AI text replies (#19):** new optional `reschedule_from` on the SMS
+    `book_appointment` tool; rule 5 now says to use it and NOT call
+    `cancel_appointment` afterwards. Honoured only on channel `sms` (Twilio-verified
+    sender, same caller-ID rule as cancel); voice/web chat get a "book, then cancel"
+    answer. The voice agent's Retell tool schema is unchanged (it still books + cancels).
+  - Cal.com has no in-place move (its reschedule mints a new uid), so it keeps
+    create-new + cancel-old.
+  - Known limit (unchanged from before): moving an appointment to a time that overlaps
+    its own old slot is refused by the local clash check, because the old appointment
+    is still active at that moment.
+- **Cancels delete the event on every path**, checked with tests: portal cancel, voice
+  and SMS cancel tool, smart-rebooking "NO", and the booking-race rollback. A pushed
+  manual appointment now has an event id, so its cancel deletes it too.
+- **Sync status in the portal:** the appointment detail shows "On Google Calendar" /
+  "Not on Google Calendar" (or Outlook) when a Google/Outlook calendar is connected.
 
 ## 2026-09-30 — Reply alerts (customer texted → email the business)
 
@@ -748,3 +805,43 @@ everything else). This change closes the gaps rather than adding a parallel syst
 - **Storage.** `rebook_offers` (manual migration
   `drizzle/manual/0013_smart_rebooking.sql`; renumber at merge if needed).
   Messages are logged to `sms_messages` as `rebook_offer` / `rebook_reply`.
+
+## 2026-10-07 — Signup safety: numbers wait for a card or finished setup; setup links lock after sign-in
+
+- **The number waits, the agent doesn't.** `finishSignup` still builds the Retell
+  LLM + agent (free until called; it's what the browser test call uses) but no
+  longer buys a phone number for a self-serve trial. The rule lives in one pure
+  function, `numberGate` (`src/lib/number-gate.ts`), checked inside
+  `runProvision`, so every path (signup, Activate, Re-sync, webhook) obeys it.
+- **What unlocks a number:** an operator doing it (operator dashboard, or an
+  operator's own /welcome business); a Stripe subscription that is `active` or
+  `trialing` (card on file); comped; status `live`; an operator-approved trial
+  (`setup_flags.trialApprovedAt`, stamped by `approveTrialAction`); or guided
+  setup finished: every checklist step except `live` and `forwarding` (which
+  need the number) done, **including a test call** (a browser test call counts).
+  The test call is what makes "finish setup" cost a throwaway signup real effort.
+- **Card path is automatic, setup path is a button.** The Stripe webhook schedules
+  `provisionNumberAfterPayment` in `after()` for `active`/`trialing`; it only acts
+  on a business that already built an agent and has no number, and the existing
+  first-provision lock stops replays buying twice. Once setup unlocks a number,
+  Your AI shows "Get my phone number" (the same portal action).
+- **Reserved state** on Your AI ("Your number is reserved once you add a card or
+  finish setup", with both paths and the open steps), on Settings → Phone & AI,
+  in the checklist hints, and in the welcome email. "Add a card" links to
+  `/portal/guidelines?plans=open#plans`, which opens the mid-trial plans panel.
+- **Intake links lock once the owner has signed in.** "Signed in" = a non-deleted
+  `client_admin`/`client_viewer` user row for the client (created at first
+  sign-in), so no migration. The page redirects to
+  `/sign-in?reason=setup-link-used` (which shows a one-line notice) and the submit
+  action does the same; the 30-day expiry is unchanged. The operator's intake
+  card says when a link is locked.
+- No migration, no new env vars.
+
+## 2026-10-07 — Trial-to-paid nudges: countdown, real trial summary, one-click upgrade
+
+- **Countdown everywhere, detail on Overview.** The Overview trial banner now shows days left, the end date in the business's timezone, a progress bar, and three tiles (calls handled, appointments booked, after-hours calls) computed from real data since the trial started (`getTrialProgress`). Every other portal page gets a slim strip (headline + one-line summary + Upgrade); it hides itself on `/portal` so the banner isn't duplicated.
+- **Honest numbers.** Calls exclude spam. "Booked" counts only appointments linked to a call (`callId` not null) and not cancelled/no-show, so manual entries by the owner never inflate what "your AI" did. Trial start = `trialEndsAt − TRIAL_DAYS`, never before the client's `createdAt`.
+- **Upgrade uses the existing checkout.** The button posts to `startSelfServeCheckoutAction` (owner-only, monthly) for the plan picked at signup, else Starter; the Stripe webhook still owns the subscription row. Viewers, operator previews, and setups without Stripe see a "Choose a plan" link instead.
+- **Reminder email is opt-in.** A new d3 email ("You asked us for this reminder…") only sends if the owner ticks "Email me 3 days before it ends" (`setup_flags.trialReminderOptIn`, default off). It rides the existing `runTrialReminders` in the daily retention cron — no new cron, `vercel.json` untouched. The existing automatic d7/d1 emails are unchanged; if d3 went out, d7 is skipped so owners never get two in a row. Tests mock the notifier — no sends.
+- **postgres-js gotcha.** Raw `Date` values inside `sql\`\`` fragments throw on postgres-js (PGlite accepts them); pass `toISOString()` with `::timestamptz`.
+- No migration; no new env vars.
