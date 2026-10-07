@@ -315,6 +315,10 @@ export const clients = pgTable(
     calendarId: text("calendar_id"), // cal.com eventTypeId or google calendarId
     calendarSecret: text("calendar_secret"), // encrypted (api key or refresh token)
     calendarConnectedAt: timestamp("calendar_connected_at", { withTimezone: true }),
+    // Extra calendars whose events also block booking (Google calendar ids typed
+    // by the owner, or Graph calendar ids picked from the Outlook list). Null /
+    // empty = only the calendar we book into. Cleared on connect/disconnect.
+    calendarBusyIds: jsonb("calendar_busy_ids").$type<string[]>(),
     // §12 recording/AI disclosure toggle (default-on) + optional custom line.
     recordingDisclosureEnabled: boolean("recording_disclosure_enabled").notNull().default(true),
     recordingDisclosureLine: text("recording_disclosure_line"),

@@ -53,7 +53,7 @@ describe("Google calendar OAuth callback", () => {
     expect(updateClient).toHaveBeenCalledWith(
       "org1",
       "c1",
-      expect.objectContaining({ calendarProvider: "google", calendarSecret: "enc(refresh-1)", calendarAccount: "owner@biz.test" }),
+      expect.objectContaining({ calendarProvider: "google", calendarSecret: "enc(refresh-1)", calendarAccount: "owner@biz.test", calendarBusyIds: null }),
     );
     expect(applyClientEdit).toHaveBeenCalledWith(USER, "c1");
   });

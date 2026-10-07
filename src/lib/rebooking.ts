@@ -18,6 +18,7 @@ import {
   transitionOffer,
 } from "@/lib/data/rebook-offers";
 import { calendarSlotIsFree, getBookingProviderForClient, type BookingProvider } from "@/lib/booking";
+import { moveAppointmentEvent } from "@/lib/calendar-events";
 import { businessWideBlocks, checkSlot, type AvailabilityBlockLite } from "@/lib/booking-window";
 import { withinTextingHours } from "@/lib/appointment-messages";
 import { offerFreedSlot } from "@/lib/agents/waitlist-backfill";
@@ -338,8 +339,15 @@ async function replyToCustomer(client: Client, to: string, body: string, appoint
   await notifier.sendSms({ to, body, log: { clientId: client.id, kind: REBOOK_REPLY_KIND, appointmentId } });
 }
 
-async function releaseOld(client: FullClient, appt: Appointment, reason: string): Promise<Appointment | null> {
-  if (appt.externalBookingId) {
+async function releaseOld(
+  client: FullClient,
+  appt: Appointment,
+  reason: string,
+  opts: { calendarHandled?: boolean } = {},
+): Promise<Appointment | null> {
+  // calendarHandled: the reschedule already moved (or deleted) this
+  // appointment's event — deleting by its id now would delete the MOVED event.
+  if (appt.externalBookingId && !opts.calendarHandled) {
     try {
       const provider = getBookingProviderForClient(client);
       if (provider.isConfigured()) await provider.cancelBooking(appt.externalBookingId, reason);
@@ -431,7 +439,9 @@ export async function handleRebookReply(
     return { handled: true, result: "slot_gone", alertOwner: true };
   }
 
-  await releaseOld(client, appt, "Rescheduled by customer via text (FrontDesk AI)");
+  await releaseOld(client, appt, "Rescheduled by customer via text (FrontDesk AI)", {
+    calendarHandled: booked.calendarHandled,
+  });
   await transitionOffer(offer.id, "processing", { status: "rescheduled", newAppointmentId: booked.id });
   await replyToCustomer(
     client,
@@ -447,6 +457,12 @@ export async function handleRebookReply(
  * Book the new time with the same sequence as /api/agent-tools/book: every
  * check that can say no, then the real calendar, then the atomic local
  * reserve — and take the calendar event back off if the reserve loses.
+ *
+ * When the old appointment already has a Google / Outlook event, the event is
+ * MOVED instead (same event id, Meet/Teams link and owner notes): reserve the
+ * new time locally first, then move the event. A calendar failure there is
+ * logged and the booking stands. `calendarHandled` tells the caller the old
+ * event has already been moved or deleted.
  */
 async function bookReplacement(
   client: FullClient,
@@ -454,10 +470,65 @@ async function bookReplacement(
   service: Service | null,
   startAt: Date,
   endAt: Date,
-): Promise<Appointment | null> {
+): Promise<(Appointment & { calendarHandled: boolean }) | null> {
   const blocks = await listActiveBlocks(client.id);
   const ok = await slotIsBookable(client, service, blocks, startAt, endAt);
   if (!ok.ok) return null;
+
+  let mover: BookingProvider | null = null;
+  try {
+    const p = getBookingProviderForClient(client);
+    if (p.isConfigured() && p.moveBooking && old.externalBookingId) mover = p;
+  } catch {
+    mover = null;
+  }
+  if (mover) {
+    try {
+      if (!(await calendarSlotIsFree(mover, startAt, endAt))) return null;
+    } catch (err) {
+      logger.error("rebook.provider_busy_check_failed", {
+        clientId: client.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+    let reserved: Appointment | null = null;
+    try {
+      reserved = await reserveAppointment(
+        client.id,
+        {
+          callId: old.callId,
+          customerName: old.customerName,
+          customerPhone: old.customerPhone,
+          serviceId: old.serviceId,
+          providerId: ok.providerId ?? (client.staffModeEnabled ? null : old.providerId),
+          startAt,
+          endAt,
+          status: "booked",
+          externalBookingId: null,
+          meetingUrl: null,
+        },
+        service,
+      );
+    } catch (err) {
+      logger.error("rebook.local_insert_failed", {
+        clientId: client.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+    if (!reserved) return null;
+    const moved = await moveAppointmentEvent(client, old, reserved, {
+      virtual: Boolean(service?.virtualOk),
+      provider: mover,
+    });
+    return {
+      ...reserved,
+      externalBookingId: moved.externalBookingId,
+      meetingUrl: moved.meetingUrl,
+      calendarHandled: true,
+    };
+  }
 
   let externalBookingId: string | null = null;
   let meetingUrl: string | null = null;
@@ -516,7 +587,7 @@ async function bookReplacement(
       service,
     );
     if (!appt) await release();
-    return appt;
+    return appt ? { ...appt, calendarHandled: false } : null;
   } catch (err) {
     logger.error("rebook.local_insert_failed", {
       clientId: client.id,

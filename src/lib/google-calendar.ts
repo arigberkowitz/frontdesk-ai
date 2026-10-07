@@ -25,13 +25,19 @@ export const GOOGLE_REDIRECT_URI = `${env.APP_URL.replace(/\/$/, "")}/api/calend
  * read at the exact moment someone is deciding whether to trust a stranger's
  * software with their day, and it was never true of what we do.
  *
- * The three calls this app actually makes are freeBusy.query, events.insert,
- * and events.delete. Those need:
+ * The calls this app actually makes are freeBusy.query, events.insert,
+ * events.patch (reschedules) and events.delete. Those need:
  *   calendar.freebusy — "View your availability in your calendar"
  *   calendar.events   — "View and edit events on your calendars"
  *
  * Existing connections keep working: a token granted the broader scope still
  * satisfies these. Only new consents get the narrower ask.
+ *
+ * Deliberately NOT here: calendarList.list. Listing the owner's calendars
+ * needs calendar.calendarlist.readonly (or broader), which would reopen
+ * Google's verification review. The "also count these calendars as busy"
+ * picker therefore takes calendar IDs typed by the owner and checks them
+ * with freeBusy, which needs nothing beyond calendar.freebusy.
  */
 const SCOPES = [
   "openid",
@@ -141,16 +147,75 @@ export async function freeBusy(
   timeMin: string,
   timeMax: string,
 ): Promise<Array<{ start: string; end: string }>> {
+  return freeBusyMany(accessToken, [calendarId], timeMin, timeMax);
+}
+
+/** Per-calendar outcome of a freeBusy query: busy periods, or Google's error reason. */
+export type FreeBusyByCalendar = Record<
+  string,
+  { busy: Array<{ start: string; end: string }>; error: string | null }
+>;
+
+/**
+ * One freeBusy call for several calendars. Google answers per calendar, and a
+ * calendar the account can't see comes back with `errors` (e.g. "notFound")
+ * instead of failing the whole request. Uses only the calendar.freebusy scope.
+ */
+export async function freeBusyRaw(
+  accessToken: string,
+  calendarIds: string[],
+  timeMin: string,
+  timeMax: string,
+): Promise<FreeBusyByCalendar> {
+  const ids = [...new Set(calendarIds.filter(Boolean))];
   const res = await fetch("https://www.googleapis.com/calendar/v3/freeBusy", {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ timeMin, timeMax, items: [{ id: calendarId }] }),
+    body: JSON.stringify({ timeMin, timeMax, items: ids.map((id) => ({ id })) }),
   });
   if (!res.ok) throw new Error(`Google freeBusy failed: ${res.status}`);
   const data = (await res.json()) as {
-    calendars: Record<string, { busy?: Array<{ start: string; end: string }> }>;
+    calendars?: Record<
+      string,
+      { busy?: Array<{ start: string; end: string }>; errors?: Array<{ reason?: string }> }
+    >;
   };
-  return data.calendars[calendarId]?.busy ?? [];
+  const out: FreeBusyByCalendar = {};
+  for (const id of ids) {
+    const entry = data.calendars?.[id];
+    const error = entry?.errors?.length ? (entry.errors[0]?.reason ?? "error") : entry ? null : "missing";
+    out[id] = { busy: entry?.busy ?? [], error };
+  }
+  return out;
+}
+
+/**
+ * Busy periods across the booking calendar plus any extra calendars the owner
+ * marked as "counts as busy". The FIRST id is the calendar we book into: if
+ * Google can't read it, that's a real failure and we throw (the booking path
+ * already treats an unreadable calendar as "not available"). An extra
+ * calendar that errors (unshared, deleted) is skipped with a warning — a
+ * stale side calendar must never stop the business taking bookings.
+ */
+export async function freeBusyMany(
+  accessToken: string,
+  calendarIds: string[],
+  timeMin: string,
+  timeMax: string,
+  onSkipped?: (calendarId: string, reason: string) => void,
+): Promise<Array<{ start: string; end: string }>> {
+  const [main] = calendarIds;
+  const byCal = await freeBusyRaw(accessToken, calendarIds, timeMin, timeMax);
+  const busy: Array<{ start: string; end: string }> = [];
+  for (const [id, r] of Object.entries(byCal)) {
+    if (r.error) {
+      if (id === main) throw new Error(`Google freeBusy failed for the booking calendar: ${r.error}`);
+      onSkipped?.(id, r.error);
+      continue;
+    }
+    busy.push(...r.busy);
+  }
+  return busy;
 }
 
 export async function insertEvent(
@@ -193,6 +258,30 @@ export async function insertEvent(
   if (!res.ok) throw new Error(`Google event insert failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { id: string; hangoutLink?: string };
   return { id: data.id, meetingUrl: data.hangoutLink ?? null };
+}
+
+/**
+ * Move an existing event to a new time (events.patch). Keeps the event id,
+ * its Meet link, and anything the owner added to it. calendar.events scope.
+ */
+export async function patchEventTime(
+  accessToken: string,
+  calendarId: string,
+  eventId: string,
+  time: { start: string; end: string; timeZone: string },
+): Promise<void> {
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        start: { dateTime: time.start, timeZone: time.timeZone },
+        end: { dateTime: time.end, timeZone: time.timeZone },
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(`Google event patch failed: ${res.status}`);
 }
 
 export async function deleteEvent(

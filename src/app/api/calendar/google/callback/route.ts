@@ -64,6 +64,8 @@ export async function GET(req: Request): Promise<Response> {
       calendarId: "primary",
       calendarAccount: email,
       calendarConnectedAt: new Date(),
+      // A (re)connect may be a different account: old picks don't carry over.
+      calendarBusyIds: null,
     });
     // Booking just became possible — republish so the live agent starts
     // offering it (the prompt only promises booking when a calendar is

@@ -362,6 +362,63 @@ everything else). This change closes the gaps rather than adding a parallel syst
   appointments added by hand in the portal aren't pushed to the calendar; no
   reschedule sync (cancel + rebook works); Google "unverified app" review is still
   needed for production.
+  → The first three are closed on 2026-10-07 (next section); Google verification is still open.
+
+## 2026-10-07 — Calendar sync gaps closed (busy calendars, manual pushes, reschedules)
+
+Closes the three open items above. **No new OAuth scopes** (Google verification is
+pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
+`Calendars.ReadWrite`.
+
+- **Which calendars count as busy.** New nullable `clients.calendar_busy_ids` (jsonb
+  string array; migration `drizzle/manual/0016_calendar_busy_calendars.sql`, numbered
+  0016 so it can't collide with the 0014/0015 other in-flight PRs may take). Null =
+  only the booking calendar, exactly the old behaviour. Cleared on every connect /
+  disconnect (a reconnect may be a different account).
+  - **Outlook:** Settings → Calendar lists the mailbox's calendars (`GET /me/calendars`
+    — allowed under `Calendars.ReadWrite`; least-privileged is ReadBasic) as
+    checkboxes; the default calendar is always on. Busy = default `calendarView` plus
+    each picked calendar's `/me/calendars/{id}/calendarView`. Saved ids are checked
+    against the mailbox's own list.
+  - **Google: no calendar list — blocked by scope.** `calendarList.list` needs
+    `calendar.calendarlist.readonly` (or `calendar.readonly` / `calendar`), which would
+    reopen verification, so it was **not** added. Instead the owner types a calendar's
+    ID (Google Calendar → Settings → the calendar → "Calendar ID"); we check it with a
+    `freeBusy` call (only `calendar.freebusy`) and refuse ids Google can't see. Busy =
+    one `freeBusy` call with the booking calendar plus every picked id. Revisit
+    (a real picker) after verification is approved, if Ari wants to add the scope then.
+  - An extra calendar that errors (unshared, deleted) is **skipped with a warning**;
+    only the booking calendar failing still counts as "can't read the calendar".
+  - Cap: 10 extra calendars.
+- **Hand-entered portal appointments are pushed** to Google / Outlook on create
+  (`pushAppointmentToCalendar` in `src/lib/calendar-events.ts`), event text "Added in
+  FrontDesk AI.", event id stored so cancel/reschedule find it. Cal.com is skipped on
+  purpose (it would email a made-up attendee). A failed push never blocks: the
+  appointment is saved and the owner is told to add it to their calendar themselves.
+  No busy check — a hand booking is the owner's call (there's already a "book anyway").
+- **Reschedules move the event in place** (`BookingProvider.moveBooking`: Google
+  `events.patch`, Graph `PATCH /me/events/{id}`) so the event keeps its id, Meet/Teams
+  link and anything the owner added. Order: every check → busy check → reserve the new
+  time locally → move the event. If the move fails we make a new event and delete the
+  old one; if that fails too, it's logged and the booking stands. The old row's event id
+  is cleared after a move so cancelling it can never delete the moved event.
+  - **Smart rebooking (#23):** "1/2/3" replies use the move when the old appointment has
+    a Google/Outlook event; otherwise the old create-then-reserve path is unchanged.
+  - **AI text replies (#19):** new optional `reschedule_from` on the SMS
+    `book_appointment` tool; rule 5 now says to use it and NOT call
+    `cancel_appointment` afterwards. Honoured only on channel `sms` (Twilio-verified
+    sender, same caller-ID rule as cancel); voice/web chat get a "book, then cancel"
+    answer. The voice agent's Retell tool schema is unchanged (it still books + cancels).
+  - Cal.com has no in-place move (its reschedule mints a new uid), so it keeps
+    create-new + cancel-old.
+  - Known limit (unchanged from before): moving an appointment to a time that overlaps
+    its own old slot is refused by the local clash check, because the old appointment
+    is still active at that moment.
+- **Cancels delete the event on every path**, checked with tests: portal cancel, voice
+  and SMS cancel tool, smart-rebooking "NO", and the booking-race rollback. A pushed
+  manual appointment now has an event id, so its cancel deletes it too.
+- **Sync status in the portal:** the appointment detail shows "On Google Calendar" /
+  "Not on Google Calendar" (or Outlook) when a Google/Outlook calendar is connected.
 
 ## 2026-09-30 — Reply alerts (customer texted → email the business)
 
