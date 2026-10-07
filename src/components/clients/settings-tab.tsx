@@ -37,10 +37,13 @@ export function SettingsTab({
   client,
   billing,
   intakeUrl,
+  intakeLocked = false,
 }: {
   client: Client;
   billing: BillingInfo;
   intakeUrl: string;
+  /** The owner has signed in — the link now sends people to sign in instead. */
+  intakeLocked?: boolean;
 }) {
   async function copyIntakeLink() {
     try {
@@ -84,10 +87,17 @@ export function SettingsTab({
           <CardTitle>Client intake link</CardTitle>
           <CardDescription>
             Send this to the business to collect their website, hours, alert contacts, and any special
-            instructions — it drafts their AI from their site. The link expires in 30 days.
+            instructions — it drafts their AI from their site. The link expires in 30 days, and
+            locks once the owner signs in to their portal.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          {intakeLocked ? (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
+              <strong>Locked.</strong> The owner has signed in, so this link now sends anyone who
+              opens it to the sign-in page. They make changes in their portal from here on.
+            </p>
+          ) : null}
           <div className="flex gap-2">
             <Input
               readOnly

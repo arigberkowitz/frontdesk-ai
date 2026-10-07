@@ -1,14 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
-import { verifyIntakeToken } from "@/lib/intake-token";
+import { INTAKE_USED_SIGN_IN, verifyIntakeToken } from "@/lib/intake-token";
 import { tidyBusinessName, toE164 } from "@/lib/format";
 import { getClientByIdUnsafe, updateClient } from "@/lib/data/clients";
 import { applyWebsiteToClient } from "@/lib/onboarding-apply";
 import { applyClientEdit } from "@/lib/agent-publish";
 import { consumeAttempt } from "@/lib/rate-limit";
-import { countDraftableContent } from "@/lib/data/intake";
+import { countDraftableContent, ownerHasSignedIn } from "@/lib/data/intake";
 import { logger } from "@/lib/logger";
 import { type ActionState, fieldErrorsOf } from "./types";
 
@@ -60,6 +61,12 @@ export async function submitIntakeAction(
 
   const client = await getClientByIdUnsafe(clientId);
   if (!client) return { ok: false, error: "This intake link is no longer valid." };
+  // Locked once the owner has signed in — a tab left open, or a forwarded
+  // link, mustn't keep rewriting a business that now has an account.
+  if (await ownerHasSignedIn(clientId)) {
+    logger.info("intake.locked_after_sign_in", { clientId });
+    redirect(INTAKE_USED_SIGN_IN);
+  }
 
   // Every submit can re-read a website through a paid model, and the link is
   // shareable. A leaked link shouldn't be a free scraping/LLM endpoint.

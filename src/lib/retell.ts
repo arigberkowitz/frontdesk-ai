@@ -370,6 +370,12 @@ export interface ProvisionAgentInput {
   existingLlmId?: string | null;
   existingAgentId?: string | null;
   existingPhoneNumber?: string | null;
+  /**
+   * Build/update the agent but don't BUY a number when there isn't one yet
+   * (the business hasn't unlocked one — see number-gate.ts). An existing number
+   * is still re-bound as usual.
+   */
+  skipNewNumber?: boolean;
 }
 
 export interface ProvisionAgentResult {
@@ -463,7 +469,9 @@ export async function provisionAgentForClient(
   let phoneNumber = input.existingPhoneNumber ?? null;
   let phoneError: string | null = null;
   try {
-    if (phoneNumber) {
+    if (!phoneNumber && input.skipNewNumber) {
+      // Reserved: nothing to buy yet, and nothing went wrong.
+    } else if (phoneNumber) {
       await client.phoneNumber.update(phoneNumber, {
         inbound_agents: [{ agent_id: agentId, weight: 1 }],
         inbound_webhook_url: input.webhookUrl,
