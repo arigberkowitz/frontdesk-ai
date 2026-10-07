@@ -270,4 +270,13 @@ describe("prompt injection", () => {
     const names = create.mock.calls[0][0].tools.map((t: { name: string }) => t.name).sort();
     expect(names).toEqual(["book_appointment", "cancel_appointment", "check_availability", "handoff_to_owner", "send_reply"]);
   });
+
+  it("reschedules are one book_appointment call with reschedule_from (moves the calendar event)", async () => {
+    create.mockResolvedValueOnce(reply("Hi!"));
+    await run();
+    const book = create.mock.calls[0][0].tools.find((t: { name: string }) => t.name === "book_appointment");
+    expect(Object.keys(book.input_schema.properties)).toContain("reschedule_from");
+    expect(create.mock.calls[0][0].system).toMatch(/reschedule_from/);
+    expect(create.mock.calls[0][0].system).toMatch(/do not call cancel_appointment afterwards/);
+  });
 });

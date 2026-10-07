@@ -1,14 +1,22 @@
 import { authorizeAgentTool } from "@/lib/agent-tools-auth";
 import { getCallByRetellId } from "@/lib/data/calls";
-import { hasOverlappingAppointment, reserveAppointment } from "@/lib/data/appointments";
+import {
+  cancelAppointment,
+  findUpcomingAppointmentsByPhone,
+  hasOverlappingAppointment,
+  reserveAppointment,
+} from "@/lib/data/appointments";
 import { findFreeProvider } from "@/lib/data/providers";
 import { listActiveBlocks } from "@/lib/data/availability-blocks";
-import { calendarSlotIsFree, getBookingProviderForClient } from "@/lib/booking";
+import { calendarSlotIsFree, getBookingProviderForClient, type BookingProvider } from "@/lib/booking";
+import { moveAppointmentEvent } from "@/lib/calendar-events";
+import { offerFreedSlot } from "@/lib/agents/waitlist-backfill";
+import { formatDateTime } from "@/lib/format";
 import { blocksForProvider, businessWideBlocks, checkSlot, slotRefusal } from "@/lib/booking-window";
 import { matchService, serviceClarification } from "@/lib/service-match";
 import { parseInClientTimezone } from "@/lib/hours-util";
 import { toE164 } from "@/lib/format";
-import { notifyOwnerBooking } from "@/lib/notify";
+import { notifyOwnerBooking, notifyOwnerCancellation } from "@/lib/notify";
 import { sendBookingConfirmation } from "@/lib/appointment-texts";
 import { recordSmsConsent } from "@/lib/data/sms-consents";
 import { rememberCustomerLanguage } from "@/lib/data/customer-languages";
@@ -88,6 +96,42 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
+  // Reschedule (AI text replies): `reschedule_from` names the customer's
+  // existing appointment. Only by text, where the sender is Twilio-verified —
+  // the same caller-ID rule the cancel tool applies — so a thread can only
+  // move its own appointments. Resolved before anything writes.
+  const rescheduleArg = String(args.reschedule_from ?? "").trim();
+  let moving: Awaited<ReturnType<typeof findUpcomingAppointmentsByPhone>>[number] | null = null;
+  if (rescheduleArg) {
+    if (channel !== "sms") {
+      return Response.json({
+        success: false,
+        error:
+          "Moving an appointment in one step only works by text. Book the new time, then cancel the old one with cancel_appointment.",
+      });
+    }
+    const mine = await findUpcomingAppointmentsByPhone(client.id, customerPhone);
+    const wanted = parseInClientTimezone(rescheduleArg, client.timezone);
+    const hit = wanted
+      ? mine.find((a) => Math.abs(a.startAt.getTime() - wanted.getTime()) < 60 * 60_000)
+      : mine.length === 1
+        ? mine[0]
+        : undefined;
+    if (!hit) {
+      return Response.json({
+        success: false,
+        error:
+          mine.length === 0
+            ? "I couldn't find an upcoming appointment under the number they're texting from, so there's nothing to move. Hand the conversation to the owner."
+            : `I couldn't tell which appointment to move. Their upcoming appointments: ${mine
+                .slice(0, 4)
+                .map((a) => `${a.service?.name ?? "appointment"} on ${formatDateTime(a.startAt, client.timezone)}`)
+                .join("; ")}. Ask which one, then call book_appointment again with reschedule_from set to its start time.`,
+      });
+    }
+    moving = hit;
+  }
+
   // ---------------------------------------------------------------------
   // Everything that can say no comes BEFORE anything that writes.
   //
@@ -165,9 +209,14 @@ export async function POST(req: Request): Promise<Response> {
   // must degrade to a local booking, not 500 mid-call.
   let externalBookingId: string | null = null;
   let meetingUrl: string | null = null;
+  // A reschedule whose old appointment already has a Google / Outlook event
+  // moves that event in place AFTER the local reserve (see below), instead of
+  // creating a second event now.
+  let mover: BookingProvider | null = null;
   try {
     const provider = getBookingProviderForClient(client);
     if (provider.isConfigured()) {
+      if (moving?.externalBookingId && provider.moveBooking) mover = provider;
       // A caller-named time must be free on the REAL calendar too (Google and
       // Outlook don't refuse overlapping events). Nothing has been written yet.
       if (!(await calendarSlotIsFree(provider, startAt, endAt))) {
@@ -178,17 +227,19 @@ export async function POST(req: Request): Promise<Response> {
             "That time is already taken on the business's calendar. Apologize briefly and offer a different time (check availability first).",
         });
       }
-      const r = await provider.createBooking({
-        startAt: startAt.toISOString(),
-        durationMin,
-        customerName,
-        customerPhone,
-        timezone: client.timezone,
-        // Video-friendly service → the calendar event gets a Meet/Teams link.
-        virtual: Boolean(service.virtualOk),
-      });
-      externalBookingId = r.externalBookingId;
-      meetingUrl = r.meetingUrl ?? null;
+      if (!mover) {
+        const r = await provider.createBooking({
+          startAt: startAt.toISOString(),
+          durationMin,
+          customerName,
+          customerPhone,
+          timezone: client.timezone,
+          // Video-friendly service → the calendar event gets a Meet/Teams link.
+          virtual: Boolean(service.virtualOk),
+        });
+        externalBookingId = r.externalBookingId;
+        meetingUrl = r.meetingUrl ?? null;
+      }
     }
   } catch (err) {
     logger.error("agent-tools.book.provider_failed", {
@@ -214,7 +265,9 @@ export async function POST(req: Request): Promise<Response> {
       client.id,
       {
         callId: callRow?.id ?? null,
-        customerName: customerName || null,
+        // Moving an appointment keeps the name it was booked under unless a
+        // new one was given.
+        customerName: customerName || moving?.customerName || null,
         customerPhone: customerPhone || null,
         serviceId: service.id ?? null,
         providerId,
@@ -252,6 +305,32 @@ export async function POST(req: Request): Promise<Response> {
       error:
         "That time was just taken by someone else. Apologize briefly and offer the caller a different time.",
     });
+  }
+
+  if (moving) {
+    // Bring the calendar along, then release the old time. The event move
+    // never blocks: the new appointment is already reserved.
+    if (mover) {
+      const moved = await moveAppointmentEvent(client, moving, appt, {
+        virtual: Boolean(service.virtualOk),
+        provider: mover,
+      });
+      appt = { ...appt, externalBookingId: moved.externalBookingId, meetingUrl: moved.meetingUrl };
+    } else if (moving.externalBookingId) {
+      await releaseExternalBooking(client, moving.externalBookingId);
+    }
+    const released = await cancelAppointment(client.id, moving.id);
+    if (released) {
+      after(() =>
+        offerFreedSlot(client, {
+          startAt: released.startAt,
+          endAt: released.endAt,
+          serviceId: released.serviceId,
+        }),
+      );
+      await notifyOwnerCancellation(client, released, "text");
+    }
+    logger.info("agent-tools.book.rescheduled", { clientId: client.id, from: moving.id, to: appt.id });
   }
 
   await notifyOwnerBooking(client, appt);
@@ -330,6 +409,14 @@ export async function POST(req: Request): Promise<Response> {
     );
   } else {
     logger.info("agent-tools.book.no_sms_consent", { clientId: client.id, appointmentId: appt.id });
+  }
+
+  if (moving) {
+    return Response.json({
+      success: true,
+      confirmation_id: appt.id,
+      message: `Moved ${service.name} from ${formatDateTime(moving.startAt, client.timezone)} to ${formatDateTime(appt.startAt, client.timezone)}${providerName ? ` with ${providerName}` : ""}. The old time is already released — do NOT call cancel_appointment.`,
+    });
   }
 
   return Response.json({

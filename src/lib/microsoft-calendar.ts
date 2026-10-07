@@ -106,9 +106,47 @@ export async function getMsTokens(
   };
 }
 
-/** Busy periods from the connected mailbox's default calendar. */
-export async function msBusyTimes(
+/** A calendar in the connected mailbox, for the "counts as busy" picker. */
+export interface MsCalendar {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  owner: string | null;
+}
+
+/**
+ * The connected mailbox's calendars (GET /me/calendars). Calendars.ReadWrite —
+ * the scope we already hold — covers this (least-privileged is ReadBasic), so
+ * listing needs no new consent.
+ */
+export async function msListCalendars(accessToken: string): Promise<MsCalendar[]> {
+  const params = new URLSearchParams({
+    $select: "id,name,isDefaultCalendar,owner",
+    $top: "100",
+  });
+  const res = await fetch(`${GRAPH}/me/calendars?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Graph list calendars failed: ${res.status}`);
+  const data = (await res.json()) as {
+    value?: Array<{
+      id: string;
+      name?: string;
+      isDefaultCalendar?: boolean;
+      owner?: { address?: string; name?: string };
+    }>;
+  };
+  return (data.value ?? []).map((c) => ({
+    id: c.id,
+    name: c.name?.trim() || "Untitled calendar",
+    isDefault: Boolean(c.isDefaultCalendar),
+    owner: c.owner?.address ?? c.owner?.name ?? null,
+  }));
+}
+
+async function calendarViewBusy(
   accessToken: string,
+  path: string,
   timeMin: string,
   timeMax: string,
 ): Promise<Array<{ start: string; end: string }>> {
@@ -118,7 +156,7 @@ export async function msBusyTimes(
     $select: "start,end,showAs",
     $top: "200",
   });
-  const res = await fetch(`${GRAPH}/me/calendarView?${params.toString()}`, {
+  const res = await fetch(`${GRAPH}${path}?${params.toString()}`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       // Graph returns event times in this zone; UTC keeps the math simple.
@@ -136,6 +174,34 @@ export async function msBusyTimes(
   return (data.value ?? [])
     .filter((e) => e.showAs !== "free")
     .map((e) => ({ start: `${e.start.dateTime}Z`, end: `${e.end.dateTime}Z` }));
+}
+
+/**
+ * Busy periods from the connected mailbox's default calendar, plus any extra
+ * calendars the owner marked as "counts as busy". The default calendar is the
+ * one we book into: if it can't be read we throw. An extra calendar that
+ * fails (deleted, unshared) is skipped with `onSkipped` — a stale side
+ * calendar must never stop the business taking bookings.
+ */
+export async function msBusyTimes(
+  accessToken: string,
+  timeMin: string,
+  timeMax: string,
+  extraCalendarIds: string[] = [],
+  onSkipped?: (calendarId: string, reason: string) => void,
+): Promise<Array<{ start: string; end: string }>> {
+  const busy = await calendarViewBusy(accessToken, "/me/calendarView", timeMin, timeMax);
+  const extras = [...new Set(extraCalendarIds.filter((id) => id && id !== "primary"))];
+  const results = await Promise.allSettled(
+    extras.map((id) =>
+      calendarViewBusy(accessToken, `/me/calendars/${encodeURIComponent(id)}/calendarView`, timeMin, timeMax),
+    ),
+  );
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") busy.push(...r.value);
+    else onSkipped?.(extras[i], r.reason instanceof Error ? r.reason.message : String(r.reason));
+  });
+  return busy;
 }
 
 export interface MsEventInput {
@@ -183,6 +249,23 @@ export async function msInsertEvent(
     }
   }
   return attempt(false);
+}
+
+/** Move an existing event to a new time (PATCH /me/events/{id}); keeps its id and Teams link. */
+export async function msUpdateEventTime(
+  accessToken: string,
+  eventId: string,
+  time: { start: string; end: string; timeZone: string },
+): Promise<void> {
+  const res = await fetch(`${GRAPH}/me/events/${encodeURIComponent(eventId)}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      start: { dateTime: time.start, timeZone: time.timeZone },
+      end: { dateTime: time.end, timeZone: time.timeZone },
+    }),
+  });
+  if (!res.ok) throw new Error(`Graph event update failed: ${res.status}`);
 }
 
 export async function msDeleteEvent(accessToken: string, eventId: string): Promise<void> {
