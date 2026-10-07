@@ -83,7 +83,7 @@ describe("buildSetupSteps", () => {
 
   it("going live needs the agent AND a phone number", () => {
     expect(byKey({ ...fresh, agentId: "agent_1" }).live.done).toBe(false);
-    expect(byKey({ ...fresh, agentId: "agent_1" }).live.hint).toMatch(/hasn't been given a phone number/);
+    expect(byKey({ ...fresh, agentId: "agent_1" }).live.hint).toMatch(/reserved until you add a card or finish/);
     expect(byKey({ ...fresh, agentId: "agent_1", aiNumber: "(415) 555-0100" }).live.done).toBe(true);
     expect(byKey(done).live.doneHint).toMatch(/picks up changes automatically/);
   });

@@ -258,6 +258,12 @@ export const clients = pgTable(
          * so nothing that chases a business for payment should chase this one.
          */
         comped?: boolean;
+        /**
+         * When an operator approved this business's free trial (trial-code
+         * flow). Someone vouched for it, so it may get a phone number without
+         * a card — self-serve trials wait for a card or finished setup.
+         */
+        trialApprovedAt?: string;
         /** The pricing card they clicked before signing up. Preselects checkout. */
         intendedPlan?: string;
         /**

@@ -165,11 +165,11 @@ export function AiNumberCard({
                     is activated, and if that attempt failed there is nobody
                     queued to retry it. A business reading a promise sits and
                     waits instead of asking. */}
-                <strong>No AI phone number yet.</strong> Your AI is fully built and you can talk to
-                it right now with a test call in the browser — it just has no phone line of its own
-                to answer on. Ask us to assign one and the dial-in steps appear here.{" "}
-                <Link href="/portal/settings/help" className="underline underline-offset-2">
-                  Request a number
+                <strong>No AI phone number yet.</strong> Your number is reserved once you add a
+                card or finish setup. Until then you can talk to your AI with a test call in the
+                browser, and the dial-in steps appear here as soon as the number is assigned.{" "}
+                <Link href="/portal/guidelines#activate" className="underline underline-offset-2">
+                  See how to unlock it
                 </Link>
                 .
               </>

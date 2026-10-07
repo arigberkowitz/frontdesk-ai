@@ -12,6 +12,7 @@ import { listAgentVersions } from "@/lib/data/agent-versions";
 import { listRetellVoices } from "@/lib/retell";
 import { isStripeTestMode } from "@/lib/stripe";
 import { signIntakeToken } from "@/lib/intake-token";
+import { ownerHasSignedIn } from "@/lib/data/intake";
 import { env, integrations } from "@/lib/env";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
@@ -57,6 +58,7 @@ export default async function ClientPage({
     }
   }
 
+  const intakeLocked = await ownerHasSignedIn(client.id);
   const [subRow] = await db
     .select()
     .from(subscriptions)
@@ -147,6 +149,7 @@ export default async function ClientPage({
         voices={voices}
         billing={billing}
         intakeUrl={`${env.APP_URL}/intake/${signIntakeToken(client.id)}`}
+        intakeLocked={intakeLocked}
         initialTab={tab}
       />
       <PromptChangelog versions={versions} />

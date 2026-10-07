@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { clients } from "@/db/schema";
 import { TRIAL_DAYS } from "@/config/plans";
 import { seedClientFromPack } from "@/lib/starter-seed";
-import { runProvision } from "@/lib/provision";
+import { runProvision, type ProvisionActor } from "@/lib/provision";
 import { sendWelcomeEmail } from "@/lib/lifecycle";
 import { integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -20,11 +20,16 @@ import { logger } from "@/lib/logger";
  * free trial". Two entrances, one of them a wall. Both now go through here.
  *
  * Order matters: trial first (provisioning checks it), starter pack second
- * (the prompt is built from services and hours), then the agent and its
- * number, then the welcome email that quotes that number.
+ * (the prompt is built from services and hours), then the agent, then the
+ * welcome email.
+ *
+ * The agent, not the number. A self-serve signup gets a receptionist it can
+ * hear in the browser straight away; its phone number is reserved until the
+ * owner adds a card or finishes setup (number-gate.ts). Buying one per signup
+ * let anyone with a few email addresses run up the vendor bill.
  */
 export async function finishSignup(
-  user: { id: string; orgId: string },
+  user: Omit<ProvisionActor, "id"> & { id: string },
   clientId: string,
   opts: { industry: string | null; seedFromPack: boolean; intendedPlan?: string; companySize: string },
 ): Promise<void> {
@@ -45,8 +50,9 @@ export async function finishSignup(
     await seedClientFromPack(user.orgId, clientId, opts.industry);
   }
 
-  // Live before they see the portal. If the voice vendor is down the
-  // Activate button is still there as the fallback; signup never fails here.
+  // Built before they see the portal (the number waits — see above). If the
+  // voice vendor is down the Activate button is still there as the fallback;
+  // signup never fails here.
   if (integrations.retell()) {
     try {
       const provisioned = await runProvision(user, clientId);

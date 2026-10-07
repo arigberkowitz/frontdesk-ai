@@ -12,7 +12,10 @@ const applyWebsiteToClient = vi.fn(async (..._a: unknown[]) => true);
 const applyClientEdit = vi.fn(async (..._a: unknown[]) => "synced");
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/intake-token", () => ({ verifyIntakeToken: (t: string) => (t.startsWith("ok-") ? t.slice(3) : null) }));
+vi.mock("@/lib/intake-token", () => ({
+  verifyIntakeToken: (t: string) => (t.startsWith("ok-") ? t.slice(3) : null),
+  INTAKE_USED_SIGN_IN: "/sign-in?reason=setup-link-used",
+}));
 vi.mock("@/lib/data/clients", () => ({
   getClientByIdUnsafe: async (id: string) => ({
     id,
@@ -27,7 +30,16 @@ vi.mock("@/lib/data/clients", () => ({
 }));
 vi.mock("@/lib/onboarding-apply", () => ({ applyWebsiteToClient: (...a: unknown[]) => applyWebsiteToClient(...a) }));
 vi.mock("@/lib/agent-publish", () => ({ applyClientEdit: (...a: unknown[]) => applyClientEdit(...a) }));
-vi.mock("@/lib/data/intake", () => ({ countDraftableContent: async () => content }));
+const signedIn = new Set<string>();
+vi.mock("@/lib/data/intake", () => ({
+  countDraftableContent: async () => content,
+  ownerHasSignedIn: async (id: string) => signedIn.has(id),
+}));
+vi.mock("next/navigation", () => ({
+  redirect: (u: string) => {
+    throw new Error(`redirect:${u}`);
+  },
+}));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 
 const { submitIntakeAction } = await import("./intake");
@@ -43,6 +55,7 @@ function form(fields: Record<string, string>, token = `ok-client-${n}`) {
 beforeEach(() => {
   n += 1; // fresh client id per test → fresh throttle bucket
   content = 0;
+  signedIn.clear();
   updateClient.mockClear();
   applyWebsiteToClient.mockClear();
   applyClientEdit.mockClear();
@@ -102,5 +115,30 @@ describe("submitIntakeAction", () => {
     expect(results.slice(0, 6).every((r) => r.ok)).toBe(true);
     expect(results[6].ok).toBe(false);
     expect(results[6].error).toMatch(/Too many/);
+  });
+
+  describe("once the owner has signed in", () => {
+    it("a reused link redirects to sign-in and changes nothing", async () => {
+      signedIn.add(`client-${n}`);
+      await expect(submitIntakeAction({}, form({ name: "Hijacked Name", ownerEmail: "evil@x.test" }))).rejects.toThrow(
+        "redirect:/sign-in?reason=setup-link-used",
+      );
+      expect(updateClient).not.toHaveBeenCalled();
+      expect(applyWebsiteToClient).not.toHaveBeenCalled();
+      expect(applyClientEdit).not.toHaveBeenCalled();
+    });
+
+    it("locks only that business — another business's fresh link still works", async () => {
+      signedIn.add("some-other-client");
+      const r = await submitIntakeAction({}, form({ name: "Harbor View" }));
+      expect(r.ok).toBe(true);
+    });
+
+    it("an expired or forged link is still just expired, signed in or not", async () => {
+      signedIn.add(`client-${n}`);
+      const r = await submitIntakeAction({}, form({ name: "X" }, "expired-token"));
+      expect(r.ok).toBe(false);
+      expect(r.error).toMatch(/expired/);
+    });
   });
 });
