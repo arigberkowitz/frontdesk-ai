@@ -280,7 +280,12 @@ export const clients = pgTable(
          */
         dailyBriefing?: boolean;
         /** When each trial-lifecycle email went out (ISO). Dedupe state, not business data. */
-        trialEmails?: { welcome?: string; d7?: string; d1?: string };
+        trialEmails?: { welcome?: string; d7?: string; d3?: string; d1?: string };
+        /**
+         * Owner asked for the "3 days left" trial reminder email (opt-in, off by
+         * default; the 7-day and 1-day check-ins are separate and unchanged).
+         */
+        trialReminderOptIn?: boolean;
       }>()
       .notNull()
       .default({}),

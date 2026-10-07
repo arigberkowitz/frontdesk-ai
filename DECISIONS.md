@@ -748,3 +748,12 @@ everything else). This change closes the gaps rather than adding a parallel syst
 - **Storage.** `rebook_offers` (manual migration
   `drizzle/manual/0013_smart_rebooking.sql`; renumber at merge if needed).
   Messages are logged to `sms_messages` as `rebook_offer` / `rebook_reply`.
+
+## 2026-10-07 — Trial-to-paid nudges: countdown, real trial summary, one-click upgrade
+
+- **Countdown everywhere, detail on Overview.** The Overview trial banner now shows days left, the end date in the business's timezone, a progress bar, and three tiles (calls handled, appointments booked, after-hours calls) computed from real data since the trial started (`getTrialProgress`). Every other portal page gets a slim strip (headline + one-line summary + Upgrade); it hides itself on `/portal` so the banner isn't duplicated.
+- **Honest numbers.** Calls exclude spam. "Booked" counts only appointments linked to a call (`callId` not null) and not cancelled/no-show, so manual entries by the owner never inflate what "your AI" did. Trial start = `trialEndsAt − TRIAL_DAYS`, never before the client's `createdAt`.
+- **Upgrade uses the existing checkout.** The button posts to `startSelfServeCheckoutAction` (owner-only, monthly) for the plan picked at signup, else Starter; the Stripe webhook still owns the subscription row. Viewers, operator previews, and setups without Stripe see a "Choose a plan" link instead.
+- **Reminder email is opt-in.** A new d3 email ("You asked us for this reminder…") only sends if the owner ticks "Email me 3 days before it ends" (`setup_flags.trialReminderOptIn`, default off). It rides the existing `runTrialReminders` in the daily retention cron — no new cron, `vercel.json` untouched. The existing automatic d7/d1 emails are unchanged; if d3 went out, d7 is skipped so owners never get two in a row. Tests mock the notifier — no sends.
+- **postgres-js gotcha.** Raw `Date` values inside `sql\`\`` fragments throw on postgres-js (PGlite accepts them); pass `toISOString()` with `::timestamptz`.
+- No migration; no new env vars.

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Phone } from "lucide-react";
-import { resolvePortalClient } from "@/lib/auth-guard";
+import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { countUnreadMessages } from "@/lib/data/sms-messages";
 import { PortalSidebar, PortalTabBar } from "@/components/portal/portal-nav";
@@ -8,7 +8,12 @@ import { UserMenuButton } from "@/components/user-menu-button";
 import { CommandPalette } from "@/components/command-palette";
 import { ChatBubble } from "@/components/portal/chat-bubble";
 import { LiveCallStrip } from "@/components/portal/live-call-strip";
-import { env } from "@/lib/env";
+import { env, integrations } from "@/lib/env";
+import { getTrialState } from "@/lib/data/trial";
+import { getTrialProgress } from "@/lib/data/trial-progress";
+import { daysLeftLabel, trialStripSummary, upgradePlan } from "@/lib/trial-progress";
+import { formatCurrencyCents } from "@/lib/format";
+import { TrialStrip } from "@/components/portal/trial-strip";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const { clientId, preview } = await resolvePortalClient();
@@ -18,6 +23,31 @@ export default async function PortalLayout({ children }: { children: React.React
     countUnreadMessages(clientId),
   ]);
   const showTeam = Boolean(client && (client.staffModeEnabled || client.companySize !== "solo"));
+
+  // Trial countdown on every page (the Overview has the full card instead).
+  const trial = await getTrialState(clientId);
+  let strip: React.ComponentProps<typeof TrialStrip> | null = null;
+  if (client && (trial.active || trial.expired)) {
+    const [progress, access] = await Promise.all([
+      getTrialProgress(clientId),
+      getPortalEditAccess(clientId),
+    ]);
+    const plan = upgradePlan(client.setupFlags?.intendedPlan);
+    strip = {
+      headline: trial.expired ? "Your free trial has ended — your AI is still answering" : daysLeftLabel(trial.daysLeft),
+      shortHeadline: trial.expired
+        ? "Free trial ended"
+        : trial.daysLeft <= 0
+          ? "Last day of trial"
+          : `${trial.daysLeft} day${trial.daysLeft === 1 ? "" : "s"} left in trial`,
+      summary: progress ? trialStripSummary(progress) : null,
+      urgent: trial.expired || trial.daysLeft <= 3,
+      upgrade:
+        !preview && access.isAdmin && integrations.stripe()
+          ? { clientId, planKey: plan.key, label: `Upgrade · ${formatCurrencyCents(plan.monthlyPriceCents)}/mo` }
+          : null,
+    };
+  }
 
   return (
     <div data-fd-app="portal" className="flex min-h-screen flex-col">
@@ -55,6 +85,7 @@ export default async function PortalLayout({ children }: { children: React.React
         </div>
       </header>
       <LiveCallStrip clientId={clientId} />
+      {strip ? <TrialStrip {...strip} /> : null}
       <div className="flex flex-1">
         {/* Desktop: grouped left rail. Phones use the bottom tab bar below. */}
         <aside className="hidden w-60 shrink-0 border-r border-border/70 bg-card/40 md:block">
