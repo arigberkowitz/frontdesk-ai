@@ -9,6 +9,13 @@ const ledger = new Map<string, string>();
 const upserted: string[] = [];
 let failUpsert = false;
 
+const afterTasks: (() => Promise<unknown>)[] = [];
+const provisionNumberAfterPayment = vi.fn(async (_id: string) => {});
+
+vi.mock("next/server", () => ({ after: (fn: () => Promise<unknown>) => afterTasks.push(fn) }));
+vi.mock("@/lib/provision", () => ({
+  provisionNumberAfterPayment: (id: string) => provisionNumberAfterPayment(id),
+}));
 vi.mock("@/lib/env", () => ({ env: { STRIPE_WEBHOOK_SECRET: "whsec_test" } }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock("@/db", () => ({
@@ -44,7 +51,7 @@ vi.mock("@/lib/data/webhook-events", () => ({
 
 const { POST } = await import("./route");
 
-function stripeEvent(id: string) {
+function stripeEvent(id: string, status = "active") {
   return new Request("https://example.test/api/webhooks/stripe", {
     method: "POST",
     headers: { "stripe-signature": "t=1,v1=sig" },
@@ -52,7 +59,7 @@ function stripeEvent(id: string) {
       id,
       type: "customer.subscription.updated",
       data: {
-        object: { id: "sub_1", customer: "cus_1", status: "active", metadata: { clientId: "client-1" } },
+        object: { id: "sub_1", customer: "cus_1", status, metadata: { clientId: "client-1" } },
       },
     }),
   });
@@ -63,6 +70,8 @@ describe("stripe webhook retries", () => {
     ledger.clear();
     upserted.length = 0;
     failUpsert = false;
+    afterTasks.length = 0;
+    provisionNumberAfterPayment.mockClear();
   });
 
   it("processes a new event and marks it processed", async () => {
@@ -99,5 +108,29 @@ describe("stripe webhook retries", () => {
     const res = await POST(stripeEvent("evt_4"));
     expect(res.status).toBe(200);
     expect(upserted).toEqual(["client-1"]);
+  });
+
+  it("a card on file unlocks the reserved phone number — after the response", async () => {
+    const res = await POST(stripeEvent("evt_5", "active"));
+    expect(res.status).toBe(200);
+    // Scheduled, not awaited inside the request.
+    expect(provisionNumberAfterPayment).not.toHaveBeenCalled();
+    expect(afterTasks).toHaveLength(1);
+    await afterTasks[0]!();
+    expect(provisionNumberAfterPayment).toHaveBeenCalledWith("client-1");
+  });
+
+  it("an unpaid or failed subscription never buys a number", async () => {
+    for (const [i, status] of ["incomplete", "past_due", "canceled", "unpaid"].entries()) {
+      await POST(stripeEvent(`evt_np_${i}`, status));
+    }
+    expect(afterTasks).toHaveLength(0);
+    expect(provisionNumberAfterPayment).not.toHaveBeenCalled();
+  });
+
+  it("a replayed paid event doesn't schedule a second purchase", async () => {
+    await POST(stripeEvent("evt_6", "active"));
+    await POST(stripeEvent("evt_6", "active"));
+    expect(afterTasks).toHaveLength(1);
   });
 });

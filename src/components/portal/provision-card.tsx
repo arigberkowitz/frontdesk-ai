@@ -10,6 +10,7 @@ import { SubmitButton } from "@/components/form/submit-button";
 import { TestCallButton } from "@/components/clients/test-call-button";
 import { CallMeNow } from "@/components/portal/call-me-now";
 import { formatPhone } from "@/lib/format";
+import { NumberReserved } from "@/components/portal/number-reserved";
 
 /**
  * Self-serve "activate your AI" card for the client portal. Lets a business
@@ -24,6 +25,7 @@ export function ProvisionCard({
   retellReady,
   onTrial = false,
   ownerPhone = null,
+  numberGate = null,
 }: {
   clientId: string;
   hasAgent: boolean;
@@ -34,14 +36,27 @@ export function ProvisionCard({
   onTrial?: boolean;
   /** The owner's alert phone (E.164), prefilled into "Call my phone". */
   ownerPhone?: string | null;
+  /**
+   * Whether this business may get its phone number yet (number-gate.ts). Only
+   * passed while it has none; null = no gate to show (operator, or has one).
+   */
+  numberGate?: { unlocked: boolean; setupStepsLeft: { key: string; label: string; href: string }[] } | null;
 }) {
+  const reserved = Boolean(!phoneNumber && numberGate && !numberGate.unlocked);
+  const readyToClaim = Boolean(hasAgent && !phoneNumber && numberGate?.unlocked);
   const [state, action, pending] = useActionState(provisionAgentPortalAction, initialActionState);
 
   useEffect(() => {
     if (state.ok) {
-      const data = state.data as { phoneNumber?: string | null; phoneError?: string | null } | undefined;
+      const data = state.data as
+        | { phoneNumber?: string | null; phoneError?: string | null; numberReserved?: boolean }
+        | undefined;
       if (data?.phoneNumber) {
         toast.success(`Your AI is live on ${formatPhone(data.phoneNumber)}.`);
+      } else if (data?.numberReserved) {
+        toast.success(
+          "Your AI is ready — try a test call below. Your number is reserved once you add a card or finish setup.",
+        );
       } else {
         toast.success("Your AI is ready — try a test call below.");
         if (data?.phoneError) toast.info(data.phoneError);
@@ -58,7 +73,9 @@ export function ProvisionCard({
         <CardDescription>
           {hasAgent
             ? "Your receptionist is set up. Changes you save publish to it automatically — re-sync only if something looks out of date."
-            : "Activate your receptionist so you can hear it and put it to work."}
+            : reserved
+              ? "Activate your receptionist so you can hear it in your browser. Its phone number comes once you add a card or finish setup."
+              : "Activate your receptionist so you can hear it and put it to work."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -76,6 +93,13 @@ export function ProvisionCard({
                   <Phone className="size-4" /> Your number:{" "}
                   <strong className="tabular-nums">{formatPhone(phoneNumber)}</strong>
                 </p>
+              ) : readyToClaim ? (
+                <p>
+                  Ready to talk to in your browser — and its own phone number is unlocked. Press{" "}
+                  <strong>Get my phone number</strong> below.
+                </p>
+              ) : reserved ? (
+                <p>Ready to talk to in your browser.</p>
               ) : (
                 <p>
                   Ready to talk to in your browser. Its own phone number is on the way — if this
@@ -85,6 +109,8 @@ export function ProvisionCard({
             </div>
           </div>
         ) : null}
+
+        {reserved && numberGate ? <NumberReserved stepsLeft={numberGate.setupStepsLeft} /> : null}
 
         {/* Anchor: the setup checklist's "make a test call" step links here.
             Two ways to hear it: in the browser, or on your own phone from the
@@ -110,8 +136,13 @@ export function ProvisionCard({
         ) : (
           <form action={action}>
             <input type="hidden" name="clientId" value={clientId} />
-            <SubmitButton pending={pending} variant={hasAgent ? "outline" : "default"}>
-              {hasAgent ? (
+            <SubmitButton pending={pending} variant={hasAgent && !readyToClaim ? "outline" : "default"}>
+              {readyToClaim ? (
+                <>
+                  <Phone className="size-4" />
+                  Get my phone number
+                </>
+              ) : hasAgent ? (
                 <>
                   <RefreshCw className="size-4" />
                   Re-sync my receptionist
