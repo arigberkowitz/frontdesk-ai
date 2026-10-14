@@ -56,6 +56,10 @@ export function chatTools(opts: { waitlistEnabled: boolean }): ChatTool[] {
               description:
                 "Optional: the staff member they asked for by name. Omit if no preference.",
             },
+            email: {
+              type: "string",
+              description: "Optional email for the booking. Ask once (\"Want to add an email so you can manage it by email too?\"); omit if they decline.",
+            },
             sms_consent: {
               type: "boolean",
               description:
@@ -71,15 +75,24 @@ export function chatTools(opts: { waitlistEnabled: boolean }): ChatTool[] {
       def: {
         name: "cancel_appointment",
         description:
-          "Cancel the visitor's existing appointment. For security this takes two steps: call it with just the phone number and it texts a 6-digit code to that number; then call it again with the phone AND the code the visitor types. Confirm which appointment and get a clear yes before the final cancel.",
+          "Cancel the visitor's existing appointment. For security this takes two steps: call it with the phone number (and how they want the code: via \"sms\" by default, or via \"email\" with the email they booked with) and it sends a 6-digit code; then call it again with the phone AND the code the visitor types. Call it immediately when they ask to cancel; never just say you will send a code.",
         input_schema: {
           type: "object",
           properties: {
             phone: { type: "string", description: "The phone number the appointment was booked under." },
+            via: {
+              type: "string",
+              enum: ["sms", "email"],
+              description: "Where to send the code. Default sms. Use email only if the visitor asks and gives the email they booked with.",
+            },
+            email: {
+              type: "string",
+              description: "With via=email: the email address the visitor says is on the booking.",
+            },
             code: {
               type: "string",
               description:
-                "The 6-digit code the visitor received by text. Omit on the first call; never guess or make one up.",
+                "The 6-digit code the visitor received by text or email. Omit on the first call; never guess or make one up.",
             },
             datetime: {
               type: "string",

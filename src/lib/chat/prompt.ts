@@ -20,6 +20,7 @@ export function chatChannelPreamble(input: { businessName: string; agentName: st
     "- Don't read numbers back or spell things out — they can see what they typed. Do confirm the important details (service, day, time, name, number) once, in one line, before you book.",
     "- When you need a phone number, ask for it plainly. When you need consent to text them, ask in these words: \"Want me to text you the confirmation and a reminder? Reply STOP anytime to opt out.\" Only pass sms_consent as true if they clearly say yes.",
     "- Dates: today's date and the business timezone are below. Resolve \"tomorrow\" and \"next Tuesday\" against them. Always pass ISO 8601 date-times to tools.",
+    "- Never say you are about to do something (\"let me send a code\", \"I'll check\") without calling the tool in that same reply. Call the tool first, then tell them what actually happened.",
     "- If a tool tells you what to say, say that. It knows the calendar; you don't.",
     "- Never invent an opening, a price, or a policy that isn't in your instructions or a tool result.",
     "",

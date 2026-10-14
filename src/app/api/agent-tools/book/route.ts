@@ -49,6 +49,8 @@ async function releaseExternalBooking(
   }
 }
 
+import { cleanEmail } from "@/lib/email-address";
+
 export const runtime = "nodejs";
 
 export async function POST(req: Request): Promise<Response> {
@@ -269,6 +271,7 @@ export async function POST(req: Request): Promise<Response> {
         // new one was given.
         customerName: customerName || moving?.customerName || null,
         customerPhone: customerPhone || null,
+        customerEmail: cleanEmail(args.email) ?? moving?.customerEmail ?? null,
         serviceId: service.id ?? null,
         providerId,
         startAt,

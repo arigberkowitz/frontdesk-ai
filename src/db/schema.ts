@@ -604,6 +604,8 @@ export const appointments = pgTable(
     callId: uuid("call_id").references(() => calls.id, { onDelete: "set null" }),
     customerName: text("customer_name"),
     customerPhone: text("customer_phone"),
+    // Optional; collected by the web chat. Migration: drizzle/manual/0018_appointment_customer_email.sql.
+    customerEmail: text("customer_email"),
     serviceId: uuid("service_id").references(() => services.id, { onDelete: "set null" }),
     // Staff mode: which team member this appointment is with.
     providerId: uuid("provider_id").references((): AnyPgColumn => providers.id, {
