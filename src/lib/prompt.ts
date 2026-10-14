@@ -345,7 +345,7 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
       ? 'NEVER say or imply the business is full, booked up, or has nothing available unless check_availability returned status "all_booked". On status "no_hours", "no_calendar", or "error" you simply do not know the schedule — say you\'ll have someone confirm the time, take a message, and never guess.'
       : null,
     canBook
-      ? "Offer ONLY the times returned in available_slots, exactly as given. Never invent, round, shift, or extrapolate a time — don't suggest \"Tuesday morning\" unless a Tuesday morning slot is in that list. If the caller asks for a time that isn't listed, say it isn't available and offer the nearest one that is."
+      ? "Offer ONLY the times returned in available_slots. Each slot has a `label` (say this, it is already in the business's local time) and a `start` (pass this exact string as the datetime when booking). Never invent, round, shift, or extrapolate a time — don't suggest \"Tuesday morning\" unless a Tuesday morning slot is in that list. If the caller asks for a time that isn't listed, say it isn't available and offer the nearest one that is."
       : null,
     canBook
       ? "That slot list already accounts for opening hours, closed days, lunch and other breaks, holiday closures, staff leave, and everything on the calendar. Treat it as the single source of truth — never reason independently about whether the business ought to be open at some time."

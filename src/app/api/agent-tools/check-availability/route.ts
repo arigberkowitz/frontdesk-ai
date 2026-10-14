@@ -5,6 +5,7 @@ import { matchService } from "@/lib/service-match";
 import { getBookingProviderForClient } from "@/lib/booking";
 import { logger } from "@/lib/logger";
 import { localSlot } from "@/lib/slot-label";
+import { resolveDateRange } from "@/lib/date-range";
 
 export const runtime = "nodejs";
 
@@ -30,8 +31,9 @@ export async function POST(req: Request): Promise<Response> {
   const service = match.kind === "exact" ? match.service : active[0];
   const durationMin = service?.durationMin ?? 30;
 
-  const now = new Date();
-  const rangeEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  // Honour the requested day/range in the business's own calendar. Ignoring it
+  // meant "Thursday" late on Tuesday only ever saw Wednesday's first slots.
+  const range = resolveDateRange(args.date_range, client.timezone);
   try {
     // Resolving the provider decrypts a stored secret — keep it inside the try so a
     // bad/rotated key degrades to "take a message" instead of 500-ing mid-call.
@@ -64,8 +66,8 @@ export async function POST(req: Request): Promise<Response> {
     const blocks = businessWideBlocks(await listActiveBlocks(client.id));
     const slots = await provider.getAvailability({
       durationMin,
-      rangeStart: now.toISOString(),
-      rangeEnd: rangeEnd.toISOString(),
+      rangeStart: range.start.toISOString(),
+      rangeEnd: range.end.toISOString(),
       timezone: client.timezone,
       businessHours: client.businessHours,
       blocks,
@@ -75,7 +77,9 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({
         status: "all_booked",
         available_slots: [],
-        say: "There are genuinely no open times in the next 7 days. Say you don't have anything free this week, then take their details so the team can offer the first opening.",
+        say: range.matched
+          ? "There are no open times on the day(s) they asked for. Say so, and offer to check another day (call check_availability again with that day)."
+          : "There are genuinely no open times in the next 7 days. Say you don't have anything free this week, then take their details so the team can offer the first opening.",
       });
     }
 

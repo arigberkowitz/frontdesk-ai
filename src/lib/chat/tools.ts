@@ -24,14 +24,14 @@ export function chatTools(opts: { waitlistEnabled: boolean }): ChatTool[] {
       def: {
         name: "check_availability",
         description:
-          "Check open appointment slots for a service over a date range. Call this before booking.",
+          "Check open appointment slots for a service over a date range. Call this before booking. Each returned slot has a label (local time, say this) and a start (pass exactly as datetime to book).",
         input_schema: {
           type: "object",
           properties: {
             service: { type: "string", description: "The service the visitor wants to book." },
             date_range: {
               type: "string",
-              description: "Natural-language date or range, e.g. 'next Tuesday' or 'this week'.",
+              description: "The day or range they asked about, e.g. 'Thursday', 'tomorrow', '2026-10-15' or 'this week'. Always pass it when they name a day.",
             },
           },
           required: ["service"],
