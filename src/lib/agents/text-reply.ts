@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { notifier } from "@/lib/notifier";
 import { agentToolUrl } from "@/lib/retell";
-import { SMS_SIGNATURE_HEADER, signSmsToolRequest } from "@/lib/agent-tool-token";
+import { SMS_SIGNATURE_HEADER, agentToolHeaders, signSmsToolRequest } from "@/lib/agent-tool-token";
 import { getClient } from "@/lib/data/clients";
 import { getBookingProviderForClient } from "@/lib/booking";
 import { isOptedOut } from "@/lib/data/sms-optouts";
@@ -145,7 +145,7 @@ async function callTool(path: string, clientId: string, customerKey: string, arg
     const body = JSON.stringify({ args, call: { channel: "sms", from_number: `+${customerKey}` } });
     const res = await fetch(agentToolUrl(env.APP_URL, path, clientId), {
       method: "POST",
-      headers: { "content-type": "application/json", [SMS_SIGNATURE_HEADER]: signSmsToolRequest(clientId, body) },
+      headers: { "content-type": "application/json", [SMS_SIGNATURE_HEADER]: signSmsToolRequest(clientId, body), ...agentToolHeaders(clientId) },
       body,
       signal: AbortSignal.timeout(20_000),
     });

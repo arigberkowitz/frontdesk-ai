@@ -37,7 +37,16 @@ function b64url(s: string | Buffer): string {
   return Buffer.from(s).toString("base64url");
 }
 
-function intakeKey(): Buffer | null {
+/**
+ * The signing key: INTAKE_LINK_SECRET, its own secret. Until that's set, the
+ * old subkey derived from AGENT_TOOLS_SECRET (transition only).
+ */
+function intakeKey(): Buffer | string | null {
+  if (env.INTAKE_LINK_SECRET) return env.INTAKE_LINK_SECRET;
+  return derivedKey();
+}
+
+function derivedKey(): Buffer | null {
   if (!env.AGENT_TOOLS_SECRET) return null;
   return createHmac("sha256", env.AGENT_TOOLS_SECRET).update(SUBKEY_LABEL).digest();
 }
@@ -83,8 +92,14 @@ export function verifyIntakeToken(token: string, now = Date.now()): string | nul
   const payload = `${clientId}.${expiresAt}`;
   if (safeEqual(sig, sign(payload, key))) return clientId;
 
+  // Links signed with the derived subkey before INTAKE_LINK_SECRET was set.
+  // Same cutoff rule: only links that expire by the cutoff, so a forged one
+  // can't outlive the transition.
+  const derived = env.INTAKE_LINK_SECRET ? derivedKey() : null;
+  if (derived && exp <= LEGACY_TOKEN_CUTOFF_MS && safeEqual(sig, sign(payload, derived))) return clientId;
+
   // Links issued before the subkey existed (see the header comment).
-  if (exp <= LEGACY_TOKEN_CUTOFF_MS && safeEqual(sig, sign(payload, env.AGENT_TOOLS_SECRET))) {
+  if (env.AGENT_TOOLS_SECRET && exp <= LEGACY_TOKEN_CUTOFF_MS && safeEqual(sig, sign(payload, env.AGENT_TOOLS_SECRET))) {
     return clientId;
   }
   return null;

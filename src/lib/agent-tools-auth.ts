@@ -4,6 +4,7 @@ import { logger } from "./logger";
 import { verifyRetellSignature } from "./retell";
 import { getClientByIdUnsafe } from "./data/clients";
 import {
+  AGENT_TOOL_TOKEN_HEADER,
   CHAT_SIGNATURE_HEADER,
   SMS_SIGNATURE_HEADER,
   agentToolToken,
@@ -94,21 +95,46 @@ function parseBody(raw: string): { args: Record<string, unknown>; call: ToolCall
   };
 }
 
+/**
+ * Built-in end of the migration window for pre-header credentials (query
+ * `?token=` and the raw shared secret). Override with AGENT_TOOLS_LEGACY_UNTIL
+ * (ISO date, or "off" to end it now). Keep it short: re-sync every agent, then
+ * turn it off.
+ */
+export const DEFAULT_LEGACY_UNTIL = "2026-10-28T00:00:00Z";
+
+export function legacyCredentialsAllowed(now = Date.now(), setting = env.AGENT_TOOLS_LEGACY_UNTIL): boolean {
+  const v = (setting || DEFAULT_LEGACY_UNTIL).trim();
+  if (v.toLowerCase() === "off") return false;
+  const until = Date.parse(v);
+  return Number.isFinite(until) && now < until;
+}
+
 export async function authorizeAgentTool(req: Request): Promise<AgentToolAuth> {
   const url = new URL(req.url);
-  const token = url.searchParams.get("token") ?? "";
   const clientId = url.searchParams.get("client") ?? "";
+  const headerToken = req.headers.get(AGENT_TOOL_TOKEN_HEADER) ?? "";
+  const queryToken = url.searchParams.get("token") ?? "";
+  const legacyOk = legacyCredentialsAllowed();
+
+  // Header first. A query token only during the migration window — agents
+  // synced before the move still send it until they're re-synced.
+  const token = headerToken || (legacyOk ? queryToken : "");
 
   // Reject empty token/secret outright — never let an empty match authenticate.
-  if (!token || !env.AGENT_TOOLS_SECRET) return deny(401, "Invalid token");
+  if (!token || !env.AGENT_TOOLS_SECRET) {
+    if (queryToken && !legacyOk) logger.warn("agent-tools.auth.query_token_expired", { clientId });
+    return deny(401, "Invalid token");
+  }
   if (!/^[0-9a-f-]{36}$/i.test(clientId)) return deny(400, "Missing client");
 
   const tokenKind = safeEqual(token, agentToolToken(clientId))
     ? ("tenant" as const)
-    : safeEqual(token, env.AGENT_TOOLS_SECRET)
+    : legacyOk && safeEqual(token, env.AGENT_TOOLS_SECRET)
       ? ("legacy" as const)
       : null;
   if (!tokenKind) return deny(401, "Invalid token");
+  if (!headerToken) logger.info("agent-tools.auth.query_token", { clientId, tokenKind });
 
   // The signature covers the raw bytes, so read the body exactly once, as text.
   const raw = await req.text();

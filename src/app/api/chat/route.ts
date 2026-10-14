@@ -5,7 +5,7 @@ import { getClientForChat } from "@/lib/data/clients";
 import { buildPromptForClient } from "@/lib/agent-publish";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { agentToolUrl } from "@/lib/retell";
-import { CHAT_SIGNATURE_HEADER, signChatToolRequest } from "@/lib/agent-tool-token";
+import { CHAT_SIGNATURE_HEADER, agentToolHeaders, signChatToolRequest } from "@/lib/agent-tool-token";
 import { CHAT_MODEL, getAnthropic } from "@/lib/agents/anthropic";
 import { consumeAttempt } from "@/lib/rate-limit";
 import { allowChatTurn } from "@/lib/data/chat-limits";
@@ -248,7 +248,7 @@ async function callTool(path: string, clientId: string, args: unknown, visitor: 
       method: "POST",
       headers: {
         "content-type": "application/json",
-        [CHAT_SIGNATURE_HEADER]: signChatToolRequest(clientId, body),
+        [CHAT_SIGNATURE_HEADER]: signChatToolRequest(clientId, body), ...agentToolHeaders(clientId),
       },
       body,
       signal: AbortSignal.timeout(20_000),

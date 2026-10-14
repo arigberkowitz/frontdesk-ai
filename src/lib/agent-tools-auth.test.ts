@@ -10,6 +10,9 @@ const mockEnv = {
   AGENT_TOOLS_SECRET: SECRET,
   RETELL_API_KEY: RETELL_KEY,
   AGENT_TOOLS_SIGNATURE_MODE: "enforce" as "enforce" | "report",
+  // These cases exercise the legacy `?token=` path; keep its window open so
+  // they don't start failing when the real cutoff passes.
+  AGENT_TOOLS_LEGACY_UNTIL: "2999-01-01T00:00:00Z",
 };
 vi.mock("@/lib/env", () => ({ env: mockEnv, integrations: { retell: () => true } }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));

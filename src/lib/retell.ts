@@ -4,7 +4,7 @@ import Retell from "retell-sdk";
 import { env, integrations } from "./env";
 import { toE164 } from "@/lib/format";
 import { logger } from "./logger";
-import { agentToolToken } from "./agent-tool-token";
+import { agentToolHeaders } from "./agent-tool-token";
 import {
   MULTILINGUAL_VOICE_MODEL,
   parseLanguages,
@@ -110,7 +110,8 @@ export function verifyRetellSignature(
  */
 export function agentToolUrl(appUrl: string, path: string, clientId: string): string {
   const base = appUrl.replace(/\/$/, "");
-  return `${base}/api/agent-tools/${path}?client=${clientId}&token=${encodeURIComponent(agentToolToken(clientId))}`;
+  // The token travels in a header now (see agentToolHeaders) — never the URL.
+  return `${base}/api/agent-tools/${path}?client=${clientId}`;
 }
 
 /**
@@ -184,6 +185,7 @@ export function buildAgentTools(
       type: "custom" as const,
       name: AGENT_TOOL_NAMES.checkAvailability,
       url: agentToolUrl(appUrl, "check-availability", clientId),
+      headers: agentToolHeaders(clientId),
       description:
         "Check open appointment slots for a service over a date range. Call this before booking.",
       speak_during_execution: true,
@@ -203,6 +205,7 @@ export function buildAgentTools(
       type: "custom" as const,
       name: AGENT_TOOL_NAMES.bookAppointment,
       url: agentToolUrl(appUrl, "book", clientId),
+      headers: agentToolHeaders(clientId),
       description: "Book an appointment after confirming service, date/time, name, and phone.",
       speak_during_execution: true,
       parameters: {
@@ -235,6 +238,7 @@ export function buildAgentTools(
       type: "custom" as const,
       name: AGENT_TOOL_NAMES.cancelAppointment,
       url: agentToolUrl(appUrl, "cancel", clientId),
+      headers: agentToolHeaders(clientId),
       description:
         "Cancel the caller's existing appointment. Confirm which appointment and get a clear yes before calling this. Only appointments booked under the number the caller is calling from can be cancelled; if theirs is under another number, take a message instead.",
       speak_during_execution: true,
@@ -259,6 +263,7 @@ export function buildAgentTools(
       type: "custom" as const,
       name: AGENT_TOOL_NAMES.takeMessage,
       url: agentToolUrl(appUrl, "message", clientId),
+      headers: agentToolHeaders(clientId),
       description:
         "Capture a message/lead when booking isn't possible. Get name and phone, and when it comes up naturally also capture what they need (service), how soon (urgency), and any budget they mention — it helps the team prioritize the callback.",
       parameters: {
@@ -279,6 +284,7 @@ export function buildAgentTools(
       type: "custom" as const,
       name: AGENT_TOOL_NAMES.joinWaitlist,
       url: agentToolUrl(appUrl, "waitlist", clientId),
+      headers: agentToolHeaders(clientId),
       description:
         "Offer this ONLY after check_availability could not give the caller a time that works for them. Ask if they'd like a text when something opens up, and call this if they say yes. Capture the RANGE of times they'd accept, not one exact time.",
       parameters: {
@@ -335,6 +341,7 @@ export function buildAgentTools(
           type: "custom" as const,
           name: AGENT_TOOL_NAMES.transferToHuman,
           url: agentToolUrl(appUrl, "transfer", clientId),
+          headers: agentToolHeaders(clientId),
           description:
             "Ask whether this caller may be put through to a person. It will answer no — use the reply it gives you and take a message instead.",
           speak_during_execution: true,
