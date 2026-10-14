@@ -4,6 +4,7 @@ import { businessWideBlocks } from "@/lib/booking-window";
 import { matchService } from "@/lib/service-match";
 import { getBookingProviderForClient } from "@/lib/booking";
 import { logger } from "@/lib/logger";
+import { localSlot } from "@/lib/slot-label";
 
 export const runtime = "nodejs";
 
@@ -81,8 +82,9 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({
       status: "ok",
       service: service?.name,
-      available_slots: slots.slice(0, 8).map((s) => s.startAt),
-      say: "Offer only these times. Never invent a time that is not in this list.",
+      timezone: client.timezone,
+      available_slots: slots.slice(0, 8).map((s) => localSlot(s.startAt, client.timezone)),
+      say: `Offer only these times, using each slot's label (already in ${client.timezone}). Never invent a time that is not in this list. When booking, pass the slot's start exactly.`,
     });
   } catch (err) {
     logger.error("agent-tools.availability.failed", {
