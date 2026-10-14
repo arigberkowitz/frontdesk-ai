@@ -28,6 +28,12 @@ export const CHAT_SIGNATURE_TOLERANCE_MS = 5 * 60_000;
 export const CHAT_SIGNATURE_HEADER = "x-frontdesk-chat-signature";
 /** Our own AI-text-reply → tool calls. The signed body carries the texting number. */
 export const SMS_SIGNATURE_HEADER = "x-frontdesk-sms-signature";
+/**
+ * Where the per-client tool token travels. A header (Retell custom tools
+ * support `headers`) instead of `?token=`, so it stays out of URLs, access
+ * logs, and Retell's tool URL field.
+ */
+export const AGENT_TOOL_TOKEN_HEADER = "x-frontdesk-tool-token";
 
 function hmac(key: string, data: string, encoding: "hex" | "base64url"): string {
   return createHmac("sha256", key).update(data, "utf8").digest(encoding);
@@ -43,6 +49,11 @@ export function safeEqual(a: string, b: string): boolean {
 export function agentToolToken(clientId: string): string {
   if (!env.AGENT_TOOLS_SECRET || !clientId) return "";
   return hmac(env.AGENT_TOOLS_SECRET, TOKEN_PREFIX + clientId, "base64url");
+}
+
+/** Headers every tool call for this client must carry. */
+export function agentToolHeaders(clientId: string): Record<string, string> {
+  return { [AGENT_TOOL_TOKEN_HEADER]: agentToolToken(clientId) };
 }
 
 function chatKey(clientId: string): string {

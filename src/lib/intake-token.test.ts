@@ -55,3 +55,24 @@ describe("intake tokens", () => {
     mockEnv.AGENT_TOOLS_SECRET = "tool-secret";
   });
 });
+
+describe("INTAKE_LINK_SECRET", () => {
+  it("signs with the dedicated secret once set, and old derived-key links work only up to the cutoff", () => {
+    const now = LEGACY_TOKEN_CUTOFF_MS - 20 * DAY;
+    const old = signIntakeToken(CLIENT, 7 * DAY, now); // derived key (secret unset)
+    const tooLate = signIntakeToken(CLIENT, 40 * DAY, now); // expires after the cutoff
+    (mockEnv as Record<string, string>).INTAKE_LINK_SECRET = "intake-secret";
+    try {
+      const fresh = signIntakeToken(CLIENT, 7 * DAY, now);
+      expect(fresh).not.toBe(old);
+      expect(verifyIntakeToken(fresh, now)).toBe(CLIENT);
+      expect(verifyIntakeToken(old, now)).toBe(CLIENT);
+      expect(verifyIntakeToken(tooLate, now)).toBeNull();
+      // A link signed with the new secret doesn't verify without it.
+      (mockEnv as Record<string, string>).INTAKE_LINK_SECRET = "other";
+      expect(verifyIntakeToken(fresh, now)).toBeNull();
+    } finally {
+      delete (mockEnv as Record<string, string>).INTAKE_LINK_SECRET;
+    }
+  });
+});

@@ -75,6 +75,15 @@ export const env = {
   // them through — a rollout escape hatch only, for the first deploy, in case
   // Retell's signing key isn't the RETELL_API_KEY this app holds. Don't leave
   // it on "report": in that mode the URL token alone is the whole defence.
+  // Last moment the pre-header agent-tool credentials still work: a token in
+  // `?token=` (agents synced before tool tokens moved to a header) and the raw
+  // shared AGENT_TOOLS_SECRET as a token. Re-sync every agent, then set this to
+  // a past date (or "off"). Unset → the built-in cutoff in agent-tools-auth.ts.
+  AGENT_TOOLS_LEGACY_UNTIL: process.env.AGENT_TOOLS_LEGACY_UNTIL ?? "",
+  // Dedicated key for public intake (setup) links. Separate from
+  // AGENT_TOOLS_SECRET so a leak of either can't forge the other. Until it is
+  // set, links are signed with the old derived key (transition only).
+  INTAKE_LINK_SECRET: process.env.INTAKE_LINK_SECRET ?? "",
   AGENT_TOOLS_SIGNATURE_MODE:
     process.env.AGENT_TOOLS_SIGNATURE_MODE === "report" ? ("report" as const) : ("enforce" as const),
   // Secret protecting the digest cron endpoint (digests disabled until set).
