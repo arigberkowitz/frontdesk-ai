@@ -9,6 +9,7 @@ import { allowChatSms } from "@/lib/data/chat-limits";
 import {
   checkVerificationCode,
   issueVerificationCode,
+  verificationCodeEmail,
   verificationCodeText,
 } from "@/lib/verification-code";
 import { getCallByRetellId } from "@/lib/data/calls";
@@ -18,6 +19,7 @@ import { parseInClientTimezone } from "@/lib/hours-util";
 import { notifyOwnerCancellation } from "@/lib/notify";
 import { formatDateTime } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { cleanEmail } from "@/lib/email-address";
 import { offerFreedSlot } from "@/lib/agents/waitlist-backfill";
 
 export const runtime = "nodejs";
@@ -208,46 +210,8 @@ async function chatVerifiedNumber(
   const code = String(args.code ?? "").trim();
 
   if (!code) {
-    // Same answer whether or not a booking exists: the visitor learns nothing
-    // about someone else's number until they prove they hold it.
-    const generic: Record<string, unknown> = {
-      success: false,
-      verification_required: true,
-      message:
-        "For security, cancelling from the website needs a 6-digit code. If there's an upcoming appointment under that number, a code was just texted to it. Ask the visitor to type the code here, then call cancel_appointment again with the same phone and the code. Don't say whether an appointment exists.",
-    };
-    if (!integrations.twilio()) {
-      return {
-        ok: false,
-        body: {
-          success: false,
-          message:
-            "Cancelling from the website needs a code texted to the number on the booking, and texting isn't available right now. Offer to take a message so the team can call them back and cancel it.",
-        },
-      };
-    }
-    const matches = await findUpcomingAppointmentsByPhone(client.id, phone);
-    if (matches.length === 0) return { ok: false, body: generic };
-    if (!consumeAttempt(`cancel-code-send:${key}`, CODE_SENDS_PER_HOUR, 60 * 60_000).ok) {
-      // The earlier code is still valid; don't text the same person again.
-      logger.info("agent-tools.cancel.code_send_throttled", { clientId: client.id });
-      return { ok: false, body: generic };
-    }
-    if (!(await allowChatSms(client.id, phone, "cancel_code"))) {
-      return { ok: false, body: generic };
-    }
-    if (await isOptedOut(phone, client.id)) {
-      logger.info("agent-tools.cancel.code_opted_out", { clientId: client.id });
-      return { ok: false, body: generic };
-    }
-    const sent = await notifier.sendSms({
-      to: phone,
-      body: verificationCodeText(client.name, issueVerificationCode(client.id, phone)),
-      // From the business's own texting number when it has one.
-      fromClientId: client.id,
-    });
-    logger.info("agent-tools.cancel.code_sent", { clientId: client.id, ok: sent.ok });
-    return { ok: false, body: generic };
+    const via = String(args.via ?? "sms").toLowerCase() === "email" ? "email" : "sms";
+    return { ok: false, body: await sendCancelCode(client, phone, key, via, args.email) };
   }
 
   if (!consumeAttempt(`cancel-code-check:${key}`, CODE_CHECKS_PER_15_MIN, 15 * 60_000).ok) {
@@ -273,4 +237,108 @@ async function chatVerifiedNumber(
   }
   clearAttempts(`cancel-code-check:${key}`);
   return { ok: true, phone };
+}
+
+/**
+ * Send the one-time cancel code — only ever to contact info already on the
+ * booking: the booked phone by text, or (if the visitor asks) the booked email.
+ *
+ * Privacy: when no booking matches, the answer is the same generic sentence as
+ * a successful send, so nobody learns whether a stranger's number has an
+ * appointment. For email, the visitor must name the address; we only send if
+ * it equals the one stored on a booking under that phone, and the reply never
+ * reveals the stored address or whether one exists.
+ *
+ * Honesty: once a code really can't go out (texting down, opted out, Twilio
+ * error, throttled) the model is told so, in words it can repeat — it must
+ * never say "I sent a code" when nothing was sent.
+ */
+async function sendCancelCode(
+  client: ToolClient,
+  phone: string,
+  key: string,
+  via: "sms" | "email",
+  rawEmail: unknown,
+): Promise<Record<string, unknown>> {
+  const askForCode = (where: string) =>
+    `Tell the visitor: "If there's an upcoming appointment under that ${where}, I've just sent a 6-digit code to it — please type it here." Then, when they type it, call cancel_appointment again with the same phone and the code. Don't say whether an appointment exists.`;
+  const failed = (why: string) => ({ success: false, code_sent: false, message: why });
+
+  if (via === "email") {
+    const email = cleanEmail(rawEmail);
+    if (!email) {
+      return failed("Ask for the email address they used when booking, then call cancel_appointment again with via \"email\" and that email. Or offer to text the code instead.");
+    }
+    if (!integrations.resend()) {
+      return failed("Email isn't available right now. Offer to text the code to the number on the booking instead, or take a message.");
+    }
+    const generic = {
+      success: false,
+      verification_required: true,
+      code_sent: "unknown",
+      message:
+        askForCode("number and email") +
+        " If nothing arrives in a couple of minutes, that email may not be on the booking — offer to text the code to the booked number instead.",
+    };
+    const matches = await findUpcomingAppointmentsByPhone(client.id, phone);
+    const onFile = matches.some((a) => cleanEmail(a.customerEmail) === email);
+    if (!onFile) {
+      logger.info("agent-tools.cancel.email_not_on_booking", { clientId: client.id });
+      return generic;
+    }
+    if (!consumeAttempt(`cancel-code-send:${key}`, CODE_SENDS_PER_HOUR, 60 * 60_000).ok) {
+      return failed("A code was already sent several times in the last hour. Ask them to use the most recent code they got, or offer to take a message.");
+    }
+    const code = issueVerificationCode(client.id, phone);
+    const sent = code
+      ? await notifier.sendEmail({
+          to: email,
+          subject: `${client.name}: your appointment code`,
+          text: verificationCodeEmail(client.name, code),
+        })
+      : { ok: false };
+    logger.info("agent-tools.cancel.code_emailed", { clientId: client.id, ok: sent.ok });
+    if (!sent.ok) {
+      return failed("The code email couldn't be sent. Say so honestly, then offer to text the code to the booked number instead, or take a message.");
+    }
+    return { ...generic, code_sent: true };
+  }
+
+  // SMS
+  const generic = {
+    success: false,
+    verification_required: true,
+    code_sent: "unknown",
+    message: askForCode("number"),
+  };
+  if (!integrations.twilio()) {
+    return failed("Texting isn't available right now, so no code was sent. Say so, offer to email the code instead if they booked with an email, or take a message so the team can cancel it.");
+  }
+  const matches = await findUpcomingAppointmentsByPhone(client.id, phone);
+  if (matches.length === 0) return generic;
+  if (!consumeAttempt(`cancel-code-send:${key}`, CODE_SENDS_PER_HOUR, 60 * 60_000).ok) {
+    logger.info("agent-tools.cancel.code_send_throttled", { clientId: client.id });
+    return failed("A code was already texted several times in the last hour. Ask them to use the most recent code they got, or offer to take a message.");
+  }
+  if (!(await allowChatSms(client.id, phone, "cancel_code"))) {
+    return failed("No more codes can be texted to this number today. Say so, offer to email the code instead if they booked with an email, or take a message.");
+  }
+  if (await isOptedOut(phone, client.id)) {
+    logger.info("agent-tools.cancel.code_opted_out", { clientId: client.id });
+    return failed("This number has opted out of texts from the business, so no code was sent. Offer to email the code instead if they booked with an email, or take a message.");
+  }
+  const code = issueVerificationCode(client.id, phone);
+  const sent = code
+    ? await notifier.sendSms({
+        to: phone,
+        body: verificationCodeText(client.name, code),
+        // From the business's own texting number when it has one.
+        fromClientId: client.id,
+      })
+    : { ok: false, error: "AGENT_TOOLS_SECRET unset" };
+  logger.info("agent-tools.cancel.code_sent", { clientId: client.id, ok: sent.ok, error: sent.ok ? undefined : sent.error });
+  if (!sent.ok) {
+    return failed("The text with the code couldn't be sent. Say that honestly, then offer to email the code instead if they booked with an email, or take a message so the team can cancel it.");
+  }
+  return { ...generic, code_sent: true };
 }

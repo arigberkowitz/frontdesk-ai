@@ -72,3 +72,12 @@ export function corsHeaders(origin: string | null): Record<string, string> {
     vary: "origin",
   };
 }
+
+/**
+ * True when a reply announces a code send ("Let me send a verification code to
+ * …") — the model said it would act but called no tool. Prod, Oct 14 2026:
+ * Riley said exactly that, cancel_appointment never ran, no text went out.
+ */
+export function promisesCodeSend(text: string): boolean {
+  return /\b(let me|i'll|i will|i'm|i am|i've|i have|i just|now)\b[^.?!]{0,20}\b(send|sending|sent|text|texting|texted|email|emailing|emailed)\b[^.?!]{0,60}\bcode\b/i.test(text);
+}

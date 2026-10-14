@@ -55,3 +55,8 @@ export function checkVerificationCode(
 export function verificationCodeText(businessName: string, code: string): string {
   return `${businessName}: your code to manage your appointment is ${code}. It expires in 10 minutes. Didn't ask for this? You can ignore this text. Reply STOP to opt out.`;
 }
+
+/** The email version. Plain text; no link to click, nothing to phish with. */
+export function verificationCodeEmail(businessName: string, code: string): string {
+  return `Your code to manage your appointment with ${businessName} is ${code}.\n\nIt expires in 10 minutes. Type it into the chat on their website.\n\nDidn't ask for this? You can ignore this email — nothing changes without the code.`;
+}

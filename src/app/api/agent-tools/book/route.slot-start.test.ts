@@ -54,7 +54,7 @@ vi.mock("@/lib/agent-tools-auth", () => ({
     client: CLIENT,
     channel: "voice",
     retellCallId: null,
-    args: { datetime: SLOT.start, service: "Cleaning", name: "Pat", phone: "415-555-0100" },
+    args: { datetime: SLOT.start, service: "Cleaning", name: "Pat", phone: "415-555-0100", email: " Pat@Example.com " },
   }),
 }));
 vi.mock("@/lib/data/calls", () => ({ getCallByRetellId: async () => null }));
@@ -98,5 +98,10 @@ describe("book from a check-availability slot", () => {
     expect(body.success).toBe(true);
     expect(createBooking).toHaveBeenCalledWith(expect.objectContaining({ startAt: START }));
     expect(reserveAppointment.mock.calls[0][1]).toMatchObject({ startAt: new Date(START) });
+  });
+
+  it("stores the email the chat collected, normalised", async () => {
+    await call();
+    expect(reserveAppointment.mock.calls[0][1]).toMatchObject({ customerEmail: "pat@example.com" });
   });
 });

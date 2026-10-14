@@ -11,7 +11,7 @@ import { consumeAttempt } from "@/lib/rate-limit";
 import { allowChatTurn } from "@/lib/data/chat-limits";
 import { chatChannelPreamble, chatGreeting, nowLine } from "@/lib/chat/prompt";
 import { chatTools } from "@/lib/chat/tools";
-import { MAX_TOOL_ROUNDS, corsHeaders, sanitizeTurns, type ChatTurn } from "@/lib/chat/session";
+import { MAX_TOOL_ROUNDS, corsHeaders, promisesCodeSend, sanitizeTurns, type ChatTurn } from "@/lib/chat/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -124,16 +124,38 @@ export async function POST(req: Request): Promise<Response> {
 
   const messages: Anthropic.MessageParam[] = turns.map((t) => ({ role: t.role, content: t.content }));
   let reply = "";
+  let forcedCancel = false;
 
   try {
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-      const res = await anthropic.messages.create({
+      let res = await anthropic.messages.create({
         model: CHAT_MODEL,
         max_tokens: 600,
         system,
         tools: tools.map((t) => t.def),
         messages,
       });
+
+      // Said "let me send a code" but called nothing: make it actually call
+      // cancel_appointment, once, so the visitor isn't left waiting on a text
+      // that was never sent.
+      if (
+        !forcedCancel &&
+        byName.has("cancel_appointment") &&
+        !res.content.some((b) => b.type === "tool_use") &&
+        promisesCodeSend(res.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join(""))
+      ) {
+        forcedCancel = true;
+        logger.warn("chat.promised_without_tool", { clientId: client.id });
+        res = await anthropic.messages.create({
+          model: CHAT_MODEL,
+          max_tokens: 600,
+          system,
+          tools: tools.map((t) => t.def),
+          tool_choice: { type: "tool", name: "cancel_appointment" },
+          messages,
+        });
+      }
 
       const text = res.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
