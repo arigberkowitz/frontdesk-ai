@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { knowledgeItems, services, users } from "@/db/schema";
+import { clients, knowledgeItems, services, users } from "@/db/schema";
 
 /** Services + FAQs a business already has (what a website draft would add to). */
 export async function countDraftableContent(clientId: string): Promise<number> {
@@ -36,4 +36,23 @@ export async function ownerHasSignedIn(clientId: string): Promise<boolean> {
     columns: { id: true },
   });
   return Boolean(row);
+}
+
+/**
+ * Is a link issued at `issuedAt` dead? Yes once the owner has signed in, or
+ * once the intake form was completed after that link was issued. A link the
+ * operator issues afterwards (to redo intake) still works.
+ */
+export async function intakeLinkLocked(clientId: string, issuedAt: number): Promise<boolean> {
+  const row = await db.query.clients.findFirst({
+    where: eq(clients.id, clientId),
+    columns: { intakeCompletedAt: true },
+  });
+  if (row?.intakeCompletedAt && row.intakeCompletedAt.getTime() >= issuedAt) return true;
+  return ownerHasSignedIn(clientId);
+}
+
+/** Record a completed intake. Every link issued up to now stops working. */
+export async function markIntakeCompleted(clientId: string, at = new Date()): Promise<void> {
+  await db.update(clients).set({ intakeCompletedAt: at }).where(eq(clients.id, clientId));
 }

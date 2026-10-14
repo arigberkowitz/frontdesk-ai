@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { INTAKE_USED_SIGN_IN, verifyIntakeToken } from "@/lib/intake-token";
+import { INTAKE_USED_SIGN_IN, verifyIntakeLink } from "@/lib/intake-token";
 import { tidyBusinessName, toE164 } from "@/lib/format";
 import { getClientByIdUnsafe, updateClient } from "@/lib/data/clients";
 import { applyWebsiteToClient } from "@/lib/onboarding-apply";
 import { applyClientEdit } from "@/lib/agent-publish";
 import { consumeAttempt } from "@/lib/rate-limit";
-import { countDraftableContent, ownerHasSignedIn } from "@/lib/data/intake";
+import { countDraftableContent, intakeLinkLocked, markIntakeCompleted } from "@/lib/data/intake";
 import { logger } from "@/lib/logger";
 import { type ActionState, fieldErrorsOf } from "./types";
 
@@ -54,8 +54,9 @@ export async function submitIntakeAction(
   formData: FormData,
 ): Promise<ActionState> {
   const token = String(formData.get("token") ?? "");
-  const clientId = verifyIntakeToken(token);
-  if (!clientId) {
+  const link = verifyIntakeLink(token);
+  const clientId = link?.clientId;
+  if (!link || !clientId) {
     return { ok: false, error: "This intake link is invalid or has expired — please ask for a new one." };
   }
 
@@ -63,7 +64,7 @@ export async function submitIntakeAction(
   if (!client) return { ok: false, error: "This intake link is no longer valid." };
   // Locked once the owner has signed in — a tab left open, or a forwarded
   // link, mustn't keep rewriting a business that now has an account.
-  if (await ownerHasSignedIn(clientId)) {
+  if (await intakeLinkLocked(clientId, link.issuedAt)) {
     logger.info("intake.locked_after_sign_in", { clientId });
     redirect(INTAKE_USED_SIGN_IN);
   }
@@ -127,6 +128,9 @@ export async function submitIntakeAction(
   // The new name, alert number and guidance used to wait for the next
   // unrelated edit to reach a live agent. Push them now (no-op before activation).
   await applyClientEdit({ orgId: client.orgId }, clientId);
+
+  // One completed intake per link: every link issued up to now stops working.
+  await markIntakeCompleted(clientId);
 
   revalidatePath(`/clients/${clientId}`);
   return { ok: true, data: { drafting } };

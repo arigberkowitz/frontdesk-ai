@@ -13,7 +13,7 @@ const applyClientEdit = vi.fn(async (..._a: unknown[]) => "synced");
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/intake-token", () => ({
-  verifyIntakeToken: (t: string) => (t.startsWith("ok-") ? t.slice(3) : null),
+  verifyIntakeLink: (t: string) => (t.startsWith("ok-") ? { clientId: t.slice(3), issuedAt: 0 } : null),
   INTAKE_USED_SIGN_IN: "/sign-in?reason=setup-link-used",
 }));
 vi.mock("@/lib/data/clients", () => ({
@@ -31,9 +31,11 @@ vi.mock("@/lib/data/clients", () => ({
 vi.mock("@/lib/onboarding-apply", () => ({ applyWebsiteToClient: (...a: unknown[]) => applyWebsiteToClient(...a) }));
 vi.mock("@/lib/agent-publish", () => ({ applyClientEdit: (...a: unknown[]) => applyClientEdit(...a) }));
 const signedIn = new Set<string>();
+const markIntakeCompleted = vi.fn(async (_id: string) => {});
 vi.mock("@/lib/data/intake", () => ({
   countDraftableContent: async () => content,
-  ownerHasSignedIn: async (id: string) => signedIn.has(id),
+  intakeLinkLocked: async (id: string) => signedIn.has(id),
+  markIntakeCompleted: (id: string) => markIntakeCompleted(id),
 }));
 vi.mock("next/navigation", () => ({
   redirect: (u: string) => {
@@ -83,8 +85,11 @@ describe("submitIntakeAction", () => {
   });
 
   it("accepts a bare domain, tidies the name, keeps blank fields unchanged, and republishes", async () => {
+    markIntakeCompleted.mockClear();
     const r = await submitIntakeAction({}, form({ name: "harbor view plumbing", websiteUrl: "harborview.com" }));
     expect(r.ok).toBe(true);
+    // A completed intake kills every link issued so far.
+    expect(markIntakeCompleted).toHaveBeenCalledTimes(1);
     expect(updateClient).toHaveBeenCalledWith(
       "org1",
       expect.any(String),

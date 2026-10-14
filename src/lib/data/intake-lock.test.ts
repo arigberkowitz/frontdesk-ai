@@ -6,7 +6,7 @@ vi.mock("@/db", async () => (await import("../../../test/helpers/pglite-db")).pg
 
 const { db } = await import("@/db");
 const schema = await import("@/db/schema");
-const { ownerHasSignedIn } = await import("./intake");
+const { ownerHasSignedIn, intakeLinkLocked, markIntakeCompleted } = await import("./intake");
 
 async function seed() {
   const [org] = await db.insert(schema.organizations).values({ name: "House", kind: "agency" }).returning();
@@ -52,5 +52,16 @@ describe("ownerHasSignedIn", () => {
     await db.insert(schema.users).values({ orgId: a.orgId, clerkUserId: "u1", email: "o@a.test", role: "client_admin", clientId: a.clientId });
     expect(await ownerHasSignedIn(a.clientId)).toBe(true);
     expect(await ownerHasSignedIn(b.clientId)).toBe(false);
+  });
+});
+
+describe("intake links stop working once intake is completed", () => {
+  it("locks links issued before completion; a link issued after still works", async () => {
+    const { clientId } = await seed();
+    const before = Date.now() - 60_000;
+    expect(await intakeLinkLocked(clientId, before)).toBe(false);
+    await markIntakeCompleted(clientId);
+    expect(await intakeLinkLocked(clientId, before)).toBe(true);
+    expect(await intakeLinkLocked(clientId, Date.now() + 1_000)).toBe(false);
   });
 });

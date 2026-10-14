@@ -22,7 +22,10 @@ import { env } from "./env";
  *
  * An unset secret fails closed: nothing signs, nothing verifies.
  */
-const TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+/** Links live 7 days. Verification refuses anything claiming a longer life. */
+export const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** Clock skew allowance on the "no longer than TTL" check. */
+const SKEW_MS = 5 * 60_000;
 
 /**
  * Where a setup link sends you once the business's owner has signed in (see
@@ -73,6 +76,16 @@ export function signIntakeToken(clientId: string, ttlMs: number = TTL_MS, now = 
 
 /** Returns the clientId if the token is valid and unexpired, else null. */
 export function verifyIntakeToken(token: string, now = Date.now()): string | null {
+  return verifyIntakeLink(token, now)?.clientId ?? null;
+}
+
+/**
+ * Valid, unexpired link → its client and when it was issued (expiry − TTL).
+ * A token whose expiry is more than one TTL away is refused: that caps every
+ * link, including 30-day ones minted before the cut to 7 days, at 7 days from
+ * now. `issuedAt` lets callers lock links issued before intake was completed.
+ */
+export function verifyIntakeLink(token: string, now = Date.now()): { clientId: string; issuedAt: number } | null {
   const key = intakeKey();
   if (!key) return null;
   const parts = token.split(".");
@@ -88,19 +101,21 @@ export function verifyIntakeToken(token: string, now = Date.now()): string | nul
   }
   const exp = Number(expiresAt);
   if (!Number.isFinite(exp) || now > exp) return null;
+  if (exp - now > TTL_MS + SKEW_MS) return null;
+  const ok = { clientId, issuedAt: exp - TTL_MS };
 
   const payload = `${clientId}.${expiresAt}`;
-  if (safeEqual(sig, sign(payload, key))) return clientId;
+  if (safeEqual(sig, sign(payload, key))) return ok;
 
   // Links signed with the derived subkey before INTAKE_LINK_SECRET was set.
   // Same cutoff rule: only links that expire by the cutoff, so a forged one
   // can't outlive the transition.
   const derived = env.INTAKE_LINK_SECRET ? derivedKey() : null;
-  if (derived && exp <= LEGACY_TOKEN_CUTOFF_MS && safeEqual(sig, sign(payload, derived))) return clientId;
+  if (derived && exp <= LEGACY_TOKEN_CUTOFF_MS && safeEqual(sig, sign(payload, derived))) return ok;
 
   // Links issued before the subkey existed (see the header comment).
   if (env.AGENT_TOOLS_SECRET && exp <= LEGACY_TOKEN_CUTOFF_MS && safeEqual(sig, sign(payload, env.AGENT_TOOLS_SECRET))) {
-    return clientId;
+    return ok;
   }
   return null;
 }

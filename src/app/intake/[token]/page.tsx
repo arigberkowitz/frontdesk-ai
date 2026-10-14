@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Phone } from "lucide-react";
-import { ownerHasSignedIn } from "@/lib/data/intake";
-import { verifyIntakeToken } from "@/lib/intake-token";
+import { intakeLinkLocked } from "@/lib/data/intake";
+import { verifyIntakeLink } from "@/lib/intake-token";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { IntakeForm } from "@/components/intake/intake-form";
 import { APP_NAME } from "@/config/app";
@@ -13,10 +13,11 @@ export const metadata: Metadata = { title: "Set up your AI receptionist" };
 /** Public, token-authorized intake — a link the operator sends a new client. */
 export default async function IntakePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const clientId = verifyIntakeToken(token);
-  const client = clientId ? await getClientByIdUnsafe(clientId) : null;
-  // Used once the owner has an account: from then on, edits happen signed in.
-  if (client && (await ownerHasSignedIn(client.id))) redirect(INTAKE_USED_SIGN_IN);
+  const link = verifyIntakeLink(token);
+  const client = link ? await getClientByIdUnsafe(link.clientId) : null;
+  // Used once intake was completed or the owner has an account: from then on,
+  // edits happen signed in.
+  if (client && link && (await intakeLinkLocked(client.id, link.issuedAt))) redirect(INTAKE_USED_SIGN_IN);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

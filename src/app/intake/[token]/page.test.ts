@@ -4,13 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const signedIn = new Set<string>();
 vi.mock("@/lib/intake-token", () => ({
-  verifyIntakeToken: (t: string) => (t.startsWith("ok-") ? t.slice(3) : null),
+  verifyIntakeLink: (t: string) => (t.startsWith("ok-") ? { clientId: t.slice(3), issuedAt: 0 } : null),
   INTAKE_USED_SIGN_IN: "/sign-in?reason=setup-link-used",
 }));
 vi.mock("@/lib/data/clients", () => ({
   getClientByIdUnsafe: async (id: string) => ({ id, name: "Harbor View", websiteUrl: null }),
 }));
-vi.mock("@/lib/data/intake", () => ({ ownerHasSignedIn: async (id: string) => signedIn.has(id) }));
+vi.mock("@/lib/data/intake", () => ({ intakeLinkLocked: async (id: string) => signedIn.has(id) }));
 vi.mock("next/navigation", () => ({
   redirect: (u: string) => {
     throw new Error(`redirect:${u}`);
