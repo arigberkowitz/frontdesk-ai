@@ -11,7 +11,18 @@ import { consumeAttempt } from "@/lib/rate-limit";
 import { allowChatTurn } from "@/lib/data/chat-limits";
 import { chatChannelPreamble, chatGreeting, nowLine } from "@/lib/chat/prompt";
 import { chatTools } from "@/lib/chat/tools";
-import { MAX_TOOL_ROUNDS, corsHeaders, promisesCodeSend, sanitizeTurns, type ChatTurn } from "@/lib/chat/session";
+import {
+  MAX_TOOL_ROUNDS,
+  confirmedBy,
+  corsHeaders,
+  sanitizeTurns,
+  submittedCode,
+  successClaim,
+  toolForClaim,
+  unconfirmedReply,
+  type ChatTurn,
+  type ClaimKind,
+} from "@/lib/chat/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -124,48 +135,62 @@ export async function POST(req: Request): Promise<Response> {
 
   const messages: Anthropic.MessageParam[] = turns.map((t) => ({ role: t.role, content: t.content }));
   let reply = "";
-  let forcedCancel = false;
+  // Success claims ("booked", "cancelled", "sent"…) are only allowed when a
+  // tool result in THIS turn backs them. Otherwise force the tool once; if it
+  // still isn't backed, say honestly that it didn't work.
+  const confirmed = new Set<ClaimKind>();
+  const attempted = new Set<string>();
+  let retried = false;
+  // A typed cancel code always reaches cancel_appointment (prod Oct 14: Riley
+  // said "cancelled" on the code turn without calling anything).
+  const codeTurn = submittedCode(turns) !== null && byName.has("cancel_appointment");
+  const create = (toolChoice?: string) =>
+    anthropic.messages.create({
+      model: CHAT_MODEL,
+      max_tokens: 600,
+      system,
+      tools: tools.map((t) => t.def),
+      ...(toolChoice ? { tool_choice: { type: "tool" as const, name: toolChoice } } : {}),
+      messages,
+    });
+  const textOf = (res: Anthropic.Message) =>
+    res.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("")
+      .trim();
 
   try {
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-      let res = await anthropic.messages.create({
-        model: CHAT_MODEL,
-        max_tokens: 600,
-        system,
-        tools: tools.map((t) => t.def),
-        messages,
-      });
+      const forceCode = round === 0 && codeTurn;
+      if (forceCode) {
+        retried = true;
+        logger.info("chat.code_forced_cancel", { clientId: client.id });
+      }
+      let res = await create(forceCode ? "cancel_appointment" : undefined);
 
-      // Said "let me send a code" but called nothing: make it actually call
-      // cancel_appointment, once, so the visitor isn't left waiting on a text
-      // that was never sent.
-      if (
-        !forcedCancel &&
-        byName.has("cancel_appointment") &&
-        !res.content.some((b) => b.type === "tool_use") &&
-        promisesCodeSend(res.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join(""))
-      ) {
-        forcedCancel = true;
-        logger.warn("chat.promised_without_tool", { clientId: client.id });
-        res = await anthropic.messages.create({
-          model: CHAT_MODEL,
-          max_tokens: 600,
-          system,
-          tools: tools.map((t) => t.def),
-          tool_choice: { type: "tool", name: "cancel_appointment" },
-          messages,
-        });
+      if (!res.content.some((b) => b.type === "tool_use")) {
+        const claim = successClaim(textOf(res));
+        if (claim && !confirmed.has(claim)) {
+          const forced = toolForClaim(claim, textOf(res));
+          if (!retried && byName.has(forced) && !attempted.has(forced)) {
+            retried = true;
+            logger.warn("chat.claim_without_tool", { clientId: client.id, claim, forced });
+            res = await create(forced);
+          }
+        }
       }
 
-      const text = res.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("")
-        .trim();
+      const text = textOf(res);
       const uses = res.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
 
       if (uses.length === 0 || round === MAX_TOOL_ROUNDS) {
         reply = text || "Sorry — could you say that again?";
+        const claim = successClaim(reply);
+        if (claim && !confirmed.has(claim)) {
+          logger.warn("chat.unbacked_claim", { clientId: client.id, claim });
+          reply = unconfirmedReply(claim);
+        }
         break;
       }
 
@@ -178,7 +203,9 @@ export async function POST(req: Request): Promise<Response> {
         if (!tool) {
           output = JSON.stringify({ error: "Unknown tool" });
         } else {
+          attempted.add(use.name);
           output = await callTool(tool.path, client.id, use.input, visitor);
+          for (const k of confirmedBy(use.name, output)) confirmed.add(k);
         }
         results.push({ type: "tool_result", tool_use_id: use.id, content: output });
       }
