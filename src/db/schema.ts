@@ -229,6 +229,9 @@ export const clients = pgTable(
     // Set when the owner clicks "I'm done" and the AI readiness check passes.
     // Hides the overview setup checklist; it stays reachable under Settings.
     setupCompletedAt: timestamp("setup_completed_at", { withTimezone: true }),
+    // Last successful submit of the public intake form. Any intake link issued
+    // before this is dead. Migration: drizzle/manual/0019_intake_completed_at.sql.
+    intakeCompletedAt: timestamp("intake_completed_at", { withTimezone: true }),
     // Staff mode: named team members, per-person booking + views. Off = solo.
     staffModeEnabled: boolean("staff_mode_enabled").notNull().default(false),
     // Setup profile: 'solo' | 'team' | 'big' — shapes which tabs/features lead.

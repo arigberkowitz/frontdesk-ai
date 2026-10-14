@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 const mockEnv = { AGENT_TOOLS_SECRET: "tool-secret" };
 vi.mock("@/lib/env", () => ({ env: mockEnv }));
 
-const { signIntakeToken, verifyIntakeToken, LEGACY_TOKEN_CUTOFF_MS } = await import("./intake-token");
+const { signIntakeToken, verifyIntakeToken, verifyIntakeLink, LEGACY_TOKEN_CUTOFF_MS } = await import("./intake-token");
 
 const CLIENT = "11111111-1111-4111-8111-111111111111";
 const DAY = 86_400_000;
@@ -39,7 +39,22 @@ describe("intake tokens", () => {
 
   it("keeps old links working until they expire, up to the cutoff", () => {
     const now = LEGACY_TOKEN_CUTOFF_MS - 40 * DAY;
-    expect(verifyIntakeToken(legacyToken(CLIENT, now + 30 * DAY), now)).toBe(CLIENT);
+    expect(verifyIntakeToken(legacyToken(CLIENT, now + 6 * DAY), now)).toBe(CLIENT);
+  });
+
+  it("caps every link at 7 days: new links expire in 7 days; a 30-day link is refused until it's within 7 days of expiry", () => {
+    const now = Date.now();
+    const t = signIntakeToken(CLIENT, undefined, now);
+    expect(verifyIntakeToken(t, now + 7 * DAY - 1000)).toBe(CLIENT);
+    expect(verifyIntakeToken(t, now + 7 * DAY + 1000)).toBeNull();
+    const thirty = signIntakeToken(CLIENT, 30 * DAY, now);
+    expect(verifyIntakeToken(thirty, now)).toBeNull();
+    expect(verifyIntakeToken(thirty, now + 24 * DAY)).toBe(CLIENT);
+  });
+
+  it("reports when a link was issued", () => {
+    const now = Date.now();
+    expect(verifyIntakeLink(signIntakeToken(CLIENT, undefined, now), now)).toEqual({ clientId: CLIENT, issuedAt: now });
   });
 
   it("refuses a legacy-signed token whose expiry is past the cutoff", () => {
@@ -60,14 +75,14 @@ describe("INTAKE_LINK_SECRET", () => {
   it("signs with the dedicated secret once set, and old derived-key links work only up to the cutoff", () => {
     const now = LEGACY_TOKEN_CUTOFF_MS - 20 * DAY;
     const old = signIntakeToken(CLIENT, 7 * DAY, now); // derived key (secret unset)
-    const tooLate = signIntakeToken(CLIENT, 40 * DAY, now); // expires after the cutoff
+    const tooLate = signIntakeToken(CLIENT, 7 * DAY, LEGACY_TOKEN_CUTOFF_MS - DAY); // expires after the cutoff
     (mockEnv as Record<string, string>).INTAKE_LINK_SECRET = "intake-secret";
     try {
       const fresh = signIntakeToken(CLIENT, 7 * DAY, now);
       expect(fresh).not.toBe(old);
       expect(verifyIntakeToken(fresh, now)).toBe(CLIENT);
       expect(verifyIntakeToken(old, now)).toBe(CLIENT);
-      expect(verifyIntakeToken(tooLate, now)).toBeNull();
+      expect(verifyIntakeToken(tooLate, LEGACY_TOKEN_CUTOFF_MS - DAY)).toBeNull();
       // A link signed with the new secret doesn't verify without it.
       (mockEnv as Record<string, string>).INTAKE_LINK_SECRET = "other";
       expect(verifyIntakeToken(fresh, now)).toBeNull();

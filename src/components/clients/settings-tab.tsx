@@ -87,8 +87,8 @@ export function SettingsTab({
           <CardTitle>Client intake link</CardTitle>
           <CardDescription>
             Send this to the business to collect their website, hours, alert contacts, and any special
-            instructions — it drafts their AI from their site. The link expires in 30 days, and
-            locks once the owner signs in to their portal.
+            instructions — it drafts their AI from their site. The link expires in 7 days, stops working once they submit it,
+            and locks once the owner signs in to their portal. Reload this page for a fresh link.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
