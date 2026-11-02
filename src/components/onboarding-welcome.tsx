@@ -152,6 +152,20 @@ function SetupForm({ plan }: { plan: string | null }) {
           <option value="big">A bigger operation</option>
         </select>
       </Field>
+      <Field
+        label="Your cell (optional)"
+        hint="So callers who ask for a person can reach you — the AI transfers them live. Never shown to callers."
+        error={state.fieldErrors?.ownerCell}
+      >
+        <Input
+          name="ownerCell"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="(415) 555-0123"
+          defaultValue={v.ownerCell ?? ""}
+        />
+      </Field>
       <SubmitButton idle="Set up my receptionist" busy="Building your receptionist…" />
       <BusyNote />
       <TemplateButton />
@@ -215,6 +229,12 @@ export function OnboardingWelcome({
                 <option value="team">A small team (2–10)</option>
                 <option value="big">A bigger operation</option>
               </NativeSelect>
+            </Field>
+            <Field
+              label="Your cell (optional)"
+              hint="So callers who ask for a person can reach you — the AI transfers them live."
+            >
+              <Input name="ownerCell" type="tel" inputMode="tel" autoComplete="tel" placeholder="(415) 555-0123" />
             </Field>
             <Button type="submit" size="lg" className="w-full">
               <Sparkles className="size-4" />

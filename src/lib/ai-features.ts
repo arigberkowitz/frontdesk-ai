@@ -63,6 +63,23 @@ export function aiFeatureStatus(
   key: AiFeatureKey,
   flags: AiFeatureFlags,
   stats: AiFeatureStats,
+  opts: { now?: Date; timeZone?: string; smsEnabled?: boolean } = {},
+): FeatureStatus {
+  const status = aiFeatureStatusInner(key, flags, stats, opts);
+  // Texting features can't promise anything until carriers approve texting.
+  if (opts.smsEnabled === false && TEXT_FEATURES.has(key) && status.tone !== "off") {
+    return { tone: "warn", text: SMS_PENDING_TEXT };
+  }
+  return status;
+}
+
+export const SMS_PENDING_TEXT = "On · texts pending carrier approval";
+const TEXT_FEATURES = new Set<AiFeatureKey>(["aiTextReplies", "missedCallTexts", "smartRebooking"]);
+
+function aiFeatureStatusInner(
+  key: AiFeatureKey,
+  flags: AiFeatureFlags,
+  stats: AiFeatureStats,
   opts: { now?: Date; timeZone?: string } = {},
 ): FeatureStatus {
   const now = opts.now ?? new Date();

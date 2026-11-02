@@ -1,6 +1,8 @@
 import "server-only";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
+import { env } from "@/lib/env";
+import { alertEmails } from "@/lib/alert-emails";
 import { alertContacts, type AlertContact, type Client } from "@/db/schema";
 
 /** Alert-routing roster data access. Callers verify client→org ownership first. */
@@ -74,7 +76,7 @@ export async function getAlertRecipients(client: Client): Promise<AlertRecipient
     ...new Set(all.map((c) => c.phone?.trim()).filter((p): p is string => Boolean(p))),
   ];
   return {
-    emails: emails.length ? emails : client.ownerEmail?.trim() ? [client.ownerEmail.trim()] : [],
+    emails: alertEmails(emails, client.ownerEmail, env.SMS_ENABLED),
     phones: phones.length
       ? phones
       : client.escalationNumber?.trim()
@@ -82,3 +84,4 @@ export async function getAlertRecipients(client: Client): Promise<AlertRecipient
         : [],
   };
 }
+

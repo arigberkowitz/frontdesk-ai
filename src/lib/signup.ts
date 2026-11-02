@@ -9,6 +9,7 @@ import { runProvision, type ProvisionActor } from "@/lib/provision";
 import { sendWelcomeEmail } from "@/lib/lifecycle";
 import { integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { signupDefaults } from "@/lib/signup-defaults";
 
 /**
  * Everything that makes a freshly created business *usable*, in one place.
@@ -31,7 +32,7 @@ import { logger } from "@/lib/logger";
 export async function finishSignup(
   user: Omit<ProvisionActor, "id"> & { id: string },
   clientId: string,
-  opts: { industry: string | null; seedFromPack: boolean; intendedPlan?: string; companySize: string },
+  opts: { industry: string | null; seedFromPack: boolean; intendedPlan?: string; companySize: string; ownerCell?: string | null },
 ): Promise<void> {
   await db
     .update(clients)
@@ -47,6 +48,8 @@ export async function finishSignup(
       trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
     })
     .where(eq(clients.id, clientId));
+  // Advertised features on, owner's cell as the transfer line (signup-defaults.ts).
+  await db.update(clients).set(signupDefaults(opts.ownerCell)).where(eq(clients.id, clientId));
 
   if (opts.seedFromPack) {
     await seedClientFromPack(user.orgId, clientId, opts.industry);

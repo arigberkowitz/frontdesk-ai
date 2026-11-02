@@ -179,7 +179,7 @@ export function SetupChecklist({
               Complete{status.finishedAt ? ` · ${formatDateTime(new Date(status.finishedAt))}` : ""}
             </span>
           ) : (
-            <span className="-mr-2 flex items-center gap-2">
+            <span className={`flex items-center gap-2 ${canEdit && variant === "overview" ? "-mr-2" : ""}`}>
               <span className="whitespace-nowrap text-sm text-muted-foreground tabular-nums">
                 {status.doneCount} of {status.total} done
               </span>

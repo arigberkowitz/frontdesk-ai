@@ -41,11 +41,29 @@ function createClient(): ReturnType<typeof postgres> {
 // Cache the pool + db on globalThis in every environment: dev avoids opening a
 // new pool on each HMR reload, and serverless reuses the pool across warm
 // invocations of the same function instance.
-const client = globalForDb.__fdaiSql ?? createClient();
-globalForDb.__fdaiSql = client;
+//
+// Lazy: the pool is opened on first use, not on import, so `next build` can
+// collect route config without DATABASE_URL. A missing URL still throws — at
+// the first query instead of at module load.
+function realDb(): Db {
+  if (!globalForDb.__fdaiDb) {
+    const client = globalForDb.__fdaiSql ?? createClient();
+    globalForDb.__fdaiSql = client;
+    globalForDb.__fdaiDb = drizzle(client, { schema });
+  }
+  return globalForDb.__fdaiDb;
+}
 
-export const db: Db = globalForDb.__fdaiDb ?? drizzle(client, { schema });
-globalForDb.__fdaiDb = db;
+export const db: Db = new Proxy({} as Db, {
+  get(_t, prop) {
+    const target = realDb();
+    const value = Reflect.get(target as object, prop, target);
+    return typeof value === "function" ? value.bind(target) : value;
+  },
+  has(_t, prop) {
+    return Reflect.has(realDb() as object, prop);
+  },
+});
 
 export { schema };
 export * from "./schema";

@@ -50,6 +50,8 @@ export interface SetupFacts {
   calendarConnected: boolean;
   alertContacts: number;
   ownerEmail: string | null | undefined;
+  /** The live-transfer cell (escalation number). Undefined = not loaded. */
+  transferNumber?: string | null;
   agentId: string | null | undefined;
   /** Formatted AI phone number, or null if none yet. */
   aiNumber: string | null;
@@ -123,7 +125,11 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
       label: "Choose who gets alerts",
       href: "/portal/settings/alerts",
       done: f.alertContacts > 0 || Boolean(f.ownerEmail?.trim()),
-      hint: "Who we text or email when a lead or emergency comes in.",
+      hint: "Who we text or email when a lead or emergency comes in — and your cell for live transfers.",
+      doneHint:
+        f.transferNumber === undefined || f.transferNumber?.trim()
+          ? undefined
+          : "Live transfer is off until you add your cell — callers who ask for a person get a message taken instead.",
     },
     {
       key: "live",

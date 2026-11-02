@@ -7,6 +7,7 @@ import { notifier } from "@/lib/notifier";
 import { env, integrations } from "@/lib/env";
 import { formatPhone } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import { questionsLine, questionsLineHtml } from "@/lib/lifecycle";
 
 /**
  * A free trial that ends unpaid gives its phone number back.
@@ -80,6 +81,7 @@ export async function runTrialLapse(now = new Date()): Promise<TrialLapseResult>
 
       const to = c.ownerEmail?.trim();
       if (to && integrations.resend()) {
+        const help = `${env.APP_URL.replace(/\/$/, "")}/portal/settings/help`;
         const plans = `${env.APP_URL.replace(/\/$/, "")}/portal/guidelines#plans`;
         await notifier.sendEmail({
           to,
@@ -89,14 +91,14 @@ export async function runTrialLapse(now = new Date()): Promise<TrialLapseResult>
             `Nothing else has changed: your services, hours, answers, calls and bookings are all still there.\n\n` +
             `Pick a plan and it's back on within a minute with a new number: ${plans}\n\n` +
             `If you forwarded your business line to ${formatPhone(phone)}, dial *73 from that phone (AT&T/T-Mobile: ##21#) to undo it, or your callers will hear a disconnected number.\n\n` +
-            `Questions? Just reply to this email.`,
+            questionsLine(help),
           html: `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px">
   <h2 style="margin:0 0 12px;font-size:18px">Your free trial has ended</h2>
   <p style="margin:0 0 10px;font-size:15px">Your trial for <strong>${c.name.replace(/[<>&]/g, "")}</strong> ended a few days ago, so we've switched your AI receptionist off and released its number, <strong>${formatPhone(phone)}</strong>.</p>
   <p style="margin:0 0 10px;font-size:15px">Nothing else has changed — your services, hours, answers, calls and bookings are all still there.</p>
   <p style="margin:0 0 10px;font-size:15px"><a href="${plans}">Pick a plan</a> and it's back on within a minute, with a new number.</p>
   <p style="margin:0 0 10px;font-size:15px;color:#b45309">If you forwarded your business line to ${formatPhone(phone)}, dial <strong>*73</strong> from that phone (AT&amp;T/T-Mobile: <strong>##21#</strong>) to undo it — otherwise your callers will hear a disconnected number.</p>
-  <p style="color:#999;font-size:12px;margin-top:18px">Questions? Just reply to this email. · FrontDesk AI</p>
+  <p style="color:#999;font-size:12px;margin-top:18px">${questionsLineHtml(help)} · FrontDesk AI</p>
 </div>`,
         });
       }

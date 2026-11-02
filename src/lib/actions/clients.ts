@@ -8,6 +8,7 @@ import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "
 import { tidyBusinessName, toE164 } from "@/lib/format";
 import { clientCreateSchema, clientProfileSchema, emptyToNull } from "@/lib/validation";
 import * as clientsData from "@/lib/data/clients";
+import { parseOwnerCell } from "@/lib/signup-defaults";
 import { finishSignup } from "@/lib/signup";
 import { safeIndustry } from "@/config/starter-packs";
 import { env } from "@/lib/env";
@@ -85,7 +86,14 @@ export async function createStarterClientAction(formData: FormData): Promise<voi
   // so "add a card" opens on that plan instead of asking again.
   const wanted = String(formData.get("plan") ?? "").trim();
   const intendedPlan = ["backup", "starter", "pro"].includes(wanted) ? wanted : undefined;
-  await finishSignup(user, client.id, { industry, seedFromPack: true, intendedPlan, companySize });
+  const cell = parseOwnerCell(formData.get("ownerCell"));
+  await finishSignup(user, client.id, {
+    industry,
+    seedFromPack: true,
+    intendedPlan,
+    companySize,
+    ownerCell: cell === "invalid" ? null : cell,
+  });
 
   revalidatePath("/portal", "layout");
   redirect("/portal?onboarded=template");

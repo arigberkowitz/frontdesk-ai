@@ -57,7 +57,7 @@ export function AiFeaturesCard(p: AiFeaturesCardProps) {
         <PanelHeader
           icon={Sparkles}
           title="AI features"
-          description="Extra jobs your AI can take on. Each one stays off until you turn it on."
+          description="Extra jobs your AI can take on. Switch any of them on or off whenever you like."
           action={
             <Link
               href="/portal/settings/follow-ups"
