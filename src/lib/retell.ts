@@ -377,6 +377,8 @@ export interface ProvisionAgentInput {
   openHoursNote?: string | null;
   /** Client languages setting (see lib/languages.ts). Decides the agent's speech model. */
   languages?: string | null;
+  /** Business IANA timezone; sets the agent clock for {{current_time}}. */
+  timezone?: string | null;
   voiceId?: string | null;
   boostedKeywords?: string[];
   /** Base app URL for webhook + tool callbacks (e.g. a tunnel URL in dev). */
@@ -418,6 +420,44 @@ export function agentSpeechSettings(languages?: string | null): {
   const codes = parseLanguages(languages);
   const voiceModel = voiceModelFor(codes);
   return { language: retellLanguage(codes), ...(voiceModel ? { voice_model: voiceModel } : {}) };
+}
+
+/**
+ * Turn-taking and audio settings, pushed on every provision AND every sync so
+ * existing agents pick them up (they used to run on Retell's defaults).
+ *
+ * - interruption_sensitivity 0.8: callers can cut in naturally, but a cough or
+ *   a TV in the background doesn't stop the agent mid-sentence (default 1).
+ * - responsiveness 1: answer as soon as the caller finishes (lowest latency).
+ * - backchannel at a low frequency: the odd "mm-hm" while a caller explains a
+ *   problem, which is what makes a long description feel listened to.
+ * - noise cancellation: callers ring from trucks, kitchens and job sites.
+ * - max_call_duration 20 min: a stuck or looping call can't burn an hour.
+ * - timezone: the business's, so {{current_time}} and friends read local time.
+ */
+export const CONVERSATION_SETTINGS = {
+  interruption_sensitivity: 0.8,
+  responsiveness: 1,
+  enable_backchannel: true,
+  backchannel_frequency: 0.4,
+  denoising_mode: "noise-cancellation" as const,
+  max_call_duration_ms: 20 * 60_000,
+};
+
+export function agentConversationSettings(timezone?: string | null): typeof CONVERSATION_SETTINGS & {
+  timezone?: string;
+} {
+  const tz = timezone?.trim();
+  let valid = false;
+  if (tz) {
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: tz });
+      valid = true;
+    } catch {
+      valid = false;
+    }
+  }
+  return { ...CONVERSATION_SETTINGS, ...(valid ? { timezone: tz } : {}) };
 }
 
 /** Create or update the Retell LLM + agent + phone number for a client (§9.1). */
@@ -466,6 +506,7 @@ export async function provisionAgentForClient(
     // catch-all "multi", which meant ten languages and the least accurate
     // recognition) plus a voice model that can pronounce them.
     ...agentSpeechSettings(input.languages),
+    ...agentConversationSettings(input.timezone),
     // End dead-air calls (butt dials / fake numbers) instead of holding the line
     // open for 10 minutes, with one reminder so real callers who paused aren't cut off.
     end_call_after_silence_ms: END_CALL_AFTER_SILENCE_MS,
