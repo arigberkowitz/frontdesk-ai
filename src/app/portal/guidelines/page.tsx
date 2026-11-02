@@ -4,7 +4,6 @@ import { getCurrentDbUser, getPortalEditAccess, resolvePortalClient } from "@/li
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { DEFAULT_VOICE_ID, listRetellVoices } from "@/lib/retell";
 import { integrations } from "@/lib/env";
-import { isStripeTestMode } from "@/lib/stripe";
 import { PageHeader } from "@/components/page-header";
 import { AgentHero } from "@/components/portal/agent-hero";
 import { EditLockBanner } from "@/components/portal/edit-lock-banner";
@@ -22,7 +21,6 @@ import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { toSafeClient } from "@/lib/client-safe";
 import {
   groupVoicesByGender,
-  normalizeGender,
   RECOMMENDED_VOICES,
   type VoiceMeta,
 } from "@/config/voice";
@@ -61,19 +59,12 @@ export default async function PortalGuidelinesPage({
       voices = [];
     }
   }
-  let { women, men } = groupVoicesByGender(voices);
-  if (women.length === 0 && men.length === 0) {
-    ({ women, men } = groupVoicesByGender(RECOMMENDED_VOICES));
-  }
-  // De-duping can drop the exact saved voice id; re-add it so the dropdown shows
-  // its real name (not a generic fallback) for the currently selected voice.
+  // Grouping keeps the saved voice when names collide, so it is always listed
+  // exactly once and in one bucket.
   const cur = client.voiceId ?? DEFAULT_VOICE_ID;
-  if (cur && ![...women, ...men].some((v) => v.voiceId === cur)) {
-    const meta = voices.find((v) => v.voiceId === cur);
-    if (meta) {
-      if (normalizeGender(meta.gender) === "female") women = [meta, ...women];
-      else if (normalizeGender(meta.gender) === "male") men = [meta, ...men];
-    }
+  let { women, men } = groupVoicesByGender(voices, cur);
+  if (women.length === 0 && men.length === 0) {
+    ({ women, men } = groupVoicesByGender(RECOMMENDED_VOICES, cur));
   }
 
   return (
@@ -156,7 +147,6 @@ export default async function PortalGuidelinesPage({
                   clientId={client.id}
                   cardsReady={integrations.stripe()}
                   preselect={client.setupFlags?.intendedPlan ?? null}
-                  testMode={isStripeTestMode()}
                 />
                 <TrialCodeCard clientId={client.id} requested={Boolean(client.trialRequestedAt)} />
               </div>
@@ -189,7 +179,6 @@ export default async function PortalGuidelinesPage({
                     clientId={client.id}
                     cardsReady={integrations.stripe()}
                     preselect={client.setupFlags?.intendedPlan ?? null}
-                    testMode={isStripeTestMode()}
                   />
                 </div>
               </details>

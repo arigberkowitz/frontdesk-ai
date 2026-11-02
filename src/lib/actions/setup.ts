@@ -9,6 +9,8 @@ import { assertClientInOrg } from "@/lib/data/clients";
 import { getClientSetupStatus } from "@/lib/data/setup";
 import { checkSetupReadiness } from "@/lib/agents/setup-check";
 import { logger } from "@/lib/logger";
+import { REVIEWABLE_STEPS, type ReviewableStep } from "@/lib/setup-steps";
+import { markSetupReviewed } from "@/lib/data/setup-review";
 import { type ActionState } from "./types";
 
 /**
@@ -79,6 +81,13 @@ export async function setSetupFlagAction(
   if (!guard.ok) return { ok: false, error: guard.error };
   const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
+  if (flag.startsWith("reviewed:")) {
+    const key = flag.slice("reviewed:".length) as ReviewableStep;
+    if (!REVIEWABLE_STEPS.includes(key)) return { ok: false, error: "Unknown setting." };
+    await markSetupReviewed(clientId, key);
+    revalidatePath("/portal", "layout");
+    return { ok: true, message: "Thanks — marked as checked." };
+  }
   if (flag !== "calendarSkipped" && flag !== "forwardingDone") {
     return { ok: false, error: "Unknown setting." };
   }

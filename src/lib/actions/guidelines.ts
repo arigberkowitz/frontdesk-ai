@@ -1,5 +1,6 @@
 "use server";
 
+import { markSetupReviewed } from "@/lib/data/setup-review";
 import { revalidatePath } from "next/cache";
 import { requireClientEditor } from "@/lib/auth-guard";
 import { guidelinesSchema, emptyToNull } from "@/lib/validation";
@@ -45,6 +46,7 @@ export async function saveGuidelinesAction(
 
   await assertClientInOrg(user.orgId, clientId);
   await updateClient(user.orgId, clientId, patch);
+  if ("greeting" in raw) await markSetupReviewed(clientId, "greeting");
   const sync = await applyClientEdit(user, clientId);
   return { ok: true, message: withSyncNote("Saved.", sync) };
 }

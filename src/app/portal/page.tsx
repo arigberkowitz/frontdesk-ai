@@ -161,7 +161,9 @@ export default async function PortalOverviewPage({
   // today's numbers — all from data loaded above.
   const now = new Date();
   const greeting = greetingForHour(hourInZone(now, tz));
-  const heroName = me?.firstName || client?.name || null;
+  // The owner's first name when we know it; otherwise just the greeting.
+  // ("Good afternoon, Maple Street Salon" read like a form letter.)
+  const heroName = me?.firstName?.trim() || null;
   const aiLive = setup.steps.find((s) => s.key === "live")?.done ?? false;
   const status = heroStatus({
     clientStatus: client?.status,

@@ -1,5 +1,6 @@
 "use client";
 
+import { applyCodeInput } from "@/lib/otp-input";
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -550,17 +551,22 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
   };
 
   const handleCodeChange = (index: number, value: string) => {
-    if (value.length <= 1) {
-      const newCode = [...code];
-      newCode[index] = value.replace(/\D/g, "");
-      setCode(newCode);
-      if (value && index < 5) {
-        codeInputRefs.current[index + 1]?.focus();
-      }
-      if (index === 5 && value && newCode.every((d) => d.length === 1)) {
-        verifyCode(newCode.join(""));
-      }
+    // Paste, autofill and fast typing can all deliver more than one digit to
+    // one box; spread them instead of dropping them (the boxes used to cap at
+    // one character, so a pasted code left five boxes empty and Continue off).
+    const { code: newCode, focus } = applyCodeInput(code, index, value);
+    setCode(newCode);
+    codeInputRefs.current[focus]?.focus();
+    if (newCode.every((d) => d.length === 1) && !submitting) {
+      verifyCode(newCode.join(""));
     }
+  };
+
+  const handleCodePaste = (index: number, e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData("text");
+    if (!/\d/.test(text)) return;
+    e.preventDefault();
+    handleCodeChange(index, text);
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -772,9 +778,12 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
                                   type="text"
                                   inputMode="numeric"
                                   pattern="[0-9]*"
-                                  maxLength={1}
+                                  autoComplete={i === 0 ? "one-time-code" : "off"}
+                                  aria-label={`Digit ${i + 1} of 6`}
                                   value={digit}
                                   onChange={(e) => handleCodeChange(i, e.target.value)}
+                                  onPaste={(e) => handleCodePaste(i, e)}
+                                  onFocus={(e) => e.currentTarget.select()}
                                   onKeyDown={(e) => handleKeyDown(i, e)}
                                   className="w-8 text-center text-xl bg-transparent text-foreground border-none focus:outline-none focus:ring-0 appearance-none"
                                   style={{ caretColor: "transparent" }}

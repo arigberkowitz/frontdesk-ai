@@ -83,7 +83,9 @@ describe("buildSetupSteps", () => {
 
   it("going live needs the agent AND a phone number", () => {
     expect(byKey({ ...fresh, agentId: "agent_1" }).live.done).toBe(false);
-    expect(byKey({ ...fresh, agentId: "agent_1" }).live.hint).toMatch(/reserved until you add a card or finish/);
+    expect(byKey({ ...fresh, agentId: "agent_1" }).live.hint).toMatch(/Add a card under Plans/);
+    expect(byKey({ ...fresh, agentId: "agent_1" }).live.hint).not.toMatch(/Get my phone number/);
+    expect(byKey({ ...fresh, agentId: "agent_1" }).live.href).toBe("/portal/guidelines#plans");
     expect(byKey({ ...fresh, agentId: "agent_1", aiNumber: "(415) 555-0100" }).live.done).toBe(true);
     expect(byKey(done).live.doneHint).toMatch(/picks up changes automatically/);
   });
@@ -140,5 +142,31 @@ describe("checklistMode", () => {
   it("settings: always shows the full checklist (where hidden/finished ones live on)", () => {
     expect(checklistMode({ ...base, variant: "settings", hiddenAt: "x" })).toBe("checklist");
     expect(checklistMode({ ...base, variant: "settings", finishedAt: new Date() })).toBe("checklist");
+  });
+});
+
+describe("pre-filled template steps", () => {
+  const seeded: SetupFacts = { ...done, flags: { ...done.flags, reviewRequired: true } };
+  const keys = ["services", "hours", "faqs", "greeting"] as const;
+  it("don't count until the owner reviews them", () => {
+    const s = byKey(seeded);
+    for (const k of keys) {
+      expect(s[k].done).toBe(false);
+      expect(s[k].confirmable).toBe(true);
+    }
+  });
+  it("count once edited or confirmed", () => {
+    const s = byKey({ ...seeded, flags: { ...seeded.flags, reviewed: { services: true, hours: true, faqs: true, greeting: true } } });
+    for (const k of keys) {
+      expect(s[k].done).toBe(true);
+      expect(s[k].confirmable).toBeFalsy();
+    }
+  });
+  it("empty steps are never confirmable", () => {
+    const s = byKey({ ...fresh, flags: { reviewRequired: true } });
+    for (const k of keys) expect(s[k].confirmable).toBe(false);
+  });
+  it("businesses without the flag keep the old rule", () => {
+    for (const k of keys) expect(byKey(done)[k].done).toBe(true);
   });
 });

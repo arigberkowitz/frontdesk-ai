@@ -5,6 +5,7 @@ import { assertClientInOrg } from "@/lib/data/clients";
 import { setWeekHours, type DayHoursInput } from "@/lib/data/hours";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { firstDayClosingBeforeOpening, firstDayWithBadTime } from "@/lib/hours-util";
+import { markSetupReviewed } from "@/lib/data/setup-review";
 import type { ActionState } from "./types";
 
 export async function saveHoursAction(
@@ -47,6 +48,7 @@ export async function saveHoursAction(
   }
 
   await setWeekHours(clientId, days);
+  await markSetupReviewed(clientId, "hours");
   const sync = await applyClientEdit(user, clientId);
   return { ok: true, message: withSyncNote("Hours saved.", sync) };
 }

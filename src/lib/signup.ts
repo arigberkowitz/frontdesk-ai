@@ -37,7 +37,9 @@ export async function finishSignup(
     .update(clients)
     .set({
       companySize: opts.companySize,
-      ...(opts.intendedPlan ? { setupFlags: { intendedPlan: opts.intendedPlan } } : {}),
+      // reviewRequired: the template content seeded below (and the starter
+      // greeting) only counts on the checklist once the owner confirms it.
+      setupFlags: { reviewRequired: true, ...(opts.intendedPlan ? { intendedPlan: opts.intendedPlan } : {}) },
       staffModeEnabled: opts.companySize !== "solo",
       industry: opts.industry,
       // Two weeks, starting now, no card, no code, no approval queue.

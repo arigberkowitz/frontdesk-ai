@@ -26,6 +26,7 @@ interface SetupStepView {
   doneHint?: string;
   skippable?: boolean;
   manual?: boolean;
+  confirmable?: boolean;
 }
 
 /** "Skip for now" (calendar) / "I've done this" (forwarding) inline resolver. */
@@ -35,7 +36,7 @@ function FlagButton({
   label,
 }: {
   clientId: string;
-  flag: "calendarSkipped" | "forwardingDone";
+  flag: "calendarSkipped" | "forwardingDone" | `reviewed:${string}`;
   label: string;
 }) {
   const [state, action, pending] = useActionState(setSetupFlagAction, initialActionState);
@@ -264,6 +265,9 @@ export function SetupChecklist({
                     </span>
                     <ArrowRight className="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-foreground" />
                   </Link>
+                  {canEdit && step.confirmable ? (
+                    <FlagButton clientId={clientId} flag={`reviewed:${step.key}`} label="Looks good" />
+                  ) : null}
                   {canEdit && step.skippable ? (
                     <FlagButton clientId={clientId} flag="calendarSkipped" label="Skip for now" />
                   ) : null}
