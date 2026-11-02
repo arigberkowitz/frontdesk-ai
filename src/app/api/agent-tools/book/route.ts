@@ -11,7 +11,7 @@ import { listActiveBlocks } from "@/lib/data/availability-blocks";
 import { calendarSlotIsFree, getBookingProviderForClient, type BookingProvider } from "@/lib/booking";
 import { moveAppointmentEvent } from "@/lib/calendar-events";
 import { offerFreedSlot } from "@/lib/agents/waitlist-backfill";
-import { formatDateTime } from "@/lib/format";
+import { spokenDateTime } from "@/lib/slot-label";
 import { blocksForProvider, businessWideBlocks, checkSlot, slotRefusal } from "@/lib/booking-window";
 import { matchService, serviceClarification } from "@/lib/service-match";
 import { parseInClientTimezone } from "@/lib/hours-util";
@@ -127,7 +127,7 @@ export async function POST(req: Request): Promise<Response> {
             ? "I couldn't find an upcoming appointment under the number they're texting from, so there's nothing to move. Hand the conversation to the owner."
             : `I couldn't tell which appointment to move. Their upcoming appointments: ${mine
                 .slice(0, 4)
-                .map((a) => `${a.service?.name ?? "appointment"} on ${formatDateTime(a.startAt, client.timezone)}`)
+                .map((a) => `${a.service?.name ?? "appointment"} on ${spokenDateTime(a.startAt, client.timezone)}`)
                 .join("; ")}. Ask which one, then call book_appointment again with reschedule_from set to its start time.`,
       });
     }
@@ -418,13 +418,13 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({
       success: true,
       confirmation_id: appt.id,
-      message: `Moved ${service.name} from ${formatDateTime(moving.startAt, client.timezone)} to ${formatDateTime(appt.startAt, client.timezone)}${providerName ? ` with ${providerName}` : ""}. The old time is already released — do NOT call cancel_appointment.`,
+      message: `Moved ${service.name} from ${spokenDateTime(moving.startAt, client.timezone)} to ${spokenDateTime(appt.startAt, client.timezone)}${providerName ? ` with ${providerName}` : ""}. The old time is already released — do NOT call cancel_appointment.`,
     });
   }
 
   return Response.json({
     success: true,
     confirmation_id: appt.id,
-    message: `Booked ${service.name}${providerName ? ` with ${providerName}` : ""} for ${customerName || "you"}. We'll see you then!`,
+    message: `Booked ${service.name}${providerName ? ` with ${providerName}` : ""} for ${customerName || "you"} on ${spokenDateTime(appt.startAt, client.timezone)}. We'll see you then!`,
   });
 }
