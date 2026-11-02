@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "8mb",
     },
   },
+  async redirects() {
+    return [{ source: "/pricing", destination: "/#pricing", permanent: false }];
+  },
   async headers() {
     return [
       {

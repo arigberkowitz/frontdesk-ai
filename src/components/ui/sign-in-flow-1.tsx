@@ -630,7 +630,7 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
 
         <div className="flex flex-1 flex-col lg:flex-row">
           <div className="flex-1 flex flex-col justify-center items-center">
-            <div className="w-full mt-[120px] max-w-sm">
+            <div className="w-full mt-[96px] sm:mt-[120px] max-w-sm px-5 sm:px-0">
               <AnimatePresence mode="wait">
                 {step === "email" ? (
                   <motion.div
@@ -674,6 +674,9 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
                           <input
                             type="email"
                             placeholder="you@company.com"
+                            aria-label="Work email"
+                            autoComplete="email"
+                            inputMode="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full bg-black/[0.03] text-foreground border-2 border-neutral-300 shadow-sm rounded-full py-3 px-4 focus:outline-none focus:border-neutral-500 focus:ring-2 focus:ring-ring/20 text-center placeholder:text-neutral-400 transition-colors"
@@ -681,6 +684,7 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
                           />
                           <button
                             type="submit"
+                            aria-label="Continue with email"
                             disabled={!ready || submitting}
                             className="absolute right-1.5 top-1.5 text-primary-foreground w-9 h-9 flex items-center justify-center rounded-full bg-primary hover:bg-primary/90 transition-colors group overflow-hidden disabled:opacity-50"
                           >
@@ -698,10 +702,15 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
                         <div id="clerk-captcha" className="mt-3 flex justify-center empty:hidden" />
                       </form>
 
-                      {error && <p className="text-sm text-destructive">{error}</p>}
+                      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
                     </div>
 
-                    <p className="text-xs text-neutral-400 pt-6">
+                    {authView === "signup" && (
+                      <p className="text-sm text-muted-foreground">
+                        14-day free trial · No credit card required · Cancel anytime
+                      </p>
+                    )}
+                    <p className="text-xs text-neutral-500 pt-6">
                       We&apos;ll email you a 6-digit code — no password needed.
                     </p>
                     {/* The Terms open with "by creating an account you accept
