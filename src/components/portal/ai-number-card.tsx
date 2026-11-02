@@ -239,7 +239,7 @@ export function AiNumberCard({
                 <li>
                   From your business phone, dial {code(`*90 ${pretty}`)} (forwards when you&apos;re on
                   the line), then {code(`*92 ${pretty}`)} (forwards when you don&apos;t pick up).
-                  AT&T/T-Mobile: {code(`*67*${digits}#`)} and {code(`*61*${digits}#`)}.
+                  AT&T/T-Mobile: {code(`**67*${digits}#`)} and {code(`**61*${digits}#`)}.
                 </li>
                 <li>
                   Not working? Call your carrier and say: <em>&quot;Forward my busy and unanswered
@@ -250,7 +250,8 @@ export function AiNumberCard({
                   after a few rings.
                 </li>
                 <li>
-                  Turn it off anytime: dial {code("*91")} and {code("*93")}.
+                  Turn it off anytime: dial {code("*91")} and {code("*93")} (AT&T/T-Mobile:{" "}
+                  {code("##67#")} and {code("##61#")}).
                 </li>
               </ol>
             ) : (
@@ -263,7 +264,10 @@ export function AiNumberCard({
                   Test it: call your business number from any other phone — your AI should answer
                   right away.
                 </li>
-                <li>Change your mind anytime: dial {code("*73")} to turn forwarding off.</li>
+                <li>
+                  Change your mind anytime: dial {code("*73")} to turn forwarding off (AT&T/T-Mobile:{" "}
+                  {code("##21#")}).
+                </li>
               </ol>
             )
           ) : (
