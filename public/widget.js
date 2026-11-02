@@ -79,10 +79,23 @@
   var greeted = false;
   var busy = false;
 
+  // Replies are shown as text, so stray markdown would appear as literal
+  // asterisks and hashes. Strip the common marks; keep the words.
+  function plain(t) {
+    return String(t == null ? "" : t)
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/__(.+?)__/g, "$1")
+      .replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|[.,!?]|$)/g, "$1$2")
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/^\s*[-*]\s+/gm, "\u2022 ")
+      .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, "$1 ($2)")
+      .replace(/`([^`]+)`/g, "$1");
+  }
+
   function add(role, text) {
     var el = document.createElement("div");
     el.className = "msg " + (role === "user" ? "me" : "ai");
-    el.textContent = text;
+    el.textContent = role === "user" ? text : plain(text);
     log.appendChild(el);
     log.scrollTop = log.scrollHeight;
     return el;
@@ -102,8 +115,13 @@
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     }).then(function (r) {
-      return r.json().then(function (j) {
-        if (!r.ok) throw new Error(j && j.error ? j.error : "Something went wrong.");
+      // A proxy/edge error page isn't JSON; never show the parser's message.
+      return r.json().catch(function () { return null; }).then(function (j) {
+        if (!r.ok || !j) {
+          var e = new Error(j && j.error ? j.error : "Something went wrong. Please call the business instead.");
+          e.friendly = true;
+          throw e;
+        }
         return j;
       });
     });
@@ -124,7 +142,7 @@
       })
       .catch(function (e) {
         t.remove();
-        note("err", e.message || "Chat isn't available right now.");
+        note("err", (e && e.friendly && e.message) || "Chat isn't available right now.");
         greeted = false;
       });
   }
@@ -183,7 +201,7 @@
       })
       .catch(function (err) {
         t.remove();
-        note("err", err.message || "Something went wrong. Try again.");
+        note("err", (err && err.friendly && err.message) || "Couldn't send that. Check your connection and try again.");
         // Keep their message in the transcript so a retry resends it.
       })
       .then(function () {

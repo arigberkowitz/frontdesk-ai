@@ -11,6 +11,7 @@ const MESSAGES: Record<string, { kind: "success" | "error"; text: string }> = {
   },
   disconnected: { kind: "success", text: "Calendar disconnected." },
   error: { kind: "error", text: "Couldn't connect your calendar — please try again." },
+  unavailable: { kind: "error", text: "That calendar can't be connected just yet. Message us from Settings → Help and we'll sort it out." },
   noaccess: {
     kind: "error",
     text: "Calendar access wasn't granted — try again and approve the calendar permission.",

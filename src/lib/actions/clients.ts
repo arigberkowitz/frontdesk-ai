@@ -81,7 +81,11 @@ export async function createStarterClientAction(formData: FormData): Promise<voi
   // the same finish as the website path. This used to stop at the pack, so
   // a template signup landed in `draft` with no trial and an Activate button
   // that refused them.
-  await finishSignup(user, client.id, { industry, seedFromPack: true, companySize });
+  // Which pricing card brought them here (the website path already does this),
+  // so "add a card" opens on that plan instead of asking again.
+  const wanted = String(formData.get("plan") ?? "").trim();
+  const intendedPlan = ["backup", "starter", "pro"].includes(wanted) ? wanted : undefined;
+  await finishSignup(user, client.id, { industry, seedFromPack: true, intendedPlan, companySize });
 
   revalidatePath("/portal", "layout");
   redirect("/portal?onboarded=template");

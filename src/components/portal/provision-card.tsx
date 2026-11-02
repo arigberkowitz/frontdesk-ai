@@ -72,7 +72,7 @@ export function ProvisionCard({
         <CardTitle>Your AI receptionist</CardTitle>
         <CardDescription>
           {hasAgent
-            ? "Your receptionist is set up. Changes you save publish to it automatically — re-sync only if something looks out of date."
+            ? "Your receptionist is set up. Changes you save publish to it automatically — use the button below only if something looks out of date."
             : reserved
               ? "Activate your receptionist so you can hear it in your browser. Its phone number comes once you add a card or finish setup."
               : "Activate your receptionist so you can hear it and put it to work."}
@@ -103,7 +103,7 @@ export function ProvisionCard({
               ) : (
                 <p>
                   Ready to talk to in your browser. Its own phone number is on the way — if this
-                  still says so tomorrow, press Re-sync below or send us a note from Settings → Help.
+                  still says so tomorrow, press Refresh below or send us a note from Settings → Help.
                 </p>
               )}
             </div>
@@ -145,7 +145,7 @@ export function ProvisionCard({
               ) : hasAgent ? (
                 <>
                   <RefreshCw className="size-4" />
-                  Re-sync my receptionist
+                  Refresh my receptionist
                 </>
               ) : (
                 <>

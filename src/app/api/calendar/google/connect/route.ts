@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildCalendarOAuthState, calendarReturnFrom } from "@/lib/calendar-oauth";
+import { buildCalendarOAuthState, calendarReturnFrom, calendarReturnPath } from "@/lib/calendar-oauth";
 import { randomBytes } from "node:crypto";
 import { getCurrentDbUserSafe, userMayEditClient } from "@/lib/auth-guard";
 import { getClient } from "@/lib/data/clients";
@@ -18,7 +18,7 @@ export async function GET(req: Request): Promise<Response> {
   const from = calendarReturnFrom(url.searchParams.get("from"));
   const user = await getCurrentDbUserSafe();
   if (!user) return NextResponse.redirect(new URL("/sign-in", req.url));
-  if (!googleConfigured()) return new Response("Google Calendar isn't configured.", { status: 400 });
+  if (!googleConfigured()) return NextResponse.redirect(new URL(calendarReturnPath(from, "unavailable"), req.url));
   // Tenant rule lives in one place — a role-specific check here would let a
   // client_admin act on another business in the same house-agency org.
   // Editor rule, not just tenant access: connecting replaces the calendar the

@@ -87,10 +87,10 @@ export async function POST(req: Request): Promise<Response> {
   try {
     body = (await req.json()) as typeof body;
   } catch {
-    return json({ error: "Bad request" }, 400);
+    return json({ error: "Chat isn't available right now." }, 400);
   }
   const clientId = typeof body.clientId === "string" ? body.clientId : "";
-  if (!/^[0-9a-f-]{36}$/i.test(clientId)) return json({ error: "Bad request" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(clientId)) return json({ error: "Chat isn't available right now." }, 400);
 
   const client = await getClientForChat(clientId);
   if (!client || !CHAT_STATUSES.has(client.status)) {

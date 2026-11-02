@@ -31,7 +31,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         </Button>
       </div>
       {error.digest ? (
-        <p className="text-xs text-muted-foreground">Reference: {error.digest}</p>
+        <p className="text-xs text-muted-foreground">If you contact us about this, mention code {error.digest}.</p>
       ) : null}
     </div>
   );

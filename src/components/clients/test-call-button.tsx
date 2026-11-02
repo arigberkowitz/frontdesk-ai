@@ -14,6 +14,8 @@ type CallState = "idle" | "connecting" | "active";
  * In-browser test call (§B6): creates a Retell web call against the client's
  * agent and talks to it via the mic — no phone number needed.
  */
+const FRIENDLY_START_ERROR = "We couldn't start a test call just now. Give it another try in a moment.";
+
 export function TestCallButton({
   clientId,
   agentName = DEFAULT_AGENT_NAME,
@@ -33,10 +35,11 @@ export function TestCallButton({
     setState("connecting");
     try {
       const res = await fetch(`/api/clients/${clientId}/test-call`, { method: "POST" });
-      const data = (await res.json()) as { accessToken?: string; error?: string };
-      if (!res.ok || !data.accessToken) {
-        throw new Error(data.error || "Could not start the call.");
-      }
+      // Error bodies aren't always JSON (a 403 is plain text), and their
+      // wording is written for us, not for the person clicking. Owners get one
+      // plain sentence; the details stay in the server logs.
+      const data = (await res.json().catch(() => ({}))) as { accessToken?: string };
+      if (!res.ok || !data.accessToken) throw new Error(FRIENDLY_START_ERROR);
 
       const { RetellWebClient } = await import("retell-client-js-sdk");
       const rc = new RetellWebClient();
@@ -49,14 +52,16 @@ export function TestCallButton({
       rc.on("agent_start_talking", () => setAgentTalking(true));
       rc.on("agent_stop_talking", () => setAgentTalking(false));
       rc.on("error", (e: unknown) => {
-        toast.error(`Call error: ${e instanceof Error ? e.message : "unknown"}`);
+        console.warn("test-call error", e);
+        toast.error("The test call dropped. Give it another try in a moment.");
         rc.stopCall();
         setState("idle");
       });
 
       await rc.startCall({ accessToken: data.accessToken });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not start the call.");
+      if (err instanceof Error && err.message !== FRIENDLY_START_ERROR) console.warn("test-call start failed", err);
+      toast.error(FRIENDLY_START_ERROR);
       setState("idle");
     }
   }
