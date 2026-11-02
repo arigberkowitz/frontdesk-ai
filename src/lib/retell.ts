@@ -38,6 +38,7 @@ export const AGENT_TOOL_NAMES = {
   takeMessage: "take_message",
   joinWaitlist: "join_waitlist",
   transferToHuman: "transfer_to_human",
+  endCall: "end_call",
 } as const;
 
 let _client: Retell | null = null;
@@ -347,6 +348,15 @@ export function buildAgentTools(
           speak_during_execution: true,
           parameters: { type: "object" as const, properties: {}, required: [] },
         },
+    // Without a hang-up tool the agent could only wait out the silence timer:
+    // robocalls, voicemail greetings and finished callers held the line (and
+    // the minutes) for another 30 seconds or more.
+    {
+      type: "end_call" as const,
+      name: AGENT_TOOL_NAMES.endCall,
+      description:
+        "Hang up. Use after a short goodbye once the caller confirms they need nothing else, or right away on a robocall, a voicemail greeting, or a sales pitch to the business.",
+    },
   ];
   return waitlistEnabled
     ? tools
