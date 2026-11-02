@@ -9,7 +9,7 @@ import {
   openingLine,
   withRequiredDisclosure,
 } from "@/lib/prompt";
-import { agentSpeechSettings, buildAgentTools, getRetellClient } from "@/lib/retell";
+import { agentConversationSettings, agentSpeechSettings, buildAgentTools, getRetellClient } from "@/lib/retell";
 import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
@@ -96,7 +96,10 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
   // Language lives on the AGENT, not the LLM — without this line the Spanish
   // toggle edits the prompt while the speech model stays English-only.
   if (client.retellAgentId) {
-    await getRetellClient().agent.update(client.retellAgentId, agentSpeechSettings(client.languages));
+    await getRetellClient().agent.update(client.retellAgentId, {
+      ...agentSpeechSettings(client.languages),
+      ...agentConversationSettings(client.timezone),
+    });
   }
 
   await getRetellClient().llm.update(client.retellLlmId, {

@@ -91,6 +91,7 @@ export async function runProvision(
       handoffMode: client.setupFlags?.handoffMode ?? "always",
       openHoursNote: openHoursSummary(client.businessHours),
       languages: client.languages,
+      timezone: client.timezone,
       voiceId: client.voiceId,
       boostedKeywords: boosted,
       appUrl: env.APP_URL,
