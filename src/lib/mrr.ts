@@ -25,6 +25,8 @@ export interface MrrClient {
   id: string;
   name: string;
   status: string;
+  /** Free by design (comp code) — no subscription is expected. */
+  comped?: boolean;
 }
 
 export interface MrrSubscription {
@@ -40,7 +42,12 @@ export type BillingWarningKind =
   /** Client is live, but there's no subscription row at all. */
   | "live_without_subscription"
   /** Client is live/trial, but the subscription is past_due / canceled / paused / incomplete. */
-  | "subscription_not_billing";
+  | "subscription_not_billing"
+  /** Client is live/trial and Stripe says active, but the paid period ended days ago — a missed webhook or a stuck renewal. */
+  | "period_lapsed";
+
+/** Grace before an ended period is suspicious: Stripe renews within hours, webhooks can lag. */
+const LAPSE_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
 
 export interface BillingWarning {
   clientId: string;
@@ -118,11 +125,23 @@ export function computeMrr(
           (periodEnd ? (periodEnded ? ` (period ended ${fmtDate(periodEnd)})` : ` (renews ${fmtDate(periodEnd)})`) : "") +
           ". Not counted in MRR.",
       });
-    } else if (!sub && c.status === "live") {
+    } else if (!sub && c.status === "live" && !c.comped) {
       warnings.push({
         ...base,
         kind: "live_without_subscription",
         message: "Live, but there's no subscription on file — this client isn't being billed.",
+      });
+    } else if (
+      sub &&
+      clientActive &&
+      subBilling &&
+      periodEnd != null &&
+      now.getTime() - periodEnd.getTime() > LAPSE_GRACE_MS
+    ) {
+      warnings.push({
+        ...base,
+        kind: "period_lapsed",
+        message: `Subscription says ${subStatus}, but its period ended ${fmtDate(periodEnd)} with no renewal on file — check Stripe; a webhook may have been missed.`,
       });
     } else if (sub && clientActive && !subBilling) {
       warnings.push({

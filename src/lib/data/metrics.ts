@@ -410,7 +410,7 @@ export interface PortfolioMetrics {
 
 export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetrics> {
   const rows = await db
-    .select({ id: clients.id, name: clients.name, status: clients.status })
+    .select({ id: clients.id, name: clients.name, status: clients.status, setupFlags: clients.setupFlags })
     .from(clients)
     .where(and(eq(clients.orgId, orgId), isNull(clients.deletedAt)));
 
@@ -496,7 +496,10 @@ export async function getPortfolioMetrics(orgId: string): Promise<PortfolioMetri
     })
     .from(subscriptions)
     .where(and(inArray(subscriptions.clientId, ids), isNull(subscriptions.deletedAt)));
-  const { mrrCents: mrr, mrrByClient, warnings: billingWarnings } = computeMrr(rows, subRows);
+  const { mrrCents: mrr, mrrByClient, warnings: billingWarnings } = computeMrr(
+    rows.map((r) => ({ id: r.id, name: r.name, status: r.status, comped: Boolean(r.setupFlags?.comped) })),
+    subRows,
+  );
 
   const callsByClient = await db
     .select({

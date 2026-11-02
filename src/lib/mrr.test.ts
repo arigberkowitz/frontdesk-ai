@@ -105,3 +105,37 @@ describe("computeMrr", () => {
     expect(r.mrrCents).toBe(100);
   });
 });
+
+describe("billing warnings: comped and lapsed periods", () => {
+  const now = new Date("2026-11-02T12:00:00Z");
+  const day = 86_400_000;
+
+  it("does not flag a comped live client with no subscription", () => {
+    const r = computeMrr([{ id: "c1", name: "Friend Co", status: "live", comped: true }], [], now);
+    expect(r.warnings).toEqual([]);
+  });
+
+  it("still flags a non-comped live client with no subscription", () => {
+    const r = computeMrr([{ id: "c1", name: "Acme", status: "live" }], [], now);
+    expect(r.warnings.map((w) => w.kind)).toEqual(["live_without_subscription"]);
+  });
+
+  it("flags an active subscription whose period ended more than 3 days ago", () => {
+    const r = computeMrr(
+      [{ id: "c1", name: "Acme", status: "live" }],
+      [{ clientId: "c1", status: "active", monthlyPriceCents: 14900, currentPeriodEnd: new Date(now.getTime() - 5 * day) }],
+      now,
+    );
+    expect(r.warnings.map((w) => w.kind)).toEqual(["period_lapsed"]);
+    expect(r.mrrCents).toBe(14900);
+  });
+
+  it("allows a short renewal lag without warning", () => {
+    const r = computeMrr(
+      [{ id: "c1", name: "Acme", status: "live" }],
+      [{ clientId: "c1", status: "active", monthlyPriceCents: 14900, currentPeriodEnd: new Date(now.getTime() - day) }],
+      now,
+    );
+    expect(r.warnings).toEqual([]);
+  });
+});
