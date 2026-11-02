@@ -23,6 +23,18 @@ const VALUE = [
   { icon: Languages, chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400", title: "English & Spanish", body: "Switches to fluent Spanish the second a caller speaks it — no extra staff." },
 ];
 
+/** Categories, not customers — no logos or names we haven't earned. */
+const INDUSTRIES = [
+  "Plumbing & HVAC",
+  "Salons & spas",
+  "Dental & medical",
+  "Home services",
+  "Auto repair",
+  "Cleaning",
+  "Fitness studios",
+  "Legal & professional",
+];
+
 const STEPS = [
   { n: "1", title: "Set it up in minutes", body: "Paste your website — we draft your services, hours, and FAQs. Review and tweak." },
   { n: "2", title: "It answers every call", body: "Your AI greets callers, answers questions, books appointments, and takes messages 24/7." },
@@ -109,11 +121,11 @@ export function LandingPage() {
             </a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/sign-in" />}>
+            <Button variant="ghost" size="sm" className="h-9" nativeButton={false} render={<Link href="/sign-in" />}>
               Sign in
             </Button>
-            <Button size="sm" nativeButton={false} render={<Link href="/sign-up" />}>
-              Get started
+            <Button size="sm" className="h-9" nativeButton={false} render={<Link href="/sign-up" />}>
+              Start free
             </Button>
           </div>
         </div>
@@ -166,7 +178,7 @@ export function LandingPage() {
                     render={<Link href="/sign-up" />}
                   >
                     <ArrowRight className="size-4" />
-                    Get started free
+                    Start your free trial
                   </Button>
                   <Button
                     size="lg"
@@ -178,6 +190,9 @@ export function LandingPage() {
                     See how it works
                   </Button>
                 </div>
+                <p className="mt-3 text-sm text-slate-400">
+                  14 days free · No credit card · Cancel anytime
+                </p>
                 {/* The one thing no competitor's landing page can fake: a number
                     that answers. Renders only when DEMO_PHONE_NUMBER is set — a
                     dead number in the hero would be worse than none. */}
@@ -222,6 +237,20 @@ export function LandingPage() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section aria-label="Who it's for" className="mx-auto max-w-5xl px-4 pt-12 sm:px-6">
+          <p className="fd-section-label text-center">Built for businesses that live on the phone</p>
+          <ul className="mt-4 flex flex-wrap justify-center gap-2">
+            {INDUSTRIES.map((i) => (
+              <li
+                key={i}
+                className="rounded-full border bg-card px-3.5 py-1.5 text-sm text-muted-foreground"
+              >
+                {i}
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section>
@@ -436,14 +465,26 @@ export function LandingPage() {
                 render={<Link href="/sign-up" />}
               >
                 <ArrowRight className="size-4" />
-                Get started free
+                Start your free trial
               </Button>
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t">
+      {/* Phones: the hero CTA scrolls away fast on a long page; keep one in reach. */}
+      <div className="fixed inset-x-3 bottom-3 z-40 sm:hidden fd-mobile-cta">
+        <Button
+          size="lg"
+          className="fd-cta-glow h-12 w-full shadow-lg"
+          nativeButton={false}
+          render={<Link href="/sign-up" />}
+        >
+          Start your free trial — 14 days, no card
+        </Button>
+      </div>
+
+      <footer className="border-t pb-20 sm:pb-0">
         <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-2 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:px-6">
           <span className="flex items-center gap-2">
             <span
@@ -454,7 +495,7 @@ export function LandingPage() {
             </span>
             © {new Date().getFullYear()} FrontDesk AI
           </span>
-          <span className="flex gap-4">
+          <span className="flex flex-wrap justify-center gap-x-4 gap-y-1 [&>a]:py-1.5">
             <Link href="/terms" className="hover:text-foreground">
               Terms
             </Link>
@@ -475,11 +516,11 @@ export function LandingPage() {
             </Link>
           </span>
         </div>
-        {/* Paying is self-serve; a free trial isn't. That makes this the only
-            route to one, so it can't be buried in a row of small links. */}
+        {/* The trial is self-serve now (lib/signup.ts starts it, no card), so
+            this line is for questions, not for asking permission to try. */}
         <div className="border-t">
           <p className="mx-auto max-w-5xl px-4 py-6 text-center text-sm text-muted-foreground sm:px-6">
-            Questions, or want a free trial before you pay?{" "}
+            Questions before you start?{" "}
             <Link href="/contact" className="font-medium text-foreground underline underline-offset-4">
               Get in touch
             </Link>{" "}
