@@ -11,6 +11,7 @@ import {
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { PLANS, type PlanKey } from "@/config/plans";
+import { planFromPriceId } from "@/lib/stripe-prices";
 import { provisionNumberAfterPayment } from "@/lib/provision";
 import { notifyPaymentFailed } from "@/lib/payment-failed";
 
@@ -38,7 +39,13 @@ function mapStatus(s: Stripe.Subscription.Status): SubStatus {
 }
 
 async function upsert(clientId: string, sub: Stripe.Subscription): Promise<SubStatus> {
-  const planKey = sub.metadata?.plan as PlanKey | undefined;
+  // Metadata first (every checkout we open sets it); otherwise the Price ID,
+  // which maps monthly and yearly prices to the same plan.
+  const metaPlan = sub.metadata?.plan as PlanKey | undefined;
+  const planKey: PlanKey | undefined =
+    (metaPlan && PLANS[metaPlan] ? metaPlan : undefined) ??
+    planFromPriceId(sub.items?.data?.[0]?.price?.id) ??
+    undefined;
   const plan = planKey ? PLANS[planKey] : undefined;
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
 
