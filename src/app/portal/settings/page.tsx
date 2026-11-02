@@ -9,9 +9,12 @@ import { DangerZone } from "@/components/portal/danger-zone";
 import { LegacySettingsHash } from "@/components/portal/legacy-settings-hash";
 import { toSafeClient } from "@/lib/client-safe";
 import { ManageBilling } from "@/components/portal/manage-billing";
-import { eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
+import { PlanCard } from "@/components/portal/plan-card";
+import { minutesUsage, periodStart } from "@/lib/minutes";
+import { PLANS, type PlanKey } from "@/config/plans";
 import { db } from "@/db";
-import { subscriptions } from "@/db/schema";
+import { calls, subscriptions } from "@/db/schema";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -35,11 +38,29 @@ export default async function PortalSettingsPage({
   // Anyone Stripe knows (paying, past due, or cancelled) can manage billing.
   const [sub] = editAccess.isAdmin
     ? await db
-        .select({ customerId: subscriptions.stripeCustomerId })
+        .select({
+          customerId: subscriptions.stripeCustomerId,
+          plan: subscriptions.plan,
+          status: subscriptions.status,
+          currentPeriodEnd: subscriptions.currentPeriodEnd,
+        })
         .from(subscriptions)
         .where(eq(subscriptions.clientId, clientId))
         .limit(1)
     : [];
+
+  const planKey =
+    sub?.plan && sub.plan in PLANS && (sub.status === "active" || sub.status === "trialing")
+      ? (sub.plan as PlanKey)
+      : null;
+  let usage = null;
+  if (planKey) {
+    const [row] = await db
+      .select({ seconds: sql<number>`coalesce(sum(${calls.durationSec}), 0)::int` })
+      .from(calls)
+      .where(and(eq(calls.clientId, clientId), gte(calls.startAt, periodStart(sub!.currentPeriodEnd))));
+    usage = minutesUsage(Number(row?.seconds ?? 0), PLANS[planKey].includedMinutes);
+  }
 
   return (
     <div className="space-y-6">
@@ -51,6 +72,7 @@ export default async function PortalSettingsPage({
         canEdit={editAccess.canEdit}
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
       />
+      {planKey && usage ? <PlanCard clientId={clientId} plan={planKey} usage={usage} /> : null}
       {sub?.customerId ? <ManageBilling clientId={clientId} /> : null}
       <DangerZone clientId={clientId} businessName={client.name} isAdmin={editAccess.isAdmin} hasBilling={Boolean(sub?.customerId)} />
     </div>

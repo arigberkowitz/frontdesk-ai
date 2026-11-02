@@ -1,7 +1,9 @@
 import type Stripe from "stripe";
 import { after } from "next/server";
 import { db } from "@/db";
-import { subscriptions } from "@/db/schema";
+import { clients, subscriptions } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { planSyncPatch, resolvePlanKey } from "@/lib/plan-sync";
 import { getStripe, subscriptionPeriodEnd } from "@/lib/stripe";
 import {
   getWebhookEventStatus,
@@ -38,8 +40,16 @@ function mapStatus(s: Stripe.Subscription.Status): SubStatus {
 }
 
 async function upsert(clientId: string, sub: Stripe.Subscription): Promise<SubStatus> {
-  const planKey = sub.metadata?.plan as PlanKey | undefined;
+  const item = sub.items?.data?.[0]?.price;
+  const planKey: PlanKey | undefined =
+    resolvePlanKey(sub.metadata?.plan, item ? { unitAmount: item.unit_amount, interval: item.recurring?.interval } : null) ??
+    undefined;
   const plan = planKey ? PLANS[planKey] : undefined;
+  const [previous] = await db
+    .select({ plan: subscriptions.plan })
+    .from(subscriptions)
+    .where(eq(subscriptions.clientId, clientId))
+    .limit(1);
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
 
   const values = {
@@ -57,7 +67,54 @@ async function upsert(clientId: string, sub: Stripe.Subscription): Promise<SubSt
     .insert(subscriptions)
     .values(values)
     .onConflictDoUpdate({ target: subscriptions.clientId, set: values });
+  await applyPlanToClient(clientId, planKey ?? null, values.status ?? "incomplete", previous?.plan ?? null);
   return values.status;
+}
+
+/**
+ * Make the business match what it bought: live (so gates bind), Rescue on
+ * missed-only answering, staff mode only on Pro, Spanish on Starter and up —
+ * then republish the live agent so the phone line matches too.
+ */
+async function applyPlanToClient(
+  clientId: string,
+  plan: PlanKey | null,
+  subStatus: string,
+  previousPlan: string | null,
+): Promise<void> {
+  const client = await db.query.clients.findFirst({ where: eq(clients.id, clientId) });
+  if (!client) return;
+  const patch = planSyncPatch(
+    {
+      status: client.status,
+      comped: Boolean(client.setupFlags?.comped),
+      answeringMode: client.answeringMode,
+      staffModeEnabled: client.staffModeEnabled,
+      languages: client.languages,
+    },
+    plan,
+    subStatus,
+    previousPlan,
+  );
+  const changed = Object.keys(patch).length > 0;
+  if (changed) {
+    await db.update(clients).set(patch).where(eq(clients.id, clientId));
+    logger.info("stripe.webhook.plan_applied", { clientId, plan, patch });
+  }
+  if (changed || previousPlan !== plan) {
+    const orgId = client.orgId;
+    // Lazy: agent-publish pulls in the whole calendar/voice stack.
+    after(() =>
+      import("@/lib/agent-publish")
+        .then(({ syncAgentPrompt }) => syncAgentPrompt(orgId, clientId))
+        .catch((err) =>
+        logger.warn("stripe.webhook.agent_resync_failed", {
+          clientId,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      ),
+    );
+  }
 }
 
 /**
