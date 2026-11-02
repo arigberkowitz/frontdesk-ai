@@ -79,7 +79,7 @@ export function DangerZone({
             <PanelHeader
               icon={TriangleAlert}
               title="Close this account"
-              description="Your AI receptionist stops answering immediately. Your calls, bookings, leads and settings are kept for 90 days in case you change your mind, then permanently deleted. Billing stops — cancel your card in the billing portal separately if you have a subscription."
+              description="Your AI receptionist stops answering immediately. Your calls, bookings, leads and settings are kept for 90 days in case you change your mind, then permanently deleted. Billing stops — if you have a subscription, cancel it under Billing above (Manage billing)."
             />
             {!armed ? (
               <div className="flex justify-end">
