@@ -1,6 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { subscriptions } from "@/db/schema";
 import { audit } from "@/lib/data/audit";
 import { requireClientOwner, requireOperator } from "@/lib/auth-guard";
 import { assertClientInOrg, getClient } from "@/lib/data/clients";
@@ -185,5 +188,51 @@ export async function startSelfServeCheckoutAction(
   }
 
   if (!url) return { ok: false, error: "Couldn't open the payment page — please try again." };
+  redirect(url);
+}
+
+/**
+ * Stripe's hosted billing portal: a paying business updates its card, sees
+ * invoices, or cancels without emailing anyone. Before this, nothing in the
+ * product let a customer cancel or fix a failed card, though the cancel copy
+ * already pointed at "the billing portal".
+ */
+export async function openBillingPortalAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const guard = await requireClientOwner(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  await assertClientInOrg(guard.user.orgId, clientId);
+  if (!integrations.stripe()) {
+    return { ok: false, error: "Card payments aren't switched on yet. Reach us from Settings → Help." };
+  }
+
+  const [sub] = await db
+    .select({ customerId: subscriptions.stripeCustomerId })
+    .from(subscriptions)
+    .where(eq(subscriptions.clientId, clientId))
+    .limit(1);
+  if (!sub?.customerId) {
+    return { ok: false, error: "There's no card on file yet — pick a plan first." };
+  }
+
+  let url: string | null = null;
+  try {
+    const session = await getStripe().billingPortal.sessions.create({
+      customer: sub.customerId,
+      return_url: `${env.APP_URL}/portal/settings`,
+    });
+    url = session.url;
+    void audit({ clientId, actor: guard.user.id, action: "billing.portal_opened", detail: {} });
+  } catch (err) {
+    logger.error("billing.portal.failed", {
+      clientId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { ok: false, error: "Couldn't open billing. Try again in a moment, or reach us from Settings → Help." };
+  }
+  if (!url) return { ok: false, error: "Couldn't open billing — please try again." };
   redirect(url);
 }

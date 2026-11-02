@@ -8,6 +8,10 @@ import { SetupChecklist } from "@/components/portal/setup-checklist";
 import { DangerZone } from "@/components/portal/danger-zone";
 import { LegacySettingsHash } from "@/components/portal/legacy-settings-hash";
 import { toSafeClient } from "@/lib/client-safe";
+import { ManageBilling } from "@/components/portal/manage-billing";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { subscriptions } from "@/db/schema";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -28,6 +32,14 @@ export default async function PortalSettingsPage({
   const client = await getClientByIdUnsafe(clientId);
   if (!client) notFound();
   const setup = await getClientSetupStatus(clientId);
+  // Anyone Stripe knows (paying, past due, or cancelled) can manage billing.
+  const [sub] = editAccess.isAdmin
+    ? await db
+        .select({ customerId: subscriptions.stripeCustomerId })
+        .from(subscriptions)
+        .where(eq(subscriptions.clientId, clientId))
+        .limit(1)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -39,6 +51,7 @@ export default async function PortalSettingsPage({
         canEdit={editAccess.canEdit}
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
       />
+      {sub?.customerId ? <ManageBilling clientId={clientId} /> : null}
       <DangerZone clientId={clientId} businessName={client.name} isAdmin={editAccess.isAdmin} />
     </div>
   );
