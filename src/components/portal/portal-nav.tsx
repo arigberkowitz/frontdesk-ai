@@ -73,7 +73,7 @@ function NavLink({
         "fd-nav-link relative flex items-center gap-2.5 rounded-lg font-medium transition-all duration-200 ease-out motion-reduce:transition-none",
         size === "lg" ? "px-3 py-2.5 text-sm" : "px-2.5 py-1.5 text-sm",
         active
-          ? "bg-brand-soft text-brand"
+          ? "fd-nav-active bg-white text-brand shadow-[0_1px_2px_rgb(35_40_90/0.08),0_4px_12px_-4px_rgb(106_61_245/0.18)] ring-1 ring-brand/10"
           : "text-muted-foreground hover:translate-x-0.5 hover:bg-muted hover:text-foreground motion-reduce:hover:translate-x-0",
       )}
     >
