@@ -199,6 +199,8 @@ export function OnboardingWelcome({
         <div className="flex flex-col items-center gap-3">
           <form action={createStarterClientAction} className="w-full max-w-sm space-y-3 text-left">
             <TimezoneField />
+            {/* Same as the website path: keep the pricing card they clicked. */}
+            {plan ? <input type="hidden" name="plan" value={plan} /> : null}
             {/* The action reads name + companySize — without these fields the
                 business gets created as literally "Your business", solo. */}
             <Field label="Business name">

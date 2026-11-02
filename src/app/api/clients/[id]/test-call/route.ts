@@ -28,7 +28,7 @@ export async function POST(
   const client = await getClient(user.orgId, id);
   if (!client) return new Response("Not found", { status: 404 });
   if (!client.retellAgentId) {
-    return Response.json({ error: "Provision the agent first." }, { status: 400 });
+    return Response.json({ error: "Your receptionist isn't set up yet." }, { status: 400 });
   }
 
   try {

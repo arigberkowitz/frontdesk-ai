@@ -556,6 +556,11 @@ export async function assertClientEditor(clientId: string): Promise<User> {
  * toast / inline message) instead of a thrown error that nukes the whole page
  * into the error boundary.
  */
+const FRIENDLY_EDIT_ERRORS = new Set([
+  "Editing is locked — enter your business's edit code to unlock.",
+  "Editing is limited to your admin.",
+]);
+
 export async function requireClientEditor(
   clientId: string,
 ): Promise<{ ok: true; user: User } | { ok: false; error: string }> {
@@ -565,7 +570,12 @@ export async function requireClientEditor(
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Editing is limited to your admin.",
+      // Only the two edit-lock messages are written for owners. Anything else
+      // (a cross-tenant refusal, a database hiccup) stays in the logs.
+      error:
+        err instanceof Error && FRIENDLY_EDIT_ERRORS.has(err.message)
+          ? err.message
+          : "You don't have access to change this.",
     };
   }
 }

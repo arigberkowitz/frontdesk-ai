@@ -86,6 +86,13 @@ export async function provisionAgentAction(
   return runProvision(user, clientId);
 }
 
+const OWNER_PROVISION_UNAVAILABLE =
+  "We couldn't switch your receptionist on just now. Try again in a little while, or message us from Settings → Help.";
+const OPERATOR_ONLY_PROVISION_ERRORS = new Set([
+  "Client not found.",
+  "Connect Retell first — add RETELL_API_KEY to your environment.",
+]);
+
 /**
  * Client portal: a self-serve business owner activates / re-syncs their own AI
  * receptionist. Guarded by tenant access; read-only client viewers can't provision.
@@ -116,6 +123,11 @@ export async function provisionAgentPortalAction(
     };
   }
   const result = await runProvision(user, clientId);
+  // runProvision speaks to operators (it can name missing config); owners get
+  // a plain sentence instead. The cause is already in the server log.
+  if (user.role !== "operator" && !result.ok && result.error && OPERATOR_ONLY_PROVISION_ERRORS.has(result.error)) {
+    return { ok: false, error: OWNER_PROVISION_UNAVAILABLE };
+  }
   const data = result.data as { phoneNumber?: string | null; phoneError?: string | null } | undefined;
   if (user.role !== "operator" && data?.phoneError) {
     return { ...result, data: { ...data, phoneError: OWNER_PHONE_ERROR } };

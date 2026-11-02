@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { friendlySmsFailure } from "@/lib/sms-failure";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarCheck, Inbox, Phone } from "lucide-react";
@@ -178,7 +179,7 @@ export default async function PortalMessageThreadPage({
                     </p>
                     {m.status === "failed" ? (
                       <p className="text-xs text-destructive">
-                        Not delivered{m.error ? ` — ${m.error}` : ""}
+                        Not delivered{friendlySmsFailure(m.error) ? ` — ${friendlySmsFailure(m.error)}` : ""}
                       </p>
                     ) : null}
                   </div>

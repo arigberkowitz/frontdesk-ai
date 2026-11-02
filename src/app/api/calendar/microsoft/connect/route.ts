@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildCalendarOAuthState, calendarReturnFrom } from "@/lib/calendar-oauth";
+import { buildCalendarOAuthState, calendarReturnFrom, calendarReturnPath } from "@/lib/calendar-oauth";
 import { randomBytes } from "node:crypto";
 import { getCurrentDbUserSafe, userMayEditClient } from "@/lib/auth-guard";
 import { getClient } from "@/lib/data/clients";
@@ -19,7 +19,7 @@ export async function GET(req: Request): Promise<Response> {
   const user = await getCurrentDbUserSafe();
   if (!user) return NextResponse.redirect(new URL("/sign-in", req.url));
   if (!microsoftConfigured()) {
-    return new Response("Outlook connect isn't configured.", { status: 400 });
+    return NextResponse.redirect(new URL(calendarReturnPath(from, "unavailable"), req.url));
   }
   // Tenant rule lives in one place — a role-specific check here would let a
   // client_admin act on another business in the same house-agency org.
