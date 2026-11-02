@@ -13,6 +13,7 @@ import {
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { PLANS, type PlanKey } from "@/config/plans";
+import { planFromPriceId } from "@/lib/stripe-prices";
 import { provisionNumberAfterPayment } from "@/lib/provision";
 import { notifyPaymentFailed } from "@/lib/payment-failed";
 
@@ -40,9 +41,12 @@ function mapStatus(s: Stripe.Subscription.Status): SubStatus {
 }
 
 async function upsert(clientId: string, sub: Stripe.Subscription): Promise<SubStatus> {
+  // Metadata first (every checkout we open sets it); then the Price ID
+  // (maps monthly and yearly prices to the same plan); then amount/interval.
   const item = sub.items?.data?.[0]?.price;
   const planKey: PlanKey | undefined =
     resolvePlanKey(sub.metadata?.plan, item ? { unitAmount: item.unit_amount, interval: item.recurring?.interval } : null) ??
+    planFromPriceId(item?.id) ??
     undefined;
   const plan = planKey ? PLANS[planKey] : undefined;
   const [previous] = await db

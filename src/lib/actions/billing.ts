@@ -13,6 +13,7 @@ import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { PLANS, type PlanKey } from "@/config/plans";
 import { type ActionState } from "./types";
+import { intervalPriceCents, stripePriceId } from "@/lib/stripe-prices";
 
 /**
  * Stripe's tax code for business-use SaaS.
@@ -23,6 +24,27 @@ import { type ActionState } from "./types";
  * customer saw "Couldn't open the payment page", which describes nothing.
  */
 const SAAS_TAX_CODE = "txcd_10103001";
+
+/**
+ * The subscription line: the pre-made Stripe Price when its env is set
+ * (STRIPE_PRICE_<PLAN>_MONTHLY / _YEARLY), otherwise an inline price.
+ */
+function recurringLineItem(planKey: PlanKey, planName: string, interval: "month" | "year", amount: number) {
+  const price = stripePriceId(planKey, interval);
+  if (price) return { quantity: 1, price };
+  return {
+    quantity: 1,
+    price_data: {
+      currency: "usd",
+      unit_amount: amount,
+      recurring: { interval },
+      product_data: {
+        name: `FrontDesk AI — ${planName} (${interval}ly)`,
+        tax_code: SAAS_TAX_CODE,
+      },
+    },
+  };
+}
 
 /**
  * Start a Stripe Checkout for a client: the monthly (or yearly) subscription plus
@@ -48,7 +70,7 @@ export async function startCheckoutAction(
   if (!client) return { ok: false, error: "Client not found." };
 
   // Yearly = 10 months' price (two months free).
-  const recurringAmount = interval === "year" ? plan.monthlyPriceCents * 10 : plan.monthlyPriceCents;
+  const recurringAmount = intervalPriceCents(planKey, interval);
 
   let url: string | null = null;
   try {
@@ -56,18 +78,7 @@ export async function startCheckoutAction(
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "usd",
-            unit_amount: recurringAmount,
-            recurring: { interval },
-            product_data: {
-              name: `FrontDesk AI — ${plan.name} (${interval}ly)`,
-              tax_code: SAAS_TAX_CODE,
-            },
-          },
-        },
+        recurringLineItem(planKey, plan.name, interval, recurringAmount),
         ...(plan.setupFeeCents > 0
           ? [
               {
@@ -86,7 +97,7 @@ export async function startCheckoutAction(
       success_url: `${env.APP_URL}/clients/${clientId}?billing=success`,
       cancel_url: `${env.APP_URL}/clients/${clientId}?billing=cancel`,
       metadata: { clientId, plan: planKey, interval },
-      subscription_data: { metadata: { clientId, plan: planKey } },
+      subscription_data: { metadata: { clientId, plan: planKey, interval } },
     });
     url = session.url;
   } catch (err) {
@@ -149,7 +160,7 @@ export async function startSelfServeCheckoutAction(
     return { ok: false, error: "You're already on a plan — nothing more to pay. Switch plans from Settings → Your plan." };
   }
 
-  const recurringAmount = interval === "year" ? plan.monthlyPriceCents * 10 : plan.monthlyPriceCents;
+  const recurringAmount = intervalPriceCents(planKey, interval);
 
   let url: string | null = null;
   try {
@@ -157,25 +168,14 @@ export async function startSelfServeCheckoutAction(
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "usd",
-            unit_amount: recurringAmount,
-            recurring: { interval },
-            product_data: {
-              name: `FrontDesk AI — ${plan.name} (${interval}ly)`,
-              tax_code: SAAS_TAX_CODE,
-            },
-          },
-        },
+        recurringLineItem(planKey, plan.name, interval, recurringAmount),
       ],
       allow_promotion_codes: true,
       customer_email: client.ownerEmail || undefined,
       success_url: `${env.APP_URL}/portal/guidelines?billing=success`,
       cancel_url: `${env.APP_URL}/portal/guidelines?billing=cancel`,
       metadata: { clientId, plan: planKey, interval, selfServe: "true" },
-      subscription_data: { metadata: { clientId, plan: planKey } },
+      subscription_data: { metadata: { clientId, plan: planKey, interval } },
     });
     url = session.url;
     void audit({ clientId, actor: guard.user.id, action: "billing.checkout_opened", detail: { plan: planKey, interval } });
