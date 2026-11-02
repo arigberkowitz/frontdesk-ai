@@ -107,13 +107,13 @@ export default async function PortalLayout({ children }: { children: React.React
       {strip ? <TrialStrip {...strip} /> : null}
       <div className="flex flex-1">
         {/* Desktop: grouped left rail. Phones use the bottom tab bar below. */}
-        <aside className="hidden w-60 shrink-0 border-r border-border/70 bg-card/40 md:block">
+        <aside className="hidden w-64 shrink-0 border-r border-border/60 bg-white/50 backdrop-blur-sm md:block">
           <div className="sticky top-16 max-h-[calc(100vh-4rem)] overflow-y-auto px-3 py-6">
             <PortalSidebar showTeam={showTeam} unreadMessages={unreadMessages} />
           </div>
         </aside>
-        <main className="min-w-0 flex-1 p-4 pb-24 sm:p-6 sm:pb-24 md:pb-8 lg:p-8">
-          <div className="fd-fade-up mx-auto w-full max-w-5xl">{children}</div>
+        <main className="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-6 sm:pb-28 md:pb-10 lg:px-10 lg:pt-10">
+          <div className="fd-fade-up fd-portal-content mx-auto w-full max-w-5xl">{children}</div>
         </main>
       </div>
       <PortalTabBar showTeam={showTeam} unreadMessages={unreadMessages} />

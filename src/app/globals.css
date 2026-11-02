@@ -1614,3 +1614,105 @@ html:not(.dark):has([data-fd-app]) nav[aria-label="Operator"] .fd-nav-link[aria-
 @keyframes fd-cta-in { from { transform: translateY(140%); opacity: 0; } to { transform: none; opacity: 1; } }
 .fd-mobile-cta { animation: fd-cta-in 500ms 900ms cubic-bezier(.2,.8,.2,1) both; }
 @media (prefers-reduced-motion: reduce) { .fd-mobile-cta { animation: none; } }
+
+/* ----------------------------------------------------------------------------
+ * Light hero — the opening act, in daylight. Soft indigo/mint washes on white,
+ * a faint dot grid that fades out toward the edges, and a hairline frame.
+ * ------------------------------------------------------------------------- */
+.fd-hero-light {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(60rem 30rem at 85% -10%, rgb(129 140 248 / 0.22), transparent 60%),
+    radial-gradient(50rem 28rem at -5% 105%, rgb(52 211 153 / 0.16), transparent 60%),
+    radial-gradient(40rem 22rem at 45% 50%, rgb(196 181 253 / 0.14), transparent 70%),
+    linear-gradient(180deg, #ffffff 0%, #f7f7fe 100%);
+  border: 1px solid rgb(99 102 241 / 0.12);
+  box-shadow: 0 1px 0 rgb(255 255 255) inset, 0 30px 80px -40px rgb(79 70 229 / 0.25);
+}
+.fd-hero-light::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgb(79 70 229 / 0.13) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse 80% 65% at 50% 35%, black 25%, transparent 75%);
+}
+.fd-hero-light .fd-gradient-text,
+.fd-cta-light .fd-gradient-text {
+  background: linear-gradient(100deg, #4f46e5 0%, #7c3aed 50%, #059669 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.fd-cta-outline {
+  background: rgb(255 255 255 / 0.8) !important;
+  border: 1px solid rgb(99 102 241 / 0.25) !important;
+  color: #1e1b4b !important;
+  backdrop-filter: blur(6px);
+}
+.fd-cta-outline:hover { background: #fff !important; border-color: rgb(99 102 241 / 0.45) !important; }
+
+/* Floating badge next to the hero demo — a gentle bob. */
+.fd-float { animation: fd-float 6s ease-in-out infinite; }
+@keyframes fd-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Closing CTA, light edition. */
+.fd-cta-light {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(36rem 18rem at 50% -20%, rgb(129 140 248 / 0.25), transparent 70%),
+    radial-gradient(30rem 16rem at 100% 120%, rgb(52 211 153 / 0.18), transparent 70%),
+    linear-gradient(180deg, #fbfbff, #f3f2ff);
+  border: 1px solid rgb(99 102 241 / 0.15);
+}
+
+/* Portal: a soft entrance for each page's content. */
+.fd-page-in > * { animation: fd-page-in 0.45s cubic-bezier(.2,.7,.2,1) both; }
+.fd-page-in > *:nth-child(2) { animation-delay: 40ms; }
+.fd-page-in > *:nth-child(3) { animation-delay: 80ms; }
+.fd-page-in > *:nth-child(4) { animation-delay: 120ms; }
+.fd-page-in > *:nth-child(n+5) { animation-delay: 160ms; }
+@keyframes fd-page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-float, .fd-page-in > * { animation: none; }
+}
+
+/* ---- Portal polish layer ------------------------------------------------ */
+html:not(.dark):has([data-fd-app]) [data-slot="card"] {
+  border-radius: 1.125rem;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+html:not(.dark):has([data-fd-app]) [data-slot="card-title"] {
+  letter-spacing: -0.012em;
+}
+html:not(.dark):has([data-fd-app]) .fd-nav-active::before {
+  content: "";
+  position: absolute;
+  left: -0.75rem;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--signal-bright);
+}
+/* Page content settles in, section by section. */
+.fd-portal-content > * { animation: fd-page-in 0.5s cubic-bezier(.2,.7,.2,1) both; }
+.fd-portal-content > *:nth-child(2) { animation-delay: 50ms; }
+.fd-portal-content > *:nth-child(3) { animation-delay: 100ms; }
+.fd-portal-content > *:nth-child(n+4) { animation-delay: 150ms; }
+@media (prefers-reduced-motion: reduce) {
+  .fd-portal-content > * { animation: none; }
+}

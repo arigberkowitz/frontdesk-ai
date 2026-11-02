@@ -142,47 +142,50 @@ export function LandingPage() {
           The dark stage. The page opens inside a deep-navy rounded panel —
           aurora glow drifting behind glass — so the first screen feels like a
           product, not a pamphlet. The sticky header and the reading sections
-          below stay light; drama is for the opening and closing acts only.
+          below stay light; drama is for the opening and closing acts only. Both are light.
         */}
         <section className="px-3 pt-3 sm:px-4">
-          <div className="fd-stage rounded-3xl">
+          <div className="fd-hero-light rounded-[2rem]">
             <div
               aria-hidden
-              className="fd-aurora left-[55%] top-[-14rem] h-[34rem] w-[34rem] bg-indigo-500/30"
+              className="fd-aurora left-[58%] top-[-12rem] -z-10 h-[30rem] w-[30rem] bg-indigo-300/40"
             />
             <div
               aria-hidden
-              className="fd-aurora left-[-10rem] bottom-[-12rem] h-[28rem] w-[28rem] bg-emerald-500/20 [animation-delay:-8s]"
+              className="fd-aurora left-[-8rem] bottom-[-12rem] -z-10 h-[26rem] w-[26rem] bg-emerald-200/50 [animation-delay:-8s]"
             />
 
-            <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-5 pb-16 pt-14 sm:px-8 lg:grid-cols-[1.05fr_1fr] lg:gap-14 lg:pb-20 lg:pt-24">
+            <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:pb-24 lg:pt-24">
               <div className="text-center lg:text-left">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs font-medium text-indigo-200 backdrop-blur">
-                  <Phone className="size-3.5" /> AI receptionist for local business
+                <span className="inline-flex items-center gap-2 rounded-full border border-indigo-200/80 bg-white/80 py-1 pl-1 pr-3 text-xs font-medium text-indigo-700 shadow-sm backdrop-blur">
+                  <span className="flex size-5 items-center justify-center rounded-full bg-indigo-600 text-white">
+                    <Phone className="size-3" />
+                  </span>
+                  AI receptionist for local business
                 </span>
-                <h1 className="mt-5 font-heading text-5xl font-semibold leading-[1.02] tracking-[-0.025em] text-white sm:text-6xl lg:text-7xl">
+                <h1 className="mt-6 font-heading text-[2.9rem] font-semibold leading-[1.0] tracking-[-0.035em] text-slate-950 sm:text-6xl lg:text-[5.25rem]">
                   Never miss
                   <br />
                   <em className="fd-gradient-text font-medium">another call.</em>
                 </h1>
-                <p className="mx-auto mt-5 max-w-xl text-balance text-base text-slate-300 sm:text-lg lg:mx-0">
+                <p className="mx-auto mt-6 max-w-xl text-balance text-base leading-relaxed text-slate-600 sm:text-lg lg:mx-0">
                   Every call answered on the first ring. Appointments booked straight into your
                   calendar. Every lead captured — 24/7, in English and Spanish, for a fraction of a
                   hire.
                 </p>
-                <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
+                <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
                   <Button
                     size="lg"
-                    className="fd-cta-glow"
+                    className="fd-cta-glow h-12 px-6 text-base"
                     nativeButton={false}
                     render={<Link href="/sign-up" />}
                   >
-                    <ArrowRight className="size-4" />
                     Start your free trial
+                    <ArrowRight className="size-4" />
                   </Button>
                   <Button
                     size="lg"
-                    className="fd-cta-ghost"
+                    className="fd-cta-outline h-12 px-6 text-base"
                     variant="outline"
                     nativeButton={false}
                     render={<Link href="#how" />}
@@ -190,7 +193,7 @@ export function LandingPage() {
                     See how it works
                   </Button>
                 </div>
-                <p className="mt-3 text-sm text-slate-400">
+                <p className="mt-4 text-sm text-slate-500">
                   14 days free · No credit card · Cancel anytime
                 </p>
                 {/* The one thing no competitor's landing page can fake: a number
@@ -199,24 +202,26 @@ export function LandingPage() {
                 {env.DEMO_PHONE_NUMBER ? (
                   <a
                     href={`tel:${env.DEMO_PHONE_NUMBER.replace(/[^\d+]/g, "")}`}
-                    className="fd-lift mt-6 inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/[0.06] py-2.5 pl-4 pr-5 text-sm text-slate-200 backdrop-blur"
+                    className="fd-lift mt-6 inline-flex items-center gap-3 rounded-full border border-emerald-200 bg-white/90 py-2.5 pl-4 pr-5 text-sm text-slate-700 shadow-sm backdrop-blur"
                   >
                     <span className="fd-live-dot" aria-hidden="true" />
                     <span>
-                      <span className="text-slate-400">Don&apos;t take our word for it — </span>
-                      <span className="font-semibold text-white">
+                      <span className="text-slate-500">Don&apos;t take our word for it — </span>
+                      <span className="font-semibold text-slate-950">
                         call {formatPhone(env.DEMO_PHONE_NUMBER)}
                       </span>
-                      <span className="text-slate-400"> and talk to it now</span>
+                      <span className="text-slate-500"> and talk to it now</span>
                     </span>
                   </a>
                 ) : null}
 
-                <ul className="mt-9 flex flex-wrap justify-center gap-x-5 gap-y-2 border-t border-white/10 pt-5 text-sm text-slate-300 lg:justify-start">
+                <ul className="mt-10 flex flex-wrap justify-center gap-x-6 gap-y-2 border-t border-slate-200/80 pt-5 text-sm text-slate-600 lg:justify-start">
                   {["Picks up on the first ring", "Books on the call", "English y Español"].map(
                     (item) => (
                       <li key={item} className="flex items-center gap-1.5">
-                        <Check className="size-4 shrink-0 text-emerald-400" />
+                        <span className="flex size-4 items-center justify-center rounded-full bg-emerald-100">
+                          <Check className="size-3 shrink-0 text-emerald-600" />
+                        </span>
                         {item}
                       </li>
                     ),
@@ -231,8 +236,14 @@ export function LandingPage() {
                       one unqualified factual claim on this page that wasn't. */}
                   Here&apos;s how a call goes, start to finish
                 </p>
-                <div className="rounded-2xl shadow-[0_24px_80px_rgb(79_70_229/0.35)]">
-                  <DemoCall />
+                <div className="relative">
+                  <div
+                    aria-hidden
+                    className="absolute -inset-3 -z-10 rounded-[1.75rem] bg-gradient-to-br from-indigo-200/60 via-white/0 to-emerald-200/60 blur-xl"
+                  />
+                  <div className="rounded-2xl shadow-[0_30px_80px_-20px_rgb(79_70_229/0.35)] ring-1 ring-indigo-900/5">
+                    <DemoCall />
+                  </div>
                 </div>
               </div>
             </div>
@@ -445,16 +456,16 @@ export function LandingPage() {
         </section>
 
         <section className="mx-auto max-w-4xl px-4 pb-20 pt-4 sm:px-6">
-          {/* The closing act matches the opening one: back onto the dark stage. */}
-          <div className="fd-stage rounded-3xl px-6 py-16 text-center sm:px-12">
+          {/* The closing act matches the opening one: the same daylight stage. */}
+          <div className="fd-cta-light rounded-[2rem] px-6 py-16 text-center sm:px-12">
             <div
               aria-hidden
-              className="fd-aurora left-1/2 top-[-10rem] h-[24rem] w-[24rem] -translate-x-1/2 bg-violet-500/25"
+              className="fd-aurora left-1/2 top-[-10rem] h-[24rem] w-[24rem] -z-10 -translate-x-1/2 bg-violet-300/30"
             />
-            <h2 className="relative font-heading text-3xl font-semibold tracking-tight text-balance text-white sm:text-4xl">
+            <h2 className="relative font-heading text-3xl font-semibold tracking-tight text-balance text-slate-950 sm:text-4xl">
               Stop sending customers <em className="fd-gradient-text font-medium">to voicemail.</em>
             </h2>
-            <p className="relative mx-auto mt-3 max-w-lg text-balance text-slate-300">
+            <p className="relative mx-auto mt-3 max-w-lg text-balance text-slate-600">
               Two weeks free, no card. Most businesses are live the same afternoon.
             </p>
             <div className="relative mt-8 flex justify-center">

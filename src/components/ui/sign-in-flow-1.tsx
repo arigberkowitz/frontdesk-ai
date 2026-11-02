@@ -593,8 +593,8 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
               animationSpeed={3}
               containerClassName="bg-background"
               colors={[
-                [10, 10, 10],
-                [80, 80, 80],
+                [99, 102, 241],
+                [167, 139, 250],
               ]}
               dotSize={6}
               reverse={false}
@@ -608,8 +608,8 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
               animationSpeed={4}
               containerClassName="bg-background"
               colors={[
-                [10, 10, 10],
-                [80, 80, 80],
+                [99, 102, 241],
+                [167, 139, 250],
               ]}
               dotSize={6}
               reverse={true}
@@ -630,7 +630,8 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
 
         <div className="flex flex-1 flex-col lg:flex-row">
           <div className="flex-1 flex flex-col justify-center items-center">
-            <div className="w-full mt-[96px] sm:mt-[120px] max-w-sm px-5 sm:px-0">
+            <div className="w-full mt-[88px] sm:mt-[112px] max-w-[28rem] px-4 sm:px-0 mb-10">
+            <div className="rounded-[1.75rem] border border-indigo-100 bg-white/85 px-5 py-9 shadow-[0_30px_80px_-30px_rgb(79_70_229/0.35)] ring-1 ring-white backdrop-blur-xl sm:px-9 sm:py-11">
               <AnimatePresence mode="wait">
                 {step === "email" ? (
                   <motion.div
@@ -657,7 +658,7 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
                         type="button"
                         onClick={handleGoogle}
                         disabled={!ready}
-                        className="w-full flex items-center justify-center gap-3 bg-background hover:bg-muted text-foreground border border-border rounded-full py-3 px-4 transition-colors disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 hover:border-slate-300 text-foreground font-medium border border-border shadow-sm rounded-full py-3 px-4 transition-colors disabled:opacity-50"
                       >
                         <GoogleIcon />
                         <span>{authView === "signup" ? "Continue with Google" : "Sign in with Google"}</span>
@@ -679,7 +680,7 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
                             inputMode="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-black/[0.03] text-foreground border-2 border-neutral-300 shadow-sm rounded-full py-3 px-4 focus:outline-none focus:border-neutral-500 focus:ring-2 focus:ring-ring/20 text-center placeholder:text-neutral-400 transition-colors"
+                            className="w-full bg-white text-foreground border border-slate-300 shadow-sm rounded-full py-3 px-4 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15 text-center placeholder:text-neutral-400 transition-colors"
                             required
                           />
                           <button
@@ -857,7 +858,7 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
                       transition={{ duration: 0.5, delay: 0.5 }}
                       className="py-10"
                     >
-                      <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-neutral-900 to-neutral-700 flex items-center justify-center">
+                      <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           className="h-8 w-8 text-white"
@@ -885,6 +886,7 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
             </div>
           </div>
         </div>
