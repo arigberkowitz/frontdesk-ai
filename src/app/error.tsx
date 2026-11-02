@@ -1,10 +1,16 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
+import { useEffect } from "react";
+import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /** App-level error boundary — a styled retry instead of Next's raw crash page. */
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
       <div className="flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
@@ -16,9 +22,17 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
           We hit an unexpected error. Please try again in a moment.
         </p>
       </div>
-      <Button onClick={reset} variant="outline">
-        Try again
-      </Button>
+      <div className="flex gap-2">
+        <Button onClick={reset} variant="outline">
+          Try again
+        </Button>
+        <Button variant="ghost" nativeButton={false} render={<Link href="/" />}>
+          Go home
+        </Button>
+      </div>
+      {error.digest ? (
+        <p className="text-xs text-muted-foreground">Reference: {error.digest}</p>
+      ) : null}
     </div>
   );
 }

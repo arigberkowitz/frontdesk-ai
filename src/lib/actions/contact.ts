@@ -1,6 +1,8 @@
 "use server";
 
+import { headers } from "next/headers";
 import { notifier } from "@/lib/notifier";
+import { consumeAttempt, formatRetryAfter } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { type ActionState } from "./types";
 
@@ -16,6 +18,19 @@ import { type ActionState } from "./types";
 
 const OWNER_EMAIL = "arigberkowitz@gmail.com";
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/** Per IP: plenty for a person, a wall for a script looping the form. */
+const SENDS_PER_WINDOW = 5;
+const WINDOW_MS = 60 * 60_000;
+
+async function clientIp(): Promise<string> {
+  try {
+    const h = await headers();
+    return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 const LIMITS = { name: 80, email: 200, subject: 120, message: 4000 } as const;
 
@@ -43,10 +58,22 @@ export async function sendContactMessageAction(
   }
 
   const fieldErrors: Record<string, string[]> = {};
+  if (name.length > 0 && /https?:\/\//i.test(name)) fieldErrors.name = ["Just your name, please"];
   if (!email) fieldErrors.email = ["We need an email to reply to"];
   else if (!EMAIL_RE.test(email)) fieldErrors.email = ["That doesn't look like an email address"];
   if (!message) fieldErrors.message = ["Tell us what you need"];
   if (Object.keys(fieldErrors).length) return { ok: false, fieldErrors };
+
+  // Counted only for messages that would actually send, so a typo-and-retry
+  // doesn't burn the allowance.
+  const limit = consumeAttempt(`contact:${await clientIp()}`, SENDS_PER_WINDOW, WINDOW_MS);
+  if (!limit.ok) {
+    logger.warn("contact.rate_limited");
+    return {
+      ok: false,
+      error: `That's a lot of messages in a row — try again in ${formatRetryAfter(limit.retryAfterSec)}, or write to ${OWNER_EMAIL}.`,
+    };
+  }
 
   // Newlines in a header field are how a stranger adds their own Bcc.
   const replyTo = /[\r\n]/.test(email) ? undefined : email;
