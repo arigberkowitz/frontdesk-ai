@@ -12,6 +12,7 @@ import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { PLANS, type PlanKey } from "@/config/plans";
 import { provisionNumberAfterPayment } from "@/lib/provision";
+import { notifyPaymentFailed } from "@/lib/payment-failed";
 
 export const runtime = "nodejs";
 
@@ -136,6 +137,10 @@ export async function POST(req: Request): Promise<Response> {
       const sub = event.data.object as Stripe.Subscription;
       const clientId = sub.metadata?.clientId;
       if (clientId) unlockNumberIfPaid(clientId, await upsert(clientId, sub));
+    } else if (event.type === "invoice.payment_failed") {
+      // Status itself arrives as customer.subscription.updated (past_due);
+      // this is the owner's heads-up so they can fix the card in time.
+      await notifyPaymentFailed(event.data.object);
     }
   } catch (err) {
     logger.error("stripe.webhook.handler_failed", {
