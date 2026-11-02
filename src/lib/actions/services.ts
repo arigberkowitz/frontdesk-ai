@@ -1,5 +1,6 @@
 "use server";
 
+import { markSetupReviewed } from "@/lib/data/setup-review";
 import { requireClientEditor } from "@/lib/auth-guard";
 import { serviceSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg } from "@/lib/data/clients";
@@ -45,6 +46,7 @@ export async function createServiceAction(
     depositCents: d.depositDollars ? Math.round(d.depositDollars * 100) : null,
     isActive: d.isActive,
   });
+  await markSetupReviewed(clientId, "services");
   const sync = await applyClientEdit(user, clientId);
   return { ok: true, message: withSyncNote("Saved.", sync) };
 }
@@ -74,6 +76,7 @@ export async function updateServiceAction(
     depositCents: d.depositDollars ? Math.round(d.depositDollars * 100) : null,
     isActive: d.isActive,
   });
+  await markSetupReviewed(clientId, "services");
   const sync = await applyClientEdit(user, clientId);
   return { ok: true, message: withSyncNote("Saved.", sync) };
 }
@@ -86,5 +89,6 @@ export async function deleteServiceAction(formData: FormData): Promise<void> {
   const serviceId = String(formData.get("serviceId") ?? "");
   await assertClientInOrg(user.orgId, clientId);
   await servicesData.deleteService(clientId, serviceId);
+  await markSetupReviewed(clientId, "services");
   await applyClientEdit(user, clientId);
 }

@@ -1,5 +1,6 @@
 "use server";
 
+import { markSetupReviewed } from "@/lib/data/setup-review";
 import { requireClientEditor } from "@/lib/auth-guard";
 import { knowledgeSchema } from "@/lib/validation";
 import { assertClientInOrg } from "@/lib/data/clients";
@@ -29,6 +30,7 @@ export async function createKnowledgeAction(
     source: "manual",
     isActive: parsed.data.isActive,
   });
+  await markSetupReviewed(clientId, "faqs");
   const sync = await applyClientEdit(user, clientId);
   return { ok: true, message: withSyncNote("Saved.", sync) };
 }
@@ -55,6 +57,7 @@ export async function updateKnowledgeAction(
     answer: parsed.data.answer,
     isActive: parsed.data.isActive,
   });
+  await markSetupReviewed(clientId, "faqs");
   const sync = await applyClientEdit(user, clientId);
   return { ok: true, message: withSyncNote("Saved.", sync) };
 }
@@ -67,5 +70,6 @@ export async function deleteKnowledgeAction(formData: FormData): Promise<void> {
   const itemId = String(formData.get("itemId") ?? "");
   await assertClientInOrg(user.orgId, clientId);
   await knowledgeData.deleteKnowledge(clientId, itemId);
+  await markSetupReviewed(clientId, "faqs");
   await applyClientEdit(user, clientId);
 }

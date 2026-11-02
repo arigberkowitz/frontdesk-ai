@@ -243,6 +243,9 @@ export const clients = pgTable(
       .$type<{
         calendarSkipped?: boolean;
         forwardingDone?: boolean;
+        /** Self-serve signup: pre-filled setup steps need the owner's OK (setup-steps.ts). */
+        reviewRequired?: boolean;
+        reviewed?: Partial<Record<"services" | "hours" | "faqs" | "greeting", boolean>>;
         /** Owner hid the unfinished setup checklist from the Overview (ISO). */
         checklistHiddenAt?: string;
         quietAlertAt?: string;

@@ -52,7 +52,7 @@ export default async function PortalSettingsPage({
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
       />
       {sub?.customerId ? <ManageBilling clientId={clientId} /> : null}
-      <DangerZone clientId={clientId} businessName={client.name} isAdmin={editAccess.isAdmin} />
+      <DangerZone clientId={clientId} businessName={client.name} isAdmin={editAccess.isAdmin} hasBilling={Boolean(sub?.customerId)} />
     </div>
   );
 }

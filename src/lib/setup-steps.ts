@@ -12,6 +12,8 @@ export interface SetupStep {
   hint?: string;
   /** Shown once the step is ticked — for when "done" doesn't mean what it looks like. */
   doneHint?: string;
+  /** Template content is in place but the owner hasn't looked at it yet: show "Looks good". */
+  confirmable?: boolean;
   /** Can be resolved with "skip for now" (calendar). */
   skippable?: boolean;
   /** Resolved by the owner confirming they did it outside the app (forwarding). */
@@ -24,7 +26,19 @@ export interface SetupFlags {
   forwardingDone?: boolean;
   /** ISO time the owner hid the unfinished checklist from the Overview. */
   checklistHiddenAt?: string;
+  /**
+   * Set at self-serve signup, where services, hours, FAQs (industry template)
+   * and the greeting are pre-filled for the owner. While set, those steps only
+   * tick once the owner has edited or confirmed them (`reviewed`). Businesses
+   * set up before this flag existed don't carry it and keep the old rule.
+   */
+  reviewRequired?: boolean;
+  /** Steps the owner has edited or pressed "Looks good" on. */
+  reviewed?: Partial<Record<ReviewableStep, boolean>>;
 }
+
+export const REVIEWABLE_STEPS = ["services", "hours", "faqs", "greeting"] as const;
+export type ReviewableStep = (typeof REVIEWABLE_STEPS)[number];
 
 /** Counts and fields the checklist is derived from — all read from real data. */
 export interface SetupFacts {
@@ -48,21 +62,44 @@ export interface SetupFacts {
 export function buildSetupSteps(f: SetupFacts): SetupStep[] {
   const flags = f.flags;
   const aiNumber = f.aiNumber;
+  // Pre-filled examples are a head start, not the owner's answers. A step
+  // with template content ticks only after they've edited or confirmed it —
+  // otherwise a brand-new trial showed four of eight steps done on arrival.
+  const reviewable = (key: ReviewableStep, present: boolean, hint: string) => {
+    const needsLook = present && Boolean(flags.reviewRequired) && !flags.reviewed?.[key];
+    return {
+      done: present && !needsLook,
+      confirmable: needsLook,
+      hint: needsLook ? hint : undefined,
+    };
+  };
   return [
-    { key: "services", label: "Add your services", href: "/portal/services", done: f.services > 0 },
-    { key: "hours", label: "Set your hours", href: "/portal/hours", done: f.openDays > 0 },
+    {
+      key: "services",
+      label: "Add your services",
+      href: "/portal/services",
+      ...reviewable("services", f.services > 0, "We added example services for your kind of business — check they're yours."),
+    },
+    {
+      key: "hours",
+      label: "Set your hours",
+      href: "/portal/hours",
+      ...reviewable("hours", f.openDays > 0, "We filled in typical hours — make sure they're yours."),
+    },
     {
       key: "faqs",
       label: "Add a few FAQs",
       href: "/portal/knowledge",
-      done: f.faqs > 0,
-      hint: "Teach it the questions callers ask.",
+      ...(() => {
+        const r = reviewable("faqs", f.faqs > 0, "We added example answers — check they're right for you.");
+        return { ...r, hint: r.hint ?? "Teach it the questions callers ask." };
+      })(),
     },
     {
       key: "greeting",
       label: "Set your greeting & voice",
       href: "/portal/guidelines",
-      done: Boolean(f.greeting?.trim()),
+      ...reviewable("greeting", Boolean(f.greeting?.trim()), "We wrote a starter greeting — read it and pick a voice."),
     },
     {
       key: "calendar",
@@ -91,7 +128,8 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
     {
       key: "live",
       label: "Activate your receptionist",
-      href: "/portal/guidelines#activate",
+      // Built but no number yet: the real next step is a card, so go to Plans.
+      href: f.agentId && !aiNumber ? "/portal/guidelines#plans" : "/portal/guidelines#activate",
       // An agent without a number cannot answer a phone. Provisioning the
       // number is deliberately allowed to fail without losing the agent, which
       // is right — but this step used to go green on the agent alone, so the
@@ -106,7 +144,7 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
         : undefined,
       hint: f.agentId && !aiNumber
         ? // Self-serve numbers wait for a card or finished setup (number-gate.ts).
-          "Your AI is built. Its phone number is reserved until you add a card or finish the other steps here (a browser test call counts) — then press Get my phone number on Your AI."
+          "Your AI is built. Add a card under Plans on Your AI, or finish the other steps here (a browser test call counts), to get its phone number."
         : "Build your AI so you can hear it. Its phone number comes once you add a card or finish setup.",
     },
     // Test BEFORE forwarding: once the business line forwards, real customers

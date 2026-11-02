@@ -30,10 +30,13 @@ export function DangerZone({
   clientId,
   businessName,
   isAdmin,
+  hasBilling = false,
 }: {
   clientId: string;
   businessName: string;
   isAdmin: boolean;
+  /** True when the Manage billing card is shown above (Stripe knows this business). */
+  hasBilling?: boolean;
 }) {
   const [state, action, pending] = useActionState(closeAccountAction, initialActionState);
   const [armed, setArmed] = useState(false);
@@ -64,7 +67,7 @@ export function DangerZone({
             // the one thing guaranteed to work on every phone.
             <a
               key={e.type}
-              href={`/api/clients/${clientId}/export?type=${e.type}`}
+              href={`/portal/export?type=${e.type}`}
               download
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
@@ -79,7 +82,11 @@ export function DangerZone({
             <PanelHeader
               icon={TriangleAlert}
               title="Close this account"
-              description="Your AI receptionist stops answering immediately. Your calls, bookings, leads and settings are kept for 90 days in case you change your mind, then permanently deleted. Billing stops — if you have a subscription, cancel it under Billing above (Manage billing)."
+              description={`Your AI receptionist stops answering immediately. Your calls, bookings, leads and settings are kept for 90 days in case you change your mind, then permanently deleted. ${
+                hasBilling
+                  ? "To stop being charged, cancel your plan under Manage billing above."
+                  : "You haven't added a card, so there's nothing to cancel and you won't be charged."
+              }`}
             />
             {!armed ? (
               <div className="flex justify-end">

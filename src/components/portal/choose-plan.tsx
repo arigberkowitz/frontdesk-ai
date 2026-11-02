@@ -29,7 +29,6 @@ const ORDER: PlanKey[] = planList().map((p) => p.key);
 export function ChoosePlan({
   clientId,
   cardsReady,
-  testMode,
   preselect,
 }: {
   clientId: string;
@@ -37,8 +36,6 @@ export function ChoosePlan({
   preselect?: string | null;
   /** Is Stripe actually configured on the server? */
   cardsReady: boolean;
-  /** True on a Stripe test key — say so, loudly, so nobody thinks they paid. */
-  testMode: boolean;
 }) {
   const [selected, setSelected] = useState<PlanKey>(
     ORDER.includes(preselect as PlanKey) ? (preselect as PlanKey) : "starter",
@@ -88,7 +85,12 @@ export function ChoosePlan({
           </Button>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2">
+        {/* One row of equal cards on wider screens (three plans in a two-column
+            grid left Pro orphaned underneath), stacked on phones. Every card
+            lists its features — comparing plans with one card open at a time
+            meant Pro's never showed. Stripe test mode is shown to operators on
+            the client billing card, never here. */}
+        <div className="grid gap-2 md:grid-cols-3">
           {ORDER.map((key) => {
             const plan = PLANS[key];
             const active = selected === key;
@@ -99,7 +101,7 @@ export function ChoosePlan({
                 onClick={() => setSelected(key)}
                 aria-pressed={active}
                 className={cn(
-                  "rounded-lg border p-3 text-left transition-colors",
+                  "flex h-full flex-col rounded-lg border p-3 text-left transition-colors",
                   active ? "border-indigo-500/40 bg-indigo-500/5" : "hover:bg-muted/50",
                 )}
               >
@@ -119,7 +121,7 @@ export function ChoosePlan({
                 <span className="mt-1 block text-xs font-medium text-emerald-600 dark:text-emerald-400">
                   {minutesLabel(plan)}
                 </span>
-                {active ? (
+                {plan.highlights.length ? (
                   <span className="mt-2 block space-y-0.5">
                     {plan.highlights.map((h) => (
                       <span key={h} className="flex items-start gap-1.5 text-xs text-muted-foreground">
@@ -171,11 +173,6 @@ export function ChoosePlan({
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">
-              {testMode ? (
-                <span className="font-medium text-amber-600 dark:text-amber-500">
-                  Test mode — no real money moves.{" "}
-                </span>
-              ) : null}
               No setup fee — you&apos;ve done the setup yourself. Cancel anytime from Settings; you
               keep your number until the end of the period you&apos;ve paid for.
             </p>

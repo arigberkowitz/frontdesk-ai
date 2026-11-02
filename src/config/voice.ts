@@ -54,23 +54,70 @@ export function normalizeGender(g?: string | null): "female" | "male" | "other" 
   return "other";
 }
 
+const ACCENT_ALIASES: Record<string, string> = {
+  uk: "British",
+  gb: "British",
+  british: "British",
+  us: "American",
+  usa: "American",
+  au: "Australian",
+  aus: "Australian",
+  in: "Indian",
+};
+
+/** Vendor spelling slips we've seen in the live list. */
+const SPELLING_FIXES: [RegExp, string][] = [
+  [/portugese/gi, "Portuguese"],
+  [/brasilian/gi, "Brazilian"],
+];
+
+function tidy(s: string): string {
+  let out = s.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  for (const [re, fix] of SPELLING_FIXES) out = out.replace(re, fix);
+  return out;
+}
+
 /**
- * Split a voice list into Women / Men buckets, each sorted by name. Voices that
- * would display identically (same name + accent) are collapsed to one — Retell
- * returns several indistinguishable variants and showing all of them is just noise.
+ * Customer-facing name/accent for a vendor voice: "Amy(UK)" → Amy · British,
+ * "Brazilian Portugese" → "Brazilian Portuguese", stray spacing removed.
  */
-export function groupVoicesByGender(voices: VoiceMeta[]): { women: VoiceMeta[]; men: VoiceMeta[] } {
+export function cleanVoiceLabel(v: VoiceMeta): VoiceMeta {
+  let name = tidy(v.name);
+  let accent = v.accent ? tidy(v.accent) : "";
+  const m = name.match(/^(.*?)\s*[([]\s*([^)\]]+?)\s*[)\]]\s*$/);
+  if (m && m[1]) {
+    name = m[1].trim();
+    if (!accent) accent = ACCENT_ALIASES[m[2].toLowerCase()] ?? tidy(m[2]);
+  }
+  if (accent && ACCENT_ALIASES[accent.toLowerCase()]) accent = ACCENT_ALIASES[accent.toLowerCase()];
+  if (accent && accent === accent.toLowerCase()) accent = accent.replace(/\b\w/g, (c) => c.toUpperCase());
+  return { ...v, name, accent: accent || undefined };
+}
+
+/**
+ * Split a voice list into Women / Men buckets, each sorted by name, with
+ * labels cleaned. Every voice name shows once, in exactly one bucket: Retell
+ * lists the same name from several providers (and sometimes with different
+ * gender tags), which put e.g. the default voice under both Women and Men and
+ * showed Leland/Max twice. When names collide we keep, in order: the
+ * business's current voice, one with a sample clip, then the first listed.
+ */
+export function groupVoicesByGender(
+  voices: VoiceMeta[],
+  currentVoiceId?: string | null,
+): { women: VoiceMeta[]; men: VoiceMeta[] } {
+  const rank = (v: VoiceMeta) => (v.voiceId === currentVoiceId ? 2 : v.previewUrl ? 1 : 0);
+  const byName = new Map<string, VoiceMeta>();
+  for (const raw of voices) {
+    if (normalizeGender(raw.gender) === "other") continue;
+    const v = cleanVoiceLabel(raw);
+    const key = v.name.toLowerCase();
+    const prev = byName.get(key);
+    if (!prev || rank(v) > rank(prev)) byName.set(key, v);
+  }
   const women: VoiceMeta[] = [];
   const men: VoiceMeta[] = [];
-  const seen = new Set<string>();
-  for (const v of voices) {
-    const g = normalizeGender(v.gender);
-    if (g === "other") continue;
-    const label = `${g}|${v.name.toLowerCase().trim()}|${(v.accent ?? "").toLowerCase().trim()}`;
-    if (seen.has(label)) continue;
-    seen.add(label);
-    (g === "female" ? women : men).push(v);
-  }
-  const byName = (a: VoiceMeta, b: VoiceMeta) => a.name.localeCompare(b.name);
-  return { women: women.sort(byName), men: men.sort(byName) };
+  for (const v of byName.values()) (normalizeGender(v.gender) === "female" ? women : men).push(v);
+  const cmp = (a: VoiceMeta, b: VoiceMeta) => a.name.localeCompare(b.name);
+  return { women: women.sort(cmp), men: men.sort(cmp) };
 }
