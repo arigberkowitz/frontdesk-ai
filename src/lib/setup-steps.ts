@@ -140,7 +140,7 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
           ? // Missed-Call Rescue needs NO-ANSWER forwarding. *72 forwards every
             // call, which silently turns a backup into a full receptionist.
             `Turn on no-answer forwarding to ${aiNumber} so the AI only picks up calls you miss. The code depends on your carrier — Settings → Phone & AI shows yours.`
-          : `From your business phone, dial *72 ${aiNumber} (most carriers; AT&T/T-Mobile: **21*${aiNumber.replace(/[^\d+]/g, "")}#). ~2 minutes, undo with *73.`
+          : `From your business phone, dial *72 ${aiNumber} (most carriers; AT&T/T-Mobile: **21*${aiNumber.replace(/[^\d+]/g, "")}#). ~2 minutes, undo with *73 (AT&T/T-Mobile: ##21#).`
         : "The dial code contains your AI's own phone number, so it appears here once that number is assigned. Until then, try your AI with a test call in your browser (Your AI page).",
     },
   ];
