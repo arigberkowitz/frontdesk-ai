@@ -17,7 +17,7 @@ import { cancelAppointment, findUpcomingAppointmentsByPhone } from "@/lib/data/a
 import { getBookingProviderForClient } from "@/lib/booking";
 import { parseInClientTimezone } from "@/lib/hours-util";
 import { notifyOwnerCancellation } from "@/lib/notify";
-import { formatDateTime } from "@/lib/format";
+import { spokenDateTime } from "@/lib/slot-label";
 import { logger } from "@/lib/logger";
 import { cleanEmail } from "@/lib/email-address";
 import { offerFreedSlot } from "@/lib/agents/waitlist-backfill";
@@ -94,7 +94,7 @@ export async function POST(req: Request): Promise<Response> {
         .slice(0, 4)
         .map(
           (a) =>
-            `${a.service?.name ?? "appointment"} on ${formatDateTime(a.startAt, client.timezone)}`,
+            `${a.service?.name ?? "appointment"} on ${spokenDateTime(a.startAt, client.timezone)}`,
         )
         .join("; ");
       return Response.json({
@@ -146,7 +146,7 @@ export async function POST(req: Request): Promise<Response> {
     channel === "web_chat" ? "chat" : channel === "sms" ? "text" : "phone",
   );
 
-  const when = formatDateTime(cancelled.startAt, client.timezone);
+  const when = spokenDateTime(cancelled.startAt, client.timezone);
   return Response.json({
     success: true,
     message: `Cancelled: ${target.service?.name ?? "the appointment"} on ${when}. Confirm it's cancelled, and offer to rebook them for another time.`,

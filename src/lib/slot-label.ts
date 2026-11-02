@@ -20,3 +20,18 @@ export function localSlot(startAt: string, timeZone: string): { start: string; l
   }).format(d);
   return { start, label };
 }
+
+/**
+ * "Thursday, October 15, 2026 at 10:00 AM" in the business's zone, for tool
+ * messages the model repeats back. formatDateTime ("Oct 15, 2026, 10:00 AM")
+ * carries no weekday, so the model filled one in itself and got it wrong
+ * (prod Oct 14: "Tuesday, October 15" for a Thursday). Always spell it out.
+ */
+export function spokenDateTime(value: Date | string, timeZone: string): string {
+  const d = value instanceof Date ? value : new Date(value);
+  const date = new Intl.DateTimeFormat("en-US", {
+    timeZone, weekday: "long", month: "long", day: "numeric", year: "numeric",
+  }).format(d);
+  const time = new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit" }).format(d);
+  return `${date} at ${time}`;
+}
