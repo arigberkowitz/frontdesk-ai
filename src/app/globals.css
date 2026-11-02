@@ -1609,3 +1609,8 @@ html:not(.dark):has([data-fd-app]) nav[aria-label="Operator"] .fd-nav-link[aria-
     padding: 0.625rem 0.25rem;
   }
 }
+
+/* Mobile sticky CTA: slides up once, then stays put. */
+@keyframes fd-cta-in { from { transform: translateY(140%); opacity: 0; } to { transform: none; opacity: 1; } }
+.fd-mobile-cta { animation: fd-cta-in 500ms 900ms cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .fd-mobile-cta { animation: none; } }
