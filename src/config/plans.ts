@@ -74,7 +74,6 @@ export const PLANS: Record<PlanKey, Plan> = {
       "AI calls your leads back",
       "Staff mode — team members with their own calendars",
       "Nightly AI self-review & tuning of your receptionist",
-      "Priority support",
     ],
   },
   // Retired: folded into Pro. Kept defined, and only defined, so any

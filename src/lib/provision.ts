@@ -1,4 +1,5 @@
 import "server-only";
+import { planAccessFor } from "@/lib/plan-access";
 import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
@@ -66,7 +67,9 @@ export async function runProvision(
 
   try {
     const agentName = client.agentName?.trim() || DEFAULT_AGENT_NAME;
-    const prompt = buildPromptForClient(client);
+    const prompt = buildPromptForClient(client, {
+      staffAllowed: (await planAccessFor(client)).has("staff_mode"),
+    });
     // Greeting + enforced AI/recording disclosure (see openingLine).
     const greeting = openingLine({ ...client, agentName });
     const boosted = [client.name, ...client.services.filter((s) => s.isActive).map((s) => s.name)]

@@ -1,5 +1,6 @@
 "use server";
 
+import { planAccessFor } from "@/lib/plan-access";
 import { revalidatePath } from "next/cache";
 import { requireClientEditor, requireOperator } from "@/lib/auth-guard";
 import { agentConfigSchema, emptyToNull } from "@/lib/validation";
@@ -146,7 +147,9 @@ export async function publishAgentAction(
   const client = await getClient(user.orgId, clientId);
   if (!client) return { ok: false, error: "Client not found." };
 
-  const prompt = buildPromptForClient(client);
+  const prompt = buildPromptForClient(client, {
+      staffAllowed: (await planAccessFor(client)).has("staff_mode"),
+    });
 
   if (client.retellLlmId && integrations.retell()) {
     try {
