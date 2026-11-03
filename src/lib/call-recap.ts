@@ -298,10 +298,10 @@ export function buildRecap(f: RecapFacts): Recap {
 
   const smsHead =
     f.kind === "message"
-      ? `${urgent ? "🚨 URGENT — " : "📨 "}${f.business}: ${who}${name && callback ? ` (${formatPhone(callback)})` : ""} left a message`
+      ? `${urgent ? "🚨 URGENT — " : "📨 "}${f.business}: ${who}${name && callback ? `, ${formatPhone(callback)},` : ""} left a message`
       : f.kind === "transfer"
-        ? `${urgent ? "🚨 URGENT — " : "📞 "}${f.business}: ${who}${name && callback ? ` (${formatPhone(callback)})` : ""} was transferred`
-        : `${urgent ? "🚨" : "⚠️"} ${f.business}: ${who}${name && callback ? ` (${formatPhone(callback)})` : ""} tried to reach a person and didn't — call back`;
+        ? `${urgent ? "🚨 URGENT — " : "📞 "}${f.business}: ${who}${name && callback ? `, ${formatPhone(callback)},` : ""} was transferred`
+        : `${urgent ? "🚨" : "⚠️"} ${f.business}: ${who}${name && callback ? `, ${formatPhone(callback)},` : ""} tried to reach a person and didn't — call back`;
   const smsWants = clean(wants, 90);
   const sms = `${smsHead}${smsWants && !smsWants.startsWith("Not stated") ? ` — ${smsWants}` : ""}. ${f.link}`;
 

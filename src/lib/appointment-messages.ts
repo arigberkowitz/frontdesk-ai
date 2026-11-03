@@ -107,6 +107,11 @@ export function formatWhen(at: Date, timeZone: string, language?: string | null)
   }).format(at);
 }
 
+/** Close a sentence that ends in a time: Spanish "9:00 a.m." already has its period. */
+function endSentence(when: string): string {
+  return when.endsWith(".") ? when : `${when}.`;
+}
+
 export function confirmationText(opts: {
   business: string;
   customerName: string | null;
@@ -121,7 +126,7 @@ export function confirmationText(opts: {
   if (textLanguage(opts.language) === "es") {
     // STOP stays in English: it's the carrier's opt-out keyword.
     return (
-      `Hola${firstName(opts.customerName)}, su cita con ${business} está confirmada: ${serviceName ? `${serviceName}, ` : ""}${opts.when}.` +
+      `Hola${firstName(opts.customerName)}, su cita con ${business} está confirmada: ${serviceName ? `${serviceName}, ` : ""}${endSentence(opts.when)}` +
       (opts.meetingUrl ? ` Únase por video: ${opts.meetingUrl}` : "") +
       ` ¿Necesita cambiarla? Llame a ${business}.` +
       ` Responda STOP para no recibir más mensajes.`
@@ -129,7 +134,7 @@ export function confirmationText(opts: {
   }
   const service = serviceName ? `${serviceName} ` : "";
   return (
-    `Hi${firstName(opts.customerName)}, you're booked with ${business} — ${service}on ${opts.when}.` +
+    `Hi${firstName(opts.customerName)}, you're booked with ${business} — ${service}on ${endSentence(opts.when)}` +
     (opts.meetingUrl ? ` Join by video: ${opts.meetingUrl}` : "") +
     ` Need to change it? Give ${business} a call.` +
     ` Reply STOP to opt out.`
@@ -147,14 +152,14 @@ export function reminderText(opts: {
   const business = stripPhoneNumbers(opts.business);
   if (textLanguage(opts.language) === "es") {
     return (
-      `Hola${firstName(opts.customerName)}, le recordamos su cita con ${business}: ${opts.when}.` +
+      `Hola${firstName(opts.customerName)}, le recordamos su cita con ${business}: ${endSentence(opts.when)}` +
       (opts.meetingUrl ? ` Únase por video: ${opts.meetingUrl}` : "") +
       ` ¿Necesita cambiarla? Llame a ${business}.` +
       ` Responda STOP para no recibir más mensajes.`
     );
   }
   return (
-    `Hi${firstName(opts.customerName)}, a reminder of your appointment with ${business} ${opts.when}.` +
+    `Hi${firstName(opts.customerName)}, a reminder of your appointment with ${business} on ${endSentence(opts.when)}` +
     (opts.meetingUrl ? ` Join by video: ${opts.meetingUrl}` : "") +
     ` Need to reschedule? Give ${business} a call.` +
     ` Reply STOP to opt out.`

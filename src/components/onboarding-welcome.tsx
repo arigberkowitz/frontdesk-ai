@@ -117,7 +117,7 @@ function SetupForm({ plan, interval }: { plan: string | null; interval: string |
       {plan ? <input type="hidden" name="plan" value={plan} /> : null}
       {interval ? <input type="hidden" name="interval" value={interval} /> : null}
       <Field label="Business name" error={state.fieldErrors?.name}>
-        <Input name="name" placeholder="Bright Smile Dental" required maxLength={120} defaultValue={v.name ?? ""} />
+        <Input name="name" placeholder="Joe's Plumbing" required maxLength={120} defaultValue={v.name ?? ""} />
       </Field>
       <Field
         label="What kind of business?"
@@ -222,7 +222,7 @@ export function OnboardingWelcome({
             {/* The action reads name + companySize — without these fields the
                 business gets created as literally "Your business", solo. */}
             <Field label="Business name">
-              <Input name="name" placeholder="Bright Smile Dental" required />
+              <Input name="name" placeholder="Joe's Plumbing" required />
             </Field>
             <Field label="What kind of business?">
               <IndustrySelect />

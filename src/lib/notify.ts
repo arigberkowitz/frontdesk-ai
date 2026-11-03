@@ -130,7 +130,7 @@ export async function notifyOwnerCancellation(
         title: "🚫 Appointment cancelled",
         business: client.name,
         lines: [
-          `<strong>${esc(who)}</strong> cancelled <strong>${esc(when)}</strong> ${source === "chat" ? "via your website chat" : "over the phone"}.`,
+          `<strong>${esc(who)}</strong> cancelled <strong>${esc(when)}</strong> ${esc(via)}.`,
           `Callback: ${phone}`,
           `The slot is open again — your AI can rebook it.`,
         ],

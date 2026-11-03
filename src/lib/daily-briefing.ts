@@ -375,6 +375,11 @@ export interface BriefingCard {
   cancellations: number;
 }
 
+/** "Wed, Nov 4" in the business's zone, for owner-facing lines (not a 2026-11-04 key). */
+function friendlyDay(at: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", month: "short", day: "numeric" }).format(at);
+}
+
 export function renderBriefing({ facts: f, ai, baseUrl }: BriefingEmailInput): RenderedBriefing {
   const base = baseUrl.replace(/\/$/, "");
   const quiet = isQuietDay(f);
@@ -417,7 +422,7 @@ export function renderBriefing({ facts: f, ai, baseUrl }: BriefingEmailInput): R
     .slice(0, 5)
     .map(
       (a) =>
-        `<li style="margin:0 0 4px">${esc(a.customerName?.trim() || "Customer")}${a.service ? ` · ${esc(a.service)}` : ""} (was ${esc(tzTime(a.startAt, f.timeZone))}, ${esc(tzDayKey(a.startAt, f.timeZone))})</li>`,
+        `<li style="margin:0 0 4px">${esc(a.customerName?.trim() || "Customer")}${a.service ? ` · ${esc(a.service)}` : ""} (was ${esc(friendlyDay(a.startAt, f.timeZone))} at ${esc(tzTime(a.startAt, f.timeZone))})</li>`,
     )
     .join("");
 

@@ -81,6 +81,17 @@ describe("attachCreatorToClient (signup claim)", () => {
     expect(await attachCreatorToClient(user, b.id)).toBe(false);
   });
 
+  it("operators: a double-click on /welcome (two concurrent submits) keeps exactly one business", async () => {
+    const { user, mk } = await seed("operator");
+    const a = await mk("First");
+    await new Promise((r) => setTimeout(r, 5));
+    const b = await mk("Second");
+    const results = await Promise.all([attachCreatorToClient(user, b.id), attachCreatorToClient(user, a.id)]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+    const live = (await db.query.clients.findMany()).filter((c) => c.deletedAt === null);
+    expect(live.map((c) => c.id)).toEqual([a.id]);
+  });
+
   it("operators: the first business still gets the owner email and an on-duty alert contact", async () => {
     const { user, mk } = await seed("operator");
     const a = await mk("First");

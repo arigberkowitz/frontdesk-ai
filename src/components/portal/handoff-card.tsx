@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock, PhoneForwarded, PhoneOff } from "lucide-react";
 import { toast } from "sonner";
@@ -76,12 +77,26 @@ export function HandoffCard({
         <CardDescription>
           {escalationNumber
             ? `When your AI puts someone through, it rings ${formatPhone(escalationNumber)}.`
-            : "No transfer number is set yet, so your AI takes a message either way."}
+            : null}
         </CardDescription>
+        {!escalationNumber ? (
+          <p
+            role="status"
+            className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"
+          >
+            Live transfer is off until you add a cell number. Until then your AI takes a message
+            on every call.{" "}
+            <Link href="/portal/settings/alerts" className="font-medium underline underline-offset-2">
+              Add a number in Alerts
+            </Link>
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent className="space-y-2">
         {OPTIONS.map((opt) => {
-          const active = mode === opt.value;
+          // With nowhere to transfer to, the AI takes a message whatever the
+          // saved mode says, so don't claim a transfer mode is "Current".
+          const active = mode === opt.value && (Boolean(escalationNumber) || opt.value === "never");
           const Icon = opt.icon;
           return (
             <form key={opt.value} action={action}>
@@ -107,9 +122,9 @@ export function HandoffCard({
                 <span className="min-w-0">
                   <span className="block text-sm font-medium">
                     {opt.title}
-                    {active ? (
+                    {active || (!escalationNumber && mode === opt.value) ? (
                       <span className="ml-2 text-xs font-normal text-indigo-600 dark:text-indigo-400">
-                        Current
+                        {active ? "Current" : "Saved · starts once a number is added"}
                       </span>
                     ) : null}
                   </span>

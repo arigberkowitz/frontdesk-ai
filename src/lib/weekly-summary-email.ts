@@ -152,7 +152,7 @@ export function weeklySummaryEmail(input: WeeklySummaryEmailInput): {
     and booked <strong>${plural(s.bookingsMade, "appointment", "appointments")}</strong> in the last 7 days.
   </p>
   <table style="width:100%;border-collapse:collapse">
-    ${statRow("Calls answered", String(s.calls), "Every one picked up on the first ring")}
+    ${statRow("Calls answered", String(s.calls), "Calls your AI receptionist answered this week")}
     ${statRow("Appointments booked", String(s.bookingsMade), bookedSub)}
     ${statRow("Cancellations", String(s.cancellations), s.cancellations > 0 ? "Those slots are open again — your AI can rebook them" : undefined)}
     ${statRow("After-hours saves", String(s.afterHours), "Calls that would have gone to voicemail")}

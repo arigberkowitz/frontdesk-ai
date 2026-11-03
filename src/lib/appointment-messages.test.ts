@@ -201,14 +201,27 @@ describe("stripPhoneNumbers", () => {
 
 describe("texts in the customer's language", () => {
   const at = new Date("2026-10-06T19:00:00Z");
+  it("never doubles the period after a Spanish 'a.m.'/'p.m.' time", () => {
+    const when = formatWhen(at, "America/New_York", "es");
+    const c = confirmationText({ business: "Acme", customerName: null, when, language: "es" });
+    const r = reminderText({ business: "Acme", customerName: null, when, language: "es" });
+    expect(c).not.toContain("..");
+    expect(r).not.toContain("..");
+  });
+
+  it("English reminder reads 'with <business> on <time>'", () => {
+    const r = reminderText({ business: "Acme", customerName: null, when: "Oct 6, 2026, 3:00 PM" });
+    expect(r).toContain("appointment with Acme on Oct 6, 2026, 3:00 PM.");
+  });
+
   it("Spanish confirmation and reminder, STOP kept, no phone numbers", () => {
     const when = formatWhen(at, "America/New_York", "es");
     expect(when).toMatch(/oct/i);
     expect(when).not.toMatch(/Oct 6/);
     const c = confirmationText({ business: "Acme 415-555-0100", customerName: "María López", serviceName: "Limpieza", when, language: "es" });
-    expect(c).toBe(`Hola María, su cita con Acme está confirmada: Limpieza, ${when}. ¿Necesita cambiarla? Llame a Acme. Responda STOP para no recibir más mensajes.`);
+    expect(c).toBe(`Hola María, su cita con Acme está confirmada: Limpieza, ${when.replace(/\.$/, "")}. ¿Necesita cambiarla? Llame a Acme. Responda STOP para no recibir más mensajes.`);
     const r = reminderText({ business: "Acme", customerName: null, when, meetingUrl: "https://meet.test/x", language: "es" });
-    expect(r).toBe(`Hola, le recordamos su cita con Acme: ${when}. Únase por video: https://meet.test/x ¿Necesita cambiarla? Llame a Acme. Responda STOP para no recibir más mensajes.`);
+    expect(r).toBe(`Hola, le recordamos su cita con Acme: ${when.replace(/\.$/, "")}. Únase por video: https://meet.test/x ¿Necesita cambiarla? Llame a Acme. Responda STOP para no recibir más mensajes.`);
   });
 
   it("English and unknown/unsupported languages get the English text, unchanged", () => {

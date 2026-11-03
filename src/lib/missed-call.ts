@@ -113,7 +113,7 @@ export function serviceFor(
 }
 
 function clean(name: string): string {
-  return stripPhoneNumbers(name).replace(/\s+/g, " ").trim().slice(0, 60) || "Us";
+  return stripPhoneNumbers(name).replace(/\s+/g, " ").trim().slice(0, 60);
 }
 
 /** The text. Fixed wording; ends with opt-out language like every automated text. */
@@ -123,7 +123,7 @@ export function callbackText(input: {
   serviceName?: string | null;
 }): string {
   const name = clean(input.businessName);
-  const service = input.serviceName ? clean(input.serviceName).toLowerCase() : null;
+  const service = input.serviceName ? clean(input.serviceName).toLowerCase() || null : null;
   const ask = "Just reply here with a day and time that works and we'll get you booked.";
   const opener =
     input.reason === "dropped"
@@ -131,7 +131,8 @@ export function callbackText(input: {
       : input.reason === "abandoned_booking"
         ? `Looks like we didn't get to finish booking your ${service ?? "appointment"}.`
         : "Sorry we missed you on the phone!";
-  return `${name}: ${opener} ${ask} Reply STOP to opt out.`;
+  // No usable name: open with a plain greeting rather than an odd "Us:" label.
+  return `${name ? `${name}:` : "Hi!"} ${opener} ${ask} Reply STOP to opt out.`;
 }
 
 /** What the AI says first when it phones back (disclosure is added by the caller of this). */
