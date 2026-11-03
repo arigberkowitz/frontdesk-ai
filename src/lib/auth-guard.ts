@@ -406,6 +406,10 @@ export async function attachCreatorToClient(user: User, clientId: string): Promi
       await discardDuplicateBusiness(clientId);
       return false;
     }
+    // A first business created by an operator (fresh install / signups not
+    // auto-attached) otherwise started with no owner email and no alert
+    // contact, so no alert, trial or billing email ever reached anyone.
+    await prefillOwnerContact(user, clientId);
     return true;
   }
 
@@ -419,11 +423,18 @@ export async function attachCreatorToClient(user: User, clientId: string): Promi
     return false;
   }
 
-  // The creator is the owner: pre-fill where alerts go so nothing starts
-  // empty. Their email becomes the owner contact AND the first on-duty person
-  // on the alert roster — both editable later in portal Settings.
+  await prefillOwnerContact(user, clientId);
+  return true;
+}
+
+/**
+ * The creator is the owner: pre-fill where alerts go so nothing starts
+ * empty. Their email becomes the owner contact AND the first on-duty person
+ * on the alert roster — both editable later in portal Settings.
+ */
+async function prefillOwnerContact(user: User, clientId: string): Promise<void> {
   const email = user.email?.trim();
-  if (!email) return true;
+  if (!email) return;
   const ownerName = email.split("@")[0] || "Owner";
   await db
     .update(clients)
@@ -433,7 +444,6 @@ export async function attachCreatorToClient(user: User, clientId: string): Promi
     .insert(alertContacts)
     .values({ clientId, name: ownerName, email, onDuty: true })
     .onConflictDoNothing();
-  return true;
 }
 
 /** Soft-delete a business created by a losing duplicate signup request. */

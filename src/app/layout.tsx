@@ -35,7 +35,7 @@ const sora = Sora({
   display: "swap",
 });
 
-const SITE_URL = process.env.APP_URL || "https://frontdesk-ai-alpha.vercel.app";
+const SITE_URL = process.env.APP_URL || "https://frontdeskai.company";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
