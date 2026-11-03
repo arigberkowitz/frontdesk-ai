@@ -13,6 +13,7 @@ import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { PLANS, type PlanKey } from "@/config/plans";
 import { type ActionState } from "./types";
+import { intervalPriceCents, stripePriceId } from "@/lib/stripe-prices";
 
 /**
  * Stripe's tax code for business-use SaaS.
@@ -23,6 +24,27 @@ import { type ActionState } from "./types";
  * customer saw "Couldn't open the payment page", which describes nothing.
  */
 const SAAS_TAX_CODE = "txcd_10103001";
+
+/**
+ * The subscription line: the pre-made Stripe Price when its env is set
+ * (STRIPE_PRICE_<PLAN>_MONTHLY / _YEARLY), otherwise an inline price.
+ */
+function recurringLineItem(planKey: PlanKey, planName: string, interval: "month" | "year", amount: number) {
+  const price = stripePriceId(planKey, interval);
+  if (price) return { quantity: 1, price };
+  return {
+    quantity: 1,
+    price_data: {
+      currency: "usd",
+      unit_amount: amount,
+      recurring: { interval },
+      product_data: {
+        name: `FrontDesk AI — ${planName} (${interval}ly)`,
+        tax_code: SAAS_TAX_CODE,
+      },
+    },
+  };
+}
 
 /**
  * Start a Stripe Checkout for a client: the monthly (or yearly) subscription plus
@@ -48,7 +70,7 @@ export async function startCheckoutAction(
   if (!client) return { ok: false, error: "Client not found." };
 
   // Yearly = 10 months' price (two months free).
-  const recurringAmount = interval === "year" ? plan.monthlyPriceCents * 10 : plan.monthlyPriceCents;
+  const recurringAmount = intervalPriceCents(planKey, interval);
 
   let url: string | null = null;
   try {
@@ -56,18 +78,7 @@ export async function startCheckoutAction(
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "usd",
-            unit_amount: recurringAmount,
-            recurring: { interval },
-            product_data: {
-              name: `FrontDesk AI — ${plan.name} (${interval}ly)`,
-              tax_code: SAAS_TAX_CODE,
-            },
-          },
-        },
+        recurringLineItem(planKey, plan.name, interval, recurringAmount),
         ...(plan.setupFeeCents > 0
           ? [
               {
@@ -86,7 +97,7 @@ export async function startCheckoutAction(
       success_url: `${env.APP_URL}/clients/${clientId}?billing=success`,
       cancel_url: `${env.APP_URL}/clients/${clientId}?billing=cancel`,
       metadata: { clientId, plan: planKey, interval },
-      subscription_data: { metadata: { clientId, plan: planKey } },
+      subscription_data: { metadata: { clientId, plan: planKey, interval } },
     });
     url = session.url;
   } catch (err) {
@@ -146,10 +157,10 @@ export async function startSelfServeCheckoutAction(
   // SECOND subscription for the same business.
   const trialState = await getTrialState(clientId);
   if (trialState.subscribed || trialState.comped) {
-    return { ok: false, error: "You're already on a plan — nothing more to pay. Reach us from Settings → Help to change it." };
+    return { ok: false, error: "You're already on a plan — nothing more to pay. Switch plans from Settings → Your plan." };
   }
 
-  const recurringAmount = interval === "year" ? plan.monthlyPriceCents * 10 : plan.monthlyPriceCents;
+  const recurringAmount = intervalPriceCents(planKey, interval);
 
   let url: string | null = null;
   try {
@@ -157,25 +168,14 @@ export async function startSelfServeCheckoutAction(
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "usd",
-            unit_amount: recurringAmount,
-            recurring: { interval },
-            product_data: {
-              name: `FrontDesk AI — ${plan.name} (${interval}ly)`,
-              tax_code: SAAS_TAX_CODE,
-            },
-          },
-        },
+        recurringLineItem(planKey, plan.name, interval, recurringAmount),
       ],
       allow_promotion_codes: true,
       customer_email: client.ownerEmail || undefined,
       success_url: `${env.APP_URL}/portal/guidelines?billing=success`,
       cancel_url: `${env.APP_URL}/portal/guidelines?billing=cancel`,
       metadata: { clientId, plan: planKey, interval, selfServe: "true" },
-      subscription_data: { metadata: { clientId, plan: planKey } },
+      subscription_data: { metadata: { clientId, plan: planKey, interval } },
     });
     url = session.url;
     void audit({ clientId, actor: guard.user.id, action: "billing.checkout_opened", detail: { plan: planKey, interval } });
@@ -235,4 +235,67 @@ export async function openBillingPortalAction(
   }
   if (!url) return { ok: false, error: "Couldn't open billing — please try again." };
   redirect(url);
+}
+
+/**
+ * Switch a paying business to another plan, in the product, with proration.
+ * The Stripe webhook that follows (customer.subscription.updated) stores the
+ * new plan, re-applies its limits and republishes the live agent.
+ */
+export async function changePlanAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const planKey = String(formData.get("plan") ?? "") as PlanKey;
+  const guard = await requireClientOwner(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  await assertClientInOrg(guard.user.orgId, clientId);
+  const plan = PLANS[planKey];
+  if (!plan || !plan.listed) return { ok: false, error: "Pick a plan first." };
+  if (!integrations.stripe()) {
+    return { ok: false, error: "Card payments aren't switched on yet. Reach us from Settings → Help." };
+  }
+
+  const [sub] = await db
+    .select({ subId: subscriptions.stripeSubscriptionId, plan: subscriptions.plan, status: subscriptions.status })
+    .from(subscriptions)
+    .where(eq(subscriptions.clientId, clientId))
+    .limit(1);
+  if (!sub?.subId || (sub.status !== "active" && sub.status !== "trialing")) {
+    return { ok: false, error: "There's no active plan to change yet — pick a plan first." };
+  }
+  if (sub.plan === planKey) return { ok: true, message: `You're already on ${plan.name}.` };
+
+  try {
+    const stripe = getStripe();
+    const current = await stripe.subscriptions.retrieve(sub.subId);
+    const item = current.items.data[0];
+    if (!item) return { ok: false, error: "Couldn't read your current plan. Reach us from Settings → Help." };
+    const interval = item.price.recurring?.interval === "year" ? "year" : "month";
+    const product = await stripe.products.create({
+      name: `FrontDesk AI — ${plan.name} (${interval}ly)`,
+      tax_code: SAAS_TAX_CODE,
+    });
+    await stripe.subscriptions.update(sub.subId, {
+      items: [
+        {
+          id: item.id,
+          price_data: {
+            currency: "usd",
+            product: product.id,
+            unit_amount: interval === "year" ? plan.monthlyPriceCents * 10 : plan.monthlyPriceCents,
+            recurring: { interval },
+          },
+        },
+      ],
+      proration_behavior: "create_prorations",
+      metadata: { ...current.metadata, clientId, plan: planKey },
+    });
+    void audit({ clientId, actor: guard.user.id, action: "billing.plan_changed", detail: { from: sub.plan, to: planKey } });
+  } catch (err) {
+    logger.error("billing.change_plan.failed", {
+      clientId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { ok: false, error: "Couldn't change your plan just now. Try again in a moment." };
+  }
+  return { ok: true, message: `Switched to ${plan.name}. Your receptionist updates in a minute.` };
 }

@@ -8,6 +8,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const ledger = new Map<string, string>();
 const upserted: string[] = [];
 let failUpsert = false;
+let storedClient: Record<string, unknown> | null = null;
+let previousPlan: string | null = null;
+const clientUpdates: Record<string, unknown>[] = [];
+const syncAgentPrompt = vi.fn(async (_o: string, _c: string) => true);
 
 const afterTasks: (() => Promise<unknown>)[] = [];
 const provisionNumberAfterPayment = vi.fn(async (_id: string) => {});
@@ -28,8 +32,20 @@ vi.mock("@/db", () => ({
         },
       }),
     }),
+    select: () => ({
+      from: () => ({ where: () => ({ limit: async () => (previousPlan ? [{ plan: previousPlan }] : []) }) }),
+    }),
+    update: () => ({
+      set: (v: Record<string, unknown>) => ({
+        where: async () => {
+          clientUpdates.push(v);
+        },
+      }),
+    }),
+    query: { clients: { findFirst: async () => storedClient } },
   },
 }));
+vi.mock("@/lib/agent-publish", () => ({ syncAgentPrompt: (o: string, c: string) => syncAgentPrompt(o, c) }));
 vi.mock("@/lib/stripe", () => ({
   getStripe: () => ({
     webhooks: { constructEvent: (body: string) => JSON.parse(body) },
@@ -51,7 +67,7 @@ vi.mock("@/lib/data/webhook-events", () => ({
 
 const { POST } = await import("./route");
 
-function stripeEvent(id: string, status = "active") {
+function stripeEvent(id: string, status = "active", plan?: string) {
   return new Request("https://example.test/api/webhooks/stripe", {
     method: "POST",
     headers: { "stripe-signature": "t=1,v1=sig" },
@@ -59,7 +75,7 @@ function stripeEvent(id: string, status = "active") {
       id,
       type: "customer.subscription.updated",
       data: {
-        object: { id: "sub_1", customer: "cus_1", status, metadata: { clientId: "client-1" } },
+        object: { id: "sub_1", customer: "cus_1", status, metadata: { clientId: "client-1", ...(plan ? { plan } : {}) } },
       },
     }),
   });
@@ -72,6 +88,10 @@ describe("stripe webhook retries", () => {
     failUpsert = false;
     afterTasks.length = 0;
     provisionNumberAfterPayment.mockClear();
+    storedClient = null;
+    previousPlan = null;
+    clientUpdates.length = 0;
+    syncAgentPrompt.mockClear();
   });
 
   it("processes a new event and marks it processed", async () => {
@@ -132,5 +152,38 @@ describe("stripe webhook retries", () => {
     await POST(stripeEvent("evt_6", "active"));
     await POST(stripeEvent("evt_6", "active"));
     expect(afterTasks).toHaveLength(1);
+  });
+
+  it("a paid Rescue purchase makes the business live, missed-only, no staff mode, and republishes the agent", async () => {
+    storedClient = {
+      id: "client-1",
+      orgId: "org-1",
+      status: "trial",
+      setupFlags: {},
+      answeringMode: "all_calls",
+      staffModeEnabled: true,
+      languages: "en",
+    };
+    const res = await POST(stripeEvent("evt_rescue", "active", "backup"));
+    expect(res.status).toBe(200);
+    expect(clientUpdates).toEqual([
+      { status: "live", trialEndsAt: null, answeringMode: "missed_only", staffModeEnabled: false },
+    ]);
+    for (const t of afterTasks) await t();
+    expect(syncAgentPrompt).toHaveBeenCalledWith("org-1", "client-1");
+  });
+
+  it("a paid Pro purchase goes live with Spanish and keeps staff mode", async () => {
+    storedClient = {
+      id: "client-1",
+      orgId: "org-1",
+      status: "trial",
+      setupFlags: {},
+      answeringMode: "all_calls",
+      staffModeEnabled: true,
+      languages: "en",
+    };
+    await POST(stripeEvent("evt_pro", "active", "pro"));
+    expect(clientUpdates).toEqual([{ status: "live", trialEndsAt: null, languages: "en-es" }]);
   });
 });

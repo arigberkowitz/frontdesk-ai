@@ -57,7 +57,7 @@ const FAQ = [
   },
   {
     q: "Am I locked into a contract?",
-    a: "No. Every plan is month to month with no setup fee, and the trial is two weeks with no card. If you leave, undo your call forwarding (one dial code from your phone — we show you which) and your phone works the way it did before you found us.",
+    a: "No. Pay month to month, or yearly for two months free, with no setup fee, and the trial is two weeks with no card. If you leave, undo your call forwarding (one dial code from your phone — we show you which) and your phone works the way it did before you found us.",
   },
   {
     q: "Will callers know they're talking to an AI?",
@@ -310,7 +310,7 @@ export function LandingPage() {
 
         <TrustSection demoPhone={env.DEMO_PHONE_NUMBER} />
 
-        <section id="pricing" className="border-t bg-card/40">
+        <section id="pricing" className="group/billing border-t bg-card/40">
           <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
             <div className="text-center">
               <p className="fd-section-label">Pricing</p>
@@ -335,7 +335,22 @@ export function LandingPage() {
               up, buttons line up, and the eye can compare across a row instead
               of hunting.
             */}
-            <div className="mx-auto mt-12 grid max-w-4xl items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Monthly / yearly switch with no client JS: two radios, and the
+                prices below swap on which one is checked. */}
+            <fieldset className="mt-8 flex justify-center">
+              <legend className="sr-only">Billing period</legend>
+              <div className="inline-flex rounded-full border bg-card p-1 text-sm shadow-sm">
+                <label className="cursor-pointer rounded-full px-4 py-1.5 font-medium text-muted-foreground has-[:checked]:bg-foreground has-[:checked]:text-background has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-500">
+                  <input type="radio" name="billing" id="billing-monthly" defaultChecked className="sr-only" />
+                  Monthly
+                </label>
+                <label className="cursor-pointer rounded-full px-4 py-1.5 font-medium text-muted-foreground has-[:checked]:bg-foreground has-[:checked]:text-background has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-500">
+                  <input type="radio" name="billing" id="billing-yearly" className="sr-only" />
+                  Yearly <span className="ml-1 text-xs text-emerald-600 group-has-[#billing-yearly:checked]/billing:text-emerald-300">2 months free</span>
+                </label>
+              </div>
+            </fieldset>
+            <div className="mx-auto mt-10 grid max-w-4xl items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {planList().map((plan) => {
                 const featured = plan.key === "pro";
                 return (
@@ -355,11 +370,20 @@ export function LandingPage() {
                     ) : null}
 
                     <p className="font-heading text-xl font-semibold">{plan.name}</p>
-                    <p className="mt-3 flex items-baseline gap-1">
+                    <p className="mt-3 flex items-baseline gap-1 group-has-[#billing-yearly:checked]/billing:hidden">
                       <span className="font-heading text-4xl font-semibold tracking-tight">
                         {formatCurrencyCents(plan.monthlyPriceCents)}
                       </span>
                       <span className="text-sm text-muted-foreground">/mo</span>
+                    </p>
+                    <p className="mt-3 hidden items-baseline gap-1 group-has-[#billing-yearly:checked]/billing:flex">
+                      <span className="font-heading text-4xl font-semibold tracking-tight">
+                        {formatCurrencyCents(plan.monthlyPriceCents * 10)}
+                      </span>
+                      <span className="text-sm text-muted-foreground">/yr</span>
+                      <span className="ml-1 text-xs text-muted-foreground line-through">
+                        {formatCurrencyCents(plan.monthlyPriceCents * 12)}
+                      </span>
                     </p>
                     {/* The setup fee is what we charge to set a business up. A
                         business signing up here sets itself up, so it isn't

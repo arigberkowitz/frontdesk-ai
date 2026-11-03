@@ -12,6 +12,7 @@ import {
 import { agentConversationSettings, agentSpeechSettings, buildAgentTools, getRetellClient } from "@/lib/retell";
 import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { planAccessFor } from "@/lib/plan-access";
 
 /**
  * The live agent's tools, built from what this business has actually chosen.
@@ -34,7 +35,11 @@ export function agentToolsFor(client: ClientWithRelations, clientId: string) {
 }
 
 /** Rebuild the Retell general prompt from a client's current data (§B5). */
-export function buildPromptForClient(client: ClientWithRelations): string {
+export function buildPromptForClient(
+  client: ClientWithRelations,
+  opts: { staffAllowed?: boolean } = {},
+): string {
+  const staffAllowed = opts.staffAllowed ?? true;
   return buildGeneralPrompt({
     agentName: client.agentName?.trim() || DEFAULT_AGENT_NAME,
     client: {
@@ -59,7 +64,7 @@ export function buildPromptForClient(client: ClientWithRelations): string {
     services: client.services,
     hours: client.businessHours,
     knowledge: client.knowledgeItems,
-    staffNames: client.staffModeEnabled
+    staffNames: client.staffModeEnabled && staffAllowed
       ? client.providers.filter((p) => p.isActive).map((p) => p.name)
       : [],
   });
@@ -103,7 +108,11 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
   }
 
   await getRetellClient().llm.update(client.retellLlmId, {
-    general_prompt: buildPromptForClient(client),
+    // Staff mode is a Pro feature: a cheaper plan never gets per-person booking
+    // on the live line, whatever the flag says.
+    general_prompt: buildPromptForClient(client, {
+      staffAllowed: (await planAccessFor(client)).has("staff_mode"),
+    }),
     // The greeting with the AI/recording disclosure enforced — a custom
     // greeting can add to it but can't drop it.
     begin_message: openingLine(client),
