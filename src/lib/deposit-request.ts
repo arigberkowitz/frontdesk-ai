@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { appointments, type Appointment, type Client } from "@/db/schema";
 import { createReminder } from "@/lib/data/reminders";
 import { isOptedOut } from "@/lib/data/sms-optouts";
+import { getCustomerLanguage } from "@/lib/data/customer-languages";
 import { decideDeposit, depositRequestBody } from "@/lib/deposits";
 import { describeOpening } from "@/lib/waitlist";
 import { notifier } from "@/lib/notifier";
@@ -25,6 +26,8 @@ export async function requestDeposit(input: {
   appointment: Appointment;
   serviceDepositCents: number | null;
   smsConsent: boolean;
+  /** The language the caller just spoke; falls back to what we stored for them. */
+  language?: string | null;
 }): Promise<boolean> {
   const { client, appointment } = input;
   try {
@@ -42,12 +45,14 @@ export async function requestDeposit(input: {
     if (!to) return false;
     if (await isOptedOut(to, client.id)) return false;
 
+    const language = input.language ?? (await getCustomerLanguage(client.id, to));
     const body = depositRequestBody({
       businessName: client.name,
       customerName: appointment.customerName,
       amountCents: decision.amountCents,
-      when: describeOpening(appointment.startAt, client.timezone),
+      when: describeOpening(appointment.startAt, client.timezone, language),
       payUrl: client.depositLinkUrl!.trim(),
+      language,
     });
     const result = await notifier.sendSms({
       to,

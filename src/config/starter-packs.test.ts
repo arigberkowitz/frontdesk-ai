@@ -124,3 +124,22 @@ describe("vocabulary alignment", () => {
     expect(vocabFor("Med spa").customer).toBe("client");
   });
 });
+
+describe("SF local-service industries", () => {
+  it("offers trades and home services with their own packs", () => {
+    for (const i of ["Plumbing", "Electrician", "Locksmith", "House cleaning", "Pest control", "HVAC", "Auto repair", "Salon & beauty"]) {
+      expect(INDUSTRIES as readonly string[]).toContain(i);
+      expect(packForIndustry(i).industry).toBe(i);
+    }
+  });
+
+  it("gives the trades emergency guardrails and address-first booking", () => {
+    expect(packForIndustry("Plumbing").guardrails).toMatch(/shut off the main water/);
+    expect(packForIndustry("Electrician").guardrails).toMatch(/911/);
+    expect(packForIndustry("Locksmith").guardrails).toMatch(/ID/);
+    for (const i of ["Plumbing", "Electrician", "Locksmith", "House cleaning", "Pest control"]) {
+      expect(packForIndustry(i).booking.toLowerCase()).toContain("address");
+      expect(vocabFor(i).customer).toBe("customer");
+    }
+  });
+});

@@ -327,6 +327,123 @@ export const STARTER_PACKS: StarterPack[] = [
       "hoping to work on, then read the booking back.",
   },
   {
+    industry: "Plumbing",
+    services: [
+      { name: "Service call & diagnostic", durationMin: 60, priceCents: 9900, description: "A plumber finds the problem and quotes the fix before any work. Fee applied toward the repair if you go ahead." },
+      { name: "Drain clearing", durationMin: 60, priceCents: null, description: "Clogged sink, tub, toilet, or main line cleared. Price depends on the line and access." },
+      { name: "Water heater repair or replacement", durationMin: 120, priceCents: null, description: "Tank and tankless repairs and installs, quoted on site." },
+      { name: "Free estimate", durationMin: 30, priceCents: 0, description: "In-home estimate for repipes, remodels, and larger jobs." },
+    ],
+    faq: [
+      { question: "Can you give me a price over the phone?", answer: "We can't quote a repair sight-unseen — the diagnostic fee covers the visit and applies toward the repair if you go ahead." },
+      { question: "Do you handle emergencies?", answer: "Yes — burst pipes, active leaks, and sewer backups get our first available plumber. After-hours rates may apply." },
+      { question: "Are you licensed and insured?", answer: "Yes, fully licensed and insured, and our work is guaranteed." },
+      { question: "What areas do you serve?", answer: "We serve the local area — give us your address and we'll confirm you're in our service area." },
+    ],
+    hours: week("07:00", "18:00", [0]),
+    guardrails:
+      BASE_GUARDRAILS +
+      " Never quote repair prices beyond the listed fees. An active leak, burst pipe, or sewage backup is " +
+      "an emergency: tell the caller to shut off the main water valve if they can do it safely, then " +
+      "collect the address and callback number and flag it. If they smell gas, tell them to leave the " +
+      "building and call 911 or the gas company first.",
+    booking:
+      "Always collect the service address, what's happening in the caller's words, and where in the home " +
+      "it is. Confirm the date and time window, then read the booking back, including the address.",
+  },
+  {
+    industry: "Electrician",
+    services: [
+      { name: "Service call & diagnostic", durationMin: 60, priceCents: 9900, description: "An electrician troubleshoots the problem and quotes the fix before any work." },
+      { name: "Outlet, switch, or fixture install", durationMin: 60, priceCents: null, description: "New or replacement outlets, switches, lights, and ceiling fans, quoted per job." },
+      { name: "Panel upgrade estimate", durationMin: 45, priceCents: 0, description: "Free on-site estimate for panel upgrades, EV chargers, and rewiring." },
+    ],
+    faq: [
+      { question: "Can you give me a price over the phone?", answer: "Electrical work depends on what's behind the wall, so we quote on site. The diagnostic fee covers the visit." },
+      { question: "Do you install EV chargers?", answer: "Yes — we install home EV chargers, including any panel work and permits they need." },
+      { question: "Are you licensed and insured?", answer: "Yes, we're licensed electricians, fully insured, and we pull permits where required." },
+      { question: "Do you handle emergencies?", answer: "Yes — sparking, burning smells, and total power loss get our first available electrician." },
+    ],
+    hours: week("07:30", "17:30", [0]),
+    guardrails:
+      BASE_GUARDRAILS +
+      " Never give DIY electrical advice beyond safety steps. Sparking, smoke, a burning smell, or a hot " +
+      "panel is an emergency: tell the caller to stay away from it and switch off the main breaker only if " +
+      "it's safe, call 911 if there's smoke or fire, then collect the address and callback number and flag it.",
+    booking:
+      "Always collect the service address, what's happening in the caller's words, and whether the home is " +
+      "owned or rented. Confirm the date and time window, then read the booking back.",
+  },
+  {
+    industry: "Locksmith",
+    services: [
+      { name: "Lockout service", durationMin: 30, priceCents: null, description: "Home, car, or business lockout. Price depends on the lock, time of day, and location." },
+      { name: "Rekey or lock change", durationMin: 60, priceCents: null, description: "Rekey existing locks or install new ones, quoted per lock." },
+      { name: "Smart lock install", durationMin: 60, priceCents: null, description: "Install and set up a keypad or smart lock." },
+    ],
+    faq: [
+      { question: "How fast can you get here?", answer: "For lockouts we send the first available locksmith — tell me your location and I'll get you an arrival estimate." },
+      { question: "How much is a lockout?", answer: "It depends on the lock and the time of day — the locksmith confirms the price before starting any work." },
+      { question: "Do I need to show ID?", answer: "Yes — for your security we confirm ID and that you live at or own the property or vehicle before opening it." },
+      { question: "Can you make car keys?", answer: "We can help with many vehicles — tell me the year, make, and model and we'll confirm." },
+    ],
+    hours: week("08:00", "20:00", []),
+    guardrails:
+      BASE_GUARDRAILS +
+      " Never quote a firm price — the locksmith confirms it on site before starting. Always tell the caller " +
+      "they'll need ID showing they live at or own the property or vehicle. A child or pet locked in a car, " +
+      "or anyone in danger, is an emergency: tell them to call 911 first.",
+    booking:
+      "Collect the exact location, whether it's a home, car (year, make, model), or business, and the " +
+      "caller's name and phone number. Read the booking back, including the address.",
+  },
+  {
+    industry: "House cleaning",
+    services: [
+      { name: "Standard cleaning", durationMin: 120, priceCents: null, description: "Kitchen, bathrooms, dusting, floors. Price depends on home size." },
+      { name: "Deep cleaning", durationMin: 240, priceCents: null, description: "A top-to-bottom clean including baseboards, inside appliances, and detail work." },
+      { name: "Move-in / move-out cleaning", durationMin: 240, priceCents: null, description: "Empty-home clean for moving day or a deposit walkthrough." },
+    ],
+    faq: [
+      { question: "How much does a cleaning cost?", answer: "It depends on the size of your home and the type of clean. Tell me the bedrooms and bathrooms and we'll follow up with a quote." },
+      { question: "Do I need to be home?", answer: "No — many clients leave a key or door code. We'll confirm access details before the visit." },
+      { question: "Do you bring supplies?", answer: "Yes, we bring our own supplies and equipment. Let us know if you'd like us to use yours." },
+      { question: "Do you offer recurring cleanings?", answer: "Yes — weekly, every two weeks, or monthly." },
+    ],
+    hours: week("08:00", "18:00", [0]),
+    guardrails:
+      BASE_GUARDRAILS +
+      " Never quote a firm price — quotes depend on home size and condition, so take the details and have " +
+      "the team follow up. Never ask the caller to read out a door code or alarm code on the call; the team " +
+      "will collect access details securely.",
+    booking:
+      "Collect the address, number of bedrooms and bathrooms, the type of clean, and any pets. Confirm the " +
+      "date and arrival window, then read the booking back.",
+  },
+  {
+    industry: "Pest control",
+    services: [
+      { name: "Inspection", durationMin: 45, priceCents: 0, description: "A technician identifies the pest and recommends a treatment plan." },
+      { name: "One-time treatment", durationMin: 60, priceCents: null, description: "Targeted treatment for ants, roaches, rodents, and more, quoted after inspection." },
+      { name: "Recurring service plan", durationMin: 60, priceCents: null, description: "Quarterly or monthly service to keep pests out." },
+    ],
+    faq: [
+      { question: "Are your treatments safe for kids and pets?", answer: "We use products labeled for home use and the technician will tell you how long to keep kids and pets away from treated areas." },
+      { question: "How much does treatment cost?", answer: "It depends on the pest and the size of the property — the inspection is free and you get a quote before any treatment." },
+      { question: "Do you handle rodents?", answer: "Yes — rats and mice, including sealing the entry points." },
+      { question: "What about bed bugs or termites?", answer: "Yes — those start with an inspection so we can quote the right treatment." },
+    ],
+    hours: week("08:00", "17:00", [0]),
+    guardrails:
+      BASE_GUARDRAILS +
+      " Never recommend a pesticide or DIY treatment, and never quote treatment prices — the inspection is " +
+      "free and the technician quotes after. Bees or wasps near someone allergic, or a bite with a bad " +
+      "reaction, is a medical matter: tell them to call 911.",
+    booking:
+      "Collect the address, what pest they're seeing and where, and whether there are kids or pets in the " +
+      "home. Confirm the date and time window, then read the booking back.",
+  },
+  {
     industry: "Other",
     services: [
       { name: "Consultation", durationMin: 30, priceCents: null, description: "A conversation about what you need and how we can help." },

@@ -8,6 +8,7 @@ import { cancelAppointment, hasOverlappingAppointment, reserveAppointment } from
 import { findFreeProvider } from "@/lib/data/providers";
 import { isOptedOut, normalizePhone } from "@/lib/data/sms-optouts";
 import { hasSmsConsent } from "@/lib/data/sms-consents";
+import { getCustomerLanguage } from "@/lib/data/customer-languages";
 import {
   confirmationWasSent,
   findOpenOfferForPhone,
@@ -291,6 +292,7 @@ export async function sendRebookOffers(
     });
     if (!offer) continue; // someone else just sent it
 
+    const language = await getCustomerLanguage(clientId, to);
     const result = await notifier.sendSms({
       to,
       body: offerText({
@@ -299,6 +301,7 @@ export async function sendRebookOffers(
         oldStartAt: appt.startAt,
         slots,
         tz: client.timezone,
+        language,
       }),
       log: { clientId, kind: REBOOK_OFFER_KIND, appointmentId: appt.id },
     });
@@ -420,10 +423,12 @@ export async function handleRebookReply(
     return { handled: true, result: "appointment_gone", alertOwner: true };
   }
 
+  // Replies follow the language the offer went out in.
+  const language = await getCustomerLanguage(client.id, to);
   if (parsed.kind === "decline") {
     await releaseOld(client, appt, "Customer declined new times via text (FrontDesk AI)");
     await transitionOffer(offer.id, "processing", { status: "cancelled" });
-    await replyToCustomer(client, to, cancelledText({ businessName: client.name }), appt.id);
+    await replyToCustomer(client, to, cancelledText({ businessName: client.name, language }), appt.id);
     logger.info("rebook.declined", { clientId: client.id, appointmentId: appt.id });
     return { handled: true, result: "cancelled", alertOwner: false };
   }
@@ -435,7 +440,7 @@ export async function handleRebookReply(
   const booked = startAt.getTime() > now.getTime() ? await bookReplacement(client, appt, service, startAt, endAt) : null;
   if (!booked) {
     await transitionOffer(offer.id, "processing", { status: "needs_owner", skipReason: "slot_taken" });
-    await replyToCustomer(client, to, slotGoneText({ businessName: client.name }), appt.id);
+    await replyToCustomer(client, to, slotGoneText({ businessName: client.name, language }), appt.id);
     return { handled: true, result: "slot_gone", alertOwner: true };
   }
 
@@ -446,7 +451,7 @@ export async function handleRebookReply(
   await replyToCustomer(
     client,
     to,
-    rescheduledText({ businessName: client.name, startAt: booked.startAt, tz: client.timezone }),
+    rescheduledText({ businessName: client.name, startAt: booked.startAt, tz: client.timezone, language }),
     booked.id,
   );
   logger.info("rebook.rescheduled", { clientId: client.id, from: appt.id, to: booked.id });

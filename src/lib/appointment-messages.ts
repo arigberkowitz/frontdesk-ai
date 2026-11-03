@@ -108,7 +108,7 @@ export function formatWhen(at: Date, timeZone: string, language?: string | null)
 }
 
 /** Close a sentence that ends in a time: Spanish "9:00 a.m." already has its period. */
-function endSentence(when: string): string {
+export function endSentence(when: string): string {
   return when.endsWith(".") ? when : `${when}.`;
 }
 

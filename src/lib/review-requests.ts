@@ -1,3 +1,4 @@
+import { textLanguage } from "@/lib/appointment-messages";
 /**
  * Who should be asked for a review, and what the text says.
  *
@@ -74,9 +75,18 @@ export function reviewRequestBody(input: {
   businessName: string;
   customerName: string | null;
   reviewUrl: string;
+  /** The customer's language code, when known (Spanish or English). */
+  language?: string | null;
 }): string {
   const name = (input.customerName ?? "").replace(/\s+/g, " ").trim().slice(0, 40);
   const business = input.businessName.replace(/\s+/g, " ").trim().slice(0, 60);
+  if (textLanguage(input.language) === "es") {
+    return (
+      `Hola${name ? ` ${name}` : ""}, ¡gracias por visitar ${business}! ` +
+      `Si le atendimos bien, una breve reseña nos ayuda mucho: ${input.reviewUrl}` +
+      ` Responda STOP para no recibir más mensajes.`
+    );
+  }
   return (
     `Hi${name ? ` ${name}` : ""}, thanks for visiting ${business}! ` +
     `If we did right by you, a quick review really helps: ${input.reviewUrl}` +

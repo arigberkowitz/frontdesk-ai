@@ -1,3 +1,4 @@
+import { endSentence, textLanguage } from "@/lib/appointment-messages";
 /**
  * Deposits: ask for money before the slot is held.
  *
@@ -67,12 +68,21 @@ export function depositRequestBody(input: {
   amountCents: number;
   when: string;
   payUrl: string;
+  /** The customer's language code, when known; `when` should already be in it. */
+  language?: string | null;
 }): string {
   const clean = (v: string | null, max: number) =>
     (v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
   const name = clean(input.customerName, 40);
   const business = clean(input.businessName, 60);
   const amount = formatDeposit(input.amountCents);
+  if (textLanguage(input.language) === "es") {
+    return (
+      `Hola${name ? ` ${name}` : ""}, tiene una cita con ${business} el ${endSentence(input.when)} ` +
+      `Un depósito de ${amount} asegura su lugar: ${input.payUrl}` +
+      ` Responda STOP para no recibir más mensajes.`
+    );
+  }
 
   return (
     `Hi${name ? ` ${name}` : ""}, you're booked with ${business} for ${input.when}. ` +

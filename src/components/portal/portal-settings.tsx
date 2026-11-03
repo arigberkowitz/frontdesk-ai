@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { savePortalProfileAction, contactSupportAction } from "@/lib/actions/portal";
@@ -193,6 +194,10 @@ export function HumanTouchForm({ client }: { client: Client }) {
     initialActionState,
   );
   useSavedToast(handoff, "Human-handoff settings saved.");
+  // Same gap as live transfer (HandoffCard): with no cell number there is no
+  // one to connect a caller to, and the agent prompt drops the offer entirely.
+  // Say so here rather than showing "On" for a feature that can't happen.
+  const hasNumber = Boolean(client.escalationNumber?.trim());
   return (
     <Card>
       <CardHeader>
@@ -202,6 +207,18 @@ export function HumanTouchForm({ client }: { client: Client }) {
           one&apos;s free, it takes their name and number and promises a callback, so no one&apos;s
           left talking to a wall.
         </CardDescription>
+        {!hasNumber ? (
+          <p
+            role="status"
+            className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"
+          >
+            Offering a human is off until you add a cell number. Until then your AI takes a message
+            instead.{" "}
+            <Link href="/portal/settings/alerts" className="font-medium underline underline-offset-2">
+              Add a number in Alerts
+            </Link>
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent>
         <form action={handoffAction} className="space-y-4">
@@ -214,8 +231,14 @@ export function HumanTouchForm({ client }: { client: Client }) {
               name="humanHandoffEnabled"
               defaultValue={client.humanHandoffEnabled ? "on" : "off"}
             >
-              <option value="on">On — offer a human when it helps</option>
-              <option value="off">Off — only transfer if the caller asks</option>
+              <option value="on">
+                {hasNumber
+                  ? "On — offer a human when it helps"
+                  : "On (saved) — starts once a number is added"}
+              </option>
+              <option value="off">
+                {hasNumber ? "Off — only transfer if the caller asks" : "Off — take a message instead"}
+              </option>
             </NativeSelect>
           </Field>
           <Field

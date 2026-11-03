@@ -371,6 +371,7 @@ export async function POST(req: Request): Promise<Response> {
       appointment: appt,
       serviceDepositCents: service.depositCents,
       smsConsent: mayText,
+      language,
     }),
   );
 
