@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { SignInPage } from "@/components/ui/sign-in-flow-1";
 
-export const metadata: Metadata = { title: "Sign in" };
+export const metadata: Metadata = { title: "Sign in", robots: { index: false, follow: true } };
 
 /**
  * Someone who is already signed in has no business on this page, and the form

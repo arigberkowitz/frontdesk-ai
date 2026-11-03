@@ -3,10 +3,12 @@ import Link from "next/link";
 import { Mail } from "lucide-react";
 import { ContactForm } from "@/components/contact-form";
 import { SUPPORT_EMAIL } from "@/config/contact";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Questions about FrontDesk AI, or want a free trial? Get in touch.",
+  description: "Questions about FrontDesk AI? A real person reads every message. Or start your free two-week trial in minutes.",
+  alternates: { canonical: `${env.APP_URL.replace(/\/$/, "")}/contact` },
 };
 
 /**
