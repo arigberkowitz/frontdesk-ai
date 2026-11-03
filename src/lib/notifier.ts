@@ -52,6 +52,11 @@ export interface SendResult {
   code?: number;
 }
 
+/** Explicit reply-to wins; otherwise SUPPORT_EMAIL when configured; else none. */
+export function emailReplyTo(msg: Pick<EmailMessage, "replyTo">): string | undefined {
+  return msg.replyTo || env.SUPPORT_EMAIL || undefined;
+}
+
 async function sendEmail(msg: EmailMessage): Promise<SendResult> {
   if (!integrations.resend()) {
     logger.warn("notifier.email.skipped", { reason: "RESEND_API_KEY unset", to: msg.to });
@@ -63,7 +68,7 @@ async function sendEmail(msg: EmailMessage): Promise<SendResult> {
       from: env.RESEND_FROM,
       to: msg.to,
       subject: msg.subject,
-      ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+      ...(emailReplyTo(msg) ? { replyTo: emailReplyTo(msg) } : {}),
     };
     const options = msg.html
       ? { ...base, html: msg.html, text: msg.text }

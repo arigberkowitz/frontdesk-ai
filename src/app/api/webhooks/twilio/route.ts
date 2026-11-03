@@ -12,6 +12,7 @@ import { explainSmsError } from "@/lib/notifier";
 import { audit } from "@/lib/data/audit";
 import { notifyOwnerTextReply } from "@/lib/reply-alerts";
 import { env, integrations, webhookUrl } from "@/lib/env";
+import { smsHelpReply } from "@/lib/sms-help";
 import { logger } from "@/lib/logger";
 import { pushConfigured, pushToClient } from "@/lib/push";
 import { textPushPayload } from "@/lib/push-payloads";
@@ -343,9 +344,7 @@ export async function POST(req: Request): Promise<Response> {
       await store("help");
       // Brand, contact and the rates line are all standard 10DLC audit items,
       // and /sms-consent tells people this reply will carry a number to reach.
-      return twiml(
-        "FrontDesk AI: appointment confirmations, reminders and follow-ups sent on behalf of local businesses. Msg&data rates may apply. Reply STOP to opt out. Help: support@frontdeskai.company",
-      );
+      return twiml(smsHelpReply());
     }
 
     // A real reply: attach it to the most recent lead with this phone AT THE
@@ -426,3 +425,4 @@ export async function POST(req: Request): Promise<Response> {
     return twiml();
   }
 }
+

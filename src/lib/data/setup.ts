@@ -60,6 +60,7 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
     calendarConnected: calendar,
     alertContacts: alerts?.n ?? 0,
     ownerEmail: client?.ownerEmail,
+    transferNumber: client ? (client.escalationNumber ?? null) : undefined,
     agentId: client?.retellAgentId,
     aiNumber,
     calls: callCount?.n ?? 0,

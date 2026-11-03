@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { attachCreatorToClient, requireBusinessCreator, requireOperator } from "@/lib/auth-guard";
 import { createClient } from "@/lib/data/clients";
 import { applyWebsiteToClient } from "@/lib/onboarding-apply";
+import { parseOwnerCell } from "@/lib/signup-defaults";
 import { finishSignup } from "@/lib/signup";
 import { tidyBusinessName } from "@/lib/format";
 import { safeIndustry } from "@/config/starter-packs";
@@ -29,7 +30,7 @@ const onboardSchema = z.object({
 /** The setup form's own fields, echoed back so a failed submit keeps them. */
 function submittedSetupValues(formData: FormData): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const key of ["name", "websiteUrl", "industry", "companySize"]) {
+  for (const key of ["name", "websiteUrl", "industry", "companySize", "ownerCell"]) {
     out[key] = String(formData.get(key) ?? "").slice(0, 300);
   }
   return out;
@@ -110,6 +111,15 @@ export async function onboardFromWebsitePortalAction(
     };
   }
 
+  const ownerCell = parseOwnerCell(formData.get("ownerCell"));
+  if (ownerCell === "invalid") {
+    return {
+      ok: false,
+      fieldErrors: { ownerCell: ["That doesn't look like a phone number — try 415 555 0123, or leave it blank"] },
+      data: { values: submittedSetupValues(formData) },
+    };
+  }
+
   // "lifetime chiro" is what people type on a phone; "Lifetime Chiro" is
   // what should show on their customers' caller ID and every email.
   const name = tidyBusinessName(parsed.data.name);
@@ -143,7 +153,7 @@ export async function onboardFromWebsitePortalAction(
   // the MORE thorough thing — pasted their URL — was the one who could end up
   // with nothing: a site that's all JavaScript, or behind a bot wall, drafts
   // into silence, and the pack also carries the industry's safety guardrails.
-  await finishSignup(user, clientId, { industry, seedFromPack: !drafted, intendedPlan, companySize });
+  await finishSignup(user, clientId, { industry, seedFromPack: !drafted, intendedPlan, companySize, ownerCell });
 
   revalidatePath("/portal", "layout");
   // Say which of the two things actually happened. The banner on the other end

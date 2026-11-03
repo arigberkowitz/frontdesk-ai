@@ -27,6 +27,16 @@ import { logger } from "@/lib/logger";
  * Dedupe lives in setupFlags.trialEmails — per-client state, no migration.
  */
 
+/** "Just reply" only when replies actually reach someone (SUPPORT_EMAIL set). */
+export function questionsLine(helpUrl: string): string {
+  return env.SUPPORT_EMAIL ? "Questions? Just reply to this email." : `Questions? Get help here: ${helpUrl}`;
+}
+export function questionsLineHtml(helpUrl: string): string {
+  return env.SUPPORT_EMAIL
+    ? "Questions? Just reply to this email."
+    : `Questions? <a href="${helpUrl}">Get help in your portal</a>.`;
+}
+
 function esc(s: string): string {
   return s.replace(/[<>&]/g, (c) => (c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;"));
 }
@@ -35,7 +45,7 @@ function shell(title: string, paragraphs: string[]): string {
   return `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;line-height:1.5">
   <h2 style="margin:0 0 14px;font-size:19px">${title}</h2>
   ${paragraphs.map((p) => `<p style="margin:0 0 12px;font-size:15px">${p}</p>`).join("\n  ")}
-  <p style="color:#999;font-size:12px;margin-top:20px">Questions? Just reply to this email. · FrontDesk AI</p>
+  <p style="color:#999;font-size:12px;margin-top:20px">${questionsLineHtml(appUrl("/portal/settings/help"))} · FrontDesk AI</p>
 </div>`;
 }
 

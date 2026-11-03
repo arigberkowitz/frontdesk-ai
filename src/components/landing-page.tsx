@@ -19,7 +19,7 @@ import { env } from "@/lib/env";
 const VALUE = [
   { icon: Clock, chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400", title: "Answers 24/7", body: "Every call picked up on the first ring — nights, weekends, lunch rushes." },
   { icon: CalendarCheck, chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", title: "Books on the call", body: "Checks your hours and schedules the appointment live, straight into your calendar." },
-  { icon: MessageSquare, chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400", title: "Never loses a lead", body: "Captures name, number, and reason — and texts you the moment it happens." },
+  { icon: MessageSquare, chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400", title: "Never loses a lead", body: "Captures name, number, and reason — and texts or emails you the moment it happens." },
   { icon: Languages, chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400", title: "English & Spanish", body: "Switches to fluent Spanish the second a caller speaks it — no extra staff." },
 ];
 
@@ -53,11 +53,11 @@ const FAQ = [
   },
   {
     q: "What happens when it can't answer something?",
-    a: "It never guesses. It takes the caller's name, number, and what they needed, and texts you right away so you can follow up. Anything urgent — or anyone who asks for a person — gets transferred live to your cell.",
+    a: "It never guesses. It takes the caller's name, number, and what they needed, and texts or emails you right away so you can follow up. Once you add your cell, anything urgent — or anyone who asks for a person — gets transferred live to you.",
   },
   {
     q: "Am I locked into a contract?",
-    a: "No. Pay month to month, or yearly for two months free, with no setup fee, and the trial is two weeks with no card. If you leave, your phone works the way it did before you found us.",
+    a: "No. Pay month to month, or yearly for two months free, with no setup fee, and the trial is two weeks with no card. If you leave, undo your call forwarding (one dial code from your phone — we show you which) and your phone works the way it did before you found us.",
   },
   {
     q: "Will callers know they're talking to an AI?",

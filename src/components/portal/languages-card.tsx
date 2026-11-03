@@ -94,7 +94,7 @@ export function LanguagesCard({
                   return (
                     <label
                       key={l.code}
-                      className="flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm has-[:disabled]:opacity-50"
+                      className="flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm has-[:disabled]:opacity-50"
                     >
                       <input
                         type="checkbox"
@@ -104,10 +104,10 @@ export function LanguagesCard({
                         disabled={!checked && atMax}
                         onChange={(e) => toggle(l.code, e.target.checked)}
                       />
-                      <span>
+                      <span className="min-w-0 break-words">
                         {l.label}
                         {l.native !== l.label ? (
-                          <span className="ml-1 text-xs text-muted-foreground">{l.native}</span>
+                          <span className="ml-1 inline-block text-xs text-muted-foreground">{l.native}</span>
                         ) : null}
                       </span>
                     </label>

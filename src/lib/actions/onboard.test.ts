@@ -33,6 +33,7 @@ describe("onboardFromWebsitePortalAction", () => {
       websiteUrl: "not a url!!",
       industry: "plumber",
       companySize: "team",
+      ownerCell: "",
     });
     expect(createClient).not.toHaveBeenCalled();
   });

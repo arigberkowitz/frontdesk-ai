@@ -103,6 +103,14 @@ export const env = {
   // a robot dialing consumers unprompted needs a deliberate operator decision
   // (and a legal one — see DECISIONS.md "Missed-call text-back").
   MISSED_CALL_AI_CALLBACKS: process.env.MISSED_CALL_AI_CALLBACKS === "on",
+  // Texting to consumers needs carrier approval (A2P 10DLC). Until the
+  // operator sets this to exactly "on", the portal shows texting features as
+  // "pending carrier approval" and owner alerts also go out by email.
+  SMS_ENABLED: process.env.SMS_ENABLED === "on",
+  // Where customer replies to our emails land, and the HELP-text contact.
+  // Unset = no reply-to (the sending domain has no inbox) and emails point to
+  // the in-portal Help page instead of "just reply".
+  SUPPORT_EMAIL: (process.env.SUPPORT_EMAIL ?? "").trim(),
   // Web push (owner phone notifications for new texts and bookings). All three
   // or nothing: without them the opt-in in Settings → Alerts is hidden and no
   // push is ever attempted. Generate with `npx web-push generate-vapid-keys`

@@ -29,7 +29,7 @@ export async function AiFeaturesSection({ client, isAdmin }: { client: Client; i
     smartRebooking: flags.smartRebookingEnabled,
     dailyBriefing: flags.dailyBriefingEnabled,
   });
-  const opts = { timeZone: client.timezone };
+  const opts = { timeZone: client.timezone, smsEnabled: env.SMS_ENABLED };
   let bookingEnabled = false;
   try {
     bookingEnabled = getBookingProviderForClient(client).isConfigured();

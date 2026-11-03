@@ -69,25 +69,37 @@ export function MissedCallCard({
             />
           </div>
 
-          <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
-            <div className="space-y-0.5">
-              <label htmlFor="missed-call-ai" className="text-sm font-medium">
-                Have the AI call them back instead
-              </label>
-              <p className="text-xs text-muted-foreground">
-                {aiCallbacksAvailable
-                  ? "Your AI phones them from your number and says it's an AI. If the call can't be placed, they get the text."
-                  : "Not available on your account yet."}
-              </p>
+          {aiCallbacksAvailable ? (
+            <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+              <div className="min-w-0 space-y-0.5">
+                <label htmlFor="missed-call-ai" className="text-sm font-medium">
+                  Have the AI call them back instead
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Your AI phones them from your number and says it&rsquo;s an AI. If the call can&rsquo;t be placed, they get the text.
+                </p>
+              </div>
+              <Switch
+                id="missed-call-ai"
+                name="aiCallbacks"
+                checked={on && aiOn}
+                onCheckedChange={setAiOn}
+                disabled={pending || !on}
+              />
             </div>
-            <Switch
-              id="missed-call-ai"
-              name="aiCallbacks"
-              checked={aiCallbacksAvailable && on && aiOn}
-              onCheckedChange={setAiOn}
-              disabled={pending || !aiCallbacksAvailable || !on}
-            />
-          </div>
+          ) : (
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-dashed p-3">
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-sm font-medium">AI call-backs</p>
+                <p className="text-xs text-muted-foreground">
+                  Your AI will phone missed callers back. For now they get the text above.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                Coming soon
+              </span>
+            </div>
+          )}
 
           <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
             <span className="font-medium text-foreground">What they get: </span>
