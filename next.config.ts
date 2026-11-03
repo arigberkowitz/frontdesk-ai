@@ -1,5 +1,12 @@
 import type { NextConfig } from "next";
 
+export const SECURITY_HEADERS = [
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=(self)" },
+];
+
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
@@ -12,6 +19,13 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      {
+        // Baseline hardening for every page: no framing (clickjacking on the
+        // portal), no MIME sniffing, no full URLs leaked to other sites, and no
+        // camera/location access. The mic stays allowed for the browser test call.
+        source: "/:path*",
+        headers: SECURITY_HEADERS,
+      },
       {
         // The push service worker: always revalidate so a fix reaches phones on
         // the next visit instead of whenever the browser's 24h cap expires.
