@@ -8,7 +8,7 @@
  * variable parts are the business's own name and (optionally) the name of one
  * of the business's own services, matched exactly.
  */
-import { stripPhoneNumbers } from "@/lib/appointment-messages";
+import { stripPhoneNumbers, textLanguage } from "@/lib/appointment-messages";
 import { matchService } from "@/lib/service-match";
 
 export type CallbackReason = "hung_up_early" | "dropped" | "abandoned_booking";
@@ -113,7 +113,7 @@ export function serviceFor(
 }
 
 function clean(name: string): string {
-  return stripPhoneNumbers(name).replace(/\s+/g, " ").trim().slice(0, 60) || "Us";
+  return stripPhoneNumbers(name).replace(/\s+/g, " ").trim().slice(0, 60);
 }
 
 /** The text. Fixed wording; ends with opt-out language like every automated text. */
@@ -121,9 +121,21 @@ export function callbackText(input: {
   businessName: string;
   reason: CallbackReason;
   serviceName?: string | null;
+  /** The caller's language code, when known (Spanish or English). */
+  language?: string | null;
 }): string {
   const name = clean(input.businessName);
-  const service = input.serviceName ? clean(input.serviceName).toLowerCase() : null;
+  const service = input.serviceName ? clean(input.serviceName).toLowerCase() || null : null;
+  if (textLanguage(input.language) === "es") {
+    const opener =
+      input.reason === "dropped"
+        ? "Disculpe, parece que se cortó la llamada."
+        : input.reason === "abandoned_booking"
+          ? `Parece que no terminamos de reservar su ${service ? `cita de ${service}` : "cita"}.`
+          : "¡Disculpe que no pudimos contestar su llamada!";
+    const ask = "Responda aquí con el día y la hora que le convengan y le hacemos la reserva.";
+    return `${name ? `${name}:` : "¡Hola!"} ${opener} ${ask} Responda STOP para no recibir más mensajes.`;
+  }
   const ask = "Just reply here with a day and time that works and we'll get you booked.";
   const opener =
     input.reason === "dropped"
@@ -131,7 +143,8 @@ export function callbackText(input: {
       : input.reason === "abandoned_booking"
         ? `Looks like we didn't get to finish booking your ${service ?? "appointment"}.`
         : "Sorry we missed you on the phone!";
-  return `${name}: ${opener} ${ask} Reply STOP to opt out.`;
+  // No usable name: open with a plain greeting rather than an odd "Us:" label.
+  return `${name ? `${name}:` : "Hi!"} ${opener} ${ask} Reply STOP to opt out.`;
 }
 
 /** What the AI says first when it phones back (disclosure is added by the caller of this). */

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { agentRuns, appointments, clients, reminders, type Client } from "@/db/schema";
 import { createReminder } from "@/lib/data/reminders";
 import { isOptedOut } from "@/lib/data/sms-optouts";
+import { getCustomerLanguage } from "@/lib/data/customer-languages";
 import { getConsentedPhones, isConsented } from "@/lib/data/sms-consents";
 import { isDeliverableUrl } from "@/lib/webhooks-out";
 import {
@@ -147,10 +148,12 @@ export async function requestReviewsForClient(
         continue;
       }
       if (await isOptedOut(to, client.id)) continue;
+      const language = await getCustomerLanguage(client.id, to);
       const body = reviewRequestBody({
         businessName: client.name,
         customerName: appt.customerName,
         reviewUrl,
+        language,
       });
       const result = await notifier.sendSms({
         to,

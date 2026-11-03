@@ -6,6 +6,7 @@ import { createReminder } from "@/lib/data/reminders";
 import { isOptedOut, normalizePhone } from "@/lib/data/sms-optouts";
 import { getWaitlistConsentedPhones } from "@/lib/data/waitlist-consent";
 import { listWaiting, markOffered } from "@/lib/data/waitlist";
+import { getCustomerLanguage } from "@/lib/data/customer-languages";
 import {
   chooseOffers,
   describeOpening,
@@ -70,12 +71,14 @@ export async function offerFreedSlot(
       }
       if (await isOptedOut(entry.customerPhone, client.id)) continue;
       const row = waiting.find((w) => w.id === entry.id);
+      const language = await getCustomerLanguage(client.id, entry.customerPhone);
       const body = waitlistOfferBody({
         businessName: client.name,
         customerName: row?.customerName ?? null,
         serviceName: service?.name ?? null,
-        when,
+        when: language === "es" ? describeOpening(opening.startAt, client.timezone, "es") : when,
         callbackNumber: client.retellPhoneNumber,
+        language,
       });
       const result = await notifier.sendSms({
         to: entry.customerPhone,

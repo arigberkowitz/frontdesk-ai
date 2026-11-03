@@ -71,7 +71,7 @@ export function IntakeForm({
         <Input
           name="name"
           defaultValue={v?.name ?? defaultName}
-          placeholder="Bright Smile Dental"
+          placeholder="Joe's Plumbing"
           required
           maxLength={120}
         />

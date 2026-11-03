@@ -134,7 +134,7 @@ describe("buildRecap", () => {
     expect(r.text).toContain("Open the call: https://app.test/portal/calls/call-1");
     expect(r.html).toContain('href="https://app.test/portal/calls/call-1"');
     expect(r.sms).toBe(
-      "📨 Bright Smiles: Pat Lee ((415) 555-0100) left a message — Crown fell out — Crown repair. https://app.test/portal/calls/call-1",
+      "📨 Bright Smiles: Pat Lee, (415) 555-0100, left a message — Crown fell out — Crown repair. https://app.test/portal/calls/call-1",
     );
   });
 

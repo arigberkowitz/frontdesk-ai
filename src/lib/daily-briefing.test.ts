@@ -122,6 +122,14 @@ describe("briefingDue", () => {
   });
 });
 
+describe("cancellation lines", () => {
+  it("show a readable day, not an ISO date key", () => {
+    const r = renderBriefing({ facts: busy(), ai: null, baseUrl: "https://app.test" });
+    expect(r.html).toMatch(/was Fri, Oct 2 at 10:00\s?AM/);
+    expect(r.html).not.toMatch(/\d{4}-\d{2}-\d{2}\)/);
+  });
+});
+
 describe("quiet days", () => {
   it("is quiet only when nothing happened and nothing is waiting", () => {
     expect(isQuietDay(quiet())).toBe(true);

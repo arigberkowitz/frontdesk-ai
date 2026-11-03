@@ -9,7 +9,7 @@
  * with certainty goes to the owner.
  */
 import { blocksForProvider, businessWideBlocks, overlapsBlock, type AvailabilityBlockLite } from "@/lib/booking-window";
-import { stripPhoneNumbers } from "@/lib/appointment-messages";
+import { endSentence, stripPhoneNumbers, textLanguage } from "@/lib/appointment-messages";
 
 export const REBOOK_SLOT_COUNT = 3;
 /** How far ahead we look for replacement times. */
@@ -86,8 +86,8 @@ export function pickSpreadSlots(
 }
 
 /** "Tue, Oct 6, 10:00 AM" in the business's zone. */
-export function shortWhen(at: Date | string, tz: string): string {
-  return new Intl.DateTimeFormat("en-US", {
+export function shortWhen(at: Date | string, tz: string, language?: string | null): string {
+  return new Intl.DateTimeFormat(textLanguage(language) === "es" ? "es-US" : "en-US", {
     timeZone: tz,
     weekday: "short",
     month: "short",
@@ -112,7 +112,19 @@ export function offerText(input: {
   oldStartAt: Date;
   slots: Slot[];
   tz: string;
+  /** The customer's language code, when known (Spanish or English). */
+  language?: string | null;
 }): string {
+  if (textLanguage(input.language) === "es") {
+    const what = input.serviceName ? `cita de ${clean(input.serviceName).toLowerCase()}` : "cita";
+    const lines = input.slots.map((s, i) => `${i + 1}) ${shortWhen(s.startAt, input.tz, "es")}`);
+    const nums = input.slots.length === 1 ? "1" : input.slots.length === 2 ? "1 o 2" : "1, 2 o 3";
+    return [
+      `${clean(input.businessName) || "Su cita"}: Lo sentimos, tenemos que mover su ${what} del ${endSentence(shortWhen(input.oldStartAt, input.tz, "es"))} ¿Le funciona alguno de estos horarios?`,
+      ...lines,
+      `Responda ${nums} para cambiarla, o NO para cancelar.${" Responda STOP para no recibir más mensajes."}`,
+    ].join("\n");
+  }
   const what = input.serviceName ? `${clean(input.serviceName).toLowerCase()} appointment` : "appointment";
   const lines = input.slots.map((s, i) => `${i + 1}) ${shortWhen(s.startAt, input.tz)}`);
   const nums = input.slots.length === 1 ? "1" : input.slots.length === 2 ? "1 or 2" : "1, 2 or 3";
@@ -123,15 +135,29 @@ export function offerText(input: {
   ].join("\n");
 }
 
-export function rescheduledText(input: { businessName: string; startAt: Date; tz: string }): string {
+export function rescheduledText(input: {
+  businessName: string;
+  startAt: Date;
+  tz: string;
+  language?: string | null;
+}): string {
+  if (textLanguage(input.language) === "es") {
+    return `${clean(input.businessName)}: ¡Listo! Su cita quedó para el ${endSentence(shortWhen(input.startAt, input.tz, "es"))} ¡Gracias por su flexibilidad!`;
+  }
   return `${clean(input.businessName)}: You're all set for ${shortWhen(input.startAt, input.tz)}. Thanks for being flexible!`;
 }
 
-export function cancelledText(input: { businessName: string }): string {
+export function cancelledText(input: { businessName: string; language?: string | null }): string {
+  if (textLanguage(input.language) === "es") {
+    return `${clean(input.businessName)}: Entendido, su cita quedó cancelada. Llámenos o escríbanos cuando quiera para volver a reservar.`;
+  }
   return `${clean(input.businessName)}: No problem, your appointment is cancelled. Call or text us anytime to book again.`;
 }
 
-export function slotGoneText(input: { businessName: string }): string {
+export function slotGoneText(input: { businessName: string; language?: string | null }): string {
+  if (textLanguage(input.language) === "es") {
+    return `${clean(input.businessName)}: Lo sentimos, ese horario se acaba de ocupar. Alguien de nuestro equipo le escribirá pronto para buscar otro horario.`;
+  }
   return `${clean(input.businessName)}: Sorry, that time was just taken. Someone from our team will text you shortly to find another time.`;
 }
 
@@ -139,7 +165,7 @@ export type RebookReply = { kind: "pick"; index: number } | { kind: "decline" } 
 
 const WORD_NUM: Record<string, number> = { one: 1, two: 2, three: 3, first: 1, second: 2, third: 3 };
 const NEGATION = /\b(no|not|can'?t|cannot|don'?t|won'?t|none|neither|nor|but|instead|later|earlier|other)\b/i;
-const DECLINE = /^(no|nope|nah|no thanks|no thank you|none|none of those|none work|neither|please cancel|cancel it|cancel my appointment)[\s.!]*$/i;
+const DECLINE = /^(no|nope|nah|no thanks|no thank you|none|none of those|none work|neither|please cancel|cancel it|cancel my appointment|no gracias|ninguno|ninguna|cancelar|cancélela|cancelela)[\s.!]*$/i;
 
 /**
  * Read a reply to an offer of `n` slots. Conservative by design: a bare number

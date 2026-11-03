@@ -14,6 +14,7 @@ import {
 } from "@/lib/data/call-callbacks";
 import { isOptedOut, normalizePhone } from "@/lib/data/sms-optouts";
 import { hasSmsConsent } from "@/lib/data/sms-consents";
+import { getCustomerLanguage } from "@/lib/data/customer-languages";
 import { withinTextingHours } from "@/lib/appointment-messages";
 import { isBlocked } from "@/lib/spam";
 import { toE164 } from "@/lib/format";
@@ -201,7 +202,8 @@ export async function deliverCallback(
     // Fall through to the text — a callback that can't be placed shouldn't mean silence.
   }
 
-  const body = callbackText({ businessName: client.name, reason, serviceName: ctx.serviceName });
+  const language = await getCustomerLanguage(client.id, to);
+  const body = callbackText({ businessName: client.name, reason, serviceName: ctx.serviceName, language });
   const result = await notifier.sendSms({
     to,
     body,

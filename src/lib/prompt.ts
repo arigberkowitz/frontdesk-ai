@@ -299,7 +299,12 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
   // Three states, stored as a mode. `humanHandoffEnabled` still governs whether
   // the agent OFFERS a person unprompted; the mode governs whether it may
   // connect one at all.
-  const handoffMode = client.handoffMode ?? "always";
+  // No transfer number means there is nobody to put a caller through to, and
+  // the transfer tool isn't attached (buildAgentTools needs a number). The
+  // prompt must say so too, or the agent promises "let me connect you" and
+  // then can't — so with no number, every saved mode behaves as "never".
+  const canTransfer = Boolean(client.escalationNumber?.trim());
+  const handoffMode = canTransfer ? (client.handoffMode ?? "always") : "never";
   const handoff = client.humanHandoffEnabled !== false && handoffMode !== "never";
   const humanHours = client.humanHoursNote?.trim();
   // Detect-and-switch, plus the AI disclosure and the texting consent ask in
@@ -388,7 +393,9 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     // An emergency must never be routed into a booking flow. This is the
     // failure with the worst ratio of consequence to visibility: it never
     // becomes a bad review, it becomes something much worse.
-    "Emergencies come first, before anything else. If a caller mentions anything that sounds urgent or dangerous — no heat, a gas smell, flooding, a burst pipe, a break-in, an accident, injury, severe pain, trouble breathing, or says the word emergency — stop whatever you were doing, do NOT try to book an appointment, and use transfer_to_human immediately. If nobody picks up, take their name, number and what's happening, tell them someone will call straight back, and say plainly that if it's a danger to anyone they should call 911.",
+    canTransfer
+      ? "Emergencies come first, before anything else. If a caller mentions anything that sounds urgent or dangerous — no heat, a gas smell, flooding, a burst pipe, a break-in, an accident, injury, severe pain, trouble breathing, or says the word emergency — stop whatever you were doing, do NOT try to book an appointment, and use transfer_to_human immediately. If nobody picks up, take their name, number and what's happening, tell them someone will call straight back, and say plainly that if it's a danger to anyone they should call 911."
+      : "Emergencies come first, before anything else. If a caller mentions anything that sounds urgent or dangerous — no heat, a gas smell, flooding, a burst pipe, a break-in, an accident, injury, severe pain, trouble breathing, or says the word emergency — stop whatever you were doing, do NOT try to book an appointment, and do not offer a transfer (there is no one to transfer to). Take their name, number and what's happening with take_message (urgency: 'emergency'), tell them someone will call straight back, and say plainly that if it's a danger to anyone they should call 911.",
     // Utah requires an honest answer on request; Maine requires disclosure where
     // a caller could reasonably think you're human. Both are cheap to satisfy
     // and the alternative is a business publicly bragging that its customers
@@ -432,9 +439,11 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
       : "- Take a message to schedule (no live calendar) — capture name, phone, and preferred times; the team calls back to confirm.",
     "- Cancel an existing appointment (cancel_appointment) — confirm which one and get a clear yes first.",
     "- Take a message (take_message) capturing name + phone + reason.",
-    "- Transfer to a human (transfer_to_human) on request or for sensitive matters.",
+    canTransfer ? "- Transfer to a human (transfer_to_human) on request or for sensitive matters." : null,
     "- End the call (end_call) once the caller is done, or on spam, robocalls and voicemail.",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   return `You are ${agentName}, the friendly AI receptionist for ${client.name}, a ${industry}business${location}.
 

@@ -80,6 +80,28 @@ describe("attachCreatorToClient (signup claim)", () => {
     expect(await attachCreatorToClient(user, a.id)).toBe(true);
     expect(await attachCreatorToClient(user, b.id)).toBe(false);
   });
+
+  it("operators: a double-click on /welcome (two concurrent submits) keeps exactly one business", async () => {
+    const { user, mk } = await seed("operator");
+    const a = await mk("First");
+    await new Promise((r) => setTimeout(r, 5));
+    const b = await mk("Second");
+    const results = await Promise.all([attachCreatorToClient(user, b.id), attachCreatorToClient(user, a.id)]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+    const live = (await db.query.clients.findMany()).filter((c) => c.deletedAt === null);
+    expect(live.map((c) => c.id)).toEqual([a.id]);
+  });
+
+  it("operators: the first business still gets the owner email and an on-duty alert contact", async () => {
+    const { user, mk } = await seed("operator");
+    const a = await mk("First");
+    expect(await attachCreatorToClient(user, a.id)).toBe(true);
+    const row = await db.query.clients.findFirst({ where: eq(schema.clients.id, a.id) });
+    expect(row?.ownerEmail).toBe("owner@newbiz.test");
+    const contacts = await db.query.alertContacts.findMany({ where: eq(schema.alertContacts.clientId, a.id) });
+    expect(contacts).toHaveLength(1);
+    expect(contacts[0]).toMatchObject({ email: "owner@newbiz.test", onDuty: true });
+  });
 });
 
 describe("claimFirstProvision (one phone number per business)", () => {

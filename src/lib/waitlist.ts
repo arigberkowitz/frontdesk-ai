@@ -1,3 +1,4 @@
+import { endSentence, textLanguage } from "@/lib/appointment-messages";
 /**
  * Who gets offered a slot that just opened up.
  *
@@ -92,6 +93,8 @@ export function waitlistOfferBody(input: {
   serviceName: string | null;
   when: string;
   callbackNumber?: string | null;
+  /** The customer's language code, when known; `when` should already be in it. */
+  language?: string | null;
 }): string {
   const clean = (v: string | null, max: number) =>
     (v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -99,6 +102,14 @@ export function waitlistOfferBody(input: {
   const business = clean(input.businessName, 60);
   const service = clean(input.serviceName, 40);
   const callback = input.callbackNumber?.trim();
+  if (textLanguage(input.language) === "es") {
+    return (
+      `Hola${name ? ` ${name}` : ""}, le escribe ${business}: se abrió un espacio${service ? ` para ${service}` : ""} el ${endSentence(input.when)} ` +
+      `Es para quien responda primero.` +
+      (callback ? ` Llame o escriba al ${callback} para reservarlo.` : "") +
+      ` Responda STOP para no recibir más mensajes.`
+    );
+  }
 
   return (
     `Hi${name ? ` ${name}` : ""}, it's ${business} — a spot just opened up${service ? ` for ${service}` : ""} on ${input.when}. ` +
@@ -109,9 +120,13 @@ export function waitlistOfferBody(input: {
 }
 
 /** "Thursday at 2:00 PM", in the business's own timezone. */
-export function describeOpening(startAt: Date, timezone: string | null): string {
+export function describeOpening(
+  startAt: Date,
+  timezone: string | null,
+  language?: string | null,
+): string {
   try {
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat(textLanguage(language) === "es" ? "es-US" : "en-US", {
       timeZone: timezone ?? "America/Los_Angeles",
       weekday: "long",
       month: "short",

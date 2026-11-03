@@ -119,6 +119,13 @@ describe("callbackText", () => {
       /^Joe's Plumbing: /,
     );
   });
+
+  it("opens with a neutral greeting, never 'Us:', when no usable name is left", () => {
+    const t = callbackText({ businessName: "415-555-0100", reason: "hung_up_early" });
+    expect(t).toMatch(/^Hi! Sorry we missed you/);
+    expect(t).not.toContain("Us:");
+    expect(t).toMatch(/Reply STOP to opt out\.$/);
+  });
 });
 
 describe("serviceFor (prompt-injection: caller words never reach the text)", () => {

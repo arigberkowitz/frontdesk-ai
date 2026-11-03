@@ -193,3 +193,27 @@ describe("opening line disclosure (can't be removed by a custom greeting)", () =
     expect(p).toMatch(/never claim or imply you're human/);
   });
 });
+
+/** No transfer number: the agent must never offer or attempt a person. */
+describe("no escalation number", () => {
+  for (const escalationNumber of [null, "", "   "]) {
+    it(`drops every transfer/offer line (number=${JSON.stringify(escalationNumber)})`, () => {
+      const p = buildGeneralPrompt({
+        ...input,
+        client: { ...client, escalationNumber, handoffMode: "always", humanHandoffEnabled: true },
+      });
+      expect(p).not.toContain("transfer_to_human");
+      expect(p).not.toContain("Don't wait to be asked");
+      expect(p).not.toContain("If a transfer does not connect");
+      expect(p).toContain("There is NO ONE available to transfer to");
+      expect(p).toContain("call 911");
+      expect(p).not.toContain("null");
+    });
+  }
+
+  it("keeps transfer and the proactive offer once a number exists", () => {
+    const p = buildGeneralPrompt({ ...input, client: { ...client, handoffMode: "always" } });
+    expect(p).toContain("transfer_to_human");
+    expect(p).toContain("Don't wait to be asked");
+  });
+});
