@@ -272,6 +272,8 @@ export const clients = pgTable(
         trialApprovedAt?: string;
         /** The pricing card they clicked before signing up. Preselects checkout. */
         intendedPlan?: string;
+        /** Billing interval picked on the pricing page ("month" | "year"). */
+        intendedInterval?: string;
         /**
          * When the AI may hand a caller to a person: always, only while the
          * business is open, or never. Off-hours transfers are the common case

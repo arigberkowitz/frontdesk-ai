@@ -147,6 +147,7 @@ export default async function PortalGuidelinesPage({
                   clientId={client.id}
                   cardsReady={integrations.stripe()}
                   preselect={client.setupFlags?.intendedPlan ?? null}
+                  preselectInterval={client.setupFlags?.intendedInterval ?? null}
                 />
                 <TrialCodeCard clientId={client.id} requested={Boolean(client.trialRequestedAt)} />
               </div>
@@ -179,6 +180,7 @@ export default async function PortalGuidelinesPage({
                     clientId={client.id}
                     cardsReady={integrations.stripe()}
                     preselect={client.setupFlags?.intendedPlan ?? null}
+                  preselectInterval={client.setupFlags?.intendedInterval ?? null}
                   />
                 </div>
               </details>

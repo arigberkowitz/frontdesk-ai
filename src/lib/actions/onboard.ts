@@ -1,5 +1,7 @@
 "use server";
 
+import { parseIntentInterval, parseIntentPlan } from "@/lib/signup-intent";
+
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -143,8 +145,8 @@ export async function onboardFromWebsitePortalAction(
   const industry = safeIndustry(formData.get("industry"));
   // Which pricing card brought them here, so checkout opens on that plan
   // instead of making them choose a second time.
-  const wanted = String(formData.get("plan") ?? "").trim();
-  const intendedPlan = ["backup", "starter", "pro"].includes(wanted) ? wanted : undefined;
+  const intendedPlan = parseIntentPlan(formData.get("plan"));
+  const intendedInterval = parseIntentInterval(formData.get("interval"));
 
   // Trial, starter pack when the website drafted nothing, the receptionist
   // and its number, the welcome email — the same finish as the template path.
@@ -153,7 +155,7 @@ export async function onboardFromWebsitePortalAction(
   // the MORE thorough thing — pasted their URL — was the one who could end up
   // with nothing: a site that's all JavaScript, or behind a bot wall, drafts
   // into silence, and the pack also carries the industry's safety guardrails.
-  await finishSignup(user, clientId, { industry, seedFromPack: !drafted, intendedPlan, companySize, ownerCell });
+  await finishSignup(user, clientId, { industry, seedFromPack: !drafted, intendedPlan, intendedInterval, companySize, ownerCell });
 
   revalidatePath("/portal", "layout");
   // Say which of the two things actually happened. The banner on the other end

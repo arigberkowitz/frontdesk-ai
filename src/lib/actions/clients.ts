@@ -1,5 +1,7 @@
 "use server";
 
+import { parseIntentInterval, parseIntentPlan } from "@/lib/signup-intent";
+
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -84,13 +86,14 @@ export async function createStarterClientAction(formData: FormData): Promise<voi
   // that refused them.
   // Which pricing card brought them here (the website path already does this),
   // so "add a card" opens on that plan instead of asking again.
-  const wanted = String(formData.get("plan") ?? "").trim();
-  const intendedPlan = ["backup", "starter", "pro"].includes(wanted) ? wanted : undefined;
+  const intendedPlan = parseIntentPlan(formData.get("plan"));
+  const intendedInterval = parseIntentInterval(formData.get("interval"));
   const cell = parseOwnerCell(formData.get("ownerCell"));
   await finishSignup(user, client.id, {
     industry,
     seedFromPack: true,
     intendedPlan,
+    intendedInterval,
     companySize,
     ownerCell: cell === "invalid" ? null : cell,
   });
