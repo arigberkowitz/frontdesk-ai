@@ -6,6 +6,7 @@ import { Check, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { startSelfServeCheckoutAction } from "@/lib/actions/billing";
 import { initialActionState, type ActionState } from "@/lib/actions/types";
+import { parseIntentInterval } from "@/lib/signup-intent";
 import { planList, minutesLabel, PLANS, type PlanKey } from "@/config/plans";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,17 +31,20 @@ export function ChoosePlan({
   clientId,
   cardsReady,
   preselect,
+  preselectInterval,
 }: {
   clientId: string;
   /** The plan they picked on the pricing page, if they came that way. */
   preselect?: string | null;
+  /** The billing interval they picked on the pricing page ("year" opens on Yearly). */
+  preselectInterval?: string | null;
   /** Is Stripe actually configured on the server? */
   cardsReady: boolean;
 }) {
   const [selected, setSelected] = useState<PlanKey>(
     ORDER.includes(preselect as PlanKey) ? (preselect as PlanKey) : "starter",
   );
-  const [yearly, setYearly] = useState(false);
+  const [yearly, setYearly] = useState(parseIntentInterval(preselectInterval) === "year");
   const [, action, pending] = useActionState(
     async (prev: ActionState, formData: FormData) => {
       const next = await startSelfServeCheckoutAction(prev, formData);

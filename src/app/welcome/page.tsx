@@ -4,6 +4,7 @@ import { getCurrentDbUser } from "@/lib/auth-guard";
 import { listClients } from "@/lib/data/clients";
 import { integrations } from "@/lib/env";
 import { OnboardingWelcome } from "@/components/onboarding-welcome";
+import { parseIntentInterval, parseIntentPlan } from "@/lib/signup-intent";
 
 export const metadata = { title: "Get started" };
 // Signup now drafts from the website AND builds the receptionist (agent +
@@ -14,9 +15,11 @@ export const maxDuration = 60;
 export default async function WelcomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string }>;
+  searchParams: Promise<{ plan?: string | string[]; interval?: string | string[] }>;
 }) {
-  const { plan } = await searchParams;
+  const sp = await searchParams;
+  const plan = parseIntentPlan(sp.plan);
+  const interval = parseIntentInterval(sp.interval);
   const user = await getCurrentDbUser();
   // Already attached to a business → nothing to set up here.
   if (user.clientId) redirect("/portal");
@@ -38,7 +41,7 @@ export default async function WelcomePage({
         <span className="font-heading font-semibold tracking-tight">FrontDesk AI</span>
       </header>
       <main className="flex flex-1 items-center justify-center p-6">
-        <OnboardingWelcome aiReady={integrations.anthropic()} plan={plan ?? null} />
+        <OnboardingWelcome aiReady={integrations.anthropic()} plan={plan ?? null} interval={interval ?? null} />
       </main>
     </div>
   );

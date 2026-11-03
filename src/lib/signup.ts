@@ -32,7 +32,7 @@ import { signupDefaults } from "@/lib/signup-defaults";
 export async function finishSignup(
   user: Omit<ProvisionActor, "id"> & { id: string },
   clientId: string,
-  opts: { industry: string | null; seedFromPack: boolean; intendedPlan?: string; companySize: string; ownerCell?: string | null },
+  opts: { industry: string | null; seedFromPack: boolean; intendedPlan?: string; intendedInterval?: "month" | "year"; companySize: string; ownerCell?: string | null },
 ): Promise<void> {
   await db
     .update(clients)
@@ -40,7 +40,7 @@ export async function finishSignup(
       companySize: opts.companySize,
       // reviewRequired: the template content seeded below (and the starter
       // greeting) only counts on the checklist once the owner confirms it.
-      setupFlags: { reviewRequired: true, ...(opts.intendedPlan ? { intendedPlan: opts.intendedPlan } : {}) },
+      setupFlags: { reviewRequired: true, ...(opts.intendedPlan ? { intendedPlan: opts.intendedPlan } : {}), ...(opts.intendedInterval ? { intendedInterval: opts.intendedInterval } : {}) },
       staffModeEnabled: opts.companySize !== "solo",
       // English & Spanish out of the box for anyone not shopping the
       // missed-calls-only tier (Starter and Pro advertise it).

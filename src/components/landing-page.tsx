@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { signUpHref, type IntentPlan } from "@/lib/signup-intent";
 import {
   ArrowRight,
   CalendarCheck,
@@ -417,16 +418,25 @@ export function LandingPage() {
                     {/* mt-auto on the wrapper is what keeps all three buttons on
                         one line no matter how many features each plan lists. */}
                     <div className="mt-auto pt-8">
+                      {/* Carries the card they clicked — plan AND the
+                          Monthly/Yearly switch — all the way to checkout. The
+                          switch is CSS-only, so there is one link per interval
+                          and the switch decides which one shows. */}
                       <Button
-                        className="w-full"
+                        className="w-full group-has-[#billing-yearly:checked]/billing:hidden"
                         size="lg"
                         variant={featured ? "default" : "outline"}
                         nativeButton={false}
-                        // Carries the card they clicked all the way to
-                        // checkout. Every button here used to be the same
-                        // link, so picking Pro on the pricing page and picking
-                        // Missed-Call Rescue were literally the same click.
-                        render={<Link href={`/sign-up?plan=${plan.key}`} />}
+                        render={<Link href={signUpHref(plan.key as IntentPlan, "month")} />}
+                      >
+                        Get started
+                      </Button>
+                      <Button
+                        className="hidden w-full group-has-[#billing-yearly:checked]/billing:inline-flex"
+                        size="lg"
+                        variant={featured ? "default" : "outline"}
+                        nativeButton={false}
+                        render={<Link href={signUpHref(plan.key as IntentPlan, "year")} />}
                       >
                         Get started
                       </Button>

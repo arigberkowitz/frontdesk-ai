@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { SignInPage } from "@/components/ui/sign-in-flow-1";
+import { afterSignUpUrl } from "@/lib/signup-intent";
 
 export const metadata: Metadata = { title: "Sign up" };
 
@@ -18,13 +19,14 @@ export const metadata: Metadata = { title: "Sign up" };
 export default async function SignUpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string }>;
+  searchParams: Promise<{ plan?: string | string[]; interval?: string | string[] }>;
 }) {
   const { userId } = await auth();
   if (userId) redirect("/");
   // Which pricing card they clicked, carried through to setup so the plan
   // they picked on the website is the one preselected at checkout.
-  const { plan } = await searchParams;
-  const next = plan ? `/welcome?plan=${encodeURIComponent(plan)}` : "/";
+  // Junk values are dropped, never echoed into the redirect.
+  const { plan, interval } = await searchParams;
+  const next = afterSignUpUrl(plan, interval);
   return <SignInPage initialView="signup" afterUrl={next} />;
 }

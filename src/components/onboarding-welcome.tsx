@@ -105,7 +105,7 @@ function IndustrySelect({ defaultValue = "" }: { defaultValue?: string }) {
 /** ONE form, one name field: the primary button drafts from the website (or a
  *  blank manual setup), the secondary starts from an editable template. After
  *  either, the portal checklist walks the owner through the rest step by step. */
-function SetupForm({ plan }: { plan: string | null }) {
+function SetupForm({ plan, interval }: { plan: string | null; interval: string | null }) {
   const [state, action] = useActionState(onboardFromWebsitePortalAction, initialActionState);
   // Echoed back by the action on a validation error (see submittedSetupValues).
   const v = ((state.data as { values?: Record<string, string> } | undefined)?.values ?? {});
@@ -115,6 +115,7 @@ function SetupForm({ plan }: { plan: string | null }) {
       <TimezoneField />
       {/* The pricing card they clicked, still travelling with them. */}
       {plan ? <input type="hidden" name="plan" value={plan} /> : null}
+      {interval ? <input type="hidden" name="interval" value={interval} /> : null}
       <Field label="Business name" error={state.fieldErrors?.name}>
         <Input name="name" placeholder="Bright Smile Dental" required maxLength={120} defaultValue={v.name ?? ""} />
       </Field>
@@ -181,9 +182,11 @@ function SetupForm({ plan }: { plan: string | null }) {
 export function OnboardingWelcome({
   aiReady,
   plan,
+  interval,
 }: {
   aiReady: boolean;
   plan?: string | null;
+  interval?: string | null;
 }) {
   return (
     <div className="mx-auto max-w-2xl space-y-8 py-6 text-center">
@@ -207,7 +210,7 @@ export function OnboardingWelcome({
             <Globe className="size-5 text-primary" />
             <p className="font-medium">Tell us about your business — under a minute</p>
           </div>
-          <SetupForm plan={plan ?? null} />
+          <SetupForm plan={plan ?? null} interval={interval ?? null} />
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3">
@@ -215,6 +218,7 @@ export function OnboardingWelcome({
             <TimezoneField />
             {/* Same as the website path: keep the pricing card they clicked. */}
             {plan ? <input type="hidden" name="plan" value={plan} /> : null}
+      {interval ? <input type="hidden" name="interval" value={interval} /> : null}
             {/* The action reads name + companySize — without these fields the
                 business gets created as literally "Your business", solo. */}
             <Field label="Business name">
