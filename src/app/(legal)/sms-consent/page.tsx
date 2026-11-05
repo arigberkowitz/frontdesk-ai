@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${env.APP_URL.replace(/\/$/, "")}/sms-consent` },
 };
 
-const UPDATED = "August 14, 2026";
+const UPDATED = "November 4, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -41,7 +41,7 @@ export default function SmsConsentPage() {
             FrontDesk AI provides an AI phone receptionist to small businesses. When a caller
             books an appointment or leaves a message with a business that uses the service, the
             business may send that caller text messages — appointment confirmations, appointment
-            reminders, and follow-ups the caller asked for. Messages are conversational and
+            reminders, and the follow-ups listed below. Messages are conversational and
             transactional; <strong>we do not send marketing or promotional texts</strong>.
           </p>
         </Section>
@@ -54,7 +54,7 @@ export default function SmsConsentPage() {
             question:
           </p>
           <p className="rounded-lg border bg-muted/40 p-4 italic">
-            &ldquo;Would you like me to text you the confirmation and a reminder? Message and data
+            &ldquo;Would you like me to text you the confirmation, a reminder, and a quick follow-up about this visit? Message and data
             rates may apply, and you can reply STOP at any time to opt out.&rdquo;
           </p>
           <p>
@@ -68,16 +68,36 @@ export default function SmsConsentPage() {
         </Section>
 
         <Section title="3. What you'll receive">
+          <p>Every message is about a call you placed or an appointment you booked. The types are:</p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li><strong>Confirmations and reminders</strong> for an appointment you booked.</li>
+            <li>
+              <strong>Missed or dropped call follow-up:</strong> if your call ends before you&rsquo;re
+              booked, one text asking when works for you. Sent only if you&rsquo;ve already agreed to
+              texts from that business.
+            </li>
+            <li>
+              <strong>Reschedule notices:</strong> if the business has to move your appointment, a
+              text with new times to choose from.
+            </li>
+            <li>
+              <strong>One follow-up after your visit,</strong> which may ask for a review. Never
+              offers, discounts or promotions.
+            </li>
+            <li>
+              <strong>Waitlist and deposit texts:</strong> only when you asked to join a waitlist or a
+              deposit is needed to hold your booking.
+            </li>
+            <li><strong>Replies</strong> to messages you send the business.</li>
+          </ul>
           <p>
-            Message types: appointment confirmations, appointment reminders, and requested
-            follow-ups. <strong>Message frequency varies</strong> with your appointments —
-            typically 1&ndash;3 messages per booking. <strong>Message and data rates may
-            apply.</strong> Example message:
+            <strong>Message frequency varies</strong> with your appointments, typically 1&ndash;4
+            messages per booking. <strong>Message and data rates may apply.</strong> Example
+            message:
           </p>
           <p className="rounded-lg border bg-muted/40 p-4 italic">
-            &ldquo;Hi Jamie, a friendly reminder of your Cleaning &amp; checkup appointment with
-            Bright Smile Dental on Tue, Aug 4 at 2:30 PM. Need to reschedule? Give Bright Smile
-            Dental a call. Reply STOP to opt out.&rdquo;
+            &ldquo;Hi Jamie, a reminder of your appointment with Ace Plumbing on Tue, Aug 4 at
+            2:30 PM. Need to reschedule? Give Ace Plumbing a call. Reply STOP to opt out.&rdquo;
           </p>
         </Section>
 
@@ -88,7 +108,7 @@ export default function SmsConsentPage() {
             Because messages for participating businesses are delivered from a shared FrontDesk AI
             messaging number, replying STOP stops texts sent through that number on behalf of{" "}
             <strong>any</strong> participating business, until you reply START. Reply{" "}
-            <strong>START</strong> to re-subscribe. Reply <strong>HELP</strong> for help, or
+            <strong>START</strong> to re-subscribe; you&rsquo;ll get one text confirming it. Reply <strong>HELP</strong> for help, or
             contact the business directly.
           </p>
         </Section>

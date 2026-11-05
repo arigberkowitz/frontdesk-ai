@@ -12,7 +12,8 @@ import { explainSmsError } from "@/lib/notifier";
 import { audit } from "@/lib/data/audit";
 import { notifyOwnerTextReply } from "@/lib/reply-alerts";
 import { env, integrations, webhookUrl } from "@/lib/env";
-import { smsHelpReply } from "@/lib/sms-help";
+import { smsHelpReply, smsOptInReply } from "@/lib/sms-help";
+import { getCustomerLanguage } from "@/lib/data/customer-languages";
 import { logger } from "@/lib/logger";
 import { pushConfigured, pushToClient } from "@/lib/push";
 import { textPushPayload } from "@/lib/push-payloads";
@@ -335,6 +336,14 @@ export async function POST(req: Request): Promise<Response> {
     if (START_WORDS.has(keyword)) {
       await removeOptOut(from, scope);
       kind = "opt_in";
+      // START / UNSTOP on their own get the opt-in confirmation carriers
+      // require (in Spanish when we know they speak it). "YES" is excluded: it
+      // is far more often an answer to "reply YES to confirm" than a re-opt-in.
+      if ((keyword === "start" || keyword === "unstop") && !hasMoreThanKeyword(body)) {
+        await store("opt_in");
+        const language = dedicated ? await getCustomerLanguage(dedicated.id, from).catch(() => null) : null;
+        return twiml(smsOptInReply(language));
+      }
       // Deliberately falls through to the reply handling below instead of
       // returning. "YES" is a START keyword AND the answer we now explicitly
       // ask for — "Reply YES to confirm or NO to reschedule". Returning here

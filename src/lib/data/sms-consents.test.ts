@@ -64,3 +64,11 @@ describe("consent asked in the caller's language", () => {
     expect(coveredPhones([{ phone: "+14155550100", wording: "something-else" }], "lead_followup").size).toBe(0);
   });
 });
+
+describe("consent script versions", () => {
+  it("rows recorded under the older booking-v1 script still count", () => {
+    for (const w of ["booking-v1", "booking-v1-es", "booking-v2", "booking-v2-es"]) {
+      expect(isConsented(coveredPhones([{ phone: "+14155550100", wording: w }], "review_request"), "+14155550100")).toBe(true);
+    }
+  });
+});

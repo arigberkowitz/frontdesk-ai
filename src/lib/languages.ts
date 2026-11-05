@@ -170,7 +170,7 @@ export function spanishDisclosure(business: string, recording: boolean): string 
 
 /** The SMS consent ask, translated. STOP stays in English: it's the carrier opt-out keyword. */
 export const SPANISH_CONSENT_ASK =
-  "¿Le gustaría que le enviara por mensaje de texto la confirmación y un recordatorio? Pueden aplicarse tarifas de mensajes y datos, y puede responder STOP en cualquier momento para dejar de recibirlos.";
+  "¿Le gustaría que le enviara por mensaje de texto la confirmación, un recordatorio y un breve seguimiento sobre esta visita? Pueden aplicarse tarifas de mensajes y datos, y puede responder STOP en cualquier momento para dejar de recibirlos.";
 
 /**
  * The prompt rules for a multilingual (or non-English-first) agent: one entry

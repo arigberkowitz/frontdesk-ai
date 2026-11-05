@@ -8,12 +8,10 @@
  * writes to a stranger's gmail.com and quietly decides this is somebody's
  * weekend project.
  *
- * Set SUPPORT_EMAIL in the environment the moment support@frontdeskai.company
- * actually receives mail. The default stays on the working inbox on purpose —
- * an address that bounces is strictly worse than an unglamorous one, so this
- * flips over only when there is somewhere real for it to land.
+ * support@frontdeskai.company forwards (Forward Email MX on the domain), so
+ * it is the public default. SUPPORT_EMAIL overrides it.
  */
-export const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? "arigberkowitz@gmail.com";
+export const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || "support@frontdeskai.company";
 
 /** `mailto:` href for {@link SUPPORT_EMAIL}, optionally with a subject. */
 export function supportMailto(subject?: string): string {

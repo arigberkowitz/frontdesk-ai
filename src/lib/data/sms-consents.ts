@@ -13,7 +13,14 @@ import { LANGUAGE_OPTIONS, normalizeCustomerLanguage } from "@/lib/languages";
  * /sms-consent, and the A2P campaign registered with the carriers. Bump it if
  * the ask ever changes, so old rows keep saying what was actually agreed to.
  */
-export const CONSENT_WORDING_VERSION = "booking-v1";
+export const CONSENT_WORDING_VERSION = "booking-v2";
+
+/**
+ * Older scripts still on file. booking-v1 asked for "the confirmation and a
+ * reminder"; booking-v2 adds "and a quick follow-up about this visit" so the
+ * review request and reschedule texts are covered by what the caller heard.
+ */
+const PREVIOUS_WORDING_VERSIONS = ["booking-v1"] as const;
 
 /**
  * The same ask, made in the caller's language (multilingual answering):
@@ -27,10 +34,10 @@ export function consentWordingFor(language: string | null | undefined): string {
 }
 
 /** booking-v1 and its translations: one consent, asked in different languages. */
-const BOOKING_V1_WORDINGS: readonly string[] = [
-  CONSENT_WORDING_VERSION,
-  ...LANGUAGE_OPTIONS.filter((l) => l.code !== "en").map((l) => `${CONSENT_WORDING_VERSION}-${l.code}`),
-];
+const BOOKING_V1_WORDINGS: readonly string[] = [CONSENT_WORDING_VERSION, ...PREVIOUS_WORDING_VERSIONS].flatMap((v) => [
+  v,
+  ...LANGUAGE_OPTIONS.filter((l) => l.code !== "en").map((l) => `${v}-${l.code}`),
+]);
 
 /**
  * Write the receipt for a "yes, text me".
