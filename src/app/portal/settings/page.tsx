@@ -10,7 +10,8 @@ import { DangerZone } from "@/components/portal/danger-zone";
 import { LegacySettingsHash } from "@/components/portal/legacy-settings-hash";
 import { toSafeClient } from "@/lib/client-safe";
 import { ManageBilling } from "@/components/portal/manage-billing";
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
+import { subscriptionInterval } from "@/lib/subscription-interval";
 import { PlanCard } from "@/components/portal/plan-card";
 import { minutesUsage, periodStart } from "@/lib/minutes";
 import { PLANS, type PlanKey } from "@/config/plans";
@@ -44,9 +45,11 @@ export default async function PortalSettingsPage({
           plan: subscriptions.plan,
           status: subscriptions.status,
           currentPeriodEnd: subscriptions.currentPeriodEnd,
+          subId: subscriptions.stripeSubscriptionId,
         })
         .from(subscriptions)
-        .where(eq(subscriptions.clientId, clientId))
+        .where(and(eq(subscriptions.clientId, clientId), isNull(subscriptions.deletedAt)))
+        .orderBy(desc(subscriptions.createdAt))
         .limit(1)
     : [];
 
@@ -55,6 +58,7 @@ export default async function PortalSettingsPage({
       ? (sub.plan as PlanKey)
       : null;
   let usage = null;
+  const interval = planKey ? await subscriptionInterval(sub?.subId) : "month";
   if (planKey) {
     const [row] = await db
       .select({ seconds: sql<number>`coalesce(sum(${calls.durationSec}), 0)::int` })
@@ -87,7 +91,7 @@ export default async function PortalSettingsPage({
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
       />
       )}
-      {planKey && usage ? <PlanCard clientId={clientId} plan={planKey} usage={usage} /> : null}
+      {planKey && usage ? <PlanCard clientId={clientId} plan={planKey} usage={usage} interval={interval} /> : null}
       {sub?.customerId ? <ManageBilling clientId={clientId} /> : null}
       <DangerZone clientId={clientId} businessName={client.name} isAdmin={editAccess.isAdmin} hasBilling={Boolean(sub?.customerId)} />
     </div>

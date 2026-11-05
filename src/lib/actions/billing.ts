@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { audit } from "@/lib/data/audit";
@@ -263,7 +263,8 @@ export async function changePlanAction(_prev: ActionState, formData: FormData): 
   const [sub] = await db
     .select({ subId: subscriptions.stripeSubscriptionId, plan: subscriptions.plan, status: subscriptions.status })
     .from(subscriptions)
-    .where(eq(subscriptions.clientId, clientId))
+    .where(and(eq(subscriptions.clientId, clientId), isNull(subscriptions.deletedAt)))
+    .orderBy(desc(subscriptions.createdAt))
     .limit(1);
   if (!sub?.subId || (sub.status !== "active" && sub.status !== "trialing")) {
     return { ok: false, error: "There's no active plan to change yet — pick a plan first." };
@@ -276,6 +277,17 @@ export async function changePlanAction(_prev: ActionState, formData: FormData): 
     const item = current.items.data[0];
     if (!item) return { ok: false, error: "Couldn't read your current plan. Reach us from Settings → Help." };
     const interval = item.price.recurring?.interval === "year" ? "year" : "month";
+    // A named Stripe Price, when one is configured, same as checkout uses.
+    const namedPrice = stripePriceId(planKey, interval);
+    if (namedPrice) {
+      await stripe.subscriptions.update(sub.subId, {
+        items: [{ id: item.id, price: namedPrice }],
+        proration_behavior: "create_prorations",
+        metadata: { ...current.metadata, clientId, plan: planKey },
+      });
+      void audit({ clientId, actor: guard.user.id, action: "billing.plan_changed", detail: { from: sub.plan, to: planKey } });
+      return { ok: true, message: `Switched to ${plan.name}. Your receptionist updates in a minute.` };
+    }
     const product = await stripe.products.create({
       name: `FrontDesk AI — ${plan.name} (${interval}ly)`,
       tax_code: SAAS_TAX_CODE,
@@ -287,7 +299,7 @@ export async function changePlanAction(_prev: ActionState, formData: FormData): 
           price_data: {
             currency: "usd",
             product: product.id,
-            unit_amount: interval === "year" ? plan.monthlyPriceCents * 10 : plan.monthlyPriceCents,
+            unit_amount: intervalPriceCents(planKey, interval),
             recurring: { interval },
           },
         },

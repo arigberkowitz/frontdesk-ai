@@ -17,7 +17,10 @@ export function PlanCard({
   clientId,
   plan,
   usage,
+  interval = "month",
 }: {
+  /** What they actually pay: prices are quoted per month or per year to match. */
+  interval?: "month" | "year";
   clientId: string;
   plan: PlanKey;
   usage: MinutesUsage;
@@ -30,6 +33,8 @@ export function PlanCard({
   }, initialActionState);
 
   const current = PLANS[plan];
+  const per = interval === "year" ? "/yr" : "/mo";
+  const price = (cents: number) => fmt(interval === "year" ? cents * 10 : cents) + per;
   const others = planList().filter((p) => p.key !== plan);
   const bar =
     usage.tone === "over" ? "bg-red-500" : usage.tone === "near" ? "bg-amber-500" : "bg-emerald-500";
@@ -38,7 +43,9 @@ export function PlanCard({
     <Card>
       <CardHeader>
         <CardTitle>Your plan: {current?.name ?? plan}</CardTitle>
-        <CardDescription>{current ? `${fmt(current.monthlyPriceCents)}/mo · no overage charges` : null}</CardDescription>
+        <CardDescription>{current
+            ? `${price(current.monthlyPriceCents)}${interval === "year" ? " (billed yearly)" : ""} · no overage charges`
+            : null}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1.5">
@@ -60,7 +67,7 @@ export function PlanCard({
                 <input type="hidden" name="plan" value={p.key} />
                 <SubmitButton pending={pending} size="sm" variant={up ? "default" : "outline"}>
                   {up ? <ArrowUpRight className="size-4" /> : null}
-                  {up ? "Upgrade" : "Switch"} to {p.name} · {fmt(p.monthlyPriceCents)}/mo
+                  {up ? "Upgrade" : "Switch"} to {p.name} · {price(p.monthlyPriceCents)}
                 </SubmitButton>
               </form>
             );

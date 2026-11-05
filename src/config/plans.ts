@@ -40,6 +40,7 @@ export const PLANS: Record<PlanKey, Plan> = {
     highlights: [
       "Answers missed & after-hours calls only",
       "Books appointments & captures leads on those calls",
+      "Confirmation & reminder texts",
       "Instant owner alerts",
       "English & Spanish, automatically",
       "Spam & robocall screening",
