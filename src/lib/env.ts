@@ -111,11 +111,11 @@ export const env = {
   // exactly "on": with it off nothing is bought, submitted, or shown, so merging
   // the code changes nothing live. See drizzle/manual/0020_tollfree_texting.sql.
   TOLLFREE_SMS_ENABLED: process.env.TOLLFREE_SMS_ENABLED === "on",
-  // Shared secret in the Event Streams webhook URL (?token=...). The webhook
-  // never trusts the event body anyway; it re-reads the verification from Twilio.
   // Owner texting switch + quiet hours (Settings → Phone & AI). Off unless
   // exactly "on", so merging changes no live sending.
   OWNER_TEXTING_CONTROLS: process.env.OWNER_TEXTING_CONTROLS === "on",
+  // Shared secret in the Event Streams webhook URL (?token=...). The webhook
+  // never trusts the event body anyway; it re-reads the verification from Twilio.
   TOLLFREE_WEBHOOK_SECRET: (process.env.TOLLFREE_WEBHOOK_SECRET ?? "").trim(),
   // Where customer replies to our emails land, and the HELP-text contact.
   // Unset = no reply-to (the sending domain has no inbox) and emails point to
