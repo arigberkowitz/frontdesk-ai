@@ -495,7 +495,7 @@ export const services = pgTable(
     name: text("name").notNull(),
     durationMin: integer("duration_min").notNull().default(30),
     priceCents: integer("price_cents"),
-    // Optional top of a price range ("$150–$300"). Migration: drizzle/manual/0020_trades_essentials.sql.
+    // Optional top of a price range ("$150–$300"). Migration: drizzle/manual/0021_trades_essentials.sql.
     priceMaxCents: integer("price_max_cents"),
     // "Starts at $X": priceCents is a floor, not the price.
     priceFrom: boolean("price_from").notNull().default(false),
@@ -627,7 +627,7 @@ export const appointments = pgTable(
     customerPhone: text("customer_phone"),
     // Optional; collected by the web chat. Migration: drizzle/manual/0018_appointment_customer_email.sql.
     customerEmail: text("customer_email"),
-    // Where the job is (trades go to the customer). Migration: drizzle/manual/0020_trades_essentials.sql.
+    // Where the job is (trades go to the customer). Migration: drizzle/manual/0021_trades_essentials.sql.
     serviceAddress: text("service_address"),
     serviceId: uuid("service_id").references(() => services.id, { onDelete: "set null" }),
     // Staff mode: which team member this appointment is with.
