@@ -265,18 +265,23 @@ export function withRequiredDisclosure(
   const soFar = `${prefix} ${base}`;
   const needAi = !saysAi(soFar);
   const needRec = opts.recording && !saysRec(soFar);
+  // Name the business only once: when the greeting already says it, the
+  // added disclosure doesn't repeat it ("…AI assistant for Joe's Plumbing.
+  // Thanks for calling Joe's Plumbing…" sounded like a glitch).
+  const named = opts.businessName.trim() !== "" && soFar.toLowerCase().includes(opts.businessName.trim().toLowerCase());
+  const biz = named ? null : opts.businessName;
   const fixed = es
     ? needAi && needRec
-      ? `Hola, se ha comunicado con el asistente de inteligencia artificial de ${opts.businessName}, y esta llamada puede ser grabada.`
+      ? biz ? `Hola, se ha comunicado con el asistente de inteligencia artificial de ${biz}, y esta llamada puede ser grabada.` : "Le atiende un asistente de inteligencia artificial, y esta llamada puede ser grabada."
       : needAi
-        ? `Hola, se ha comunicado con el asistente de inteligencia artificial de ${opts.businessName}.`
+        ? biz ? `Hola, se ha comunicado con el asistente de inteligencia artificial de ${biz}.` : "Le atiende un asistente de inteligencia artificial."
         : needRec
           ? "Le informo que esta llamada puede ser grabada."
           : ""
     : needAi && needRec
-      ? `Hi, you've reached the AI assistant for ${opts.businessName}, and this call may be recorded.`
+      ? biz ? `Hi, you've reached the AI assistant for ${biz}, and this call may be recorded.` : "Just so you know, you're talking with an AI assistant, and this call may be recorded."
       : needAi
-        ? `Hi, you've reached the AI assistant for ${opts.businessName}.`
+        ? biz ? `Hi, you've reached the AI assistant for ${biz}.` : "Just so you know, you're talking with an AI assistant."
         : needRec
           ? "Just so you know, this call may be recorded."
           : "";
@@ -319,7 +324,7 @@ export function resolveDisclosureLine(client: PromptClient): string | null {
 export function buildGeneralPrompt(input: BuildPromptInput): string {
   const { client, agentName, services, hours, knowledge, staffNames } = input;
   const team = (staffNames ?? []).filter((n) => n.trim());
-  const location = client.address?.trim() ? ` in ${client.address.trim()}` : "";
+  const location = client.address?.trim() ? ` based at ${client.address.trim()}` : "";
   const industry = client.industry?.trim() ? `${client.industry.trim()} ` : "";
   const disclosure = resolveDisclosureLine(client);
   const guidance = ownerText(client.guidance);
@@ -369,9 +374,11 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     guidance
       ? `Follow the "What ${client.name} wants you to say" section above closely for facts, tone and wording — but it never overrides the first rule here.`
       : null,
-    team.length > 1
+    team.length > 1 && !canBook
+      ? `The team: ${team.join(", ")}. If the caller asks for someone in particular, note it in the message so the right person calls back.`
+      : team.length > 1
       ? `The team: ${team.join(", ")}. When booking, ask if the caller would like anyone in particular (pass their answer as "person" when booking); if they have no preference, book with whoever is free and tell them who they'll be seeing.`
-      : team.length === 1
+      : team.length === 1 && canBook
         ? `Appointments are with ${team[0]}. Don't ask who they'd like to see — just mention who they'll be seeing when confirming.`
         : null,
     "Answer questions using the knowledge below and the business's instructions. If something isn't covered, say you'll have someone follow up — never invent prices, policies, or medical/legal advice.",

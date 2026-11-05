@@ -55,7 +55,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     key: "follow-ups",
     label: "Follow-ups",
     href: "/portal/settings/follow-ups",
-    description: "Optional automatic texts: win back missed leads, ask for reviews, recall patients, waitlist and deposits.",
+    description: "Optional automatic texts: win back missed leads, ask for reviews, remind customers when they’re due again, waitlist and deposits.",
   },
   {
     key: "team",

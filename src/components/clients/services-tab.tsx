@@ -56,7 +56,7 @@ function ServiceForm({
       <input type="hidden" name="clientId" value={clientId} />
       {service ? <input type="hidden" name="serviceId" value={service.id} /> : null}
       <Field label="Name" error={state.fieldErrors?.name}>
-        <Input name="name" defaultValue={service?.name} required placeholder="Teeth cleaning" />
+        <Input name="name" defaultValue={service?.name} required placeholder="e.g. Drain cleaning" />
       </Field>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Duration (min)" error={state.fieldErrors?.durationMin}>
@@ -106,7 +106,7 @@ function ServiceForm({
       </Field>
       <Field
         label="Book them again after (days)"
-        hint="Leave empty for one-off work. A dental cleaning is 180, a haircut around 28, a furnace service 180 — when it comes due we can text the customer and offer to rebook."
+        hint="Leave empty for one-off work. A furnace or AC tune-up is about 180, a haircut around 28, a dental cleaning 180 — when it comes due we can text the customer and offer to rebook."
         error={state.fieldErrors?.recallIntervalDays}
       >
         <Input

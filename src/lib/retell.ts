@@ -20,7 +20,10 @@ import {
  */
 
 export const DEFAULT_RETELL_MODEL = "gpt-4.1-mini" as const;
-export const DEFAULT_VOICE_ID = "11labs-Adrian";
+// Female, to match the default receptionist name "Riley" (owner audit: a man's
+// voice saying "This is Riley" read as a mistake). Marissa is one of the two
+// voices in RECOMMENDED_VOICES that the app already provisions with.
+export const DEFAULT_VOICE_ID = "11labs-Marissa";
 
 /**
  * Dead-air handling (butt dials, fake numbers, dropped audio). After this much

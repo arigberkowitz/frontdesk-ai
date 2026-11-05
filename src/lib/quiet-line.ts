@@ -1,9 +1,9 @@
 import "server-only";
+import { forwardingCodes } from "@/lib/forwarding-codes";
 import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { calls, clients, notifications, type Client } from "@/db/schema";
 import { notifier } from "./notifier";
-import { formatPhone } from "./format";
 import { tzDayKey } from "./tz";
 import { logger } from "./logger";
 
@@ -186,22 +186,19 @@ async function sendQuietAlert(
     month: "long",
     day: "numeric",
   }).format(lastCallAt);
-  const aiNumber = formatPhone(client.retellPhoneNumber);
   const perWeek = Math.round((baselineCalls / BASELINE_DAYS) * 7);
 
   const line1 = `Your AI hasn't answered a call since ${when} — that's ${quietDays} open days with nothing coming through.`;
-  const line2 = `You normally take around ${perWeek} calls a week, so this might mean call forwarding got switched off. That happens after a phone reset, a carrier change, or someone dialling *73.`;
-  const line3 = `To turn it back on: from your business phone, dial *72 ${aiNumber}, wait for the tone, and hang up.`;
+  const line2 = `You normally take around ${perWeek} calls a week, so this might mean call forwarding got switched off. That happens after a phone reset, a carrier change, or someone dialling the turn-off code.`;
+  const fwd = forwardingCodes(client.answeringMode, client.retellPhoneNumber ?? "");
+  const line3 = `To turn it back on: ${fwd.turnOn}`;
   const line4 = `If you're just having a quiet week, ignore this — we can't see your carrier's settings, only that the calls stopped.`;
   const text = [line1, line2, line3, line4].join("\n\n");
 
   const subject = `${client.name}: your AI hasn't taken a call in ${quietDays} days`;
 
   if (client.ownerEmail?.trim()) {
-    const html = `<p>${line1}</p><p>${line2}</p><p>${line3.replace(
-      `*72 ${aiNumber}`,
-      `<strong>*72 ${aiNumber}</strong>`,
-    )}</p><p style="color:#666">${line4}</p>`;
+    const html = `<p>${line1}</p><p>${line2}</p><p>To turn it back on: ${fwd.turnOnHtml}</p><p style="color:#666">${line4}</p>`;
     const result = await notifier.sendEmail({
       to: client.ownerEmail.trim(),
       subject,
@@ -222,7 +219,7 @@ async function sendQuietAlert(
   // SMS only if they opted into text alerts — this is important, not urgent.
   const sms = client.escalationNumber?.trim();
   if (sms && client.smsAlertsEnabled) {
-    const body = `${client.name}: your AI hasn't taken a call since ${when}. Forwarding may be off — dial *72 ${aiNumber} from your business phone to turn it back on.`;
+    const body = `${client.name}: your AI hasn't taken a call since ${when}. Forwarding may be off — from your business phone, ${fwd.short} to turn it back on.`;
     const result = await notifier.sendSms({ to: sms, body });
     await db.insert(notifications).values({
       clientId: client.id,

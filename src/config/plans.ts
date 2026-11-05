@@ -41,6 +41,7 @@ export const PLANS: Record<PlanKey, Plan> = {
       "Answers missed & after-hours calls only",
       "Books appointments & captures leads on those calls",
       "Instant owner alerts",
+      "English & Spanish, automatically",
       "Spam & robocall screening",
       "Upgrade to 24/7 coverage anytime",
     ],
@@ -68,12 +69,12 @@ export const PLANS: Record<PlanKey, Plan> = {
     setupFeeCents: 0,
     listed: true,
     includedMinutes: null,
-    description: "The receptionist that calls back, books by team member, and tunes itself nightly.",
+    description: "For teams: calls leads back on request, books by team member, and gets better every week.",
     highlights: [
       "Everything in Starter",
-      "AI calls your leads back",
+      "One tap: your AI calls a lead back for you",
       "Staff mode — team members with their own calendars",
-      "Nightly AI self-review & tuning of your receptionist",
+      "Every night we review your calls and suggest better answers for you to approve",
     ],
   },
   // Retired: folded into Pro. Kept defined, and only defined, so any

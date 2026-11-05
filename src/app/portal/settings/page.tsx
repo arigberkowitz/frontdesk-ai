@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
@@ -66,12 +67,26 @@ export default async function PortalSettingsPage({
     <div className="space-y-6">
       <LegacySettingsHash />
       <BusinessDetailsForm client={toSafeClient(client)} />
+      {/* While the checklist is still showing on Overview, don't show the same
+          nine steps again here (owner audit: "why is my checklist twice?") —
+          just point to it. Once it's finished or hidden there, this is where
+          it lives. */}
+      {!setup.finishedAt && !setup.hiddenAt ? (
+        <p className="rounded-xl border bg-card px-5 py-4 text-sm text-muted-foreground">
+          Still setting up? Your checklist is on{" "}
+          <Link href="/portal" className="font-medium text-foreground underline underline-offset-2">
+            Overview
+          </Link>
+          .
+        </p>
+      ) : (
       <SetupChecklist
         clientId={clientId}
         variant="settings"
         canEdit={editAccess.canEdit}
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
       />
+      )}
       {planKey && usage ? <PlanCard clientId={clientId} plan={planKey} usage={usage} /> : null}
       {sub?.customerId ? <ManageBilling clientId={clientId} /> : null}
       <DangerZone clientId={clientId} businessName={client.name} isAdmin={editAccess.isAdmin} hasBilling={Boolean(sub?.customerId)} />

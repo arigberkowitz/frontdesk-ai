@@ -10,7 +10,7 @@ import { NativeSelect } from "@/components/form/native-select";
 import { SubmitButton } from "@/components/form/submit-button";
 import { savePortalProfileAction } from "@/lib/actions/portal";
 import { initialActionState } from "@/lib/actions/types";
-import { TIMEZONES } from "@/config/options";
+import { TIMEZONES, TIMEZONE_LABELS } from "@/config/options";
 
 /**
  * Timezone lives next to hours (they only mean something together). The same
@@ -39,7 +39,7 @@ export function TimezoneCard({ clientId, timezone }: { clientId: string; timezon
               <NativeSelect name="timezone" defaultValue={timezone}>
                 {TIMEZONES.map((t) => (
                   <option key={t} value={t}>
-                    {t}
+                    {TIMEZONE_LABELS[t]}
                   </option>
                 ))}
               </NativeSelect>

@@ -167,7 +167,7 @@ describe("stripe webhook retries", () => {
     const res = await POST(stripeEvent("evt_rescue", "active", "backup"));
     expect(res.status).toBe(200);
     expect(clientUpdates).toEqual([
-      { status: "live", trialEndsAt: null, answeringMode: "missed_only", staffModeEnabled: false },
+      { status: "live", trialEndsAt: null, answeringMode: "missed_only", staffModeEnabled: false, languages: "en-es" },
     ]);
     for (const t of afterTasks) await t();
     expect(syncAgentPrompt).toHaveBeenCalledWith("org-1", "client-1");

@@ -234,3 +234,16 @@ describe("texts in the customer's language", () => {
     expect(textLanguage("es")).toBe("es");
   });
 });
+
+describe("business line in appointment texts (owner audit)", () => {
+  it("reminder and confirmation give the business's own AI line when passed", () => {
+    const r = reminderText({ business: "Joe's Plumbing", customerName: "Ana", when: "Nov 5, 2026, 9:00 AM", businessLine: "(305) 555-0142" });
+    expect(r).toContain("Call Joe's Plumbing at (305) 555-0142.");
+    const c = confirmationText({ business: "Joe's Plumbing", customerName: "Ana", when: "Nov 5, 2026, 9:00 AM", businessLine: "(305) 555-0142", language: "es" });
+    expect(c).toContain("Llame al (305) 555-0142.");
+  });
+  it("ignores a businessLine that isn't a phone number", () => {
+    const r = reminderText({ business: "Joe's Plumbing", customerName: null, when: "Nov 5", businessLine: "call my cell lol" });
+    expect(r).toContain("Give Joe's Plumbing a call.");
+  });
+});

@@ -13,7 +13,7 @@ describe("weekOverWeek", () => {
   it("never prints a percentage over a week of zeros", () => {
     const t = weekOverWeek(days(z7, [0, 0, 1, 2, 0, 0, 1]));
     expect(t?.pct).toBeNull();
-    expect(t?.text).toMatch(/first week/);
+    expect(t?.text).toMatch(/none last week/);
     expect(t?.tone).toBe("up");
   });
 
@@ -36,6 +36,6 @@ describe("weekOverWeek", () => {
 
   it("formats the first-week figure with the caller's formatter", () => {
     const t = weekOverWeek(days(z7, [0, 0, 12500, 0, 0, 0, 0]), (n) => `$${n / 100}`);
-    expect(t?.text).toBe("$125 this week — first week with any");
+    expect(t?.text).toBe("$125 this week · none last week");
   });
 });

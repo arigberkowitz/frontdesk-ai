@@ -73,6 +73,11 @@ export function dueForReminder(
  * there is no phone parameter at all, and any phone-like digit run that
  * sneaks in through a name/service/business field (e.g. a spoken name that
  * was really a number) is removed.
+ *
+ * One exception (owner audit, 2026-11-04): `businessLine`, which callers fill
+ * ONLY with the business's own AI number (clients.retell_phone_number) — the
+ * public line the AI answers, never a personal cell. "Give Joe's Plumbing a
+ * call" with no number was a dead end for the customer.
  */
 const PHONE_LIKE = /\+?\(?\d[\d\s().-]{5,}\d/g;
 
@@ -112,6 +117,11 @@ export function endSentence(when: string): string {
   return when.endsWith(".") ? when : `${when}.`;
 }
 
+function lineFor(opts: { businessLine?: string | null }): string {
+  const l = (opts.businessLine ?? "").trim();
+  return /^[\d\s()+.-]{7,20}$/.test(l) ? l : "";
+}
+
 export function confirmationText(opts: {
   business: string;
   customerName: string | null;
@@ -122,6 +132,8 @@ export function confirmationText(opts: {
   serviceAddress?: string | null;
   /** The customer's language code, when known. */
   language?: string | null;
+  /** The business's own AI line (formatted). Never an escalation/personal number. */
+  businessLine?: string | null;
 }): string {
   const business = stripPhoneNumbers(opts.business);
   const serviceName = stripPhoneNumbers(opts.serviceName);
@@ -132,7 +144,7 @@ export function confirmationText(opts: {
       `Hola${firstName(opts.customerName)}, su cita con ${business} está confirmada: ${serviceName ? `${serviceName}, ` : ""}${endSentence(opts.when)}` +
       (address ? ` Dirección: ${endSentence(address)}` : "") +
       (opts.meetingUrl ? ` Únase por video: ${opts.meetingUrl}` : "") +
-      ` ¿Necesita cambiarla? Llame a ${business}.` +
+      (lineFor(opts) ? ` ¿Necesita cambiarla? Llame al ${lineFor(opts)}.` : ` ¿Necesita cambiarla? Llame a ${business}.`) +
       ` Responda STOP para no recibir más mensajes.`
     );
   }
@@ -141,7 +153,7 @@ export function confirmationText(opts: {
     `Hi${firstName(opts.customerName)}, you're booked with ${business} — ${service}on ${endSentence(opts.when)}` +
     (address ? ` At: ${endSentence(address)}` : "") +
     (opts.meetingUrl ? ` Join by video: ${opts.meetingUrl}` : "") +
-    ` Need to change it? Give ${business} a call.` +
+    (lineFor(opts) ? ` Need to change it? Call ${business} at ${lineFor(opts)}.` : ` Need to change it? Give ${business} a call.`) +
     ` Reply STOP to opt out.`
   );
 }
@@ -153,20 +165,22 @@ export function reminderText(opts: {
   meetingUrl?: string | null;
   /** The customer's language code, when known. */
   language?: string | null;
+  /** The business's own AI line (formatted). Never an escalation/personal number. */
+  businessLine?: string | null;
 }): string {
   const business = stripPhoneNumbers(opts.business);
   if (textLanguage(opts.language) === "es") {
     return (
       `Hola${firstName(opts.customerName)}, le recordamos su cita con ${business}: ${endSentence(opts.when)}` +
       (opts.meetingUrl ? ` Únase por video: ${opts.meetingUrl}` : "") +
-      ` ¿Necesita cambiarla? Llame a ${business}.` +
+      (lineFor(opts) ? ` ¿Necesita cambiarla? Llame al ${lineFor(opts)}.` : ` ¿Necesita cambiarla? Llame a ${business}.`) +
       ` Responda STOP para no recibir más mensajes.`
     );
   }
   return (
     `Hi${firstName(opts.customerName)}, a reminder of your appointment with ${business} on ${endSentence(opts.when)}` +
     (opts.meetingUrl ? ` Join by video: ${opts.meetingUrl}` : "") +
-    ` Need to reschedule? Give ${business} a call.` +
+    (lineFor(opts) ? ` Need to reschedule? Call ${business} at ${lineFor(opts)}.` : ` Need to reschedule? Give ${business} a call.`) +
     ` Reply STOP to opt out.`
   );
 }

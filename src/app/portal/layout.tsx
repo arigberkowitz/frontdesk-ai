@@ -7,9 +7,8 @@ import { countUnreadMessages } from "@/lib/data/sms-messages";
 import { PortalSidebar, PortalTabBar } from "@/components/portal/portal-nav";
 import { UserMenuButton } from "@/components/user-menu-button";
 import { CommandPalette } from "@/components/command-palette";
-import { ChatBubble } from "@/components/portal/chat-bubble";
 import { LiveCallStrip } from "@/components/portal/live-call-strip";
-import { env, integrations } from "@/lib/env";
+import { integrations } from "@/lib/env";
 import { getTrialState } from "@/lib/data/trial";
 import { getTrialProgress } from "@/lib/data/trial-progress";
 import { daysLeftLabel, trialStripSummary, upgradePlan } from "@/lib/trial-progress";
@@ -117,9 +116,8 @@ export default async function PortalLayout({ children }: { children: React.React
         </main>
       </div>
       <PortalTabBar showTeam={showTeam} unreadMessages={unreadMessages} />
-      {client?.chatWidgetEnabled ? (
-        <ChatBubble clientId={clientId} appUrl={env.APP_URL.replace(/\/$/, "")} />
-      ) : null}
+      {/* No public chat widget here: it's the customer-facing Riley and can't
+          see the owner's data. The owner copilot lives on Overview. */}
       <footer className="border-t border-border/70 px-4 py-4 text-center text-xs text-muted-foreground sm:px-6">
         FrontDesk AI ·{" "}
         <Link
