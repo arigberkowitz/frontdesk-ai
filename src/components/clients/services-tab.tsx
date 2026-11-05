@@ -14,6 +14,7 @@ import { ConfirmDelete, ConfirmDeleteAction } from "@/components/confirm-delete"
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { servicePriceText } from "@/lib/prompt";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -71,6 +72,24 @@ function ServiceForm({
             placeholder="120"
           />
         </Field>
+      </div>
+      <Field
+        label="Up to ($) — optional"
+        hint="For jobs priced as a range, e.g. $150–$300. Your AI quotes ranges as estimates and says the final price is confirmed once the job is seen."
+        error={state.fieldErrors?.priceMaxDollars}
+      >
+        <Input
+          name="priceMaxDollars"
+          type="number"
+          min={0}
+          step="0.01"
+          defaultValue={service?.priceMaxCents != null ? service.priceMaxCents / 100 : ""}
+          placeholder="300"
+        />
+      </Field>
+      <div className="flex items-center gap-2">
+        <Switch id="priceFrom" name="priceFrom" defaultChecked={service?.priceFrom ?? false} />
+        <Label htmlFor="priceFrom">Price is a starting price (&ldquo;starts at&rdquo;)</Label>
       </div>
       <Field
         label="People who can do this at the same time"
@@ -164,8 +183,24 @@ function ServiceDialog({ clientId, service }: { clientId: string; service?: Serv
 
 /** "$1,000" reads as a fee; "Free" reads as an invitation. Render the price
  *  the way the AI quotes it on a call. */
-function PriceTag({ cents }: { cents: number | null }) {
+function PriceTag({
+  cents,
+  maxCents,
+  from,
+}: {
+  cents: number | null;
+  maxCents?: number | null;
+  from?: boolean;
+}) {
   if (cents == null) return null;
+  const text = servicePriceText({ priceCents: cents, priceMaxCents: maxCents, priceFrom: from });
+  if (text !== formatCurrencyCents(cents)) {
+    return (
+      <span className="font-heading text-lg font-semibold tracking-tight whitespace-nowrap">
+        {text.replace(/^starts at/, "From")}
+      </span>
+    );
+  }
   if (cents === 0) {
     return (
       <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
@@ -272,7 +307,7 @@ export function ServicesTab({ clientId, services }: { clientId: string; services
                     </span>
                   ) : null}
                 </div>
-                <PriceTag cents={s.priceCents} />
+                <PriceTag cents={s.priceCents} maxCents={s.priceMaxCents} from={s.priceFrom} />
               </div>
             </li>
           ))}

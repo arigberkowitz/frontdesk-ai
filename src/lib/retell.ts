@@ -41,6 +41,7 @@ export const AGENT_TOOL_NAMES = {
   takeMessage: "take_message",
   joinWaitlist: "join_waitlist",
   transferToHuman: "transfer_to_human",
+  transferEmergency: "transfer_emergency",
   endCall: "end_call",
 } as const;
 
@@ -182,8 +183,11 @@ export function buildAgentTools(
    *  endpoint refuses either way, but an AI that offers a waitlist and then
    *  can't deliver one has already made a promise on the business's behalf. */
   waitlistEnabled = false,
+  /** On-call number emergencies go to at ANY hour (null: urgent message instead). */
+  emergencyNumber?: string | null,
 ) {
   const transferTo = toE164(escalationNumber);
+  const emergencyTo = toE164(emergencyNumber);
   const tools = [
     {
       type: "custom" as const,
@@ -234,6 +238,11 @@ export function buildAgentTools(
             description:
               'Optional: the language the caller spoke, as a code ("en", "es", "fr"…). Their texts are sent in it.',
           },
+          service_address: {
+            type: "string",
+            description:
+              "Street address where the work is (with unit and town), when the job is at the caller's location.",
+          },
         },
         required: ["service", "datetime", "name", "phone", "sms_consent"],
       },
@@ -280,6 +289,16 @@ export function buildAgentTools(
           service: { type: "string", description: "What the caller wants/needs." },
           urgency: { type: "string", description: "How soon they need it, e.g. 'ASAP', 'this week'." },
           budget: { type: "string", description: "Any budget the caller mentioned." },
+          service_address: {
+            type: "string",
+            description:
+              "Street address where the work is (with unit and town), when the job is at the caller's location.",
+          },
+          emergency: {
+            type: "boolean",
+            description:
+              "true ONLY for a genuine emergency (flooding, burst pipe, no heat, gas smell, no power, a safety problem). The owner is texted and emailed immediately.",
+          },
         },
         required: ["name", "phone"],
       },
@@ -351,6 +370,21 @@ export function buildAgentTools(
           speak_during_execution: true,
           parameters: { type: "object" as const, properties: {}, required: [] },
         },
+    ...(emergencyTo
+      ? [
+          {
+            type: "transfer_call" as const,
+            name: AGENT_TOOL_NAMES.transferEmergency,
+            description:
+              "Connect a caller with a genuine emergency (flooding, burst pipe, no heat, gas smell, no power, a safety problem) to the on-call person. Works at any hour, even when the business is closed. Never use it for routine requests.",
+            transfer_destination: { type: "predefined" as const, number: emergencyTo },
+            transfer_option: COLD_TRANSFER,
+            speak_during_execution: true,
+            execution_message_description:
+              "Briefly tell the caller you're connecting them to the on-call person now.",
+          },
+        ]
+      : []),
     // Without a hang-up tool the agent could only wait out the silence timer:
     // robocalls, voicemail greetings and finished callers held the line (and
     // the minutes) for another 30 seconds or more.
@@ -378,6 +412,10 @@ export interface ProvisionAgentInput {
   handoffMode?: "always" | "open_hours" | "never";
   /** Opening hours in one line, quoted in the transfer tool's description. */
   openHoursNote?: string | null;
+  /** Attach the waitlist tool (see buildAgentTools). */
+  waitlistEnabled?: boolean;
+  /** On-call number for 24/7 emergency transfers (see emergencyTransferFor). */
+  emergencyNumber?: string | null;
   /** Client languages setting (see lib/languages.ts). Decides the agent's speech model. */
   languages?: string | null;
   /** Business IANA timezone; sets the agent clock for {{current_time}}. */
@@ -474,6 +512,8 @@ export async function provisionAgentForClient(
     input.escalationNumber,
     input.handoffMode ?? "always",
     input.openHoursNote,
+    input.waitlistEnabled ?? false,
+    input.emergencyNumber,
   );
 
   // 1. LLM — create or update by stored id.

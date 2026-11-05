@@ -1,6 +1,6 @@
 import { DAYS } from "@/config/options";
 import { formatCurrencyCents } from "./format";
-import { hasCustomVocab, vocabFor } from "./vocab";
+import { hasCustomVocab, isFieldService, vocabFor } from "./vocab";
 import { languagePromptRules, parseLanguages } from "./languages";
 
 /**
@@ -38,12 +38,20 @@ export interface PromptClient {
   /** Whether a calendar is connected so the agent can actually book. When false,
    *  the agent must not promise booking — it takes a message to schedule instead. */
   bookingEnabled?: boolean;
+  /** Emergencies are put straight through to the on-call number at any hour. */
+  emergencyTransfer247?: boolean;
+  /** Flat trip / service-call fee in cents, quoted as an estimate. */
+  tripFeeCents?: number | null;
 }
 
 export interface PromptService {
   name: string;
   durationMin: number;
   priceCents?: number | null;
+  /** Top of a price range. */
+  priceMaxCents?: number | null;
+  /** priceCents is a "starts at" floor. */
+  priceFrom?: boolean | null;
   description?: string | null;
   /** Can be done by video — a Meet/Teams link is added to the booking. */
   virtualOk?: boolean;
@@ -143,12 +151,32 @@ export function openHoursSummary(hours: PromptHours[]): string {
     .join(", ");
 }
 
+/**
+ * How a service's price reads, to a caller and to the AI: "$150",
+ * "$150–$300", or "starts at $150". Trades rarely have one fixed price, and a
+ * single number read out as a quote is a promise the owner never made.
+ */
+export function servicePriceText(s: Pick<PromptService, "priceCents" | "priceMaxCents" | "priceFrom">): string {
+  if (s.priceCents == null) return "";
+  const low = formatCurrencyCents(s.priceCents);
+  if (s.priceMaxCents != null && s.priceMaxCents > s.priceCents)
+    return `${low}–${formatCurrencyCents(s.priceMaxCents)}`;
+  return s.priceFrom ? `starts at ${low}` : low;
+}
+
+function servicePriceLabel(s: PromptService): string {
+  const t = servicePriceText(s);
+  if (!t) return "";
+  const estimate = (s.priceMaxCents != null && s.priceMaxCents > (s.priceCents ?? 0)) || s.priceFrom;
+  return ` — ${t}${estimate ? " (estimate — final price after the job is seen)" : ""}`;
+}
+
 function servicesBlock(services: PromptService[]): string {
   const active = services.filter((s) => s.isActive);
   if (!active.length) return "No bookable services configured yet.";
   return active
     .map((s) => {
-      const price = s.priceCents != null ? ` — ${formatCurrencyCents(s.priceCents)}` : "";
+      const price = servicePriceLabel(s);
       const dur = ` (${s.durationMin} min)`;
       const desc = s.description?.trim() ?? "";
       const video = s.virtualOk
@@ -309,6 +337,11 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
   // prompt must say so too, or the agent promises "let me connect you" and
   // then can't — so with no number, every saved mode behaves as "never".
   const canTransfer = Boolean(client.escalationNumber?.trim());
+  const emergencyTransfer = canTransfer && client.emergencyTransfer247 === true;
+  const fieldService = isFieldService(client.industry);
+  const tripFee = client.tripFeeCents != null && client.tripFeeCents > 0
+    ? formatCurrencyCents(client.tripFeeCents)
+    : null;
   const handoffMode = canTransfer ? (client.handoffMode ?? "always") : "never";
   const handoff = client.humanHandoffEnabled !== false && handoffMode !== "never";
   const humanHours = client.humanHoursNote?.trim();
@@ -397,12 +430,23 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     // second time. So the third ask is forbidden — change tactic instead.
     "NEVER ask for the same piece of information three times. If you didn't catch something the first time, ask once more. If you still don't have it, STOP asking that way — either ask them to spell it slowly letter by letter, or say \"let me have someone confirm this with you\" and move on with whatever else you can get. A caller who is asked a third time hangs up and does not call back.",
     "Read back anything you'll act on — names, phone numbers, addresses, dates — and get a yes before you use it. If a caller corrects you twice on the same detail, don't try a third time: apologize, capture what you have, and say a person will confirm it.",
+    fieldService
+      ? "This business goes to the customer, so every booking and every message needs the service address — the street address where the work is, including unit or apartment number and town. Ask for it once you know what they need, read it back, and pass it as service_address. If they won't give it, still take the booking or message and note that the address is missing."
+      : "If the service happens at the caller's location rather than at the business, ask for the service address and pass it as service_address when booking or taking a message.",
+    "Prices: every price above is an estimate unless it's a single fixed price. Say ranges and \"starts at\" prices exactly as written, and always add that the final price is confirmed once the team sees the job. Never quote a firm total, never add prices together into a quote, and never offer a discount.",
+    tripFee
+      ? `There is a ${tripFee} trip / service-call fee for a visit. Mention it when you book a visit or when the caller asks about cost, and say it plainly — never hide it, never waive it.`
+      : null,
     // An emergency must never be routed into a booking flow. This is the
     // failure with the worst ratio of consequence to visibility: it never
     // becomes a bad review, it becomes something much worse.
-    canTransfer
-      ? "Emergencies come first, before anything else. If a caller mentions anything that sounds urgent or dangerous — no heat, a gas smell, flooding, a burst pipe, a break-in, an accident, injury, severe pain, trouble breathing, or says the word emergency — stop whatever you were doing, do NOT try to book an appointment, and use transfer_to_human immediately. If nobody picks up, take their name, number and what's happening, tell them someone will call straight back, and say plainly that if it's a danger to anyone they should call 911."
-      : "Emergencies come first, before anything else. If a caller mentions anything that sounds urgent or dangerous — no heat, a gas smell, flooding, a burst pipe, a break-in, an accident, injury, severe pain, trouble breathing, or says the word emergency — stop whatever you were doing, do NOT try to book an appointment, and do not offer a transfer (there is no one to transfer to). Take their name, number and what's happening with take_message (urgency: 'emergency'), tell them someone will call straight back, and say plainly that if it's a danger to anyone they should call 911.",
+    emergencyTransfer
+      ? "Emergencies come first, before anything else. If a caller mentions anything that sounds urgent or dangerous — no heat, a gas smell, flooding, a burst pipe, a break-in, an accident, injury, severe pain, trouble breathing, or says the word emergency — stop whatever you were doing, do NOT try to book an appointment. Get their name and the address first in one quick question each, then use transfer_emergency immediately — it reaches the on-call person at ANY hour, including when the business is closed. If nobody picks up, take a message with take_message and emergency set to true (the owner is alerted straight away), tell them someone will call straight back, and say plainly that if it's a danger to anyone they should call 911."
+      : handoffMode === "always"
+      ? "Emergencies come first, before anything else. If a caller mentions anything that sounds urgent or dangerous — no heat, a gas smell, flooding, a burst pipe, a break-in, an accident, injury, severe pain, trouble breathing, or says the word emergency — stop whatever you were doing, do NOT try to book an appointment, and use transfer_to_human immediately. If nobody picks up, take their name, number, address and what's happening with take_message and emergency set to true (the owner is alerted straight away), tell them someone will call straight back, and say plainly that if it's a danger to anyone they should call 911."
+      : handoffMode === "open_hours"
+      ? "Emergencies come first, before anything else. If a caller mentions anything that sounds urgent or dangerous — no heat, a gas smell, flooding, a burst pipe, a break-in, an accident, injury, severe pain, trouble breathing, or says the word emergency — stop whatever you were doing and do NOT try to book an appointment. During opening hours use transfer_to_human immediately. Outside opening hours do not transfer: take their name, number, address and what's happening with take_message and emergency set to true — the owner is texted and emailed straight away — and tell them someone will call them back as soon as possible. Either way, say plainly that if it's a danger to anyone they should call 911."
+      : "Emergencies come first, before anything else. If a caller mentions anything that sounds urgent or dangerous — no heat, a gas smell, flooding, a burst pipe, a break-in, an accident, injury, severe pain, trouble breathing, or says the word emergency — stop whatever you were doing, do NOT try to book an appointment, and do not offer a transfer (there is no one to transfer to). Take their name, number, address and what's happening with take_message and emergency set to true — the owner is texted and emailed straight away — tell them someone will call straight back, and say plainly that if it's a danger to anyone they should call 911.",
     // Utah requires an honest answer on request; Maine requires disclosure where
     // a caller could reasonably think you're human. Both are cheap to satisfy
     // and the alternative is a business publicly bragging that its customers

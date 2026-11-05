@@ -15,8 +15,7 @@
  * agent, knowledge, or settings.
  */
 
-import { ownerLine, ownerText, openHoursSummary } from "../prompt";
-import { formatCurrencyCents } from "../format";
+import { ownerLine, ownerText, openHoursSummary, servicePriceText } from "../prompt";
 
 /* --------------------------------- limits -------------------------------- */
 
@@ -257,7 +256,7 @@ export interface SmsPromptBusiness {
   guidance?: string | null;
   bookingInstructions?: string | null;
   bookingEnabled: boolean;
-  services: { name: string; durationMin: number | null; priceCents?: number | null; description?: string | null; isActive: boolean }[];
+  services: { name: string; durationMin: number | null; priceCents?: number | null; priceMaxCents?: number | null; priceFrom?: boolean | null; description?: string | null; isActive: boolean }[];
   hours: { dayOfWeek: number; isClosed: boolean; openTime?: string | null; closeTime?: string | null }[];
   knowledge: { question: string; answer: string; isActive: boolean }[];
 }
@@ -282,7 +281,7 @@ function servicesBlock(services: SmsPromptBusiness["services"]): string {
     .map((s) => {
       const bits = [ownerLine(s.name)];
       if (s.durationMin) bits.push(`${s.durationMin} min`);
-      if (s.priceCents != null) bits.push(formatCurrencyCents(s.priceCents));
+      if (s.priceCents != null) bits.push(`${servicePriceText(s)}${s.priceMaxCents != null || s.priceFrom ? " (estimate)" : ""}`);
       const desc = ownerLine(s.description).slice(0, 200);
       return `- ${bits.join(" · ")}${desc ? ` — ${desc}` : ""}`;
     })

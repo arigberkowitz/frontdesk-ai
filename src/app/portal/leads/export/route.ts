@@ -10,7 +10,7 @@ export async function GET(): Promise<Response> {
   const { clientId } = await resolvePortalClient();
   const rows = await listLeads(clientId);
   const csv = toCsv(
-    ["Captured", "Name", "Phone", "Reason", "Wants", "Timing", "Budget", "Message", "Status"],
+    ["Captured", "Name", "Phone", "Reason", "Wants", "Timing", "Budget", "Service address", "Message", "Status"],
     rows.map((l) => [
       l.createdAt.toISOString(),
       l.name,
@@ -19,6 +19,7 @@ export async function GET(): Promise<Response> {
       l.service,
       l.urgency,
       l.budget,
+      l.serviceAddress,
       l.message,
       l.status,
     ]),

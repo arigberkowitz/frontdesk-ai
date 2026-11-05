@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { notifications, type Appointment, type Client, type Lead } from "@/db/schema";
 import { notifier, type SendResult } from "./notifier";
 import { getAlertRecipients } from "./data/alert-contacts";
-import { formatDateTime, formatPhone } from "./format";
+import { formatDateTime, formatPhone, toE164 } from "./format";
 import { env } from "./env";
 import { logger } from "./logger";
 import { pushToClient } from "./push";
@@ -69,7 +69,7 @@ export async function notifyOwnerBooking(client: Client, appt: Appointment): Pro
   const smsTargets = client.smsAlertsEnabled ? phones : [];
 
   for (const sms of smsTargets) {
-    const body = `📅 New booking for ${client.name}: ${who} on ${when}. Callback: ${phone}`;
+    const body = `📅 New booking for ${client.name}: ${who} on ${when}. Callback: ${phone}${appt.serviceAddress ? ` · At: ${appt.serviceAddress}` : ""}`;
     const r = await notifier.sendSms({ to: sms, body });
     await logNotification(client.id, "booking", "sms", sms, { body, appointmentId: appt.id }, r);
   }
@@ -84,12 +84,13 @@ export async function notifyOwnerBooking(client: Client, appt: Appointment): Pro
         lines: [
           `<strong>${esc(who)}</strong> — ${esc(when)}`,
           `Callback: ${phone}`,
+          ...(appt.serviceAddress ? [`Address: ${esc(appt.serviceAddress)}`] : []),
           ...(appt.meetingUrl
             ? [`Video visit: <a href="${esc(appt.meetingUrl)}">${esc(appt.meetingUrl)}</a>`]
             : []),
         ],
       }),
-      text: `New booking for ${client.name}: ${who} on ${when}. Callback: ${phone}`,
+      text: `New booking for ${client.name}: ${who} on ${when}. Callback: ${phone}${appt.serviceAddress ? `\nAddress: ${appt.serviceAddress}` : ""}`,
     });
     await logNotification(client.id, "booking", "email", email, { subject, appointmentId: appt.id }, r);
   }
@@ -143,19 +144,31 @@ export async function notifyOwnerCancellation(
     logger.info("notify.cancellation.no_owner_contact", { clientId: client.id });
 }
 
-export async function notifyOwnerLead(client: Client, lead: Lead): Promise<void> {
+export async function notifyOwnerLead(
+  client: Client,
+  lead: Lead,
+  opts: { emergency?: boolean } = {},
+): Promise<void> {
   const who = lead.name ?? "a caller";
   const phone = formatPhone(lead.phone);
   const { emails, phones } = await getAlertRecipients(client);
-  const smsTargets = client.smsAlertsEnabled ? phones : [];
+  // An emergency is texted even with routine SMS alerts off — that switch is
+  // about not being pinged for every message, not about a flooded basement —
+  // and also to the on-call number when the business set one.
+  const onCall = toE164(client.setupFlags?.emergency?.onCallNumber);
+  const smsTargets = opts.emergency
+    ? [...new Set([...phones, ...(onCall ? [onCall] : [])])]
+    : client.smsAlertsEnabled
+      ? phones
+      : [];
   // The AI captures urgency on the call ("ASAP", "emergency", "today") — lead
   // with urgent language gets an unmissable prefix so it never sits till morning.
-  const urgent = /asap|urgent|emergenc|right away|immediately|today|leak|flood|burst/i.test(
+  const urgent = opts.emergency === true || /asap|urgent|emergenc|right away|immediately|today|leak|flood|burst/i.test(
     `${lead.urgency ?? ""} ${lead.reason ?? ""}`,
   );
 
   for (const sms of smsTargets) {
-    const body = `${urgent ? "🚨 EMERGENCY — " : "📨 "}New message for ${client.name}: ${who} (${phone})${lead.reason ? ` — ${lead.reason}` : ""}`;
+    const body = `${urgent ? "🚨 EMERGENCY — " : "📨 "}New message for ${client.name}: ${who} (${phone})${lead.reason ? ` — ${lead.reason}` : ""}${lead.serviceAddress ? ` · at ${lead.serviceAddress}` : ""}`;
     const r = await notifier.sendSms({ to: sms, body });
     await logNotification(client.id, "lead", "sms", sms, { body, leadId: lead.id }, r);
   }
@@ -165,15 +178,16 @@ export async function notifyOwnerLead(client: Client, lead: Lead): Promise<void>
       to: email,
       subject,
       html: ownerEmailHtml({
-        title: "📨 New message",
+        title: urgent ? "🚨 Emergency message" : "📨 New message",
         business: client.name,
         lines: [
           `<strong>${esc(who)}</strong>${lead.phone ? ` · ${phone}` : ""}`,
           lead.reason ? `Reason: ${esc(lead.reason)}` : "",
+          lead.serviceAddress ? `Address: ${esc(lead.serviceAddress)}` : "",
           lead.message ? `&ldquo;${esc(lead.message)}&rdquo;` : "",
         ].filter(Boolean),
       }),
-      text: `New message for ${client.name}: ${who} (${phone})${lead.reason ? ` — ${lead.reason}` : ""}${lead.message ? `\n"${lead.message}"` : ""}`,
+      text: `New message for ${client.name}: ${who} (${phone})${lead.reason ? ` — ${lead.reason}` : ""}${lead.serviceAddress ? `\nAddress: ${lead.serviceAddress}` : ""}${lead.message ? `\n"${lead.message}"` : ""}`,
     });
     await logNotification(client.id, "lead", "email", email, { subject, leadId: lead.id }, r);
   }

@@ -128,6 +128,8 @@ export function confirmationText(opts: {
   serviceName?: string | null;
   when: string;
   meetingUrl?: string | null;
+  /** Where the job is, for businesses that go to the customer. */
+  serviceAddress?: string | null;
   /** The customer's language code, when known. */
   language?: string | null;
   /** The business's own AI line (formatted). Never an escalation/personal number. */
@@ -135,10 +137,12 @@ export function confirmationText(opts: {
 }): string {
   const business = stripPhoneNumbers(opts.business);
   const serviceName = stripPhoneNumbers(opts.serviceName);
+  const address = stripPhoneNumbers(opts.serviceAddress).trim().slice(0, 120);
   if (textLanguage(opts.language) === "es") {
     // STOP stays in English: it's the carrier's opt-out keyword.
     return (
       `Hola${firstName(opts.customerName)}, su cita con ${business} está confirmada: ${serviceName ? `${serviceName}, ` : ""}${endSentence(opts.when)}` +
+      (address ? ` Dirección: ${endSentence(address)}` : "") +
       (opts.meetingUrl ? ` Únase por video: ${opts.meetingUrl}` : "") +
       (lineFor(opts) ? ` ¿Necesita cambiarla? Llame al ${lineFor(opts)}.` : ` ¿Necesita cambiarla? Llame a ${business}.`) +
       ` Responda STOP para no recibir más mensajes.`
@@ -147,6 +151,7 @@ export function confirmationText(opts: {
   const service = serviceName ? `${serviceName} ` : "";
   return (
     `Hi${firstName(opts.customerName)}, you're booked with ${business} — ${service}on ${endSentence(opts.when)}` +
+    (address ? ` At: ${endSentence(address)}` : "") +
     (opts.meetingUrl ? ` Join by video: ${opts.meetingUrl}` : "") +
     (lineFor(opts) ? ` Need to change it? Call ${business} at ${lineFor(opts)}.` : ` Need to change it? Give ${business} a call.`) +
     ` Reply STOP to opt out.`

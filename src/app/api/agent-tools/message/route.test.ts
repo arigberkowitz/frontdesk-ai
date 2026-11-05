@@ -4,13 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("@/lib/webhooks-emit", () => ({ emitWebhook: vi.fn() }));
-const auth = { channel: "voice", retellCallId: "rc_1" as string | null };
+const auth = {
+  channel: "voice",
+  retellCallId: "rc_1" as string | null,
+  extra: {} as Record<string, unknown>,
+};
 vi.mock("@/lib/agent-tools-auth", () => ({
   authorizeAgentTool: async () => ({
     ok: true,
     client: { id: "client-1" },
     channel: auth.channel,
-    args: { name: "Pat", phone: "4155550100", reason: "Crown" },
+    args: { name: "Pat", phone: "4155550100", reason: "Crown", ...auth.extra },
     retellCallId: auth.retellCallId,
   }),
 }));
@@ -27,6 +31,7 @@ const post = () => POST(new Request("https://app.test/api/agent-tools/message", 
 beforeEach(() => {
   auth.channel = "voice";
   auth.retellCallId = "rc_1";
+  auth.extra = {};
   callRow.value = { id: "call-db-1", direction: "inbound" };
   notifyOwnerLead.mockClear();
   createLead.mockClear();
@@ -52,5 +57,17 @@ describe("message tool alert", () => {
     callRow.value = null;
     await post();
     expect(notifyOwnerLead).toHaveBeenCalledTimes(1);
+  });
+
+  it("an emergency alerts the owner immediately, even mid-call, and saves the address", async () => {
+    auth.extra = { emergency: true, urgency: "water everywhere", service_address: "12 Elm St, Apt 3" };
+    const res = await post();
+    expect((await res.json()).message).toMatch(/alerted right now/);
+    expect(createLead.mock.calls[0][1]).toMatchObject({
+      urgency: "EMERGENCY — water everywhere",
+      serviceAddress: "12 Elm St, Apt 3",
+    });
+    expect(notifyOwnerLead).toHaveBeenCalledTimes(1);
+    expect((notifyOwnerLead.mock.calls[0] as unknown[])[2]).toEqual({ emergency: true });
   });
 });

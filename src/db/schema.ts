@@ -283,6 +283,13 @@ export const clients = pgTable(
          */
         handoffMode?: "always" | "open_hours" | "never";
         /**
+         * Emergencies (trades). `transfer247`: a caller with a genuine
+         * emergency is put through to `onCallNumber` (or the escalation number)
+         * at any hour, whatever handoffMode says. Off: the AI takes an urgent
+         * message and the owner is texted + emailed immediately.
+         */
+        emergency?: { transfer247?: boolean; onCallNumber?: string | null };
+        /**
          * Short-lived lock (ISO) while a first provision (the one that buys the
          * phone number) is running, so a double-click or two tabs can't buy two.
          */
@@ -308,6 +315,8 @@ export const clients = pgTable(
     retellPhoneNumber: text("retell_phone_number"),
     forwardingNumber: text("forwarding_number"),
     escalationNumber: text("escalation_number"),
+    // Flat trip / service-call fee quoted to callers, in cents (0020 migration).
+    tripFeeCents: integer("trip_fee_cents"),
     // Owner's email for booking / message alerts (Resend).
     ownerEmail: text("owner_email"),
     voiceId: text("voice_id"),
@@ -486,6 +495,10 @@ export const services = pgTable(
     name: text("name").notNull(),
     durationMin: integer("duration_min").notNull().default(30),
     priceCents: integer("price_cents"),
+    // Optional top of a price range ("$150–$300"). Migration: drizzle/manual/0021_trades_essentials.sql.
+    priceMaxCents: integer("price_max_cents"),
+    // "Starts at $X": priceCents is a floor, not the price.
+    priceFrom: boolean("price_from").notNull().default(false),
     // How many staff can perform this service at the same time. 1 = solo (no
     // overlapping bookings for this service); 3 = up to three simultaneous.
     providerCount: integer("provider_count").notNull().default(1),
@@ -614,6 +627,8 @@ export const appointments = pgTable(
     customerPhone: text("customer_phone"),
     // Optional; collected by the web chat. Migration: drizzle/manual/0018_appointment_customer_email.sql.
     customerEmail: text("customer_email"),
+    // Where the job is (trades go to the customer). Migration: drizzle/manual/0021_trades_essentials.sql.
+    serviceAddress: text("service_address"),
     serviceId: uuid("service_id").references(() => services.id, { onDelete: "set null" }),
     // Staff mode: which team member this appointment is with.
     providerId: uuid("provider_id").references((): AnyPgColumn => providers.id, {
@@ -701,6 +716,7 @@ export const leads = pgTable(
     service: text("service"), // what they want
     urgency: text("urgency"), // how soon (e.g. "this week", "ASAP")
     budget: text("budget"), // budget signal, when offered
+    serviceAddress: text("service_address"), // where the job is (0020 migration)
     status: leadStatus("status").notNull().default("new"),
     // Set when the person texts back — the human conversation has started, so
     // automated recovery stands down and the owner takes over.

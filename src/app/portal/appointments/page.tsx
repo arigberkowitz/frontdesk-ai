@@ -54,6 +54,7 @@ export default async function PortalAppointmentsPage({
     callId: a.callId,
     customerName: a.customerName,
     customerPhone: a.customerPhone,
+    serviceAddress: a.serviceAddress,
     startAt: a.startAt,
     endAt: a.endAt,
     status: a.status,

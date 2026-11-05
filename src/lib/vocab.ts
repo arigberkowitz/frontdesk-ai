@@ -60,3 +60,14 @@ export function hasCustomVocab(v: Vocab): boolean {
 export function capVocab(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
+
+/**
+ * Businesses that go to the customer (plumbers, HVAC, electricians, cleaners…).
+ * For these the job address is as essential as the phone number: a booking
+ * without one is a truck with nowhere to go.
+ */
+export function isFieldService(industry: string | null | undefined): boolean {
+  return /plumb|hvac|heating|cooling|air ?condition|electric|roof|handyman|contractor|landscap|lawn|clean|pest|locksmith|garage door|appliance|trade|home service|pool|paint|mov(ing|ers)|tow|septic|drain|remodel|pressure wash|gutter|tree|junk/i.test(
+    industry ?? "",
+  );
+}

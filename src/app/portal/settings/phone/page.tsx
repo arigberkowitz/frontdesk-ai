@@ -4,6 +4,7 @@ import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { AiNumberCard } from "@/components/portal/ai-number-card";
 import { HandoffCard } from "@/components/portal/handoff-card";
+import { EmergencyCard } from "@/components/portal/trades-cards";
 import { HumanTouchForm } from "@/components/portal/portal-settings";
 import { LanguagesCard } from "@/components/portal/languages-card";
 import { ReceptionistPower } from "@/components/portal/receptionist-power";
@@ -40,6 +41,13 @@ export default async function PortalSettingsPhonePage() {
         clientId={clientId}
         mode={client.setupFlags?.handoffMode ?? "always"}
         escalationNumber={client.escalationNumber}
+      />
+      <EmergencyCard
+        clientId={clientId}
+        transfer247={client.setupFlags?.emergency?.transfer247 === true}
+        onCallNumber={client.setupFlags?.emergency?.onCallNumber}
+        escalationNumber={client.escalationNumber}
+        canEdit={editAccess.canEdit}
       />
       <HumanTouchForm client={toSafeClient(client)} />
       <LanguagesCard clientId={clientId} languages={client.languages} canEdit={editAccess.canEdit} />
