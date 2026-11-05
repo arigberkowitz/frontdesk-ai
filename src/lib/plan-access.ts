@@ -58,7 +58,7 @@ export const UPGRADE_MESSAGES: Record<PlanFeature, string> = {
   staff_mode:
     "Team members with their own calendars is a Pro feature. Upgrade to Pro to turn on staff mode.",
   ai_improvement:
-    "Nightly AI tuning is a Pro feature. Upgrade to Pro and your receptionist reviews its own calls every night.",
+    "Nightly AI tuning is a Pro feature. Upgrade to Pro and we review your calls every night to sharpen its answers.",
 };
 
 export interface AccessInput {

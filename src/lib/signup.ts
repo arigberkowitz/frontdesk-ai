@@ -42,9 +42,8 @@ export async function finishSignup(
       // greeting) only counts on the checklist once the owner confirms it.
       setupFlags: { reviewRequired: true, ...(opts.intendedPlan ? { intendedPlan: opts.intendedPlan } : {}), ...(opts.intendedInterval ? { intendedInterval: opts.intendedInterval } : {}) },
       staffModeEnabled: opts.companySize !== "solo",
-      // English & Spanish out of the box for anyone not shopping the
-      // missed-calls-only tier (Starter and Pro advertise it).
-      ...(opts.intendedPlan === "backup" ? {} : { languages: "en-es" }),
+      // English & Spanish out of the box on every plan (the site promises it).
+      languages: "en-es",
       industry: opts.industry,
       // Two weeks, starting now, no card, no code, no approval queue.
       status: "trial",

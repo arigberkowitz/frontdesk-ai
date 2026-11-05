@@ -36,22 +36,22 @@ interface Scenario {
  * conversations are not. Switching tabs replays the animation from the top:
  * the remount (key={scenario}) restarts every bubble's entrance for free.
  *
- * The booking script asks permission before texting on purpose — that consent
+ * The booking script is a home-service job (our core buyers are trades) and asks permission before texting on purpose — that consent
  * question is the opt-in workflow published on /sms-consent and registered
  * with the carriers, and this card is where a reviewer can watch it happen.
  */
 const SCENARIOS: Scenario[] = [
   {
     key: "booking",
-    tab: "Book a service",
-    duration: "0:52",
+    tab: "Book a job",
+    duration: "0:58",
     turns: [
-      { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant for the front desk. How can I help?" },
-      { who: "caller", text: "Hi — do you have anything for a cleaning this week?" },
-      { who: "ai", text: "We do! I have Thursday at 2:00 or Friday at 10:30. Which works better?" },
-      { who: "caller", text: "Thursday at 2 is great." },
-      { who: "ai", text: "Perfect — what name should I put it under?" },
-      { who: "caller", text: "Jordan Lee — 415-555-0148." },
+      { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant. How can I help?" },
+      { who: "caller", text: "Hi — my kitchen sink is leaking underneath. Can someone come out this week?" },
+      { who: "ai", text: "We can. I have Thursday between 8 and 10, or Friday between 1 and 3. Which works better?" },
+      { who: "caller", text: "Thursday morning." },
+      { who: "ai", text: "Got it. What name and number should I put it under?" },
+      { who: "caller", text: "Jordan Lee — 305-555-0148." },
       {
         who: "ai",
         text: "Would you like me to text you the confirmation and a reminder? You can reply STOP any time.",
@@ -59,12 +59,12 @@ const SCENARIOS: Scenario[] = [
       { who: "caller", text: "Yes please." },
       {
         who: "ai",
-        text: "You're all set, Jordan — Thursday at 2:00 for a cleaning. That text is on its way.",
+        text: "You're all set, Jordan — Thursday between 8 and 10 for the leak. That text is on its way.",
       },
     ],
     payoffIndex: 8,
     outcomes: [
-      { icon: CalendarCheck, label: "Appointment booked", highlight: true },
+      { icon: CalendarCheck, label: "Job booked", highlight: true },
       { icon: MessageSquare, label: "Confirmation texted" },
       { icon: UserCheck, label: "Contact saved" },
     ],
@@ -74,14 +74,14 @@ const SCENARIOS: Scenario[] = [
     tab: "Quick question",
     duration: "0:31",
     turns: [
-      { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant for the front desk. How can I help?" },
-      { who: "caller", text: "How much is a standard appointment? And are you open Saturdays?" },
+      { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant. How can I help?" },
+      { who: "caller", text: "How much do you charge to come out? And do you work Saturdays?" },
       {
         who: "ai",
-        text: "A standard appointment is $120 for the hour. We're open Monday to Friday, 9 to 5 — closed Saturdays. Want me to find you a weekday slot?",
+        text: "The service call is $79, and it's waived if we do the job. We're out Monday to Friday, 8 to 5 — not Saturdays. Want me to find you a weekday slot?",
       },
       { who: "caller", text: "No, that's all I needed. Thanks!" },
-      { who: "ai", text: "Anytime! Call back whenever you're ready to book." },
+      { who: "ai", text: "Anytime! Call back whenever you're ready." },
     ],
     payoffIndex: 2,
     outcomes: [
@@ -94,7 +94,7 @@ const SCENARIOS: Scenario[] = [
     tab: "2am emergency",
     duration: "0:19",
     turns: [
-      { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant for the front desk. How can I help?" },
+      { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant. How can I help?" },
       { who: "caller", text: "My water heater burst — there's water everywhere!" },
       {
         who: "ai",
@@ -113,13 +113,13 @@ const SCENARIOS: Scenario[] = [
     tab: "En Español",
     duration: "0:44",
     turns: [
-      { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant for the front desk. How can I help?" },
-      { who: "caller", text: "Hola, ¿tienen citas disponibles para mañana?" },
-      { who: "ai", text: "¡Claro que sí! Mañana tengo a las 10:00 o a las 3:30. ¿Cuál le conviene?" },
-      { who: "caller", text: "A las 10, por favor." },
-      { who: "ai", text: "Perfecto — ¿a nombre de quién agendo la cita?" },
+      { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant. How can I help?" },
+      { who: "caller", text: "Hola, ¿pueden venir mañana a revisar mi aire acondicionado?" },
+      { who: "ai", text: "¡Claro que sí! Mañana tengo de 10 a 12 o de 3 a 5. ¿Cuál le conviene?" },
+      { who: "caller", text: "De 10 a 12, por favor." },
+      { who: "ai", text: "Perfecto — ¿a nombre de quién?" },
       { who: "caller", text: "María Torres." },
-      { who: "ai", text: "Listo, María — mañana a las 10:00. ¡Hasta mañana!" },
+      { who: "ai", text: "Listo, María — mañana de 10 a 12. ¡Hasta mañana!" },
     ],
     payoffIndex: 6,
     outcomes: [

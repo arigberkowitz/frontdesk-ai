@@ -1,4 +1,5 @@
 import "server-only";
+import { forwardingCodes } from "@/lib/forwarding-codes";
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, subscriptions } from "@/db/schema";
@@ -53,10 +54,6 @@ function appUrl(path: string): string {
   return `${env.APP_URL.replace(/\/$/, "")}${path}`;
 }
 
-function dialCode(number: string): string {
-  return `*72 ${formatPhone(number)}`;
-}
-
 function plansLine(): string {
   return planList()
     .map((p) => `${p.name} ${formatCurrencyCents(p.monthlyPriceCents)}/mo`)
@@ -68,7 +65,7 @@ export async function sendWelcomeEmail(clientId: string): Promise<void> {
   if (!integrations.resend()) return;
   const c = await db.query.clients.findFirst({
     where: and(eq(clients.id, clientId), isNull(clients.deletedAt)),
-    columns: { id: true, name: true, ownerEmail: true, retellPhoneNumber: true, agentName: true, setupFlags: true },
+    columns: { id: true, name: true, ownerEmail: true, retellPhoneNumber: true, agentName: true, setupFlags: true, answeringMode: true },
   });
   const to = c?.ownerEmail?.trim();
   if (!c || !to) return;
@@ -80,10 +77,11 @@ export async function sendWelcomeEmail(clientId: string): Promise<void> {
     ? `${agent} is answering for ${c.name} — call ${formatPhone(num)}`
     : `${agent} is ready for ${c.name}`;
 
+  const fwd = num ? forwardingCodes(c.answeringMode, num) : null;
   const paragraphs = num
     ? [
         `Your AI receptionist is live. Its number is <strong>${formatPhone(num)}</strong> — <strong>call it right now</strong> from your cell and ask it something a customer would.`,
-        `When you're happy with how it sounds, forward your business line to it: from your business phone, dial <strong>${esc(dialCode(num))}</strong>, wait for the confirmation tone, hang up. (AT&amp;T/T-Mobile: <strong>**21*${num.replace(/[^\d+]/g, "")}#</strong>.) Undo any time with <strong>*73</strong> (AT&amp;T/T-Mobile: <strong>##21#</strong>). Your customers keep calling the number they already know.`,
+        `When you're happy with how it sounds, forward your business line to it. ${fwd!.turnOnHtml} ${fwd!.turnOff} Your customers keep calling the number they already know.`,
         `Every booking and message it takes is emailed to <strong>${esc(to)}</strong> the moment it happens — change that, and add a phone for texts, under <a href="${appUrl("/portal/settings/alerts")}">Settings → Alerts</a>.`,
         `Its services, hours and answers are drafted for your industry. <a href="${appUrl("/portal/services")}">Check the prices</a> especially — they're examples until you say otherwise.`,
         `Your free trial runs ${TRIAL_DAYS} days with everything switched on. No card, nothing to set up. We'll check in once near the end.`,
@@ -152,6 +150,7 @@ export async function runTrialReminders(now = new Date()): Promise<TrialReminder
       name: clients.name,
       ownerEmail: clients.ownerEmail,
       phone: clients.retellPhoneNumber,
+      answeringMode: clients.answeringMode,
       trialEndsAt: clients.trialEndsAt,
       setupFlags: clients.setupFlags,
     })
@@ -186,7 +185,7 @@ export async function runTrialReminders(now = new Date()): Promise<TrialReminder
             (s.afterHours ? ` — ${s.afterHours} of those after hours, when nobody else would have picked up` : "") +
             `.`
           : c.phone
-            ? `It hasn't had a call yet — which usually means the business line isn't forwarded. From your business phone, dial <strong>${esc(dialCode(c.phone))}</strong> and it starts catching the calls you miss.`
+            ? `It hasn't had a call yet — which usually means the business line isn't forwarded. ${forwardingCodes(c.answeringMode, c.phone).turnOnHtml} Then it starts catching your calls.`
             : `It hasn't had a call yet.`;
 
       const plansUrl = appUrl("/portal/guidelines#plans");

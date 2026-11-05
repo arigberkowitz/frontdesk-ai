@@ -102,7 +102,7 @@ describe("callbackText", () => {
   it("is fixed wording with the business name and opt-out language", () => {
     const t = callbackText({ businessName: "Bright Smiles", reason: "hung_up_early" });
     expect(t).toBe(
-      "Bright Smiles: Sorry we missed you on the phone! Just reply here with a day and time that works and we'll get you booked. Reply STOP to opt out.",
+      "Bright Smiles: Sorry we missed you on the phone! Just reply here with a day and time that works and we'll get you booked. If it's urgent, call us back and we'll pick up. Reply STOP to opt out.",
     );
   });
 

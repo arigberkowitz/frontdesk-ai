@@ -75,14 +75,18 @@ export function HoursTab({ clientId, hours }: { clientId: string; hours: Busines
                 />
               </div>
               <div className="flex items-center gap-2 justify-self-start sm:justify-self-end">
+                {/* The switch reads "Open" when on — the old "Closed" switch was
+                    on for a closed day, which owners read backwards. The form
+                    still posts closed_N, so the save action is unchanged. */}
+                {closed ? <input type="hidden" name={`closed_${d.value}`} value="on" /> : null}
                 <Switch
-                  id={`closed_${d.value}`}
-                  name={`closed_${d.value}`}
-                  checked={closed}
-                  onCheckedChange={(v) => setClosedDays((s) => ({ ...s, [d.value]: v }))}
+                  id={`open_${d.value}`}
+                  checked={!closed}
+                  aria-label={`${d.label} open`}
+                  onCheckedChange={(v) => setClosedDays((s) => ({ ...s, [d.value]: !v }))}
                 />
-                <Label htmlFor={`closed_${d.value}`} className="text-muted-foreground">
-                  Closed
+                <Label htmlFor={`open_${d.value}`} className="w-14 text-muted-foreground">
+                  {closed ? "Closed" : "Open"}
                 </Label>
               </div>
             </div>

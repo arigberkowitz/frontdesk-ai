@@ -94,7 +94,7 @@ export default async function PortalOverviewPage({
   // future appointments and the right side counted finished ones. A visible
   // equation that doesn't hold poisons trust in every other number on the page.
   const revenueBreakdown = [
-    `What your AI's ${v.appointments} have earned — counted when the appointment happens, not when it's booked.`,
+    `All time: what your AI's ${v.appointments} have earned — counted when the appointment happens, not when it's booked.`,
     ...(m.completedBookings > 0
       ? [`${formatCurrencyCents(m.estRevenueCents)} from ${m.completedBookings} completed ${m.completedBookings === 1 ? v.appointment : v.appointments}`]
       : [`Nothing completed yet.`]),
@@ -309,7 +309,7 @@ export default async function PortalOverviewPage({
       {/* The tiles stay even at zero — they're the promise, the picture of
           where the money will show up once the phone rings. */}
       <div className="fd-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <MetricCard icon="revenue" label="Revenue captured" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} spark={series.revenue} sparkLabels={labelsFor("revenue", formatCurrencyCents)} trend={trend.revenue} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
+        <MetricCard icon="revenue" label="Revenue captured · all time" value={formatCurrencyCents(m.estRevenueCents)} href="/portal/appointments" breakdown={revenueBreakdown} spark={series.revenue} sparkLabels={labelsFor("revenue", formatCurrencyCents)} trend={trend.revenue} sparkColor="#10b981" size="hero" className="sm:col-span-2" />
         <MetricCard icon="calls" label="Calls answered" value={String(m.totalCalls)} href="/portal/calls" breakdown={callsBreakdown} spark={series.calls} sparkLabels={labelsFor("calls", (n) => plural(n, "call", "calls"))} trend={trend.calls} sparkColor="#0ea5e9" />
         <MetricCard icon="bookings" label={`${capVocab(v.appointments)} booked`} value={String(m.bookings)} href="/portal/appointments" breakdown={apptBreakdown} spark={series.bookings} sparkLabels={labelsFor("bookings", (n) => plural(n, v.appointment, v.appointments))} trend={trend.bookings} sparkColor="#10b981" />
         <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} spark={series.afterHours} sparkLabels={labelsFor("afterHours", (n) => plural(n, "after-hours call", "after-hours calls"))} trend={trend.afterHours} sparkColor="#f59e0b" className="sm:col-span-2 lg:col-span-1" />

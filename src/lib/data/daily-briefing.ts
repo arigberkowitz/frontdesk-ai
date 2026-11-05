@@ -46,12 +46,16 @@ export async function getBriefingFacts(
     .from(calls)
     .where(and(eq(calls.clientId, client.id), isNull(calls.deletedAt), inYesterday(calls.startAt)));
 
+  // postgres-js rejects raw Date params inside sql`` fragments (pglite
+  // accepts them, so tests missed it): pass ISO strings cast to timestamptz.
+  const ys = w.yesterdayStart.toISOString();
+  const ts = w.todayStart.toISOString();
   const [a] = await db
     .select({
-      bookingsMade: sql<number>`count(*) filter (where ${appointments.createdAt} >= ${w.yesterdayStart} and ${appointments.createdAt} < ${w.todayStart} and ${appointments.status} not in ('cancelled','no_show'))::int`,
+      bookingsMade: sql<number>`count(*) filter (where ${appointments.createdAt} >= ${ys}::timestamptz and ${appointments.createdAt} < ${ts}::timestamptz and ${appointments.status} not in ('cancelled','no_show'))::int`,
       // No cancelled_at column: the status flip's updated_at is when it
       // happened (same rule as the weekly summary).
-      cancellations: sql<number>`count(*) filter (where ${appointments.status} = 'cancelled' and ${appointments.updatedAt} >= ${w.yesterdayStart} and ${appointments.updatedAt} < ${w.todayStart})::int`,
+      cancellations: sql<number>`count(*) filter (where ${appointments.status} = 'cancelled' and ${appointments.updatedAt} >= ${ys}::timestamptz and ${appointments.updatedAt} < ${ts}::timestamptz)::int`,
     })
     .from(appointments)
     .where(and(eq(appointments.clientId, client.id), isNull(appointments.deletedAt)));

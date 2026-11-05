@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/form/field";
 import { NativeSelect } from "@/components/form/native-select";
 import { SubmitButton } from "@/components/form/submit-button";
-import { INDUSTRIES, TIMEZONES } from "@/config/options";
+import { INDUSTRIES, TIMEZONES, TIMEZONE_LABELS } from "@/config/options";
 
 export function NewClientForm() {
   const [state, action, pending] = useActionState(createClientAction, initialActionState);
@@ -51,7 +51,7 @@ export function NewClientForm() {
           <NativeSelect id="timezone" name="timezone" defaultValue="America/Los_Angeles">
             {TIMEZONES.map((t) => (
               <option key={t} value={t}>
-                {t}
+                {TIMEZONE_LABELS[t]}
               </option>
             ))}
           </NativeSelect>

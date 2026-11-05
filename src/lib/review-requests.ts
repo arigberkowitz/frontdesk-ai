@@ -82,13 +82,13 @@ export function reviewRequestBody(input: {
   const business = input.businessName.replace(/\s+/g, " ").trim().slice(0, 60);
   if (textLanguage(input.language) === "es") {
     return (
-      `Hola${name ? ` ${name}` : ""}, ¡gracias por visitar ${business}! ` +
+      `Hola${name ? ` ${name}` : ""}, ¡gracias por elegir a ${business}! ` +
       `Si le atendimos bien, una breve reseña nos ayuda mucho: ${input.reviewUrl}` +
       ` Responda STOP para no recibir más mensajes.`
     );
   }
   return (
-    `Hi${name ? ` ${name}` : ""}, thanks for visiting ${business}! ` +
+    `Hi${name ? ` ${name}` : ""}, thanks for choosing ${business}! ` +
     `If we did right by you, a quick review really helps: ${input.reviewUrl}` +
     ` Reply STOP to opt out.`
   );

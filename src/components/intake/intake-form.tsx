@@ -108,7 +108,7 @@ export function IntakeForm({
           defaultValue={v?.instructions ?? ""}
           maxLength={4000}
           rows={4}
-          placeholder={"e.g. We're accepting new patients.\nNever quote exact prices — say it depends on insurance."}
+          placeholder={"e.g. We offer free estimates.\nNever quote an exact price — say the tech confirms it on site."}
         />
       </Field>
 
