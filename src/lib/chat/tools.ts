@@ -63,7 +63,7 @@ export function chatTools(opts: { waitlistEnabled: boolean }): ChatTool[] {
             sms_consent: {
               type: "boolean",
               description:
-                "True ONLY if the visitor clearly agreed to be texted the confirmation and a reminder after you asked in those words. Giving a phone number is not agreement.",
+                "True ONLY if the visitor clearly agreed to be texted the confirmation, a reminder, and a quick follow-up about this visit after you asked in those words. Giving a phone number is not agreement.",
             },
           },
           required: ["service", "datetime", "name", "phone", "sms_consent"],

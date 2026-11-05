@@ -17,7 +17,7 @@ describe("chatChannelPreamble", () => {
   });
 
   it("carries the exact SMS consent wording the carriers approved", () => {
-    expect(p).toContain("Want me to text you the confirmation and a reminder? Reply STOP anytime to opt out.");
+    expect(p).toContain("Want me to text you the confirmation, a reminder, and a quick follow-up about this visit? Reply STOP anytime to opt out.");
     expect(p).toMatch(/Only pass sms_consent as true if they clearly say yes/);
   });
 

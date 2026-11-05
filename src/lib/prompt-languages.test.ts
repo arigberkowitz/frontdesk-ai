@@ -41,7 +41,7 @@ describe("prompt language rules", () => {
     expect(p).toContain(SPANISH_CONSENT_ASK);
     // The English consent script (A2P-registered wording) is still there, verbatim.
     expect(p).toContain(
-      '"Would you like me to text you the confirmation and a reminder? Message and data rates may apply, and you can reply STOP at any time to opt out."',
+      '"Would you like me to text you the confirmation, a reminder, and a quick follow-up about this visit? Message and data rates may apply, and you can reply STOP at any time to opt out."',
     );
     // Language rules come right after the precedence rule, so they're inside the protected Rules section.
     const rules = p.slice(p.indexOf("# Rules"));

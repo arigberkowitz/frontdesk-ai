@@ -54,7 +54,7 @@ const SCENARIOS: Scenario[] = [
       { who: "caller", text: "Jordan Lee — 305-555-0148." },
       {
         who: "ai",
-        text: "Would you like me to text you the confirmation and a reminder? You can reply STOP any time.",
+        text: "Would you like me to text you the confirmation, a reminder, and a quick follow-up about this visit? You can reply STOP any time.",
       },
       { who: "caller", text: "Yes please." },
       {
