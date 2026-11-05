@@ -133,6 +133,7 @@ export async function sendMessageReplyAction(
     to: `+${phone}`,
     body,
     log: { clientId, kind: PORTAL_REPLY_KIND },
+    manual: true,
   });
 
   // Demo / not configured: the notifier skips without sending or recording.

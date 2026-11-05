@@ -3,6 +3,7 @@ import {
   boolean,
   index,
   integer,
+  smallint,
   jsonb,
   pgEnum,
   pgTable,
@@ -748,6 +749,75 @@ export const alertContacts = pgTable(
 );
 
 export type AlertContact = typeof alertContacts.$inferSelect;
+
+/**
+ * One business's toll-free texting number and its Toll-Free Verification.
+ * Its own table (not clients columns) so the code can deploy before the
+ * migration without breaking every page that loads a client.
+ * Migration: drizzle/manual/0020_tollfree_texting.sql.
+ */
+export const clientTollfree = pgTable(
+  "client_tollfree",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    /** needs_number | needs_details | submitted | approved | rejected | error */
+    status: text("status").notNull().default("needs_number"),
+    phoneNumber: text("phone_number"),
+    phoneNumberSid: text("phone_number_sid"),
+    verificationSid: text("verification_sid"),
+    /** Twilio's raw status: PENDING_REVIEW | IN_REVIEW | TWILIO_APPROVED | TWILIO_REJECTED. */
+    twilioStatus: text("twilio_status"),
+    /** The owner's business details as entered (see lib/tollfree/details.ts). */
+    details: jsonb("details").$type<Record<string, string>>(),
+    rejectionReason: text("rejection_reason"),
+    editAllowed: boolean("edit_allowed"),
+    lastError: text("last_error"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    checkedAt: timestamp("checked_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("client_tollfree_client_id_idx").on(t.clientId),
+    index("client_tollfree_verification_sid_idx").on(t.verificationSid),
+  ],
+);
+
+export type ClientTollfree = typeof clientTollfree.$inferSelect;
+
+/** Owner texting switch + quiet hours. No row = defaults. Migration: drizzle/manual/0020_tollfree_texting.sql. */
+export const clientTextingPrefs = pgTable("client_texting_prefs", {
+  clientId: uuid("client_id")
+    .primaryKey()
+    .references(() => clients.id, { onDelete: "cascade" }),
+  textingEnabled: boolean("texting_enabled").notNull().default(true),
+  quietStartHour: smallint("quiet_start_hour").notNull().default(21),
+  quietEndHour: smallint("quiet_end_hour").notNull().default(8),
+  ...timestamps,
+});
+
+/** Automated customer texts held during quiet hours. */
+export const smsQueue = pgTable(
+  "sms_queue",
+  {
+    id: pk(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    toPhone: text("to_phone").notNull(),
+    body: text("body").notNull(),
+    log: jsonb("log").$type<{ clientId: string; kind: string; appointmentId?: string | null; leadId?: string | null }>().notNull(),
+    sendAfter: timestamp("send_after", { withTimezone: true }).notNull(),
+    /** queued | sent | failed | dropped */
+    status: text("status").notNull().default("queued"),
+    result: text("result"),
+    ...timestamps,
+  },
+  (t) => [index("sms_queue_due_idx").on(t.status, t.sendAfter)],
+);
 
 /** SMS opt-outs (STOP), keyed by phone — GLOBAL, because all outbound SMS
  *  shares one Twilio number. Once a number opts out, nothing texts it again. */

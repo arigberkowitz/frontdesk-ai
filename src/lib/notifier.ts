@@ -5,6 +5,7 @@ import { env, integrations, webhookUrl } from "./env";
 import { logger } from "./logger";
 import { recordOutboundSms, type OutboundLogContext } from "./data/sms-messages";
 import { getClientSmsNumber } from "./data/sms-numbers";
+import { decideText } from "./texting-policy";
 import { samePhone, toE164, type TwilioNumberCheck } from "./sms-number-format";
 
 export type { TwilioNumberCheck };
@@ -41,6 +42,13 @@ export interface SmsMessage {
    * alerts and digests — those always come from the shared number.
    */
   fromClientId?: string;
+  /**
+   * Typed and sent by the owner/staff from the portal. Owner texting controls
+   * (texting off, quiet hours) never hold these back.
+   */
+  manual?: boolean;
+  /** Internal: a queued text being released at the end of quiet hours. */
+  fromQueue?: boolean;
 }
 
 export interface SendResult {
@@ -48,6 +56,8 @@ export interface SendResult {
   id?: string;
   skipped?: boolean;
   error?: string;
+  /** Held for quiet hours; it will be sent when the window ends. */
+  queued?: boolean;
   /** Twilio's numeric error code, when it gave us one (e.g. 20003, 21610). */
   code?: number;
 }
@@ -130,6 +140,10 @@ async function sendSms(msg: SmsMessage): Promise<SendResult> {
     logger.warn("notifier.sms.skipped", { reason: "Twilio env unset", to: msg.to });
     return { ok: false, skipped: true };
   }
+  if (env.OWNER_TEXTING_CONTROLS && msg.log && !msg.fromQueue) {
+    const held = await applyTextingControls(msg);
+    if (held) return held;
+  }
   const from = await senderNumberFor(msg);
   try {
     const client = twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
@@ -153,6 +167,33 @@ async function sendSms(msg: SmsMessage): Promise<SendResult> {
     logger.error("notifier.sms.threw", { to: msg.to, error: detail, code });
     await logToInbox(msg, from, { ok: false, error: detail });
     return { ok: false, error: detail, code };
+  }
+}
+
+/**
+ * The owner's texting switch and quiet hours, for automated customer texts.
+ * Returns a result when the text is NOT sent now; null to send. A failed prefs
+ * lookup sends as before rather than silently losing a confirmation.
+ */
+async function applyTextingControls(msg: SmsMessage): Promise<SendResult | null> {
+  // Lazy: keeps the DB-backed prefs module out of every notifier import while the flag is off.
+  const { enqueueSms, getTextingPrefs } = await import("./data/texting-prefs");
+  const prefs = await getTextingPrefs(msg.log!.clientId);
+  if (!prefs) return null;
+  const decision = decideText(prefs, { now: new Date(), manual: msg.manual });
+  if (decision.action === "send") return null;
+  if (decision.action === "drop") {
+    logger.info("notifier.sms.texting_off", { clientId: msg.log!.clientId, kind: msg.log!.kind });
+    return { ok: false, skipped: true, error: "Texting is turned off for this business" };
+  }
+  try {
+    await enqueueSms({ to: msg.to, body: msg.body, log: msg.log!, sendAfter: decision.sendAfter });
+    logger.info("notifier.sms.queued_quiet_hours", { clientId: msg.log!.clientId, kind: msg.log!.kind });
+    return { ok: true, queued: true };
+  } catch (err) {
+    // Couldn't hold it: send now rather than lose it.
+    logger.warn("notifier.sms.queue_failed", { error: err instanceof Error ? err.message : String(err) });
+    return null;
   }
 }
 

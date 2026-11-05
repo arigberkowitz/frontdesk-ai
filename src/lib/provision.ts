@@ -10,6 +10,8 @@ import { DEFAULT_AGENT_NAME, openHoursSummary, openingLine } from "@/lib/prompt"
 import { buildPromptForClient, emergencyTransferFor } from "@/lib/agent-publish";
 import { provisionAgentForClient } from "@/lib/retell";
 import { env, integrations, webhookUrl } from "@/lib/env";
+import { ensureTollfreeNumber } from "@/lib/tollfree/service";
+import { liveTollfreeDeps } from "@/lib/tollfree/deps";
 import { logger } from "@/lib/logger";
 import type { ActionState } from "@/lib/actions/types";
 import { claimFirstProvision, releaseFirstProvision } from "@/lib/provision-lock";
@@ -165,6 +167,16 @@ export async function runProvision(
  * never built an agent (its own Activate covers that, number included).
  */
 export async function provisionNumberAfterPayment(clientId: string): Promise<void> {
+  // Toll-free texting number (no-op unless TOLLFREE_SMS_ENABLED=on). Its own
+  // try: a texting hiccup must never block the voice number below.
+  try {
+    await ensureTollfreeNumber(liveTollfreeDeps(), clientId);
+  } catch (err) {
+    logger.warn("billing.tollfree_after_payment_failed", {
+      clientId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
   if (!integrations.retell()) return;
   const client = await getClientForPayment(clientId);
   if (!client || client.retellPhoneNumber || !client.retellAgentId) return;
