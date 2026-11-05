@@ -51,6 +51,7 @@ export async function sendBookingConfirmation(
     serviceName,
     when: whenFor(client, appt.startAt, lang),
     meetingUrl: appt.meetingUrl,
+    serviceAddress: appt.serviceAddress,
     language: lang,
   });
 

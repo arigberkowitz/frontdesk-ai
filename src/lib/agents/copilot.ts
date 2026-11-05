@@ -10,6 +10,7 @@ import { listCalls } from "@/lib/data/calls";
 import { listAppointments } from "@/lib/data/appointments";
 import { listServices } from "@/lib/data/services";
 import { formatCurrencyCents, formatDateTime } from "@/lib/format";
+import { servicePriceText } from "@/lib/prompt";
 import { logger } from "@/lib/logger";
 
 /**
@@ -174,7 +175,7 @@ async function execTool(
       return JSON.stringify(
         rows.map((s) => ({
           name: s.name,
-          price: s.priceCents != null ? formatCurrencyCents(s.priceCents) : null,
+          price: s.priceCents != null ? servicePriceText(s) : null,
           minutes: s.durationMin ?? null,
         })),
       );

@@ -32,7 +32,10 @@ export function ChoosePlan({
   cardsReady,
   preselect,
   preselectInterval,
+  firstChargeLabel,
 }: {
+  /** Set while the trial has 2+ days left: subscribing keeps those days (Stripe trial_end). */
+  firstChargeLabel?: string | null;
   clientId: string;
   /** The plan they picked on the pricing page, if they came that way. */
   preselect?: string | null;
@@ -67,6 +70,9 @@ export function ChoosePlan({
         <CardDescription>
           Everything you&apos;ve set up is saved and waiting. Pick a plan and it goes live on your
           own phone number — usually within a couple of minutes.
+          {firstChargeLabel
+            ? ` You keep the rest of your free trial — your card isn't charged until ${firstChargeLabel}.`
+            : null}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -7,12 +7,15 @@ import { assertClientInOrg } from "@/lib/data/clients";
 import * as servicesData from "@/lib/data/services";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { type ActionState, fieldErrorsOf } from "./types";
+import { priceFields, priceRangeError } from "@/lib/service-price";
 
 function parseService(formData: FormData) {
   return serviceSchema.safeParse({
     name: formData.get("name"),
     durationMin: formData.get("durationMin"),
     priceDollars: formData.get("priceDollars") || undefined,
+    priceMaxDollars: formData.get("priceMaxDollars") || undefined,
+    priceFrom: formData.get("priceFrom") !== null,
     providerCount: formData.get("providerCount") || 1,
     description: formData.get("description"),
     virtualOk: formData.get("virtualOk") !== null,
@@ -32,13 +35,15 @@ export async function createServiceAction(
   const user = guard.user;
   const parsed = parseService(formData);
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
+  const rangeError = priceRangeError(parsed.data);
+  if (rangeError) return { ok: false, fieldErrors: { priceMaxDollars: [rangeError] } };
 
   await assertClientInOrg(user.orgId, clientId);
   const d = parsed.data;
   await servicesData.createService(clientId, {
     name: d.name,
     durationMin: d.durationMin,
-    priceCents: d.priceDollars != null ? Math.round(d.priceDollars * 100) : null,
+    ...priceFields(d),
     providerCount: d.providerCount,
     description: emptyToNull(d.description),
     virtualOk: d.virtualOk,
@@ -62,13 +67,15 @@ export async function updateServiceAction(
   const serviceId = String(formData.get("serviceId") ?? "");
   const parsed = parseService(formData);
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsOf(parsed.error) };
+  const rangeError = priceRangeError(parsed.data);
+  if (rangeError) return { ok: false, fieldErrors: { priceMaxDollars: [rangeError] } };
 
   await assertClientInOrg(user.orgId, clientId);
   const d = parsed.data;
   await servicesData.updateService(clientId, serviceId, {
     name: d.name,
     durationMin: d.durationMin,
-    priceCents: d.priceDollars != null ? Math.round(d.priceDollars * 100) : null,
+    ...priceFields(d),
     providerCount: d.providerCount,
     description: emptyToNull(d.description),
     virtualOk: d.virtualOk,

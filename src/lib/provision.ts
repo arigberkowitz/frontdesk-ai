@@ -7,7 +7,7 @@ import { clients } from "@/db/schema";
 import { getClient, updateClient } from "@/lib/data/clients";
 import { createAgentVersion } from "@/lib/data/agent-versions";
 import { DEFAULT_AGENT_NAME, openHoursSummary, openingLine } from "@/lib/prompt";
-import { buildPromptForClient } from "@/lib/agent-publish";
+import { buildPromptForClient, emergencyTransferFor } from "@/lib/agent-publish";
 import { provisionAgentForClient } from "@/lib/retell";
 import { env, integrations, webhookUrl } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -93,6 +93,8 @@ export async function runProvision(
       escalationNumber: client.escalationNumber,
       handoffMode: client.setupFlags?.handoffMode ?? "always",
       openHoursNote: openHoursSummary(client.businessHours),
+      waitlistEnabled: client.waitlistEnabled,
+      emergencyNumber: emergencyTransferFor(client),
       languages: client.languages,
       timezone: client.timezone,
       voiceId: client.voiceId,

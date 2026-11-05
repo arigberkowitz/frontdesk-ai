@@ -26,6 +26,12 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
+  // An emergency is flagged by the AI (take_message emergency: true) or said
+  // in so many words. Either way the owner hears about it NOW, not when the
+  // call ends — a burst pipe at 2am can't wait for the recap.
+  const emergency = args.emergency === true || String(args.emergency ?? "") === "true";
+  const urgencyArg = String(args.urgency ?? "").trim();
+
   const callRow = retellCallId ? await getCallByRetellId(client.id, retellCallId) : null;
   const lead = await createLead(client.id, {
     callId: callRow?.id ?? null,
@@ -34,8 +40,9 @@ export async function POST(req: Request): Promise<Response> {
     reason: String(args.reason ?? "").trim() || null,
     message: String(args.message ?? "").trim() || null,
     service: String(args.service ?? "").trim() || null,
-    urgency: String(args.urgency ?? "").trim() || null,
+    urgency: emergency ? (urgencyArg ? `EMERGENCY — ${urgencyArg}` : "EMERGENCY") : urgencyArg || null,
     budget: String(args.budget ?? "").trim() || null,
+    serviceAddress: String(args.service_address ?? "").trim().slice(0, 300) || null,
     status: "new",
   });
 
@@ -43,7 +50,11 @@ export async function POST(req: Request): Promise<Response> {
   // (lib/call-recap.ts) then sends ONE alert with who called, what they want,
   // urgency and a suggested reply — instead of a bare "New message" now and a
   // second email later. Web chat (no call to recap) still alerts right away.
-  if (!leadAlertDeferredToRecap({ channel, call: callRow ?? null })) {
+  // Emergencies skip the wait: alerted immediately (text + email); the recap
+  // still follows with the full call summary.
+  if (emergency) {
+    await notifyOwnerLead(client, lead, { emergency: true });
+  } else if (!leadAlertDeferredToRecap({ channel, call: callRow ?? null })) {
     await notifyOwnerLead(client, lead);
   }
 
@@ -59,6 +70,8 @@ export async function POST(req: Request): Promise<Response> {
       service: lead.service,
       urgency: lead.urgency,
       budget: lead.budget,
+      serviceAddress: lead.serviceAddress,
+      emergency,
       callId: lead.callId,
       createdAt: lead.createdAt.toISOString(),
     }),
@@ -66,6 +79,8 @@ export async function POST(req: Request): Promise<Response> {
 
   return Response.json({
     success: true,
-    message: "Got it — I've passed your message along and someone will follow up shortly.",
+    message: emergency
+      ? "Done — the team has been alerted right now and someone will call you back as soon as possible. If anyone is in danger, hang up and call 911."
+      : "Got it — I've passed your message along and someone will follow up shortly.",
   });
 }

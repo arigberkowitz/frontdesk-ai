@@ -59,6 +59,8 @@ export interface CalendarAppointment {
   endAt: string | Date | null;
   status: string;
   serviceName: string | null;
+  /** Where the job is (trades). */
+  serviceAddress?: string | null;
   depositStatus?: string;
   depositAmountCents?: number | null;
   /**
@@ -81,8 +83,9 @@ function gcalUrl(a: Item): string {
   const params = new URLSearchParams({
     action: "TEMPLATE",
     text: `${a.serviceName ?? "Appointment"}${a.customerName ? ` — ${a.customerName}` : ""}`,
+    ...(a.serviceAddress ? { location: a.serviceAddress } : {}),
     dates: `${fmt(a.date)}/${fmt(end)}`,
-    details: `Booked by your AI receptionist.${a.customerPhone ? ` Phone: ${a.customerPhone}.` : ""}`,
+    details: `Booked by your AI receptionist.${a.customerPhone ? ` Phone: ${a.customerPhone}.` : ""}${a.serviceAddress ? ` Address: ${a.serviceAddress}.` : ""}`,
   });
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
@@ -102,7 +105,7 @@ function icsHref(a: Item): string {
     `DTSTART:${fmt(a.date)}`,
     `DTEND:${fmt(end)}`,
     `SUMMARY:${esc(`${a.serviceName ?? "Appointment"}${a.customerName ? ` — ${a.customerName}` : ""}`)}`,
-    `DESCRIPTION:${esc(`Booked by your AI receptionist.${a.customerPhone ? ` Phone: ${a.customerPhone}.` : ""}`)}`,
+    `DESCRIPTION:${esc(`Booked by your AI receptionist.${a.customerPhone ? ` Phone: ${a.customerPhone}.` : ""}${a.serviceAddress ? ` Address: ${a.serviceAddress}.` : ""}`)}`,
     "END:VEVENT",
     "END:VCALENDAR",
   ];
@@ -193,6 +196,11 @@ function AgendaDay({
                     {a.customerPhone ? (
                       <span className="block text-xs text-muted-foreground tabular-nums">
                         {formatPhone(a.customerPhone)}
+                      </span>
+                    ) : null}
+                    {a.serviceAddress ? (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        📍 {a.serviceAddress}
                       </span>
                     ) : null}
                   </span>
@@ -600,6 +608,21 @@ export function AppointmentsView({
                     {selected.customerPhone ? formatPhone(selected.customerPhone) : "—"}
                   </dd>
                 </div>
+                {selected.serviceAddress ? (
+                  <div className="flex items-start justify-between gap-3">
+                    <dt className="text-muted-foreground">Address</dt>
+                    <dd className="text-right font-medium">
+                      <a
+                        href={`https://maps.google.com/?q=${encodeURIComponent(selected.serviceAddress)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:underline"
+                      >
+                        {selected.serviceAddress}
+                      </a>
+                    </dd>
+                  </div>
+                ) : null}
                 {calendarLabel && selected.onCalendar !== undefined && !isOff(selected) ? (
                   <div className="flex items-center justify-between gap-3">
                     <dt className="text-muted-foreground">Your calendar</dt>

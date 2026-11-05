@@ -8,6 +8,7 @@ import { audit } from "@/lib/data/audit";
 import { requireClientOwner, requireOperator } from "@/lib/auth-guard";
 import { assertClientInOrg, getClient } from "@/lib/data/clients";
 import { getTrialState } from "@/lib/data/trial";
+import { checkoutTrialEnd } from "@/lib/billing-trial";
 import { getStripe } from "@/lib/stripe";
 import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -161,6 +162,7 @@ export async function startSelfServeCheckoutAction(
   }
 
   const recurringAmount = intervalPriceCents(planKey, interval);
+  const trialEnd = checkoutTrialEnd(trialState);
 
   let url: string | null = null;
   try {
@@ -175,7 +177,11 @@ export async function startSelfServeCheckoutAction(
       success_url: `${env.APP_URL}/portal/guidelines?billing=success`,
       cancel_url: `${env.APP_URL}/portal/guidelines?billing=cancel`,
       metadata: { clientId, plan: planKey, interval, selfServe: "true" },
-      subscription_data: { metadata: { clientId, plan: planKey, interval } },
+      subscription_data: {
+        metadata: { clientId, plan: planKey, interval },
+        // Subscribing early keeps the days left on the free trial.
+        ...(trialEnd ? { trial_end: trialEnd } : {}),
+      },
     });
     url = session.url;
     void audit({ clientId, actor: guard.user.id, action: "billing.checkout_opened", detail: { plan: planKey, interval } });

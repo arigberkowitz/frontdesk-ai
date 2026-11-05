@@ -14,6 +14,7 @@ import { ProvisionCard } from "@/components/portal/provision-card";
 import { TrialCodeCard } from "@/components/portal/trial-code-card";
 import { ChoosePlan } from "@/components/portal/choose-plan";
 import { clientMayActivate, getTrialState } from "@/lib/data/trial";
+import { checkoutTrialEnd } from "@/lib/billing-trial";
 import { getNumberGate } from "@/lib/data/number-gate";
 import { TestCallButton } from "@/components/clients/test-call-button";
 import { CallMeNow } from "@/components/portal/call-me-now";
@@ -178,6 +179,15 @@ export default async function PortalGuidelinesPage({
                 <div className="space-y-4 border-t p-4">
                   <ChoosePlan
                     clientId={client.id}
+                    firstChargeLabel={
+                      checkoutTrialEnd(trial) && trial.endsAt
+                        ? trial.endsAt.toLocaleDateString("en-US", {
+                            month: "long",
+                            day: "numeric",
+                            timeZone: client.timezone || "America/New_York",
+                          })
+                        : null
+                    }
                     cardsReady={integrations.stripe()}
                     preselect={client.setupFlags?.intendedPlan ?? null}
                   preselectInterval={client.setupFlags?.intendedInterval ?? null}

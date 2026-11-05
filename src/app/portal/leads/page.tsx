@@ -129,6 +129,18 @@ export default async function PortalLeadsPage() {
                         )}
                         {l.reason ? ` · ${l.reason}` : ""}
                       </p>
+                      {l.serviceAddress ? (
+                        <p className="mt-1 text-sm">
+                          <a
+                            href={`https://maps.google.com/?q=${encodeURIComponent(l.serviceAddress)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hover:underline"
+                          >
+                            📍 {l.serviceAddress}
+                          </a>
+                        </p>
+                      ) : null}
                       {l.message ? (
                         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                           &ldquo;{l.message}&rdquo;

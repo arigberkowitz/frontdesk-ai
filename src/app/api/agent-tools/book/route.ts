@@ -272,6 +272,8 @@ export async function POST(req: Request): Promise<Response> {
         customerName: customerName || moving?.customerName || null,
         customerPhone: customerPhone || null,
         customerEmail: cleanEmail(args.email) ?? moving?.customerEmail ?? null,
+        serviceAddress:
+          String(args.service_address ?? "").trim().slice(0, 300) || moving?.serviceAddress || null,
         serviceId: service.id ?? null,
         providerId,
         startAt,

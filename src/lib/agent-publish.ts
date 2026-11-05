@@ -31,7 +31,20 @@ export function agentToolsFor(client: ClientWithRelations, clientId: string) {
     client.setupFlags?.handoffMode ?? "always",
     openHoursSummary(client.businessHours),
     client.waitlistEnabled,
+    emergencyTransferFor(client),
   );
+}
+
+/**
+ * Where an emergency call goes at any hour, or null when the business chose
+ * "take an urgent message" (or has no number to send it to).
+ */
+export function emergencyTransferFor(
+  client: Pick<ClientWithRelations, "escalationNumber" | "setupFlags">,
+): string | null {
+  const e = client.setupFlags?.emergency;
+  if (!e?.transfer247) return null;
+  return e.onCallNumber?.trim() || client.escalationNumber?.trim() || null;
 }
 
 /** Rebuild the Retell general prompt from a client's current data (§B5). */
@@ -60,6 +73,8 @@ export function buildPromptForClient(
       answeringMode: client.answeringMode,
       // The agent only promises booking when a calendar is actually connected.
       bookingEnabled: getBookingProviderForClient(client).isConfigured(),
+      emergencyTransfer247: emergencyTransferFor(client) != null,
+      tripFeeCents: client.tripFeeCents,
     },
     services: client.services,
     hours: client.businessHours,
@@ -92,7 +107,10 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
       // business can't get a real booking row from an LLM that ignores the
       // prompt — keep take_message and the human-transfer path.
       general_tools: agentToolsFor(client, clientId).filter(
-        (t) => t.name === "take_message" || t.name === "transfer_to_human",
+        (t) =>
+          t.name === "take_message" ||
+          t.name === "transfer_to_human" ||
+          t.name === "transfer_emergency",
       ),
     });
     return true;
