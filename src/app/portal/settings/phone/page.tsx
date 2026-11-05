@@ -9,6 +9,15 @@ import { HumanTouchForm } from "@/components/portal/portal-settings";
 import { LanguagesCard } from "@/components/portal/languages-card";
 import { ReceptionistPower } from "@/components/portal/receptionist-power";
 import { toSafeClient } from "@/lib/client-safe";
+import { TextingControlsCard } from "@/components/portal/texting-controls-card";
+import { getTextingPrefs } from "@/lib/data/texting-prefs";
+import { DEFAULT_QUIET_END, DEFAULT_QUIET_START } from "@/lib/texting-policy";
+import { TollfreeTextingCard } from "@/components/portal/tollfree-texting-card";
+import { getCurrentDbUser, userIsClientOwner } from "@/lib/auth-guard";
+import { tollfreeStore } from "@/lib/data/tollfree";
+import { env } from "@/lib/env";
+import { formatUsPhone } from "@/lib/sms-number-format";
+import { tollfreeView } from "@/lib/tollfree/status";
 
 export const metadata: Metadata = { title: "Phone & AI · Settings" };
 
@@ -18,6 +27,11 @@ export default async function PortalSettingsPhonePage() {
   const editAccess = await getPortalEditAccess(clientId);
   const client = await getClientByIdUnsafe(clientId);
   if (!client) notFound();
+  const tollfree = env.TOLLFREE_SMS_ENABLED ? await tollfreeStore.get(clientId) : null;
+  const needsOwner = env.TOLLFREE_SMS_ENABLED || env.OWNER_TEXTING_CONTROLS;
+  const isOwner = needsOwner ? userIsClientOwner(await getCurrentDbUser(), clientId) : false;
+  const textingPrefs = env.OWNER_TEXTING_CONTROLS ? await getTextingPrefs(clientId) : null;
+  const { ein, ...shownDetails } = tollfree?.details ?? {};
 
   return (
     <div className="space-y-6">
@@ -50,6 +64,26 @@ export default async function PortalSettingsPhonePage() {
         canEdit={editAccess.canEdit}
       />
       <HumanTouchForm client={toSafeClient(client)} />
+      {env.TOLLFREE_SMS_ENABLED ? (
+        <TollfreeTextingCard
+          clientId={clientId}
+          view={tollfreeView(tollfree)}
+          phoneNumber={tollfree?.phoneNumber ? formatUsPhone(tollfree.phoneNumber) : null}
+          details={shownDetails}
+          einOnFile={ein ? ein.replace(/\D/g, "").slice(-4) : null}
+          isOwner={isOwner}
+        />
+      ) : null}
+      {env.OWNER_TEXTING_CONTROLS ? (
+        <TextingControlsCard
+          clientId={clientId}
+          textingEnabled={textingPrefs?.textingEnabled ?? true}
+          quietStartHour={textingPrefs?.quietStartHour ?? DEFAULT_QUIET_START}
+          quietEndHour={textingPrefs?.quietEndHour ?? DEFAULT_QUIET_END}
+          timeZone={client.timezone}
+          isOwner={isOwner}
+        />
+      ) : null}
       <LanguagesCard clientId={clientId} languages={client.languages} canEdit={editAccess.canEdit} />
     </div>
   );

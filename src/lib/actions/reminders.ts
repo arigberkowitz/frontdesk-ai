@@ -81,6 +81,7 @@ export async function sendReminderAction(
     to: phone,
     body,
     log: { clientId, kind: "appointment_reminder", appointmentId },
+    manual: true,
   });
 
   if (result.skipped || !integrations.twilio()) {
@@ -186,6 +187,7 @@ export async function sendLeadFollowupAction(
     to: phone,
     body,
     log: { clientId, kind: "lead_followup", leadId },
+    manual: true,
   });
 
   if (result.skipped || !integrations.twilio()) {
