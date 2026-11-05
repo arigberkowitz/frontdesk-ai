@@ -73,8 +73,8 @@ describe("paid Missed-Call Rescue customer, end to end", () => {
     expect(prompt).not.toContain("Luis");
   });
 
-  it("isn't given Spanish it didn't buy", () => {
-    expect(patch.languages).toBeUndefined();
+  it("gets English & Spanish — every plan includes it now", () => {
+    expect(patch.languages).toBe("en-es");
   });
 
   it("re-applies missed-only even if the owner flipped it back", () => {

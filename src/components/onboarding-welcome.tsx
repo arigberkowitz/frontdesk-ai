@@ -13,6 +13,27 @@ import { Field } from "@/components/form/field";
 import { NativeSelect } from "@/components/form/native-select";
 import { DemoCall } from "@/components/demo-call";
 
+const RESCUE_STEPS = [
+  {
+    icon: Phone,
+    chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+    title: "Catches the calls you miss",
+    body: "On a job, on another line, or after hours — it picks up so the caller doesn't hang up and call someone else.",
+  },
+  {
+    icon: CalendarCheck,
+    chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    title: "Books the job or takes a message",
+    body: "Gets the name, number and what they need.",
+  },
+  {
+    icon: MessageSquare,
+    chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+    title: "Texts you right away",
+    body: "Every missed call becomes a lead in your pocket — in English or Spanish.",
+  },
+];
+
 const STEPS = [
   {
     icon: Phone,
@@ -199,8 +220,10 @@ export function OnboardingWelcome({
         </div>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">Welcome to FrontDesk AI</h1>
         <p className="mx-auto max-w-lg text-muted-foreground">
-          Your AI receptionist answers every call, books appointments, and takes messages — around the
-          clock. Let&apos;s get yours set up. It only takes a couple of minutes.
+          {plan === "backup"
+            ? "You answer when you can. When you can't, your AI picks up, books the job or takes a message, and texts you right away — in English or Spanish."
+            : "Your AI receptionist answers every call, books appointments, and takes messages — around the clock, in English and Spanish."}{" "}
+          Let&apos;s get yours set up. It only takes a couple of minutes.
         </p>
       </div>
 
@@ -258,7 +281,7 @@ export function OnboardingWelcome({
       </div>
 
       <div className="grid gap-3 text-left sm:grid-cols-3">
-        {STEPS.map((s) => (
+        {(plan === "backup" ? RESCUE_STEPS : STEPS).map((s) => (
           <div key={s.title} className="rounded-xl border bg-card p-4">
             <span className={`flex size-9 items-center justify-center rounded-lg ${s.chip}`}>
               <s.icon className="size-4" />

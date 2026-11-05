@@ -36,7 +36,7 @@ export function weekOverWeek(series: number[], format: (n: number) => string = S
       previous,
       pct: null,
       tone: "up",
-      text: `${format(current)} this week — first week with any`,
+      text: `${format(current)} this week · none last week`,
     };
   }
 

@@ -1,4 +1,5 @@
 import "server-only";
+import { formatPhone } from "@/lib/format";
 import { and, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { appointments, clients, type Appointment, type Client } from "@/db/schema";
@@ -52,6 +53,7 @@ export async function sendBookingConfirmation(
     when: whenFor(client, appt.startAt, lang),
     meetingUrl: appt.meetingUrl,
     language: lang,
+    businessLine: client.retellPhoneNumber ? formatPhone(client.retellPhoneNumber) : null,
   });
 
   const result = await notifier.sendSms({
@@ -149,6 +151,7 @@ export async function sendAppointmentReminders(now: Date = new Date()): Promise<
           when: whenFor(client, a.startAt, lang),
           meetingUrl: row.meetingUrl,
           language: lang,
+          businessLine: client.retellPhoneNumber ? formatPhone(client.retellPhoneNumber) : null,
         });
         const result = await notifier.sendSms({
           to,

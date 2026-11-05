@@ -133,10 +133,13 @@ export function callbackText(input: {
         : input.reason === "abandoned_booking"
           ? `Parece que no terminamos de reservar su ${service ? `cita de ${service}` : "cita"}.`
           : "¡Disculpe que no pudimos contestar su llamada!";
-    const ask = "Responda aquí con el día y la hora que le convengan y le hacemos la reserva.";
+    const ask = "Responda aquí con el día y la hora que le convengan y le hacemos la reserva. Si es urgente, vuelva a llamarnos y le atendemos.";
     return `${name ? `${name}:` : "¡Hola!"} ${opener} ${ask} Responda STOP para no recibir más mensajes.`;
   }
-  const ask = "Just reply here with a day and time that works and we'll get you booked.";
+  // Trades get emergency calls; a text that only offers a booking slot reads
+  // as "we don't care that your basement is flooding". A call back always
+  // reaches the AI (which can transfer or flag it urgent), so that's the promise.
+  const ask = "Just reply here with a day and time that works and we'll get you booked. If it's urgent, call us back and we'll pick up.";
   const opener =
     input.reason === "dropped"
       ? "Sorry, it looks like our call got cut off."

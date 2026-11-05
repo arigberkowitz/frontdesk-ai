@@ -87,19 +87,7 @@ export function MissedCallCard({
                 disabled={pending || !on}
               />
             </div>
-          ) : (
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-dashed p-3">
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-sm font-medium">AI call-backs</p>
-                <p className="text-xs text-muted-foreground">
-                  Your AI will phone missed callers back. For now they get the text above.
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                Coming soon
-              </span>
-            </div>
-          )}
+          ) : null}
 
           <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
             <span className="font-medium text-foreground">What they get: </span>

@@ -85,8 +85,8 @@ export function planSyncPatch(
   // Fix 3: staff mode is Pro.
   if (!features.has("staff_mode") && client.staffModeEnabled) patch.staffModeEnabled = false;
 
-  // Fix 6: Starter and up advertise English & Spanish automatically.
-  if (features.has("all_calls") && planChanged && !hasSpanish(client.languages)) {
+  // Fix 6: every plan advertises English & Spanish automatically.
+  if (planChanged && !hasSpanish(client.languages)) {
     patch.languages = addSpanish(client.languages);
   }
   return patch;

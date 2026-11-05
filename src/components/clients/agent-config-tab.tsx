@@ -171,7 +171,7 @@ export function AgentConfigTab({
                 name="agentGuidance"
                 rows={4}
                 defaultValue={client.agentGuidance ?? ""}
-                placeholder="e.g. Always mention we're accepting new patients. Never quote exact prices — say it depends on their plan. Don't give medical advice."
+                placeholder="e.g. Always mention we offer free estimates. Never quote an exact price over the phone — say the tech confirms it on site."
               />
             </Field>
             <Field label="How to handle booking" hint="Rules the AI follows when booking.">
@@ -179,7 +179,7 @@ export function AgentConfigTab({
                 name="bookingInstructions"
                 rows={4}
                 defaultValue={client.bookingInstructions ?? ""}
-                placeholder="e.g. Only book cleanings and new-patient exams. For anything else, take a message. Always read the appointment back to confirm."
+                placeholder="e.g. Only book service calls and estimates. For anything else, take a message. Always read the appointment back to confirm."
               />
             </Field>
             <div className="flex justify-end">

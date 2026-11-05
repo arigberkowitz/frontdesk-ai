@@ -130,7 +130,7 @@ export function DocIngest({ clientId }: { clientId: string }) {
               rows={6}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={"Or paste from your PDF, Word doc, or website — e.g.\n\nHaircut $35 (30 min). Color from $120.\nCancellations within 24 hours are charged 50%…"}
+              placeholder={"Or paste from your PDF, Word doc, or website — e.g.\n\nService call $79, waived if we do the work. Water heater install from $1,200.\nWe serve Miami-Dade and Broward…"}
               disabled={pending || extracting}
             />
           </Field>

@@ -102,7 +102,7 @@ export async function saveRecallSettingsAction(
       return {
         ok: false,
         error:
-          "No service has a rebook interval yet, so there would be nobody to text. Set \u201cBook them again after\u201d on a service first \u2014 180 days for a cleaning, 28 for a haircut.",
+          "No service has a rebook interval yet, so there would be nobody to text. Set \u201cBook them again after\u201d on a service first \u2014 180 days for an AC tune-up, 28 for a haircut.",
       };
     }
   }

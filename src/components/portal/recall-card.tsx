@@ -78,7 +78,7 @@ export function RecallCard({
             <Link href="/portal/services" className="underline underline-offset-2">
               Set it on Services
             </Link>{" "}
-            — 180 days for a cleaning, 28 for a haircut. Leave it empty for one-off work.
+            — 180 days for an AC tune-up, 28 for a haircut. Leave it empty for one-off work.
           </p>
 
           <ul className="space-y-1 text-xs text-muted-foreground">

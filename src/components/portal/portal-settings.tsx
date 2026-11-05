@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field } from "@/components/form/field";
 import { NativeSelect } from "@/components/form/native-select";
 import { SubmitButton } from "@/components/form/submit-button";
-import { TIMEZONES } from "@/config/options";
+import { TIMEZONES, TIMEZONE_LABELS } from "@/config/options";
 import type { SafeClient as Client } from "@/lib/client-safe";
 
 /*
@@ -51,7 +51,7 @@ export function BusinessDetailsForm({ client }: { client: Client }) {
             <NativeSelect name="timezone" defaultValue={client.timezone}>
               {TIMEZONES.map((t) => (
                 <option key={t} value={t}>
-                  {t}
+                  {TIMEZONE_LABELS[t]}
                 </option>
               ))}
             </NativeSelect>
