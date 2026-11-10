@@ -13,6 +13,7 @@ import { integrations } from "@/lib/env";
 import { clientMayActivate } from "@/lib/data/trial";
 import { OWNER_PHONE_ERROR, runProvision } from "@/lib/provision";
 import { type ActionState, fieldErrorsOf } from "./types";
+import { isUsableVoiceId, UNUSABLE_VOICE_ERROR } from "@/config/voice";
 
 export async function saveAgentConfigAction(
   _prev: ActionState,
@@ -36,6 +37,9 @@ export async function saveAgentConfigAction(
   const existing = await getClient(user.orgId, clientId);
   const d = parsed.data;
   const newVoiceId = emptyToNull(d.voiceId);
+  if (newVoiceId && !isUsableVoiceId(newVoiceId)) {
+    return { ok: false, fieldErrors: { voiceId: [UNUSABLE_VOICE_ERROR] } };
+  }
   await updateClient(user.orgId, clientId, {
     greeting: emptyToNull(d.greeting),
     agentName: emptyToNull(d.agentName),

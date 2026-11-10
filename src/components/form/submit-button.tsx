@@ -13,7 +13,7 @@ export function SubmitButton({
   ...props
 }: ButtonProps & { pending?: boolean }) {
   return (
-    <Button type="submit" disabled={pending || props.disabled} className={cn(className)} {...props}>
+    <Button type="submit" {...props} disabled={pending || props.disabled} className={cn(className)}>
       {pending ? <Loader2 className="size-4 animate-spin" /> : null}
       {children}
     </Button>
