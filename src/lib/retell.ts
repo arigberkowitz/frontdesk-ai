@@ -5,6 +5,7 @@ import { env, integrations } from "./env";
 import { toE164 } from "@/lib/format";
 import { logger } from "./logger";
 import { agentToolHeaders } from "./agent-tool-token";
+import { isUsableVoice, isUsableVoiceId } from "@/config/voice";
 import {
   MULTILINGUAL_VOICE_MODEL,
   parseLanguages,
@@ -535,9 +536,17 @@ export async function provisionAgentForClient(
   }
 
   // 2. Agent — bind the LLM, voice, webhook, keywords.
+  // A saved voice Retell won't accept on this engine (xAI speech-to-speech
+  // voices) must not fail the whole provision: a new agent gets the default
+  // voice, an existing one keeps whatever voice it's live on.
+  const usableVoice = isUsableVoiceId(input.voiceId) ? input.voiceId!.trim() : null;
+  const keepLiveVoice = Boolean(input.voiceId?.trim()) && !usableVoice;
+  if (keepLiveVoice) {
+    logger.warn("retell.voice.unsupported", { clientId: input.clientId, voiceId: input.voiceId });
+  }
   const agentBody = {
     response_engine: { type: "retell-llm" as const, llm_id: llmId },
-    voice_id: input.voiceId || DEFAULT_VOICE_ID,
+    voice_id: usableVoice ?? DEFAULT_VOICE_ID,
     agent_name: input.agentName,
     webhook_url: input.webhookUrl,
     boosted_keywords: input.boostedKeywords?.length ? input.boostedKeywords : null,
@@ -558,7 +567,8 @@ export async function provisionAgentForClient(
   };
   let agentId = input.existingAgentId ?? null;
   if (agentId) {
-    await client.agent.update(agentId, agentBody);
+    const { voice_id: _voice, ...withoutVoice } = agentBody;
+    await client.agent.update(agentId, keepLiveVoice ? withoutVoice : agentBody);
   } else {
     const agent = await client.agent.create(agentBody);
     agentId = agent.agent_id;
@@ -601,6 +611,7 @@ export async function provisionAgentForClient(
 
 /** Update just the voice on a provisioned agent (the per-business voice picker). */
 export async function updateAgentVoice(agentId: string, voiceId: string): Promise<void> {
+  if (!isUsableVoiceId(voiceId)) throw new Error(`Voice ${voiceId} isn't supported on this agent engine`);
   await getRetellClient().agent.update(agentId, { voice_id: voiceId });
 }
 
@@ -617,7 +628,10 @@ export interface RetellVoice {
 export async function listRetellVoices(): Promise<RetellVoice[]> {
   const client = getRetellClient();
   const voices = await client.voice.list();
-  return voices.map((v) => ({
+  // Hide voices our agents can't speak with (see isUsableVoice).
+  return voices
+    .filter((v) => isUsableVoice({ voiceId: v.voice_id, provider: v.provider }))
+    .map((v) => ({
     voiceId: v.voice_id,
     name: v.voice_name,
     provider: v.provider,

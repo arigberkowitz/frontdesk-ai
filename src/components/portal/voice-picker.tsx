@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { setVoiceByIdAction } from "@/lib/actions/guidelines";
 import { initialActionState } from "@/lib/actions/types";
 import { Button } from "@/components/ui/button";
-import type { VoiceMeta } from "@/config/voice";
+import { SubmitButton } from "@/components/form/submit-button";
+import { voicePickerSummary, type VoiceMeta } from "@/config/voice";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,25 +16,31 @@ import { cn } from "@/lib/utils";
  *
  * Choosing a voice from a list of names is choosing blind — the whole
  * question is what it sounds like. Each row has the vendor's sample clip a
- * click away, one plays at a time, and picking a row saves immediately and
- * updates the live agent. Women and Men side by side, each list scrolling
- * on its own so the page doesn't grow with the vendor's catalogue.
+ * click away, one plays at a time. Clicking a row only SELECTS it — nothing
+ * reaches the live agent until the owner clicks Save, so browsing voices
+ * never changes what callers hear mid-day. Women and Men side by side, each
+ * list scrolling on its own so the page doesn't grow with the vendor's
+ * catalogue.
  */
 export function VoicePicker({
   clientId,
   current,
   women,
   men,
+  unusableSavedName = null,
 }: {
   clientId: string;
   current: string | null;
   women: VoiceMeta[];
   men: VoiceMeta[];
+  /** Name of a saved voice our agents can't speak with (e.g. an xAI voice). */
+  unusableSavedName?: string | null;
 }) {
   const [state, action, pending] = useActionState(setVoiceByIdAction, initialActionState);
-  const formRef = useRef<HTMLFormElement>(null);
-  const voiceInputRef = useRef<HTMLInputElement>(null);
+  // `saved` is what the live agent uses; `value` is the row the owner picked.
+  const [saved, setSaved] = useState<string>(current ?? "");
   const [value, setValue] = useState<string>(current ?? "");
+  const lastSubmitted = useRef<string>("");
 
   // One shared player. `playing` is the voiceId whose clip is sounding.
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -44,17 +51,17 @@ export function VoicePicker({
   const switching = useRef(false);
 
   useEffect(() => {
-    if (state.ok) toast.success(state.message ?? "Voice updated — your receptionist now sounds different.");
-    else if (state.error) toast.error(state.error);
+    if (state.ok) {
+      setSaved(lastSubmitted.current);
+      toast.success(state.message ?? "Voice saved — your receptionist now uses it on calls.");
+    } else if (state.error) toast.error(state.error);
   }, [state]);
 
   useEffect(() => () => audioRef.current?.pause(), []);
 
   function choose(v: VoiceMeta) {
-    if (pending || v.voiceId === value) return;
+    if (pending) return;
     setValue(v.voiceId);
-    if (voiceInputRef.current) voiceInputRef.current.value = v.voiceId;
-    formRef.current?.requestSubmit();
   }
 
   function toggle(v: VoiceMeta) {
@@ -80,6 +87,13 @@ export function VoicePicker({
 
   const all = [...women, ...men];
   const selected = all.find((v) => v.voiceId === value) ?? null;
+  const live = all.find((v) => v.voiceId === saved) ?? null;
+  const summary = voicePickerSummary({
+    savedName: live?.name ?? (unusableSavedName ? null : saved ? "a custom voice" : null),
+    selectedName: selected?.name ?? null,
+    dirty: Boolean(value) && value !== saved,
+    unusableSavedName,
+  });
 
   // A plain render function, not a nested component: a component defined
   // inside render remounts every row on each state change and drops focus.
@@ -142,9 +156,14 @@ export function VoicePicker({
   }
 
   return (
-    <form ref={formRef} action={action}>
+    <form
+      action={action}
+      onSubmit={() => {
+        lastSubmitted.current = value;
+      }}
+    >
       <input type="hidden" name="clientId" value={clientId} />
-      <input type="hidden" name="voiceId" ref={voiceInputRef} defaultValue={current ?? ""} />
+      <input type="hidden" name="voiceId" value={value} />
       <audio
         ref={audioRef}
         preload="none"
@@ -168,21 +187,25 @@ export function VoicePicker({
       <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
         <Volume2 className="size-4 text-muted-foreground" />
         <span className="text-muted-foreground">Speaking as</span>
-        <span className="font-medium">{selected?.name ?? (value ? "a custom voice" : "no voice yet")}</span>
-        {selected?.previewUrl ? (
+        <span className="font-medium">{summary.speakingAs}</span>
+        {live?.previewUrl ? (
           <Button
             type="button"
             size="sm"
             variant="outline"
-            onClick={() => toggle(selected)}
+            onClick={() => toggle(live)}
             className="ml-1"
           >
-            {playing === selected.voiceId ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
-            {playing === selected.voiceId ? "Stop" : "Hear it"}
+            {playing === live.voiceId ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
+            {playing === live.voiceId ? "Stop" : "Hear it"}
           </Button>
         ) : null}
-        {pending ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : null}
       </div>
+      {summary.warning ? (
+        <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {summary.warning}
+        </p>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {[
@@ -200,6 +223,27 @@ export function VoicePicker({
             </div>
           ) : null,
         )}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          {summary.hint}
+        </p>
+        <div className="flex items-center gap-2">
+          {summary.dirty ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={pending}
+              onClick={() => setValue(saved)}
+            >
+              Undo
+            </Button>
+          ) : null}
+          <SubmitButton pending={pending} disabled={!summary.dirty}>
+            {pending ? "Saving…" : "Save voice"}
+          </SubmitButton>
+        </div>
       </div>
       {all.some((v) => v.previewUrl) ? null : (
         <p className="mt-2 text-xs text-muted-foreground">

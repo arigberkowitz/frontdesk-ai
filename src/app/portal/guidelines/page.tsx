@@ -22,6 +22,7 @@ import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { toSafeClient } from "@/lib/client-safe";
 import {
   groupVoicesByGender,
+  isUsableVoiceId,
   RECOMMENDED_VOICES,
   type VoiceMeta,
 } from "@/config/voice";
@@ -67,6 +68,12 @@ export default async function PortalGuidelinesPage({
   if (women.length === 0 && men.length === 0) {
     ({ women, men } = groupVoicesByGender(RECOMMENDED_VOICES, cur));
   }
+  // A voice saved before we hid engine-incompatible voices (e.g. "xai-Ara"):
+  // flag it and ask for a new pick instead of a plain "Speaking as Ara".
+  const unusableSavedName =
+    client.voiceId && !isUsableVoiceId(client.voiceId)
+      ? client.voiceId.replace(/^[a-z0-9]+-/i, "")
+      : null;
 
   return (
     <div className="space-y-6">
@@ -227,13 +234,20 @@ export default async function PortalGuidelinesPage({
         <CardHeader>
           <CardTitle>Voice</CardTitle>
           <CardDescription>
-            Pick the voice your receptionist speaks in — grouped by women and men.
+            Pick the voice your receptionist speaks in — grouped by women and men. Press ▶ to
+            hear one, then Save to use it on calls.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {/* A business that never chose a voice is speaking as the default one,
               not "no voice yet" — the agent was provisioned with it. */}
-          <VoicePicker clientId={client.id} current={client.voiceId ?? DEFAULT_VOICE_ID} women={women} men={men} />
+          <VoicePicker
+            clientId={client.id}
+            current={client.voiceId ?? DEFAULT_VOICE_ID}
+            women={women}
+            men={men}
+            unusableSavedName={unusableSavedName}
+          />
         </CardContent>
       </Card>
 

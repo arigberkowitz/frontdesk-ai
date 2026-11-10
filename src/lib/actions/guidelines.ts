@@ -4,7 +4,9 @@ import { markSetupReviewed } from "@/lib/data/setup-review";
 import { revalidatePath } from "next/cache";
 import { requireClientEditor } from "@/lib/auth-guard";
 import { guidelinesSchema, emptyToNull } from "@/lib/validation";
-import { assertClientInOrg, updateClient } from "@/lib/data/clients";
+import { assertClientInOrg, getClient, updateClient } from "@/lib/data/clients";
+import { isUsableVoiceId, UNUSABLE_VOICE_ERROR } from "@/config/voice";
+import { logger } from "@/lib/logger";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { updateAgentVoice } from "@/lib/retell";
 import { integrations } from "@/lib/env";
@@ -67,20 +69,35 @@ export async function setVoiceByIdAction(
 
   if (!guard.ok) return { ok: false, error: guard.error };
 
+  if (!isUsableVoiceId(voiceId)) return { ok: false, error: UNUSABLE_VOICE_ERROR };
+
   const user = guard.user;
   await assertClientInOrg(user.orgId, clientId);
 
-  const client = await updateClient(user.orgId, clientId, { voiceId });
-
-  if (client.retellAgentId && integrations.retell()) {
+  // Live agent first, then the database: if Retell rejects the voice we keep
+  // the old one saved, so the page, the DB and the phone line never disagree
+  // (and a rejected voice can't poison later re-provisions).
+  const existing = await getClient(user.orgId, clientId);
+  if (!existing) return { ok: false, error: "Business not found." };
+  if (existing.voiceId === voiceId) return { ok: true, message: "That voice is already live." };
+  if (existing.retellAgentId && integrations.retell()) {
     try {
-      await updateAgentVoice(client.retellAgentId, voiceId);
-    } catch {
-      return { ok: false, error: "Saved your choice, but couldn't update the live voice — try again." };
+      await updateAgentVoice(existing.retellAgentId, voiceId);
+    } catch (err) {
+      logger.error("voice.update_failed", {
+        clientId,
+        voiceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return {
+        ok: false,
+        error: "We couldn't switch to that voice just now — your current voice is unchanged. Try again, or pick another.",
+      };
     }
   }
+  await updateClient(user.orgId, clientId, { voiceId });
 
   revalidatePath("/portal/guidelines");
   revalidatePath(`/clients/${clientId}`);
-  return { ok: true };
+  return { ok: true, message: "Voice saved — your receptionist now uses it on calls." };
 }

@@ -46,6 +46,32 @@ export const RECOMMENDED_VOICES: VoiceMeta[] = [
   { voiceId: "11labs-Adrian", name: "Adrian", gender: "male", accent: "American", provider: "elevenlabs" },
 ];
 
+/**
+ * Voices our agents can actually speak with. Retell's voice library also lists
+ * xAI (Grok) voices — Ara, Aurora, Altair… — that only run on an xAI
+ * speech-to-speech engine. Our agents use a Retell LLM + text-to-speech, so
+ * Retell rejects them: "400 Voice xai-Ara is only supported with xai
+ * speech-to-speech models." Picking one used to save it anyway and then break
+ * every later Activate / re-provision for that business.
+ */
+const S2S_ONLY_VOICE_PREFIXES = ["xai-"];
+const S2S_ONLY_PROVIDERS = new Set(["xai"]);
+
+export function isUsableVoiceId(voiceId: string | null | undefined): boolean {
+  const id = (voiceId ?? "").trim().toLowerCase();
+  if (!id) return false;
+  return !S2S_ONLY_VOICE_PREFIXES.some((p) => id.startsWith(p));
+}
+
+export function isUsableVoice(v: { voiceId: string; provider?: string | null }): boolean {
+  if (v.provider && S2S_ONLY_PROVIDERS.has(v.provider.toLowerCase())) return false;
+  return isUsableVoiceId(v.voiceId);
+}
+
+/** Shown when someone tries to save a voice our agents can't use. */
+export const UNUSABLE_VOICE_ERROR =
+  "That voice can't be used for phone calls yet — please pick a different one.";
+
 /** Coarse gender bucket for the portal's "Women / Men" voice grouping. */
 export function normalizeGender(g?: string | null): "female" | "male" | "other" {
   const k = (g ?? "").toLowerCase();
@@ -110,6 +136,7 @@ export function groupVoicesByGender(
   const byName = new Map<string, VoiceMeta>();
   for (const raw of voices) {
     if (normalizeGender(raw.gender) === "other") continue;
+    if (!isUsableVoice(raw)) continue;
     const v = cleanVoiceLabel(raw);
     const key = v.name.toLowerCase();
     const prev = byName.get(key);
@@ -120,4 +147,25 @@ export function groupVoicesByGender(
   for (const v of byName.values()) (normalizeGender(v.gender) === "female" ? women : men).push(v);
   const cmp = (a: VoiceMeta, b: VoiceMeta) => a.name.localeCompare(b.name);
   return { women: women.sort(cmp), men: men.sort(cmp) };
+}
+
+/**
+ * The words around the portal voice picker. Picking a row only selects it;
+ * the Save button is what changes the live agent, so the copy has to say
+ * which voice callers hear now and whether there's an unsaved pick.
+ */
+export function voicePickerSummary(input: {
+  savedName: string | null;
+  selectedName: string | null;
+  dirty: boolean;
+  unusableSavedName?: string | null;
+}): { speakingAs: string; hint: string; dirty: boolean; warning: string | null } {
+  const speakingAs = input.savedName ?? (input.unusableSavedName ? `${input.unusableSavedName} (not available)` : "the default voice");
+  const warning = input.unusableSavedName
+    ? `${input.unusableSavedName} isn't available for phone calls. Pick another voice and click Save to switch.`
+    : null;
+  const hint = input.dirty
+    ? `${input.selectedName ?? "New voice"} selected — click Save to use it on calls.`
+    : "Click a voice to select it, or ▶ to hear a sample. Nothing changes until you save.";
+  return { speakingAs, hint, dirty: input.dirty, warning };
 }
