@@ -87,6 +87,29 @@ export function formatDateTime(
   }).format(d);
 }
 
+/**
+ * Like formatDateTime, plus the zone ("Nov 10, 2026, 9:56 AM PST"). For texts
+ * and emails read by someone who may not be in the business's time zone — an
+ * alert stamped 9:56 AM (Pacific) read at 12:58 PM Eastern looks 3 hours late.
+ */
+export function formatDateTimeWithZone(
+  value: Date | string | number | null | undefined,
+  timeZone?: string,
+): string {
+  if (value == null) return "—";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone,
+    timeZoneName: "short",
+  }).format(d);
+}
+
 /** Seconds → "3m 12s" / "45s". */
 export function formatDuration(seconds: number | null | undefined): string {
   if (seconds == null) return "—";

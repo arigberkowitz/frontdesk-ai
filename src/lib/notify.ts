@@ -1,9 +1,10 @@
 import "server-only";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { notifications, type Appointment, type Client, type Lead } from "@/db/schema";
 import { notifier, type SendResult } from "./notifier";
 import { getAlertRecipients } from "./data/alert-contacts";
-import { formatDateTime, formatPhone, toE164 } from "./format";
+import { formatDateTime, formatDateTimeWithZone, formatPhone, toE164 } from "./format";
 import { env } from "./env";
 import { logger } from "./logger";
 import { pushToClient } from "./push";
@@ -274,11 +275,77 @@ export async function notifyOperatorComplianceRisk(
  * Deliberately narrow. Alert on everything and the owner mutes us, which costs
  * more than sending nothing.
  */
+export const CALL_PROBLEM_KIND = "call_problem";
+
+/**
+ * A call-problem alert is worth sending only while a callback can still save
+ * it. A webhook replayed or reprocessed hours later must not text the owner
+ * about a call they can no longer act on as "now".
+ */
+export const CALL_PROBLEM_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+
+type CallProblemTarget = { channel: "email" | "sms"; recipient: string; payload: Record<string, unknown> };
+
+/**
+ * Claim the call's problem alert: one queued notification per target, or null
+ * if this call already has one. Retell sends `call_ended` and then
+ * `call_analyzed` about a second apart and both run the health check, so
+ * without this claim every stranded caller was alerted twice (Nov 10, 2026).
+ * The advisory lock serialises the two webhook invocations; rows written
+ * before `kind` existed (payload has callId but no kind) still count.
+ */
+async function claimCallProblemAlert(
+  clientId: string,
+  callId: string,
+  targets: CallProblemTarget[],
+): Promise<{ id: string; channel: "email" | "sms"; recipient: string; payload: unknown }[] | null> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`call-problem:${callId}`}))`);
+    const existing = await tx
+      .select({ id: notifications.id })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.clientId, clientId),
+          eq(notifications.type, "system"),
+          sql`${notifications.payload}->>'callId' = ${callId}`,
+          sql`coalesce(${notifications.payload}->>'kind', ${CALL_PROBLEM_KIND}) = ${CALL_PROBLEM_KIND}`,
+          ne(notifications.status, "failed"),
+        ),
+      )
+      .limit(1);
+    if (existing.length > 0) return null;
+    return tx
+      .insert(notifications)
+      .values(
+        targets.map((t) => ({
+          clientId,
+          type: "system" as const,
+          channel: t.channel,
+          recipient: t.recipient,
+          payload: t.payload,
+          status: "queued" as const,
+        })),
+      )
+      .returning({
+        id: notifications.id,
+        channel: notifications.channel,
+        recipient: notifications.recipient,
+        payload: notifications.payload,
+      });
+  });
+}
+
+export type CallProblemResult =
+  | { status: "not_a_problem" | "stale" | "no_recipient" | "duplicate" }
+  | { status: "sent"; email: number; sms: number; failed: number };
+
 export async function notifyOwnerCallProblem(
   client: Client,
   call: { id: string; fromNumber: string | null; startAt: Date | null },
   health: { problems: string[]; notes: string[] },
-): Promise<void> {
+  now: Date = new Date(),
+): Promise<CallProblemResult> {
   const urgent = health.problems.includes("possible_emergency");
   // "Didn't get a person" has three shapes and they're all the same phone call
   // from the caller's side: nobody picked up, a voicemail box picked up, or the
@@ -288,10 +355,19 @@ export async function notifyOwnerCallProblem(
     health.problems.includes("stranded_asking_for_human") ||
     health.problems.includes("transferred_to_voicemail") ||
     health.problems.includes("transfer_dropped");
-  if (!urgent && !stranded) return;
+  if (!urgent && !stranded) return { status: "not_a_problem" };
+
+  if (call.startAt && now.getTime() - call.startAt.getTime() > CALL_PROBLEM_MAX_AGE_MS) {
+    logger.warn("notify.call_problem.stale", {
+      clientId: client.id,
+      callId: call.id,
+      ageMin: Math.round((now.getTime() - call.startAt.getTime()) / 60000),
+    });
+    return { status: "stale" };
+  }
 
   const phone = formatPhone(call.fromNumber);
-  const when = formatDateTime(call.startAt, client.timezone);
+  const when = formatDateTimeWithZone(call.startAt, client.timezone);
   const headline = urgent
     ? `A caller may have had an emergency`
     : `A caller asked for a person and didn't get one`;
@@ -303,35 +379,67 @@ export async function notifyOwnerCallProblem(
   const { emails, phones } = await getAlertRecipients(client);
   const smsTargets = client.smsAlertsEnabled ? phones : [];
 
-  for (const sms of smsTargets) {
-    const body = `${urgent ? "🚨" : "⚠️"} ${client.name}: ${headline}. ${phone} at ${when}. ${action} ${link}`;
-    const r = await notifier.sendSms({ to: sms, body });
-    await logNotification(client.id, "system", "sms", sms, { body, callId: call.id }, r);
+  const smsBody = `${urgent ? "🚨" : "⚠️"} ${client.name}: ${headline}. ${phone} at ${when}. ${action} ${link}`;
+  const subject = `${urgent ? "Urgent — " : ""}${headline} · ${client.name}`;
+  const html = ownerEmailHtml({
+    title: headline,
+    business: client.name,
+    lines: [
+      ...health.notes.map((n) => esc(n)),
+      `<strong>Caller:</strong> ${esc(phone)} · ${esc(when)}`,
+      `<strong>${esc(action)}</strong>`,
+      `<a href="${link}">Listen to the call</a>`,
+    ],
+  });
+  const text = `${headline}. ${health.notes.join(" ")} Caller ${phone} at ${when}. ${action} ${link}`;
+
+  const targets: CallProblemTarget[] = [
+    ...smsTargets.map((recipient) => ({
+      channel: "sms" as const,
+      recipient,
+      payload: { kind: CALL_PROBLEM_KIND, body: smsBody, callId: call.id },
+    })),
+    ...emails.map((recipient) => ({
+      channel: "email" as const,
+      recipient,
+      payload: { kind: CALL_PROBLEM_KIND, headline, callId: call.id },
+    })),
+  ];
+  if (!targets.length) return { status: "no_recipient" };
+
+  const claimed = await claimCallProblemAlert(client.id, call.id, targets);
+  if (!claimed) {
+    logger.info("notify.call_problem.duplicate", { clientId: client.id, callId: call.id });
+    return { status: "duplicate" };
   }
 
-  for (const to of emails) {
-    const html = ownerEmailHtml({
-      title: headline,
-      business: client.name,
-      lines: [
-        ...health.notes.map((n) => esc(n)),
-        `<strong>Caller:</strong> ${esc(phone)} · ${esc(when)}`,
-        `<strong>${esc(action)}</strong>`,
-        `<a href="${link}">Listen to the call</a>`,
-      ],
-    });
-    const r = await notifier.sendEmail({
-      to,
-      subject: `${urgent ? "Urgent — " : ""}${headline} · ${client.name}`,
-      html,
-      text: `${headline}. ${health.notes.join(" ")} Caller ${phone} at ${when}. ${action} ${link}`,
-    });
-    await logNotification(client.id, "system", "email", to, { headline, callId: call.id }, r);
+  let email = 0;
+  let sms = 0;
+  let failed = 0;
+  for (const row of claimed) {
+    const r =
+      row.channel === "sms"
+        ? await notifier.sendSms({ to: row.recipient, body: smsBody })
+        : await notifier.sendEmail({ to: row.recipient, subject, html, text });
+    // Skipped (channel not configured) stays "queued", like every owner alert.
+    const status = r.skipped ? "queued" : r.ok ? "sent" : "failed";
+    if (r.ok) {
+      if (row.channel === "sms") sms++;
+      else email++;
+    } else if (!r.skipped) failed++;
+    await db
+      .update(notifications)
+      .set({ status, sentAt: r.ok ? new Date() : null })
+      .where(eq(notifications.id, row.id));
   }
 
   logger.info("notify.call_problem", {
     clientId: client.id,
     callId: call.id,
     problems: health.problems,
+    email,
+    sms,
+    failed,
   });
+  return { status: "sent", email, sms, failed };
 }
