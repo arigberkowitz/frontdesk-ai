@@ -23,7 +23,7 @@ export function OnboardWebsiteForm() {
           id="ai-name"
           name="name"
           required
-          placeholder="Bright Smile Dental"
+          placeholder="Riverside Plumbing"
           autoFocus
           disabled={pending}
         />

@@ -23,7 +23,7 @@ export function NewClientForm() {
   return (
     <form action={action} className="space-y-5">
       <Field label="Business name" htmlFor="name" error={state.fieldErrors?.name}>
-        <Input id="name" name="name" required placeholder="Bright Smile Dental" autoFocus />
+        <Input id="name" name="name" required placeholder="Riverside Plumbing" autoFocus />
       </Field>
 
       <Field

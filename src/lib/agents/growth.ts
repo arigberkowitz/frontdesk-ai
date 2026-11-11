@@ -23,7 +23,7 @@ const PROSPECT_TOOL: Anthropic.Tool = {
     additionalProperties: false,
     properties: {
       businessName: { type: "string" },
-      businessType: { type: "string", description: "e.g. plumber, dental office, salon." },
+      businessType: { type: "string", description: "e.g. plumber, HVAC company, salon." },
       fitScore: {
         type: "integer",
         minimum: 1,

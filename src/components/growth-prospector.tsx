@@ -33,7 +33,7 @@ export function GrowthProspector() {
               id="urls"
               name="urls"
               rows={4}
-              placeholder={"joesplumbingsf.com\nbrightsmiledental.com"}
+              placeholder={"joesplumbingsf.com\nsunsetsalonsf.com"}
               disabled={pending}
             />
             <div className="flex items-center gap-3">

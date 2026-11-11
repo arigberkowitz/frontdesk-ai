@@ -106,7 +106,7 @@ function ServiceForm({
       </Field>
       <Field
         label="Book them again after (days)"
-        hint="Leave empty for one-off work. A furnace or AC tune-up is about 180, a haircut around 28, a dental cleaning 180 — when it comes due we can text the customer and offer to rebook."
+        hint="Leave empty for one-off work. A furnace or AC tune-up is about 180, a haircut around 28, a gutter cleaning 180 — when it comes due we can text the customer and offer to rebook."
         error={state.fieldErrors?.recallIntervalDays}
       >
         <Input

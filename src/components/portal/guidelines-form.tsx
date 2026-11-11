@@ -77,7 +77,7 @@ export function GuidelinesForm({ client }: { client: Client }) {
         rows={6}
         defaultValue={client.agentGuidance ?? ""}
         placeholder={
-          "e.g.\n• Always mention we're accepting new patients.\n• Never quote exact prices — say it depends on their insurance.\n• Don't give medical advice; offer to book a visit instead."
+          "e.g.\n• Always mention we offer free estimates.\n• Never quote exact prices — the technician quotes on site.\n• Don't give DIY repair advice; offer to book a visit instead."
         }
       />
       <GuidelineCard
@@ -89,7 +89,7 @@ export function GuidelinesForm({ client }: { client: Client }) {
         rows={6}
         defaultValue={client.bookingInstructions ?? ""}
         placeholder={
-          "e.g.\n• Only book cleanings and new-patient exams. For anything else, take a message.\n• Always confirm the date, time, and spelling of their name.\n• Mention a $50 deposit for cosmetic consults."
+          "e.g.\n• Only book estimates and drain cleanings. For anything else, take a message.\n• Always confirm the address, date, time, and spelling of their name.\n• Mention the $79 service-call fee for after-hours visits."
         }
       />
     </div>

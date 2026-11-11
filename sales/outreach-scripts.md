@@ -16,7 +16,7 @@ Hi {{FirstName}},
 Called {{Business}} yesterday around {{time they're busy/closed}} — voicemail.
 That's normal for {{industry}}: whoever's on the tools can't also be on the
 phone. But about a third of callers who hit voicemail just call the next
-{{plumber/dentist/salon}} on the list.
+{{plumber/HVAC company/salon}} on the list.
 
 I run FrontDesk AI — a phone receptionist that answers every call on the first
 ring, books appointments straight into your calendar, and texts you the

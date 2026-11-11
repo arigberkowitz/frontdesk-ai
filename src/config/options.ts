@@ -10,9 +10,13 @@ export const TIMEZONES = [
   "Pacific/Honolulu",
 ] as const;
 
+/**
+ * Industries a business can pick (signup, onboarding, new client, settings).
+ * No medical or health verticals for now (no Dental, Med spa, Veterinary,
+ * Chiropractic) — existing businesses that saved one show as "Other" in the
+ * pickers (see industryForPicker) and get the generic starter pack.
+ */
 export const INDUSTRIES = [
-  "Dental",
-  "Med spa",
   "HVAC",
   "Plumbing",
   "Electrician",
@@ -23,11 +27,24 @@ export const INDUSTRIES = [
   "Home services",
   "House cleaning",
   "Pest control",
-  "Veterinary",
-  "Chiropractic",
   "Fitness",
   "Other",
 ] as const;
+
+export type IndustryOption = (typeof INDUSTRIES)[number];
+
+/**
+ * The picker value for a business's saved industry. A value no longer offered
+ * (e.g. a retired medical vertical, or free text from an old import) maps to
+ * "Other" instead of silently showing "Select…" — which would clear the saved
+ * industry the next time the form is saved. Empty stays empty.
+ */
+export function industryForPicker(saved: string | null | undefined): IndustryOption | "" {
+  const v = (saved ?? "").trim();
+  if (!v) return "";
+  const match = INDUSTRIES.find((i) => i.toLowerCase() === v.toLowerCase());
+  return match ?? "Other";
+}
 
 export const DAYS = [
   { value: 0, label: "Sunday", short: "Sun" },

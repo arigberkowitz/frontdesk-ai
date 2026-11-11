@@ -4,7 +4,7 @@ import { INDUSTRIES } from "@/config/options";
  * Industry starter packs: real, editable content a brand-new business starts
  * with — services with honest durations/prices, FAQ drafts in the business's
  * own voice, typical hours, and guardrails tuned to the industry's risks
- * (a dental office fields toothache emergencies; a plumber fields gas leaks).
+ * (a locksmith fields lockouts; a plumber fields gas leaks).
  *
  * Pure config (no DB, no server-only) so tests and client components can
  * import it. Seeding happens in `src/lib/starter-seed.ts`.
@@ -77,33 +77,6 @@ export const DEFAULT_PACK: StarterPack = {
 
 export const STARTER_PACKS: StarterPack[] = [
   {
-    industry: "Dental",
-    services: [
-      { name: "New patient exam & X-rays", durationMin: 60, priceCents: 9900, description: "Comprehensive first visit: full exam, X-rays, and a treatment plan." },
-      { name: "Cleaning & checkup", durationMin: 60, priceCents: 12500, description: "Routine hygiene cleaning with a doctor's checkup." },
-      { name: "Teeth whitening", durationMin: 90, priceCents: 34900, description: "In-office professional whitening session." },
-      { name: "Emergency visit", durationMin: 30, priceCents: null, description: "Same-day slot for tooth pain, a broken tooth, or swelling. Cost depends on treatment." },
-    ],
-    faq: [
-      { question: "Do you take my insurance?", answer: "We accept most major PPO plans. Bring your insurance card to your visit and we'll verify your coverage and benefits for you." },
-      { question: "Are you accepting new patients?", answer: "Yes! New patients are always welcome — our new patient exam includes X-rays and a full treatment plan." },
-      { question: "I have a toothache — can you see me today?", answer: "We keep same-day slots for dental emergencies. Call as early as you can and we'll fit you in as soon as possible." },
-      { question: "Do you offer payment plans?", answer: "Yes, we offer financing options and payment plans for larger treatments — we'll go over them at your visit." },
-      { question: "How do I reschedule or cancel?", answer: "Give us at least 24 hours' notice and we'll happily move your visit — it also frees the slot for someone in pain." },
-    ],
-    hours: week("08:00", "17:00", [0, 6]),
-    guardrails:
-      BASE_GUARDRAILS +
-      " Never diagnose or give dental or medical advice over the phone. If a caller describes severe " +
-      "pain, facial swelling, or an injury, treat it as urgent: offer the first same-day emergency slot " +
-      "and flag the booking as an emergency. If swelling affects breathing or swallowing, tell them to " +
-      "call 911 or go to the ER immediately.",
-    booking:
-      "Ask whether they're a new or returning patient — new patients book the new patient exam. Confirm " +
-      "the visit type, date and time, and the patient's name and phone number, then read it back. Remind " +
-      "them to bring their insurance card.",
-  },
-  {
     industry: "Law",
     services: [
       { name: "Free case evaluation", durationMin: 15, priceCents: 0, description: "A short call to understand the matter and whether we can help." },
@@ -149,30 +122,6 @@ export const STARTER_PACKS: StarterPack[] = [
     booking:
       "Ask if they'd like a specific stylist or barber, then book with that person. Confirm the service, " +
       "who it's with, the date and time, and the caller's name and phone number, then read it back.",
-  },
-  {
-    industry: "Med spa",
-    services: [
-      { name: "Consultation", durationMin: 30, priceCents: 0, description: "A free consultation to build your treatment plan — required before injectables." },
-      { name: "Signature facial", durationMin: 60, priceCents: 15000, description: "Deep-cleansing facial customized to your skin." },
-      { name: "Botox / injectables", durationMin: 30, priceCents: null, description: "Priced per unit or area at your consultation." },
-      { name: "Laser hair removal", durationMin: 45, priceCents: null, description: "Priced by area; packages available." },
-    ],
-    faq: [
-      { question: "Do I need a consultation first?", answer: "For injectables and laser treatments, yes — a free consultation comes first so we can build a plan that's safe and right for you. Facials can be booked directly." },
-      { question: "Is there any downtime?", answer: "Most treatments have little to no downtime, but it varies by treatment and person — we'll go over exactly what to expect at your consultation." },
-      { question: "Do you offer packages or memberships?", answer: "Yes — most treatments come in discounted series, and members save on every visit. Ask at your consultation." },
-      { question: "What's your cancellation policy?", answer: "We ask for 24 hours' notice to reschedule so we can offer the time to another client." },
-    ],
-    hours: week("10:00", "18:00", [0, 1]),
-    guardrails:
-      BASE_GUARDRAILS +
-      " Never give medical advice or promise treatment results. Don't quote injectable pricing beyond " +
-      "'priced at your consultation.' New clients wanting injectables or laser must book the " +
-      "consultation first.",
-    booking:
-      "New clients asking about injectables or laser book the free consultation. Confirm the treatment, " +
-      "date and time, and the caller's name and phone number, then read it back.",
   },
   {
     industry: "Home services",
@@ -248,57 +197,6 @@ export const STARTER_PACKS: StarterPack[] = [
     booking:
       "Always collect the service address, what the system is doing in the caller's words, and roughly " +
       "how old the equipment is. Read the booking back, including the address.",
-  },
-  {
-    industry: "Veterinary",
-    services: [
-      { name: "Wellness exam", durationMin: 30, priceCents: 6500, description: "Routine check-up, including weight, teeth, and vaccination review." },
-      { name: "Sick visit", durationMin: 30, priceCents: 7500, description: "For a pet that's off its food, limping, scratching, or just not right." },
-      { name: "Vaccination visit", durationMin: 15, priceCents: null, description: "Boosters and required shots — price depends on what's due." },
-      { name: "Dental cleaning", durationMin: 120, priceCents: null, description: "Under anesthesia, with a pre-exam required first. We'll quote after the exam." },
-    ],
-    faq: [
-      { question: "Is this an emergency? My pet ate something.", answer: "If your pet ate chocolate, grapes, xylitol gum, medication, or anything toxic, call the ASPCA Poison Control line at (888) 426-4435 right away — they're the fastest experts. We can see your pet as soon as possible afterward." },
-      { question: "Do you see exotic pets?", answer: "Our doctors primarily see dogs and cats — call it a message and the team will confirm whether we can see your specific pet." },
-      { question: "How much is an exam?", answer: "A routine wellness exam is $65; treatment costs depend on what the doctor finds, and you'll get an estimate before anything is done." },
-      { question: "Can I get my pet's records sent somewhere?", answer: "Of course — leave your name, your pet's name, and where the records should go, and the front desk will send them over." },
-    ],
-    hours: [
-      ...week("08:00", "18:00", [0]).slice(0, 6),
-      { dayOfWeek: 6, isClosed: false, openTime: "09:00", closeTime: "13:00" },
-    ],
-    guardrails:
-      BASE_GUARDRAILS +
-      " Never give medical advice about an animal — no doses, no \"wait and see\", no diagnosis. If a pet " +
-      "is having trouble breathing, seizing, bleeding heavily, unable to stand, or was hit by a car, tell " +
-      "the caller to go to the nearest emergency animal hospital immediately rather than book anything. " +
-      "For suspected poisoning, give the ASPCA Poison Control number, (888) 426-4435, before taking a message.",
-    booking:
-      "Collect the pet's name, species and breed, what's going on in the owner's words, and the owner's " +
-      "name and phone number. Read the booking back.",
-  },
-  {
-    industry: "Chiropractic",
-    services: [
-      { name: "New patient exam & adjustment", durationMin: 45, priceCents: 9500, description: "Consultation, exam, and your first adjustment if appropriate." },
-      { name: "Adjustment", durationMin: 15, priceCents: 5500, description: "Standard adjustment for established patients." },
-      { name: "Adjustment + soft tissue work", durationMin: 30, priceCents: 8500, description: "Adjustment with targeted muscle work for stubborn areas." },
-    ],
-    faq: [
-      { question: "Do you take insurance?", answer: "We work with most major plans — bring your card to your first visit and the front desk will verify your coverage before you're seen." },
-      { question: "Does an adjustment hurt?", answer: "Most patients find it relieving rather than painful. The doctor always examines first and only adjusts what's appropriate for you." },
-      { question: "How many visits will I need?", answer: "That's genuinely case-by-case — the doctor will lay out a plan at your first exam and you'll never be locked into anything." },
-      { question: "Can you help with headaches or sciatica?", answer: "Those are two of the most common things we treat. The first exam will tell us whether your case is one we can help with." },
-    ],
-    hours: week("09:00", "18:00", [0, 6]),
-    guardrails:
-      BASE_GUARDRAILS +
-      " Never give medical advice or promise treatment outcomes. If a caller describes numbness in the " +
-      "groin or inner thighs, loss of bladder or bowel control, or sudden severe weakness in the legs, " +
-      "treat it as an emergency: tell them to seek immediate medical care rather than book an adjustment.",
-    booking:
-      "Ask whether they're a new or returning patient — new patients get the longer first visit. Collect " +
-      "name, phone number, and what's bothering them, then read the booking back.",
   },
   {
     industry: "Fitness",

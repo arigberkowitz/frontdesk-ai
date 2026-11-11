@@ -30,7 +30,7 @@ import { NativeSelect } from "@/components/form/native-select";
 import { SubmitButton } from "@/components/form/submit-button";
 import { BillingCard, type BillingInfo } from "@/components/clients/billing-card";
 import { SmsNumberCard } from "@/components/clients/sms-number-card";
-import { CLIENT_STATUSES, INDUSTRIES, STATUS_LABELS, TIMEZONES, TIMEZONE_LABELS } from "@/config/options";
+import { CLIENT_STATUSES, INDUSTRIES, STATUS_LABELS, TIMEZONES, TIMEZONE_LABELS, industryForPicker } from "@/config/options";
 import type { Client } from "@/db/schema";
 
 export function SettingsTab({
@@ -127,7 +127,7 @@ export function SettingsTab({
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Industry">
-                <NativeSelect name="industry" defaultValue={client.industry ?? ""}>
+                <NativeSelect name="industry" defaultValue={industryForPicker(client.industry)}>
                   <option value="">Select…</option>
                   {INDUSTRIES.map((i) => (
                     <option key={i} value={i}>

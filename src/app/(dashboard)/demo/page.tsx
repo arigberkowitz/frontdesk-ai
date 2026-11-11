@@ -11,13 +11,13 @@ import { formatPhone } from "@/lib/format";
 export const metadata: Metadata = { title: "Demo" };
 
 const SAMPLE: { who: "caller" | "ai"; text: string }[] = [
-  { who: "ai", text: "Thanks for calling Bright Smile Dental, this is Riley. How can I help?" },
-  { who: "caller", text: "Hi — do you have anything for a cleaning this week?" },
+  { who: "ai", text: "Thanks for calling Riverside Plumbing, this is Riley. How can I help?" },
+  { who: "caller", text: "Hi — could someone look at my water heater this week?" },
   { who: "ai", text: "We do! I have Thursday at 2:00 or Friday at 10:30. Which works better?" },
   { who: "caller", text: "Thursday at 2 is great." },
   { who: "ai", text: "Perfect. Can I get your name and a good callback number?" },
   { who: "caller", text: "Jordan Lee, 415-555-0148." },
-  { who: "ai", text: "You're all set, Jordan — Thursday at 2:00 for a cleaning. We'll text a confirmation. Anything else?" },
+  { who: "ai", text: "You're all set, Jordan — Thursday at 2:00 for a water heater check. We'll text a confirmation. Anything else?" },
 ];
 
 const TALKING_POINTS = [

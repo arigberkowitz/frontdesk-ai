@@ -6,7 +6,7 @@ import {
   safeIndustry,
   type StarterPack,
 } from "@/config/starter-packs";
-import { INDUSTRIES } from "@/config/options";
+import { INDUSTRIES, industryForPicker } from "@/config/options";
 import { vocabFor } from "@/lib/vocab";
 
 const ALL_PACKS: StarterPack[] = [DEFAULT_PACK, ...STARTER_PACKS];
@@ -107,9 +107,9 @@ describe("packForIndustry", () => {
 
 describe("safeIndustry", () => {
   it("accepts exact INDUSTRIES values and rejects everything else", () => {
-    expect(safeIndustry("Dental")).toBe("Dental");
+    expect(safeIndustry("Plumbing")).toBe("Plumbing");
     expect(safeIndustry("  Law  ")).toBe("Law");
-    expect(safeIndustry("dental")).toBeNull(); // form sends exact values
+    expect(safeIndustry("plumbing")).toBeNull(); // form sends exact values
     expect(safeIndustry("")).toBeNull();
     expect(safeIndustry(undefined)).toBeNull();
     expect(safeIndustry("<script>")).toBeNull();
@@ -118,10 +118,39 @@ describe("safeIndustry", () => {
 
 describe("vocabulary alignment", () => {
   it("pack industries trigger the intended portal vocabulary", () => {
-    expect(vocabFor("Dental").customer).toBe("patient");
     expect(vocabFor("Law").appointment).toBe("consultation");
     expect(vocabFor("Salon & beauty").customer).toBe("client");
-    expect(vocabFor("Med spa").customer).toBe("client");
+  });
+});
+
+describe("retired medical/health verticals (no medical businesses for now)", () => {
+  const RETIRED = ["Dental", "Med spa", "Veterinary", "Chiropractic"];
+
+  it("can't be picked anywhere: not offered, not accepted from a form, no starter pack", () => {
+    for (const i of RETIRED) {
+      expect(INDUSTRIES as readonly string[]).not.toContain(i);
+      expect(safeIndustry(i)).toBeNull();
+      expect(STARTER_PACKS.some((p) => p.industry === i)).toBe(false);
+    }
+  });
+
+  it("existing businesses that saved one still work: generic pack, 'Other' in the picker, old vocabulary kept", () => {
+    for (const i of RETIRED) {
+      expect(() => packForIndustry(i)).not.toThrow();
+      expect(packForIndustry(i)).toBe(DEFAULT_PACK);
+      expect(industryForPicker(i)).toBe("Other");
+    }
+    // Their portal wording doesn't change under them.
+    expect(vocabFor("Dental").customer).toBe("patient");
+  });
+
+  it("industryForPicker keeps offered values, maps unknowns to Other, leaves empty empty", () => {
+    expect(industryForPicker("Plumbing")).toBe("Plumbing");
+    expect(industryForPicker("plumbing")).toBe("Plumbing");
+    expect(industryForPicker("Space tourism")).toBe("Other");
+    expect(industryForPicker("")).toBe("");
+    expect(industryForPicker(null)).toBe("");
+    expect(industryForPicker(undefined)).toBe("");
   });
 });
 
