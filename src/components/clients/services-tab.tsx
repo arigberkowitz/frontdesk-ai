@@ -192,7 +192,9 @@ function PriceTag({
   maxCents?: number | null;
   from?: boolean;
 }) {
-  if (cents == null) return null;
+  if (cents == null) {
+    return <span className="text-sm font-medium text-muted-foreground">Set your price</span>;
+  }
   const text = servicePriceText({ priceCents: cents, priceMaxCents: maxCents, priceFrom: from });
   if (text !== formatCurrencyCents(cents)) {
     return (
@@ -215,14 +217,26 @@ function PriceTag({
   );
 }
 
+
+function servicesListHint(services: Service[]): string {
+  if (!services.length) return "";
+  const n = `${services.length} service${services.length === 1 ? "" : "s"}`;
+  const unpriced = services.filter((s) => s.priceCents == null).length;
+  if (unpriced === services.length) {
+    return `${n} — your AI offers these on every call. Set a price on each so it can quote it.`;
+  }
+  if (unpriced > 0) {
+    return `${n} — your AI offers these on every call, and quotes a price only when you've set one.`;
+  }
+  return `${n} — your AI offers these and quotes these prices on every call.`;
+}
+
 export function ServicesTab({ clientId, services }: { clientId: string; services: Service[] }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {services.length > 0
-            ? `${services.length} service${services.length === 1 ? "" : "s"} — your AI offers these and quotes these prices on every call.`
-            : ""}
+          {servicesListHint(services)}
         </p>
         <ServiceDialog clientId={clientId} />
       </div>

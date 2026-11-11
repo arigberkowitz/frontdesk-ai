@@ -187,8 +187,19 @@ function servicesBlock(services: PromptService[]): string {
     .join("\n");
 }
 
+/**
+ * Placeholder / unfilled FAQ answers must never reach the phone agent.
+ * Owners mark these while they write the real answer; until then, the AI
+ * should take a message rather than read a stub out loud.
+ */
+export function isUnfilledKnowledgeAnswer(answer: string | null | undefined): boolean {
+  const a = (answer ?? "").trim();
+  if (!a) return true;
+  return /^(?:\[?\s*needs your (?:answer|input)\s*\]?|TODO\b|TBD\b)/i.test(a);
+}
+
 function knowledgeBlock(knowledge: PromptKnowledge[]): string {
-  const active = knowledge.filter((k) => k.isActive);
+  const active = knowledge.filter((k) => k.isActive && !isUnfilledKnowledgeAnswer(k.answer));
   if (!active.length) return "No FAQ entries yet. If unsure, take a message — never guess.";
   return active.map((k) => `Q: ${ownerLine(k.question)}\nA: ${ownerText(k.answer)}`).join("\n\n");
 }
@@ -433,7 +444,7 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     fieldService
       ? "This business goes to the customer, so every booking and every message needs the service address — the street address where the work is, including unit or apartment number and town. Ask for it once you know what they need, read it back, and pass it as service_address. If they won't give it, still take the booking or message and note that the address is missing."
       : "If the service happens at the caller's location rather than at the business, ask for the service address and pass it as service_address when booking or taking a message.",
-    "Prices: every price above is an estimate unless it's a single fixed price. Say ranges and \"starts at\" prices exactly as written, and always add that the final price is confirmed once the team sees the job. Never quote a firm total, never add prices together into a quote, and never offer a discount.",
+    "Prices: every price above is an estimate unless it's a single fixed price. Say ranges and \"starts at\" prices exactly as written, and always add that the final price is confirmed once the team sees the job. Never quote a firm total, never add prices together into a quote, and never offer a discount. If a service has no price listed, do not invent or guess one — say pricing is confirmed by the team.",
     tripFee
       ? `There is a ${tripFee} trip / service-call fee for a visit. Mention it when you book a visit or when the caller asks about cost, and say it plainly — never hide it, never waive it.`
       : null,

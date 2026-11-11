@@ -106,7 +106,9 @@ describe.skipIf(!RUN)("a business signing itself up", () => {
     ]);
     expect(services.length).toBeGreaterThan(0);
     expect(hours.length).toBe(7);
-    expect(knowledge.length).toBeGreaterThan(0);
+    // Knowledge answers are not pre-filled — factual claims must come from the owner.
+    expect(knowledge.length).toBe(0);
+    expect(services.every((s) => s.priceCents == null)).toBe(true);
   });
 
   it("stops being able to activate once the trial runs out", async () => {
