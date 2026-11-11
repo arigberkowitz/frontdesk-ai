@@ -13,7 +13,7 @@ function esc(s: string): string {
 }
 
 /** Which business an invoice belongs to: subscription metadata, else our row for the customer. */
-async function clientIdFor(invoice: Stripe.Invoice): Promise<string | null> {
+export async function clientIdForInvoice(invoice: Stripe.Invoice): Promise<string | null> {
   const fromMeta = invoice.parent?.subscription_details?.metadata?.clientId;
   if (fromMeta) return fromMeta;
   const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
@@ -32,7 +32,7 @@ async function clientIdFor(invoice: Stripe.Invoice): Promise<string | null> {
  * Returns whether an email was attempted (false = unknown business / no email).
  */
 export async function notifyPaymentFailed(invoice: Stripe.Invoice): Promise<boolean> {
-  const clientId = await clientIdFor(invoice);
+  const clientId = await clientIdForInvoice(invoice);
   if (!clientId) {
     logger.warn("stripe.payment_failed.unknown_client", { invoiceId: invoice.id });
     return false;

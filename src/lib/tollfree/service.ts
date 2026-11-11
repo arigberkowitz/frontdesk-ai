@@ -29,9 +29,11 @@ const msg = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
 /**
  * Buy this business a toll-free number — at most once, and only once it has
- * finished setup AND has an active/trialing subscription AND has no texting
- * number yet. Called from both the Stripe webhook (paid) and "I'm done" on the
- * setup checklist (setup finished); whichever happens second does the buy.
+ * finished setup AND has an active (paying) subscription AND has no texting
+ * number yet. A trial does not count; the buy happens when the trial converts
+ * to paid (or they pay up front). Called from both the Stripe webhook (payment
+ * / trial→active) and "I'm done" on the setup checklist; whichever happens
+ * second (once they're actually paying) does the buy.
  * Safe to call any number of times, concurrently: the store's atomic claim
  * (`claimBuy`) is the guard, not this function's reads.
  */

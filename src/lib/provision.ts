@@ -185,10 +185,12 @@ export async function provisionNumberAfterPayment(clientId: string): Promise<voi
 
 /**
  * Toll-free texting number, best-effort. `ensureTollfreeNumber` only buys when
- * setup is finished, a subscription is active/trialing and the business has
- * no texting number — and never twice (atomic claim in data/tollfree.ts). So
- * it's called from both the Stripe webhook and "I'm done" on setup: whichever
- * comes second buys. Separate from the Retell voice number entirely.
+ * setup is finished, a subscription is active (not merely trialing) and the
+ * business has no texting number — and never twice (atomic claim in
+ * data/tollfree.ts). Called from both the Stripe webhook (including when a
+ * trial converts to active) and "I'm done" on setup: whichever comes second,
+ * once they're actually paying, buys. Separate from the Retell voice number
+ * entirely — voice numbers can still be reserved on a trial.
  */
 export async function ensureTollfreeNumberSafely(clientId: string, source: "payment" | "setup"): Promise<void> {
   try {
