@@ -9,7 +9,7 @@ import type { TollfreeApi, VerificationRecord } from "./twilio-api";
 /**
  * Toll-free texting lifecycle for one business:
  *
- *   paid → buy number (needs_details) → owner submits details (submitted)
+ *   setup finished AND paid → buy number once (needs_details) → owner submits details (submitted)
  *        → Twilio approves (approved: the number becomes clients.sms_number)
  *        → or rejects (rejected: owner fixes details and resubmits)
  *
@@ -27,27 +27,48 @@ export interface TollfreeDeps {
 
 const msg = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/** After payment: buy this business a toll-free number unless it has one. */
+/**
+ * Buy this business a toll-free number — at most once, and only once it has
+ * finished setup AND has an active/trialing subscription AND has no texting
+ * number yet. Called from both the Stripe webhook (paid) and "I'm done" on the
+ * setup checklist (setup finished); whichever happens second does the buy.
+ * Safe to call any number of times, concurrently: the store's atomic claim
+ * (`claimBuy`) is the guard, not this function's reads.
+ */
 export async function ensureTollfreeNumber(deps: TollfreeDeps, clientId: string): Promise<ClientTollfree | null> {
   if (!deps.enabled) return null;
   const row = await deps.store.get(clientId);
   if (row?.phoneNumberSid) return row;
   const client = await deps.store.client(clientId);
   if (!client) return null;
+  if (!(await deps.store.claimBuy(clientId))) {
+    deps.log?.("tollfree.number.not_eligible", { clientId });
+    return row;
+  }
+  let bought: { phoneNumber: string; sid: string };
   try {
-    const bought = await deps.api.buyNumber(`FrontDesk SMS · ${client.name}`.slice(0, 64));
+    bought = await deps.api.buyNumber(`FrontDesk SMS · ${client.name}`.slice(0, 64));
+  } catch (err) {
+    await deps.store.save(clientId, { status: row?.status ?? "needs_number", lastError: msg(err) });
+    await deps.store.releaseBuy(clientId);
+    deps.log?.("tollfree.number.failed", { clientId, error: msg(err) });
+    return deps.store.get(clientId);
+  }
+  try {
     await deps.store.save(clientId, {
       status: "needs_details",
       phoneNumber: bought.phoneNumber,
       phoneNumberSid: bought.sid,
       lastError: null,
     });
-    deps.log?.("tollfree.number.bought", { clientId });
   } catch (err) {
-    await deps.store.save(clientId, { status: row?.status ?? "needs_number", lastError: msg(err) });
-    deps.log?.("tollfree.number.failed", { clientId, error: msg(err) });
-    return deps.store.get(clientId);
+    // Bought but not recorded: keep the lock (don't invite a second buy) and
+    // shout, with the sid, so it can be fixed by hand.
+    deps.log?.("tollfree.number.bought_not_saved", { clientId, phoneNumberSid: bought.sid, error: msg(err) });
+    throw err;
   }
+  await deps.store.releaseBuy(clientId);
+  deps.log?.("tollfree.number.bought", { clientId });
   // Details entered before the number arrived: submit now.
   const fresh = await deps.store.get(clientId);
   if (fresh?.details) {

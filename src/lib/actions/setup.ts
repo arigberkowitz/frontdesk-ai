@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
@@ -11,6 +12,7 @@ import { checkSetupReadiness } from "@/lib/agents/setup-check";
 import { logger } from "@/lib/logger";
 import { REVIEWABLE_STEPS, type ReviewableStep } from "@/lib/setup-steps";
 import { markSetupReviewed } from "@/lib/data/setup-review";
+import { ensureTollfreeNumberSafely } from "@/lib/provision";
 import { type ActionState } from "./types";
 
 /**
@@ -58,6 +60,10 @@ export async function finishSetupAction(
     .where(eq(clients.id, clientId));
 
   logger.info("setup.finished", { clientId, aiChecked: check.checked, notes: notes.length });
+  // Setup is done: if the business is already on a paid plan, this is when its
+  // toll-free texting number gets bought (once). Unpaid → no-op; the Stripe
+  // webhook does it when the card goes on. After the response, never blocking.
+  after(() => ensureTollfreeNumberSafely(clientId, "setup"));
   revalidatePath("/portal", "layout");
   return {
     ok: true,

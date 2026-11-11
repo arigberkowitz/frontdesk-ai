@@ -296,6 +296,12 @@ export const clients = pgTable(
          */
         provisioningAt?: string;
         /**
+         * Short-lived lock (ISO) while a toll-free texting number is being
+         * bought, so concurrent Stripe webhooks / setup finishes can't buy two.
+         * See claimTollfreeBuy in lib/data/tollfree.ts.
+         */
+        tollfreeBuyingAt?: string;
+        /**
          * Daily owner briefing email (portal Settings → Alerts). Opt-in: off
          * unless the owner turns it on. jsonb rather than a column so the
          * feature ships without a migration (dedupe lives in notifications).
