@@ -28,7 +28,7 @@ const VALUE = [
 const INDUSTRIES = [
   "Plumbing & HVAC",
   "Salons & spas",
-  "Dental & medical",
+  "Landscaping",
   "Home services",
   "Auto repair",
   "Cleaning",
