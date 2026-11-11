@@ -8,7 +8,7 @@ import { PortalSidebar, PortalTabBar } from "@/components/portal/portal-nav";
 import { UserMenuButton } from "@/components/user-menu-button";
 import { CommandPalette } from "@/components/command-palette";
 import { LiveCallStrip } from "@/components/portal/live-call-strip";
-import { integrations } from "@/lib/env";
+import { env, integrations } from "@/lib/env";
 import { getTrialState } from "@/lib/data/trial";
 import { getTrialProgress } from "@/lib/data/trial-progress";
 import { daysLeftLabel, trialStripSummary, upgradePlan } from "@/lib/trial-progress";
@@ -62,7 +62,7 @@ export default async function PortalLayout({ children }: { children: React.React
       urgent: trial.expired || trial.daysLeft <= 3,
       upgrade:
         !preview && access.isAdmin && integrations.stripe()
-          ? { clientId, planKey: plan.key, label: `Upgrade · ${formatCurrencyCents(plan.monthlyPriceCents)}/mo` }
+          ? { clientId, planKey: plan.key, label: `Upgrade · ${formatCurrencyCents(plan.monthlyPriceCents)}/mo${env.STRIPE_AUTOMATIC_TAX ? " + applicable tax" : ""}` }
           : null,
     };
   }

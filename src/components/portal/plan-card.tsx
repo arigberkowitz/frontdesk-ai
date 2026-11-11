@@ -18,12 +18,15 @@ export function PlanCard({
   plan,
   usage,
   interval = "month",
+  plusTax = false,
 }: {
   /** What they actually pay: prices are quoted per month or per year to match. */
   interval?: "month" | "year";
   clientId: string;
   plan: PlanKey;
   usage: MinutesUsage;
+  /** STRIPE_AUTOMATIC_TAX=on: prices are exclusive, so say so. */
+  plusTax?: boolean;
 }) {
   const [, action, pending] = useActionState(async (prev: ActionState, fd: FormData) => {
     const next = await changePlanAction(prev, fd);
@@ -34,7 +37,8 @@ export function PlanCard({
 
   const current = PLANS[plan];
   const per = interval === "year" ? "/yr" : "/mo";
-  const price = (cents: number) => fmt(interval === "year" ? cents * 10 : cents) + per;
+  const tax = plusTax ? " + applicable tax" : "";
+  const price = (cents: number) => fmt(interval === "year" ? cents * 10 : cents) + per + tax;
   const others = planList().filter((p) => p.key !== plan);
   const bar =
     usage.tone === "over" ? "bg-red-500" : usage.tone === "near" ? "bg-amber-500" : "bg-emerald-500";

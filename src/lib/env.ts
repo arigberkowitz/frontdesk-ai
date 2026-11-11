@@ -114,6 +114,10 @@ export const env = {
   // Owner texting switch + quiet hours (Settings → Phone & AI). Off unless
   // exactly "on", so merging changes no live sending.
   OWNER_TEXTING_CONTROLS: process.env.OWNER_TEXTING_CONTROLS === "on",
+  // Stripe Tax on Checkout and subscription updates. Off unless exactly "on",
+  // so merging collects no tax until the operator flips the flag. Live prices
+  // are tax-exclusive; the pricing copy adds "+ applicable tax" only when on.
+  STRIPE_AUTOMATIC_TAX: process.env.STRIPE_AUTOMATIC_TAX === "on",
   // Shared secret in the Event Streams webhook URL (?token=...). The webhook
   // never trusts the event body anyway; it re-reads the verification from Twilio.
   TOLLFREE_WEBHOOK_SECRET: (process.env.TOLLFREE_WEBHOOK_SECRET ?? "").trim(),

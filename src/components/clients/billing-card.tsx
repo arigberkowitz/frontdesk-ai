@@ -16,6 +16,8 @@ import { formatCurrencyCents } from "@/lib/format";
 export type BillingInfo = {
   stripeReady: boolean;
   testMode: boolean;
+  /** STRIPE_AUTOMATIC_TAX=on: prices are exclusive, so say so. */
+  plusTax?: boolean;
   subscription: {
     status: string;
     plan: string | null;
@@ -36,6 +38,7 @@ export function BillingCard({ clientId, billing }: { clientId: string; billing: 
   const sub = billing.subscription;
   const active = sub && LIVE_STATUSES.includes(sub.status);
   const planName = sub?.plan ? (PLANS[sub.plan as keyof typeof PLANS]?.name ?? sub.plan) : null;
+  const tax = billing.plusTax ? " + applicable tax" : "";
 
   return (
     <Card>
@@ -59,7 +62,7 @@ export function BillingCard({ clientId, billing }: { clientId: string; billing: 
               <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
               <span>
                 <strong>{planName}</strong> — {sub.status}
-                {sub.monthlyPriceCents ? ` · ${formatCurrencyCents(sub.monthlyPriceCents)}/mo` : ""}
+                {sub.monthlyPriceCents ? ` · ${formatCurrencyCents(sub.monthlyPriceCents)}/mo${tax}` : ""}
                 {sub.currentPeriodEnd
                   ? ` · renews ${sub.currentPeriodEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
                   : ""}
@@ -77,7 +80,7 @@ export function BillingCard({ clientId, billing }: { clientId: string; billing: 
                 <NativeSelect name="plan" defaultValue="pro">
                   {planList().map((p) => (
                     <option key={p.key} value={p.key}>
-                      {p.name} — {formatCurrencyCents(p.monthlyPriceCents)}/mo + {formatCurrencyCents(p.setupFeeCents)} setup
+                      {p.name} — {formatCurrencyCents(p.monthlyPriceCents)}/mo + {formatCurrencyCents(p.setupFeeCents)} setup{tax}
                     </option>
                   ))}
                 </NativeSelect>

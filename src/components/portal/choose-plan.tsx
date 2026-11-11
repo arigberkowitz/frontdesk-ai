@@ -33,6 +33,7 @@ export function ChoosePlan({
   preselect,
   preselectInterval,
   firstChargeLabel,
+  plusTax = false,
 }: {
   /** Set while the trial has 2+ days left: subscribing keeps those days (Stripe trial_end). */
   firstChargeLabel?: string | null;
@@ -43,6 +44,8 @@ export function ChoosePlan({
   preselectInterval?: string | null;
   /** Is Stripe actually configured on the server? */
   cardsReady: boolean;
+  /** STRIPE_AUTOMATIC_TAX=on: prices are exclusive, so say so. */
+  plusTax?: boolean;
 }) {
   const [selected, setSelected] = useState<PlanKey>(
     ORDER.includes(preselect as PlanKey) ? (preselect as PlanKey) : "starter",
@@ -121,6 +124,7 @@ export function ChoosePlan({
                     {formatCurrencyCents(price(key))}
                     <span className="text-xs font-normal text-muted-foreground">
                       /{yearly ? "yr" : "mo"}
+                      {plusTax ? " + applicable tax" : ""}
                     </span>
                   </span>
                 </span>
@@ -171,7 +175,7 @@ export function ChoosePlan({
               ? "Card payments aren't switched on yet"
               : pending
                 ? "Opening payment…"
-                : `Continue — ${formatCurrencyCents(price(selected))}/${yearly ? "yr" : "mo"}`}
+                : `Continue — ${formatCurrencyCents(price(selected))}/${yearly ? "yr" : "mo"}${plusTax ? " + applicable tax" : ""}`}
           </Button>
           {!cardsReady ? (
             <p className="text-xs text-muted-foreground">
@@ -183,8 +187,10 @@ export function ChoosePlan({
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">
-              No setup fee — you&apos;ve done the setup yourself. Cancel anytime from Settings; you
-              keep your number until the end of the period you&apos;ve paid for.
+              No setup fee — you&apos;ve done the setup yourself.
+              {plusTax ? " Prices don&apos;t include applicable tax. " : " "}
+              Cancel anytime from Settings; you keep your number until the end of the period
+              you&apos;ve paid for.
             </p>
           )}
         </form>

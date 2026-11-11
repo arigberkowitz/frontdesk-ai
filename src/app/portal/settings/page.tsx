@@ -15,6 +15,7 @@ import { subscriptionInterval } from "@/lib/subscription-interval";
 import { PlanCard } from "@/components/portal/plan-card";
 import { minutesUsage, periodStart } from "@/lib/minutes";
 import { PLANS, type PlanKey } from "@/config/plans";
+import { env } from "@/lib/env";
 import { db } from "@/db";
 import { calls, subscriptions } from "@/db/schema";
 
@@ -91,7 +92,7 @@ export default async function PortalSettingsPage({
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
       />
       )}
-      {planKey && usage ? <PlanCard clientId={clientId} plan={planKey} usage={usage} interval={interval} /> : null}
+      {planKey && usage ? <PlanCard clientId={clientId} plan={planKey} usage={usage} interval={interval} plusTax={env.STRIPE_AUTOMATIC_TAX} /> : null}
       {sub?.customerId ? <ManageBilling clientId={clientId} /> : null}
       <DangerZone clientId={clientId} businessName={client.name} isAdmin={editAccess.isAdmin} hasBilling={Boolean(sub?.customerId)} />
     </div>
