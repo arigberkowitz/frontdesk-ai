@@ -34,6 +34,9 @@ function memStore() {
     async listSubmitted() { return [...rows.values()].filter((r) => r.status === "submitted"); },
     async client(id) { return { id, name: "Bright Smile", smsNumber: smsNumber.get(id) ?? null }; },
     async useAsSmsNumber(id, n) { if (!smsNumber.has(id)) smsNumber.set(id, n); },
+    // Eligible by default here; the real gate is tested against Postgres in buy-gate.test.ts.
+    async claimBuy(id) { return !rows.get(id)?.phoneNumberSid && !smsNumber.has(id); },
+    async releaseBuy() {},
   };
   return { store, rows, smsNumber };
 }

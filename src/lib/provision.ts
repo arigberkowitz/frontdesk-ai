@@ -167,16 +167,10 @@ export async function runProvision(
  * never built an agent (its own Activate covers that, number included).
  */
 export async function provisionNumberAfterPayment(clientId: string): Promise<void> {
-  // Toll-free texting number (no-op unless TOLLFREE_SMS_ENABLED=on). Its own
+  // Toll-free texting number (no-op unless TOLLFREE_SMS_ENABLED=on). Gated:
+  // only buys once setup is finished too — paying alone isn't enough. Its own
   // try: a texting hiccup must never block the voice number below.
-  try {
-    await ensureTollfreeNumber(liveTollfreeDeps(), clientId);
-  } catch (err) {
-    logger.warn("billing.tollfree_after_payment_failed", {
-      clientId,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
+  await ensureTollfreeNumberSafely(clientId, "payment");
   if (!integrations.retell()) return;
   const client = await getClientForPayment(clientId);
   if (!client || client.retellPhoneNumber || !client.retellAgentId) return;
@@ -187,6 +181,24 @@ export async function provisionNumberAfterPayment(clientId: string): Promise<voi
     ok: result.ok,
     gotNumber: Boolean(data?.phoneNumber),
   });
+}
+
+/**
+ * Toll-free texting number, best-effort. `ensureTollfreeNumber` only buys when
+ * setup is finished, a subscription is active/trialing and the business has
+ * no texting number — and never twice (atomic claim in data/tollfree.ts). So
+ * it's called from both the Stripe webhook and "I'm done" on setup: whichever
+ * comes second buys. Separate from the Retell voice number entirely.
+ */
+export async function ensureTollfreeNumberSafely(clientId: string, source: "payment" | "setup"): Promise<void> {
+  try {
+    await ensureTollfreeNumber(liveTollfreeDeps(), clientId);
+  } catch (err) {
+    logger.warn(`tollfree.ensure_after_${source}_failed`, {
+      clientId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 async function getClientForPayment(clientId: string) {
