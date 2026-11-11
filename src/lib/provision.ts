@@ -167,8 +167,10 @@ export async function runProvision(
  * never built an agent (its own Activate covers that, number included).
  */
 export async function provisionNumberAfterPayment(clientId: string): Promise<void> {
-  // Toll-free texting number (no-op unless TOLLFREE_SMS_ENABLED=on). Its own
-  // try: a texting hiccup must never block the voice number below.
+  // Toll-free texting number (no-op unless TOLLFREE_SMS_ENABLED=on). Payment
+  // alone never buys one: ensureTollfreeNumber only buys for a business that
+  // has already FINISHED SETUP (otherwise "I'm done" buys it — actions/setup.ts).
+  // Its own try: a texting hiccup must never block the voice number below.
   try {
     await ensureTollfreeNumber(liveTollfreeDeps(), clientId);
   } catch (err) {

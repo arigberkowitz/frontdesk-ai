@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
@@ -11,6 +12,8 @@ import { checkSetupReadiness } from "@/lib/agents/setup-check";
 import { logger } from "@/lib/logger";
 import { REVIEWABLE_STEPS, type ReviewableStep } from "@/lib/setup-steps";
 import { markSetupReviewed } from "@/lib/data/setup-review";
+import { ensureTollfreeNumber } from "@/lib/tollfree/service";
+import { liveTollfreeDeps } from "@/lib/tollfree/deps";
 import { type ActionState } from "./types";
 
 /**
@@ -58,6 +61,18 @@ export async function finishSetupAction(
     .where(eq(clients.id, clientId));
 
   logger.info("setup.finished", { clientId, aiChecked: check.checked, notes: notes.length });
+  // Setup is finished: this is when a paying business gets its toll-free
+  // texting number (a monthly charge — never on payment alone). No-op unless
+  // TOLLFREE_SMS_ENABLED=on, the business pays or is comped, and it has none.
+  // After the response, and never allowed to fail "I'm done".
+  after(() =>
+    ensureTollfreeNumber(liveTollfreeDeps(), clientId).catch((err) =>
+      logger.warn("setup.tollfree_after_finish_failed", {
+        clientId,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    ),
+  );
   revalidatePath("/portal", "layout");
   return {
     ok: true,

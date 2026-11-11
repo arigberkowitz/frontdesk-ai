@@ -295,6 +295,8 @@ export const clients = pgTable(
          * phone number) is running, so a double-click or two tabs can't buy two.
          */
         provisioningAt?: string;
+        /** Short-lived lock (ISO) while a toll-free texting number is being bought (data/tollfree.ts). */
+        tollfreeBuyingAt?: string;
         /**
          * Daily owner briefing email (portal Settings → Alerts). Opt-in: off
          * unless the owner turns it on. jsonb rather than a column so the

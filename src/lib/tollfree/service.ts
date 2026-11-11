@@ -2,6 +2,7 @@ import type { ClientTollfree } from "@/db/schema";
 import type { TollfreeStore } from "@/lib/data/tollfree";
 import { fieldErrorsOf } from "@/lib/actions/types";
 import { tollfreeDetailsSchema, type TollfreeDetails } from "./details";
+import { tollfreePurchaseBlocker } from "./eligibility";
 import { buildVerificationPayload } from "./payload";
 import { rejectionText, stateFromTwilio } from "./status";
 import type { TollfreeApi, VerificationRecord } from "./twilio-api";
@@ -9,7 +10,7 @@ import type { TollfreeApi, VerificationRecord } from "./twilio-api";
 /**
  * Toll-free texting lifecycle for one business:
  *
- *   paid → buy number (needs_details) → owner submits details (submitted)
+ *   setup finished + paying → buy number (needs_details) → owner submits details (submitted)
  *        → Twilio approves (approved: the number becomes clients.sms_number)
  *        → or rejects (rejected: owner fixes details and resubmits)
  *
@@ -27,26 +28,50 @@ export interface TollfreeDeps {
 
 const msg = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/** After payment: buy this business a toll-free number unless it has one. */
+/**
+ * Buy this business a toll-free number — but only once it has finished setup
+ * and is paying or comped (eligibility.ts), and never twice. Called when setup
+ * is finished and on every Stripe payment/subscription event; whichever comes
+ * second does the buying, every other call is a no-op.
+ */
 export async function ensureTollfreeNumber(deps: TollfreeDeps, clientId: string): Promise<ClientTollfree | null> {
   if (!deps.enabled) return null;
   const row = await deps.store.get(clientId);
+  // Already has one (incl. every business bought one before this rule): keep it.
   if (row?.phoneNumberSid) return row;
   const client = await deps.store.client(clientId);
   if (!client) return null;
+  const blocker = tollfreePurchaseBlocker(client);
+  if (blocker) {
+    deps.log?.("tollfree.number.skipped", { clientId, reason: blocker });
+    return row;
+  }
+  if (!(await deps.store.claimPurchase(clientId))) {
+    deps.log?.("tollfree.number.skipped", { clientId, reason: "purchase_in_progress" });
+    return row;
+  }
   try {
-    const bought = await deps.api.buyNumber(`FrontDesk SMS · ${client.name}`.slice(0, 64));
-    await deps.store.save(clientId, {
-      status: "needs_details",
-      phoneNumber: bought.phoneNumber,
-      phoneNumberSid: bought.sid,
-      lastError: null,
-    });
-    deps.log?.("tollfree.number.bought", { clientId });
-  } catch (err) {
-    await deps.store.save(clientId, { status: row?.status ?? "needs_number", lastError: msg(err) });
-    deps.log?.("tollfree.number.failed", { clientId, error: msg(err) });
-    return deps.store.get(clientId);
+    // Re-check under the claim: a concurrent call may have just bought one.
+    const current = await deps.store.get(clientId);
+    if (current?.phoneNumberSid) return current;
+    try {
+      const bought = await deps.api.buyNumber(`FrontDesk SMS · ${client.name}`.slice(0, 64));
+      await deps.store.save(clientId, {
+        status: "needs_details",
+        phoneNumber: bought.phoneNumber,
+        phoneNumberSid: bought.sid,
+        lastError: null,
+      });
+      deps.log?.("tollfree.number.bought", { clientId });
+    } catch (err) {
+      await deps.store.save(clientId, { status: current?.status ?? "needs_number", lastError: msg(err) });
+      deps.log?.("tollfree.number.failed", { clientId, error: msg(err) });
+      return deps.store.get(clientId);
+    }
+  } finally {
+    await deps.store.releasePurchase(clientId).catch((err) =>
+      deps.log?.("tollfree.number.unlock_failed", { clientId, error: msg(err) }),
+    );
   }
   // Details entered before the number arrived: submit now.
   const fresh = await deps.store.get(clientId);

@@ -46,7 +46,7 @@ export function tollfreeView(row: {
       return {
         tone: "neutral",
         title: "Getting your texting number",
-        body: "We're setting up a toll-free number for your customer texts. Meanwhile, add your business details below so carriers can approve it.",
+        body: "We set up a toll-free number for your customer texts once you've finished setup and your plan is active. Meanwhile, add your business details below so carriers can approve it.",
         showForm: true,
         submitLabel: "Save details",
       };
