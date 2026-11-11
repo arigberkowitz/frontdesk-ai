@@ -39,7 +39,7 @@ export function BusinessDetailsForm({ client }: { client: Client }) {
     <Card>
       <CardHeader>
         <CardTitle>Business details</CardTitle>
-        <CardDescription>Your name and timezone — used across your AI and bookings.</CardDescription>
+        <CardDescription>Your business name and timezone — used across your AI and bookings.</CardDescription>
       </CardHeader>
       <CardContent>
         <form action={profileAction} className="space-y-4">

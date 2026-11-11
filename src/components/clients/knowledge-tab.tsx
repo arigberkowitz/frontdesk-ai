@@ -61,6 +61,15 @@ const EXAMPLE_GROUPS: { label: string; questions: string[] }[] = [
     label: "New customers",
     questions: ["Are you accepting new customers?", "What should I bring to my first visit?"],
   },
+  {
+    label: "Credentials & policies",
+    questions: [
+      "Are you licensed and insured?",
+      "Do you offer a guarantee or warranty?",
+      "Do you take insurance?",
+      "What areas do you serve?",
+    ],
+  },
 ];
 
 function KnowledgeForm({

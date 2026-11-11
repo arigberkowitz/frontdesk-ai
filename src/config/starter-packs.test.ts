@@ -46,22 +46,33 @@ describe("starter pack integrity", () => {
         expect(s.description.trim()).not.toBe("");
         expect(s.durationMin).toBeGreaterThanOrEqual(15);
         expect(s.durationMin).toBeLessThanOrEqual(240);
-        if (s.priceCents !== null) {
-          expect(Number.isInteger(s.priceCents)).toBe(true);
-          expect(s.priceCents).toBeGreaterThanOrEqual(0);
-        }
+        // Seeded services have no price so the AI won't quote a number the
+        // owner never set. Owners fill prices in later on the services page.
+        expect(s.priceCents, `${p.industry ?? "default"}: ${s.name} is priced`).toBeNull();
       }
     }
   });
 
-  it("FAQ entries are non-empty and unique per pack", () => {
+  it("does not seed knowledge-base answers (those claims must come from the owner)", () => {
     for (const p of ALL_PACKS) {
-      expect(p.faq.length).toBeGreaterThanOrEqual(3);
-      const questions = p.faq.map((f) => f.question.toLowerCase());
-      expect(new Set(questions).size).toBe(questions.length);
-      for (const f of p.faq) {
-        expect(f.question.trim()).not.toBe("");
-        expect(f.answer.trim()).not.toBe("");
+      expect(p.faq, p.industry ?? "default").toEqual([]);
+    }
+  });
+
+  it("does not seed factual claims the owner never made", () => {
+    // "freezing" (weather) and "financial advice" (a prohibition) are fine.
+    const banned =
+      /\b(licensed and insured|fully licensed|our work is guaranteed|parts and labor warranty|payment plans?|financ(?:e|ing|ial options)|discounted series|award-winning|years in business|certified)\b|inspection is free|diagnostic fee|book the free|\\$\d/i;
+    for (const p of ALL_PACKS) {
+      const blob = [
+        ...p.services.map((s) => `${s.name} ${s.description}`),
+        ...p.faq.map((f) => `${f.question} ${f.answer}`),
+        p.guardrails,
+        p.booking,
+      ].join("\n");
+      expect(blob, p.industry ?? "default").not.toMatch(banned);
+      for (const s of p.services) {
+        expect(s.name, s.name).not.toMatch(/^free\b/i);
       }
     }
   });

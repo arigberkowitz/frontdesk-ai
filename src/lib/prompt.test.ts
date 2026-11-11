@@ -8,6 +8,7 @@ import {
   openingLine,
   DEFAULT_AGENT_NAME,
   type BuildPromptInput,
+  isUnfilledKnowledgeAnswer,
   type PromptClient,
 } from "./prompt";
 
@@ -67,6 +68,31 @@ describe("buildGeneralPrompt", () => {
   it("includes only ACTIVE knowledge", () => {
     expect(prompt).toContain("Free lot behind the building.");
     expect(prompt).not.toContain("Should not appear.");
+  });
+
+  it("omits unfilled knowledge placeholders so they never reach the agent", () => {
+    const p = buildGeneralPrompt({
+      ...input,
+      knowledge: [
+        { question: "Are you licensed and insured?", answer: "Needs your answer", isActive: true },
+        { question: "Where are you located?", answer: "[Needs your input]", isActive: true },
+        { question: "Do you have parking?", answer: "Street parking out front.", isActive: true },
+      ],
+    });
+    expect(p).not.toContain("Needs your answer");
+    expect(p).not.toContain("Needs your input");
+    expect(p).not.toContain("Are you licensed and insured?");
+    expect(p).toContain("Street parking out front.");
+  });
+
+  it("does not quote a price when a service has none, and tells the agent the team confirms pricing", () => {
+    const p = buildGeneralPrompt({
+      ...input,
+      services: [{ name: "Service call & diagnostic", durationMin: 60, priceCents: null, isActive: true }],
+    });
+    expect(p).toContain("Service call & diagnostic");
+    expect(p).not.toMatch(/Service call & diagnostic \(\d+ min\) — \$/);
+    expect(p).toMatch(/pricing is confirmed by the team/);
   });
 
   it("renders hours with closed days", () => {
@@ -215,5 +241,18 @@ describe("no escalation number", () => {
     const p = buildGeneralPrompt({ ...input, client: { ...client, handoffMode: "always" } });
     expect(p).toContain("transfer_to_human");
     expect(p).toContain("Don't wait to be asked");
+  });
+});
+
+describe("isUnfilledKnowledgeAnswer", () => {
+  it("treats empty and placeholder stubs as unfilled", () => {
+    expect(isUnfilledKnowledgeAnswer("")).toBe(true);
+    expect(isUnfilledKnowledgeAnswer("   ")).toBe(true);
+    expect(isUnfilledKnowledgeAnswer("Needs your answer")).toBe(true);
+    expect(isUnfilledKnowledgeAnswer("[Needs your input]")).toBe(true);
+    expect(isUnfilledKnowledgeAnswer("TODO: fill this in")).toBe(true);
+    expect(isUnfilledKnowledgeAnswer("TBD")).toBe(true);
+    expect(isUnfilledKnowledgeAnswer("Free lot behind the building.")).toBe(false);
+    expect(isUnfilledKnowledgeAnswer("Yes, we need your input on color.")).toBe(false);
   });
 });

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/form/field";
 import { NativeSelect } from "@/components/form/native-select";
 import { DemoCall } from "@/components/demo-call";
+import { welcomeBusyMessage } from "@/components/welcome-busy-message";
 
 const RESCUE_STEPS = [
   {
@@ -82,14 +83,13 @@ function TemplateButton() {
   );
 }
 
-/** While setup runs: what's happening, under the button (not crammed into it). */
 function BusyNote() {
-  const { pending } = useFormStatus();
+  const { pending, data } = useFormStatus();
   if (!pending) return null;
+  const websiteUrl = typeof data?.get === "function" ? String(data.get("websiteUrl") ?? "") : "";
   return (
     <p role="status" className="text-center text-xs text-muted-foreground">
-      Reading your website and building your receptionist — this can take up to a minute. Keep
-      this page open.
+      {welcomeBusyMessage(websiteUrl)}
     </p>
   );
 }
@@ -142,7 +142,7 @@ function SetupForm({ plan, interval }: { plan: string | null; interval: string |
       </Field>
       <Field
         label="What kind of business?"
-        hint="Starts you with real services, hours, and FAQs for your industry — all editable."
+        hint="Starts you with real services and hours for your industry — all editable. You add the answers your AI should give."
       >
         <IndustrySelect defaultValue={v.industry ?? ""} />
       </Field>

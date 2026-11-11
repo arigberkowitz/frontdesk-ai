@@ -2,9 +2,12 @@ import { INDUSTRIES } from "@/config/options";
 
 /**
  * Industry starter packs: real, editable content a brand-new business starts
- * with — services with honest durations/prices, FAQ drafts in the business's
- * own voice, typical hours, and guardrails tuned to the industry's risks
- * (a dental office fields toothache emergencies; a plumber fields gas leaks).
+ * with — typical services and hours, and guardrails tuned to the industry's
+ * risks (a dental office fields toothache emergencies; a plumber fields gas
+ * leaks). Services are seeded without prices so the AI won't quote a number
+ * the owner never set. Knowledge-base answers are not seeded: factual claims
+ * (licenses, insurance, guarantees, prices) must come from the owner, via
+ * the starter-question chips on the knowledge page.
  *
  * Pure config (no DB, no server-only) so tests and client components can
  * import it. Seeding happens in `src/lib/starter-seed.ts`.
@@ -59,15 +62,11 @@ const BASE_GUARDRAILS =
 export const DEFAULT_PACK: StarterPack = {
   industry: null,
   services: [
-    { name: "Consultation", durationMin: 30, priceCents: 0, description: "A free intro call to understand what the customer needs." },
-    { name: "Standard appointment", durationMin: 60, priceCents: 12000, description: "Your most common service." },
-    { name: "Follow-up visit", durationMin: 30, priceCents: 8000, description: "A shorter check-in for returning customers." },
+    { name: "Consultation", durationMin: 30, priceCents: null, description: "An intro call to understand what the customer needs." },
+    { name: "Standard appointment", durationMin: 60, priceCents: null, description: "Your most common service." },
+    { name: "Follow-up visit", durationMin: 30, priceCents: null, description: "A shorter check-in for returning customers." },
   ],
-  faq: [
-    { question: "What are your hours?", answer: "We're open Monday to Friday, 9am to 5pm." },
-    { question: "Do I need an appointment, or do you take walk-ins?", answer: "Appointments are best, but we take walk-ins whenever we have availability." },
-    { question: "How do I reschedule or cancel?", answer: "Just let us know at least 24 hours ahead and we'll happily move your appointment." },
-  ],
+  faq: [],
   hours: week("09:00", "17:00", [0, 6]),
   guardrails: BASE_GUARDRAILS + " Never give medical, legal, or financial advice.",
   booking:
@@ -79,18 +78,12 @@ export const STARTER_PACKS: StarterPack[] = [
   {
     industry: "Dental",
     services: [
-      { name: "New patient exam & X-rays", durationMin: 60, priceCents: 9900, description: "Comprehensive first visit: full exam, X-rays, and a treatment plan." },
-      { name: "Cleaning & checkup", durationMin: 60, priceCents: 12500, description: "Routine hygiene cleaning with a doctor's checkup." },
-      { name: "Teeth whitening", durationMin: 90, priceCents: 34900, description: "In-office professional whitening session." },
+      { name: "New patient exam & X-rays", durationMin: 60, priceCents: null, description: "Comprehensive first visit: full exam, X-rays, and a treatment plan." },
+      { name: "Cleaning & checkup", durationMin: 60, priceCents: null, description: "Routine hygiene cleaning with a doctor's checkup." },
+      { name: "Teeth whitening", durationMin: 90, priceCents: null, description: "In-office professional whitening session." },
       { name: "Emergency visit", durationMin: 30, priceCents: null, description: "Same-day slot for tooth pain, a broken tooth, or swelling. Cost depends on treatment." },
     ],
-    faq: [
-      { question: "Do you take my insurance?", answer: "We accept most major PPO plans. Bring your insurance card to your visit and we'll verify your coverage and benefits for you." },
-      { question: "Are you accepting new patients?", answer: "Yes! New patients are always welcome — our new patient exam includes X-rays and a full treatment plan." },
-      { question: "I have a toothache — can you see me today?", answer: "We keep same-day slots for dental emergencies. Call as early as you can and we'll fit you in as soon as possible." },
-      { question: "Do you offer payment plans?", answer: "Yes, we offer financing options and payment plans for larger treatments — we'll go over them at your visit." },
-      { question: "How do I reschedule or cancel?", answer: "Give us at least 24 hours' notice and we'll happily move your visit — it also frees the slot for someone in pain." },
-    ],
+    faq: [],
     hours: week("08:00", "17:00", [0, 6]),
     guardrails:
       BASE_GUARDRAILS +
@@ -106,16 +99,11 @@ export const STARTER_PACKS: StarterPack[] = [
   {
     industry: "Law",
     services: [
-      { name: "Free case evaluation", durationMin: 15, priceCents: 0, description: "A short call to understand the matter and whether we can help." },
-      { name: "Initial consultation", durationMin: 45, priceCents: 20000, description: "An in-depth meeting with an attorney to review your case and options." },
+      { name: "Case evaluation", durationMin: 15, priceCents: null, description: "A short call to understand the matter and whether we can help." },
+      { name: "Initial consultation", durationMin: 45, priceCents: null, description: "An in-depth meeting with an attorney to review your case and options." },
       { name: "Document review", durationMin: 60, priceCents: null, description: "An attorney reviews your contract or documents. Quoted after the evaluation." },
     ],
-    faq: [
-      { question: "Do you offer free consultations?", answer: "We offer a free 15-minute case evaluation to see whether we're a fit. In-depth consultations with an attorney are paid." },
-      { question: "What should I bring to my consultation?", answer: "Any documents related to your matter — contracts, letters, court papers, photos — plus a timeline of key dates if you can." },
-      { question: "How do your fees work?", answer: "It depends on the matter — some cases are flat fee, some hourly, and some contingency. The attorney will explain exactly what applies to yours at the consultation." },
-      { question: "Is what I tell you confidential?", answer: "Yes — what you share with our office is treated confidentially." },
-    ],
+    faq: [],
     hours: week("09:00", "17:00", [0, 6]),
     guardrails:
       BASE_GUARDRAILS +
@@ -123,29 +111,24 @@ export const STARTER_PACKS: StarterPack[] = [
       "only an attorney can do that. Don't say whether the firm will take a case. Collect the caller's " +
       "situation in their own words and book the evaluation or take a detailed message.",
     booking:
-      "For new matters, book the free case evaluation first. Confirm the date and time, the caller's " +
+      "For new matters, book the case evaluation first. Confirm the date and time, the caller's " +
       "name and phone number, and a one-line description of the matter, then read the consultation back " +
       "to them.",
   },
   {
     industry: "Salon & beauty",
     services: [
-      { name: "Haircut", durationMin: 30, priceCents: 4000, description: "Cut, style, and finish." },
-      { name: "Haircut & beard trim", durationMin: 45, priceCents: 5500, description: "Full cut plus beard shaping and line-up." },
-      { name: "Color", durationMin: 120, priceCents: 12000, description: "Single-process color. Longer or corrective work is quoted in person." },
-      { name: "Kids' cut", durationMin: 30, priceCents: 2500, description: "Cut for kids 12 and under." },
+      { name: "Haircut", durationMin: 30, priceCents: null, description: "Cut, style, and finish." },
+      { name: "Haircut & beard trim", durationMin: 45, priceCents: null, description: "Full cut plus beard shaping and line-up." },
+      { name: "Color", durationMin: 120, priceCents: null, description: "Single-process color. Longer or corrective work is quoted in person." },
+      { name: "Kids' cut", durationMin: 30, priceCents: null, description: "Cut for kids 12 and under." },
     ],
-    faq: [
-      { question: "Do you take walk-ins?", answer: "Walk-ins are welcome whenever there's an open chair — but booking ahead guarantees your spot and your favorite stylist." },
-      { question: "Can I request a specific person?", answer: "Absolutely — just tell us who you'd like when you book and we'll schedule you with them." },
-      { question: "What if I'm running late?", answer: "Give us a call! We can usually hold your spot for 10–15 minutes; after that we may need to rebook you." },
-      { question: "How do I cancel or reschedule?", answer: "Let us know at least a few hours ahead and we'll move you, no problem." },
-    ],
+    faq: [],
     hours: week("09:00", "19:00", [0, 1]),
     guardrails:
       BASE_GUARDRAILS +
-      " Color and corrective work varies a lot — quote the listed starting price and note the stylist " +
-      "will confirm in person.",
+      " Color and corrective work varies a lot — don't invent a price; say the stylist will confirm " +
+      "in person.",
     booking:
       "Ask if they'd like a specific stylist or barber, then book with that person. Confirm the service, " +
       "who it's with, the date and time, and the caller's name and phone number, then read it back.",
@@ -153,17 +136,12 @@ export const STARTER_PACKS: StarterPack[] = [
   {
     industry: "Med spa",
     services: [
-      { name: "Consultation", durationMin: 30, priceCents: 0, description: "A free consultation to build your treatment plan — required before injectables." },
-      { name: "Signature facial", durationMin: 60, priceCents: 15000, description: "Deep-cleansing facial customized to your skin." },
+      { name: "Consultation", durationMin: 30, priceCents: null, description: "A consultation to build your treatment plan — required before injectables." },
+      { name: "Signature facial", durationMin: 60, priceCents: null, description: "Deep-cleansing facial customized to your skin." },
       { name: "Botox / injectables", durationMin: 30, priceCents: null, description: "Priced per unit or area at your consultation." },
       { name: "Laser hair removal", durationMin: 45, priceCents: null, description: "Priced by area; packages available." },
     ],
-    faq: [
-      { question: "Do I need a consultation first?", answer: "For injectables and laser treatments, yes — a free consultation comes first so we can build a plan that's safe and right for you. Facials can be booked directly." },
-      { question: "Is there any downtime?", answer: "Most treatments have little to no downtime, but it varies by treatment and person — we'll go over exactly what to expect at your consultation." },
-      { question: "Do you offer packages or memberships?", answer: "Yes — most treatments come in discounted series, and members save on every visit. Ask at your consultation." },
-      { question: "What's your cancellation policy?", answer: "We ask for 24 hours' notice to reschedule so we can offer the time to another client." },
-    ],
+    faq: [],
     hours: week("10:00", "18:00", [0, 1]),
     guardrails:
       BASE_GUARDRAILS +
@@ -171,26 +149,22 @@ export const STARTER_PACKS: StarterPack[] = [
       "'priced at your consultation.' New clients wanting injectables or laser must book the " +
       "consultation first.",
     booking:
-      "New clients asking about injectables or laser book the free consultation. Confirm the treatment, " +
+      "New clients asking about injectables or laser book the consultation. Confirm the treatment, " +
       "date and time, and the caller's name and phone number, then read it back.",
   },
   {
     industry: "Home services",
     services: [
-      { name: "Service call & diagnostic", durationMin: 60, priceCents: 8900, description: "A technician diagnoses the problem. The fee is applied toward the repair if you go ahead." },
-      { name: "Free estimate", durationMin: 30, priceCents: 0, description: "In-home estimate for installs and larger projects." },
-      { name: "Seasonal tune-up", durationMin: 90, priceCents: 12900, description: "Preventive check and tune-up to keep your system running right." },
+      { name: "Service call & diagnostic", durationMin: 60, priceCents: null, description: "A technician diagnoses the problem and quotes the repair before any work." },
+      { name: "Estimate", durationMin: 30, priceCents: null, description: "In-home estimate for installs and larger projects." },
+      { name: "Seasonal tune-up", durationMin: 90, priceCents: null, description: "Preventive check and tune-up to keep your system running right." },
     ],
-    faq: [
-      { question: "Can you give me a price over the phone?", answer: "We can't quote a repair sight-unseen — every job is different. The diagnostic fee covers the visit, and it's applied toward the repair if you go ahead." },
-      { question: "Do you handle emergencies after hours?", answer: "Yes — we answer emergencies 24/7. After-hours rates may apply; describe the problem and we'll get someone out." },
-      { question: "Are you licensed and insured?", answer: "Yes, fully licensed and insured, and our work is guaranteed." },
-      { question: "What areas do you serve?", answer: "We serve the local metro area — give us your address and we'll confirm you're in our service area." },
-    ],
+    faq: [],
     hours: week("07:00", "17:00", [0]),
     guardrails:
       BASE_GUARDRAILS +
-      " Never quote repair prices beyond the listed diagnostic and tune-up fees. If a caller mentions a " +
+      " Never invent or quote job prices — if a caller asks what a job costs, say the team will confirm " +
+      "pricing. If a caller mentions a " +
       "gas smell, tell them to leave the building immediately and call 911 or the gas company before " +
       "anything else — then take their details. Burst pipes or no heat in freezing weather are " +
       "emergencies: flag them and collect the address and callback number.",
@@ -201,16 +175,11 @@ export const STARTER_PACKS: StarterPack[] = [
   {
     industry: "Auto repair",
     services: [
-      { name: "Oil change", durationMin: 30, priceCents: 6500, description: "Full-service oil change with a multi-point inspection." },
-      { name: "Diagnostic", durationMin: 60, priceCents: 12000, description: "We pinpoint the problem and call you with a quote before any work." },
-      { name: "Brake inspection", durationMin: 45, priceCents: 0, description: "Free brake check with a written estimate if anything needs attention." },
+      { name: "Oil change", durationMin: 30, priceCents: null, description: "Full-service oil change with a multi-point inspection." },
+      { name: "Diagnostic", durationMin: 60, priceCents: null, description: "We pinpoint the problem and call you with a quote before any work." },
+      { name: "Brake inspection", durationMin: 45, priceCents: null, description: "Brake check with a written estimate if anything needs attention." },
     ],
-    faq: [
-      { question: "How long will my car be in the shop?", answer: "Oil changes are usually under an hour. For repairs, we diagnose first and call you with a quote and timeline before doing any work." },
-      { question: "Do you offer a shuttle or loaner?", answer: "We offer local drop-off while your car is with us — ask when you book." },
-      { question: "Is your work guaranteed?", answer: "Yes — our repairs are backed by a parts and labor warranty. Ask for the details on your specific repair." },
-      { question: "Do I need an appointment for an oil change?", answer: "Appointments get you in and out fastest, but we take drive-ins as the schedule allows." },
-    ],
+    faq: [],
     hours: [
       ...week("08:00", "18:00", [0]).slice(0, 6),
       { dayOfWeek: 6, isClosed: false, openTime: "09:00", closeTime: "14:00" },
@@ -226,17 +195,12 @@ export const STARTER_PACKS: StarterPack[] = [
   {
     industry: "HVAC",
     services: [
-      { name: "Service call & diagnostic", durationMin: 60, priceCents: 9900, description: "A technician diagnoses your heating or cooling problem. Fee applied toward the repair if you go ahead." },
-      { name: "AC tune-up", durationMin: 90, priceCents: 12900, description: "Pre-season inspection, coil clean, and refrigerant check." },
-      { name: "Furnace tune-up", durationMin: 90, priceCents: 12900, description: "Pre-winter safety and efficiency check, including heat exchanger inspection." },
-      { name: "Replacement estimate", durationMin: 45, priceCents: 0, description: "Free in-home estimate for a new system, with financing options." },
+      { name: "Service call & diagnostic", durationMin: 60, priceCents: null, description: "A technician diagnoses your heating or cooling problem and quotes the repair before any work." },
+      { name: "AC tune-up", durationMin: 90, priceCents: null, description: "Pre-season inspection, coil clean, and refrigerant check." },
+      { name: "Furnace tune-up", durationMin: 90, priceCents: null, description: "Pre-winter safety and efficiency check, including heat exchanger inspection." },
+      { name: "Replacement estimate", durationMin: 45, priceCents: null, description: "In-home estimate for a new system." },
     ],
-    faq: [
-      { question: "My AC stopped working — how fast can someone come out?", answer: "We keep same-day slots for no-cool and no-heat calls whenever we can. Tell me what's happening and I'll get you the first available visit." },
-      { question: "How much does a new system cost?", answer: "It depends on the size of your home and the equipment — that's why the estimate is free and in person. Ballparks over the phone tend to be wrong in both directions." },
-      { question: "Do you service all brands?", answer: "Yes — our technicians work on all major makes and models." },
-      { question: "Is there a fee for the visit?", answer: "The diagnostic fee covers the technician's visit and applies toward the repair if you go ahead with it." },
-    ],
+    faq: [],
     hours: week("07:00", "18:00", [0]),
     guardrails:
       BASE_GUARDRAILS +
@@ -244,7 +208,7 @@ export const STARTER_PACKS: StarterPack[] = [
       "from outside — before giving you any details. Do not book anything on that call; a leak is not an " +
       "appointment. No heat in freezing weather, no cooling in extreme heat, or a home with an infant or " +
       "elderly resident is an emergency: flag it, collect address and callback number, and say the team " +
-      "will be told immediately. Never quote repair or install prices beyond the listed fees.",
+      "will be told immediately. Never invent or quote repair or install prices — say the team will confirm pricing.",
     booking:
       "Always collect the service address, what the system is doing in the caller's words, and roughly " +
       "how old the equipment is. Read the booking back, including the address.",
@@ -252,17 +216,12 @@ export const STARTER_PACKS: StarterPack[] = [
   {
     industry: "Veterinary",
     services: [
-      { name: "Wellness exam", durationMin: 30, priceCents: 6500, description: "Routine check-up, including weight, teeth, and vaccination review." },
-      { name: "Sick visit", durationMin: 30, priceCents: 7500, description: "For a pet that's off its food, limping, scratching, or just not right." },
+      { name: "Wellness exam", durationMin: 30, priceCents: null, description: "Routine check-up, including weight, teeth, and vaccination review." },
+      { name: "Sick visit", durationMin: 30, priceCents: null, description: "For a pet that's off its food, limping, scratching, or just not right." },
       { name: "Vaccination visit", durationMin: 15, priceCents: null, description: "Boosters and required shots — price depends on what's due." },
       { name: "Dental cleaning", durationMin: 120, priceCents: null, description: "Under anesthesia, with a pre-exam required first. We'll quote after the exam." },
     ],
-    faq: [
-      { question: "Is this an emergency? My pet ate something.", answer: "If your pet ate chocolate, grapes, xylitol gum, medication, or anything toxic, call the ASPCA Poison Control line at (888) 426-4435 right away — they're the fastest experts. We can see your pet as soon as possible afterward." },
-      { question: "Do you see exotic pets?", answer: "Our doctors primarily see dogs and cats — call it a message and the team will confirm whether we can see your specific pet." },
-      { question: "How much is an exam?", answer: "A routine wellness exam is $65; treatment costs depend on what the doctor finds, and you'll get an estimate before anything is done." },
-      { question: "Can I get my pet's records sent somewhere?", answer: "Of course — leave your name, your pet's name, and where the records should go, and the front desk will send them over." },
-    ],
+    faq: [],
     hours: [
       ...week("08:00", "18:00", [0]).slice(0, 6),
       { dayOfWeek: 6, isClosed: false, openTime: "09:00", closeTime: "13:00" },
@@ -280,16 +239,11 @@ export const STARTER_PACKS: StarterPack[] = [
   {
     industry: "Chiropractic",
     services: [
-      { name: "New patient exam & adjustment", durationMin: 45, priceCents: 9500, description: "Consultation, exam, and your first adjustment if appropriate." },
-      { name: "Adjustment", durationMin: 15, priceCents: 5500, description: "Standard adjustment for established patients." },
-      { name: "Adjustment + soft tissue work", durationMin: 30, priceCents: 8500, description: "Adjustment with targeted muscle work for stubborn areas." },
+      { name: "New patient exam & adjustment", durationMin: 45, priceCents: null, description: "Consultation, exam, and your first adjustment if appropriate." },
+      { name: "Adjustment", durationMin: 15, priceCents: null, description: "Standard adjustment for established patients." },
+      { name: "Adjustment + soft tissue work", durationMin: 30, priceCents: null, description: "Adjustment with targeted muscle work for stubborn areas." },
     ],
-    faq: [
-      { question: "Do you take insurance?", answer: "We work with most major plans — bring your card to your first visit and the front desk will verify your coverage before you're seen." },
-      { question: "Does an adjustment hurt?", answer: "Most patients find it relieving rather than painful. The doctor always examines first and only adjusts what's appropriate for you." },
-      { question: "How many visits will I need?", answer: "That's genuinely case-by-case — the doctor will lay out a plan at your first exam and you'll never be locked into anything." },
-      { question: "Can you help with headaches or sciatica?", answer: "Those are two of the most common things we treat. The first exam will tell us whether your case is one we can help with." },
-    ],
+    faq: [],
     hours: week("09:00", "18:00", [0, 6]),
     guardrails:
       BASE_GUARDRAILS +
@@ -303,16 +257,11 @@ export const STARTER_PACKS: StarterPack[] = [
   {
     industry: "Fitness",
     services: [
-      { name: "Intro session & tour", durationMin: 45, priceCents: 0, description: "Free first visit: see the space, talk goals, try a workout." },
-      { name: "Personal training session", durationMin: 60, priceCents: 8500, description: "One-on-one session tailored to your goals." },
-      { name: "Small group class", durationMin: 60, priceCents: 2500, description: "Coached group session — all levels welcome, drop-ins allowed." },
+      { name: "Intro session & tour", durationMin: 45, priceCents: null, description: "First visit: see the space, talk goals, try a workout." },
+      { name: "Personal training session", durationMin: 60, priceCents: null, description: "One-on-one session tailored to your goals." },
+      { name: "Small group class", durationMin: 60, priceCents: null, description: "Coached group session." },
     ],
-    faq: [
-      { question: "How much is a membership?", answer: "Plans vary by how often you want to come and whether you want coaching — the free intro visit is the easiest way to get exact numbers for what you actually need." },
-      { question: "I'm a complete beginner. Is that okay?", answer: "That's who the intro session is for — every program scales down as well as up, and nobody's thrown into anything." },
-      { question: "Can I freeze or cancel my membership?", answer: "Yes — leave your name and number and the front desk will walk you through the options for your plan." },
-      { question: "Do you have showers and lockers?", answer: "Yes, both — bring a lock, or grab one at the front desk." },
-    ],
+    faq: [],
     hours: [
       ...week("06:00", "21:00", []).slice(0, 6),
       { dayOfWeek: 6, isClosed: false, openTime: "08:00", closeTime: "16:00" },
@@ -320,30 +269,26 @@ export const STARTER_PACKS: StarterPack[] = [
     guardrails:
       BASE_GUARDRAILS +
       " Never give training, nutrition, or injury advice on the phone — book them with a coach instead. " +
-      "Don't quote membership prices beyond the listed sessions; pricing conversations happen at the " +
+      "Don't invent or quote membership prices; pricing conversations happen at the " +
       "intro visit where someone can match a plan to the person.",
     booking:
-      "Steer new callers to the free intro session first. Collect name, phone number, and what they're " +
+      "Steer new callers to the intro session first. Collect name, phone number, and what they're " +
       "hoping to work on, then read the booking back.",
   },
   {
     industry: "Plumbing",
     services: [
-      { name: "Service call & diagnostic", durationMin: 60, priceCents: 9900, description: "A plumber finds the problem and quotes the fix before any work. Fee applied toward the repair if you go ahead." },
+      { name: "Service call & diagnostic", durationMin: 60, priceCents: null, description: "A plumber finds the problem and quotes the fix before any work." },
       { name: "Drain clearing", durationMin: 60, priceCents: null, description: "Clogged sink, tub, toilet, or main line cleared. Price depends on the line and access." },
       { name: "Water heater repair or replacement", durationMin: 120, priceCents: null, description: "Tank and tankless repairs and installs, quoted on site." },
-      { name: "Free estimate", durationMin: 30, priceCents: 0, description: "In-home estimate for repipes, remodels, and larger jobs." },
+      { name: "Estimate", durationMin: 30, priceCents: null, description: "In-home estimate for repipes, remodels, and larger jobs." },
     ],
-    faq: [
-      { question: "Can you give me a price over the phone?", answer: "We can't quote a repair sight-unseen — the diagnostic fee covers the visit and applies toward the repair if you go ahead." },
-      { question: "Do you handle emergencies?", answer: "Yes — burst pipes, active leaks, and sewer backups get our first available plumber. After-hours rates may apply." },
-      { question: "Are you licensed and insured?", answer: "Yes, fully licensed and insured, and our work is guaranteed." },
-      { question: "What areas do you serve?", answer: "We serve the local area — give us your address and we'll confirm you're in our service area." },
-    ],
+    faq: [],
     hours: week("07:00", "18:00", [0]),
     guardrails:
       BASE_GUARDRAILS +
-      " Never quote repair prices beyond the listed fees. An active leak, burst pipe, or sewage backup is " +
+      " Never invent or quote repair prices — if a caller asks what a job costs, say the team will confirm " +
+      "pricing. An active leak, burst pipe, or sewage backup is " +
       "an emergency: tell the caller to shut off the main water valve if they can do it safely, then " +
       "collect the address and callback number and flag it. If they smell gas, tell them to leave the " +
       "building and call 911 or the gas company first.",
@@ -354,16 +299,11 @@ export const STARTER_PACKS: StarterPack[] = [
   {
     industry: "Electrician",
     services: [
-      { name: "Service call & diagnostic", durationMin: 60, priceCents: 9900, description: "An electrician troubleshoots the problem and quotes the fix before any work." },
+      { name: "Service call & diagnostic", durationMin: 60, priceCents: null, description: "An electrician troubleshoots the problem and quotes the fix before any work." },
       { name: "Outlet, switch, or fixture install", durationMin: 60, priceCents: null, description: "New or replacement outlets, switches, lights, and ceiling fans, quoted per job." },
-      { name: "Panel upgrade estimate", durationMin: 45, priceCents: 0, description: "Free on-site estimate for panel upgrades, EV chargers, and rewiring." },
+      { name: "Panel upgrade estimate", durationMin: 45, priceCents: null, description: "On-site estimate for panel upgrades, EV chargers, and rewiring." },
     ],
-    faq: [
-      { question: "Can you give me a price over the phone?", answer: "Electrical work depends on what's behind the wall, so we quote on site. The diagnostic fee covers the visit." },
-      { question: "Do you install EV chargers?", answer: "Yes — we install home EV chargers, including any panel work and permits they need." },
-      { question: "Are you licensed and insured?", answer: "Yes, we're licensed electricians, fully insured, and we pull permits where required." },
-      { question: "Do you handle emergencies?", answer: "Yes — sparking, burning smells, and total power loss get our first available electrician." },
-    ],
+    faq: [],
     hours: week("07:30", "17:30", [0]),
     guardrails:
       BASE_GUARDRAILS +
@@ -381,12 +321,7 @@ export const STARTER_PACKS: StarterPack[] = [
       { name: "Rekey or lock change", durationMin: 60, priceCents: null, description: "Rekey existing locks or install new ones, quoted per lock." },
       { name: "Smart lock install", durationMin: 60, priceCents: null, description: "Install and set up a keypad or smart lock." },
     ],
-    faq: [
-      { question: "How fast can you get here?", answer: "For lockouts we send the first available locksmith — tell me your location and I'll get you an arrival estimate." },
-      { question: "How much is a lockout?", answer: "It depends on the lock and the time of day — the locksmith confirms the price before starting any work." },
-      { question: "Do I need to show ID?", answer: "Yes — for your security we confirm ID and that you live at or own the property or vehicle before opening it." },
-      { question: "Can you make car keys?", answer: "We can help with many vehicles — tell me the year, make, and model and we'll confirm." },
-    ],
+    faq: [],
     hours: week("08:00", "20:00", []),
     guardrails:
       BASE_GUARDRAILS +
@@ -404,12 +339,7 @@ export const STARTER_PACKS: StarterPack[] = [
       { name: "Deep cleaning", durationMin: 240, priceCents: null, description: "A top-to-bottom clean including baseboards, inside appliances, and detail work." },
       { name: "Move-in / move-out cleaning", durationMin: 240, priceCents: null, description: "Empty-home clean for moving day or a deposit walkthrough." },
     ],
-    faq: [
-      { question: "How much does a cleaning cost?", answer: "It depends on the size of your home and the type of clean. Tell me the bedrooms and bathrooms and we'll follow up with a quote." },
-      { question: "Do I need to be home?", answer: "No — many clients leave a key or door code. We'll confirm access details before the visit." },
-      { question: "Do you bring supplies?", answer: "Yes, we bring our own supplies and equipment. Let us know if you'd like us to use yours." },
-      { question: "Do you offer recurring cleanings?", answer: "Yes — weekly, every two weeks, or monthly." },
-    ],
+    faq: [],
     hours: week("08:00", "18:00", [0]),
     guardrails:
       BASE_GUARDRAILS +
@@ -423,21 +353,16 @@ export const STARTER_PACKS: StarterPack[] = [
   {
     industry: "Pest control",
     services: [
-      { name: "Inspection", durationMin: 45, priceCents: 0, description: "A technician identifies the pest and recommends a treatment plan." },
+      { name: "Inspection", durationMin: 45, priceCents: null, description: "A technician identifies the pest and recommends a treatment plan." },
       { name: "One-time treatment", durationMin: 60, priceCents: null, description: "Targeted treatment for ants, roaches, rodents, and more, quoted after inspection." },
       { name: "Recurring service plan", durationMin: 60, priceCents: null, description: "Quarterly or monthly service to keep pests out." },
     ],
-    faq: [
-      { question: "Are your treatments safe for kids and pets?", answer: "We use products labeled for home use and the technician will tell you how long to keep kids and pets away from treated areas." },
-      { question: "How much does treatment cost?", answer: "It depends on the pest and the size of the property — the inspection is free and you get a quote before any treatment." },
-      { question: "Do you handle rodents?", answer: "Yes — rats and mice, including sealing the entry points." },
-      { question: "What about bed bugs or termites?", answer: "Yes — those start with an inspection so we can quote the right treatment." },
-    ],
+    faq: [],
     hours: week("08:00", "17:00", [0]),
     guardrails:
       BASE_GUARDRAILS +
-      " Never recommend a pesticide or DIY treatment, and never quote treatment prices — the inspection is " +
-      "free and the technician quotes after. Bees or wasps near someone allergic, or a bite with a bad " +
+      " Never recommend a pesticide or DIY treatment, and never invent or quote treatment prices — the " +
+      "technician quotes after inspection. Bees or wasps near someone allergic, or a bite with a bad " +
       "reaction, is a medical matter: tell them to call 911.",
     booking:
       "Collect the address, what pest they're seeing and where, and whether there are kids or pets in the " +
@@ -450,11 +375,7 @@ export const STARTER_PACKS: StarterPack[] = [
       { name: "Standard appointment", durationMin: 60, priceCents: null, description: "Our regular service visit." },
       { name: "Follow-up visit", durationMin: 30, priceCents: null, description: "A shorter return visit for existing customers." },
     ],
-    faq: [
-      { question: "How much do you charge?", answer: "It depends on the job — leave your name and number with a quick description and we'll come back to you with a real number instead of a guess." },
-      { question: "What areas do you serve?", answer: "Tell me where you are and I'll take a message so the team can confirm we cover you." },
-      { question: "When are you open?", answer: "Our regular hours are listed here — and if you can't make them, leave a message and we'll try to work something out." },
-    ],
+    faq: [],
     hours: week("09:00", "17:00", [0, 6]),
     guardrails:
       BASE_GUARDRAILS +
