@@ -24,7 +24,7 @@ const VALUE = [
   { icon: Languages, chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400", title: "English & Spanish", body: "Switches to fluent Spanish the second a caller speaks it — no extra staff." },
 ];
 
-/** Categories, not customers — no logos or names we haven't earned. */
+/** Example trades, not customers — no logos or names we haven't earned. */
 const INDUSTRIES = [
   "Plumbing & HVAC",
   "Salons & spas",
@@ -252,7 +252,7 @@ export function LandingPage() {
         </section>
 
         <section aria-label="Who it's for" className="mx-auto max-w-5xl px-4 pt-12 sm:px-6">
-          <p className="fd-section-label text-center">Built for businesses that live on the phone</p>
+          <p className="fd-section-label text-center">Built for any business that answers the phone</p>
           <ul className="mt-4 flex flex-wrap justify-center gap-2">
             {INDUSTRIES.map((i) => (
               <li
@@ -262,6 +262,9 @@ export function LandingPage() {
                 {i}
               </li>
             ))}
+            <li className="rounded-full border bg-card px-3.5 py-1.5 text-sm text-muted-foreground">
+              + any local business
+            </li>
           </ul>
         </section>
 
