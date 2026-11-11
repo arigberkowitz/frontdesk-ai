@@ -67,6 +67,7 @@ export default async function ClientPage({
   const billing = {
     stripeReady: integrations.stripe(),
     testMode: isStripeTestMode(),
+    plusTax: env.STRIPE_AUTOMATIC_TAX,
     subscription: subRow
       ? {
           status: subRow.status ?? "",

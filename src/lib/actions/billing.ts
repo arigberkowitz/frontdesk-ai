@@ -15,6 +15,11 @@ import { logger } from "@/lib/logger";
 import { PLANS, type PlanKey } from "@/config/plans";
 import { type ActionState } from "./types";
 import { intervalPriceCents, stripePriceId } from "@/lib/stripe-prices";
+import {
+  checkoutAutomaticTaxParams,
+  inlinePriceTaxBehavior,
+  subscriptionAutomaticTaxParams,
+} from "@/lib/stripe-automatic-tax";
 
 /**
  * Stripe's tax code for business-use SaaS.
@@ -43,6 +48,7 @@ function recurringLineItem(planKey: PlanKey, planName: string, interval: "month"
         name: `FrontDesk AI — ${planName} (${interval}ly)`,
         tax_code: SAAS_TAX_CODE,
       },
+      ...inlinePriceTaxBehavior(),
     },
   };
 }
@@ -88,6 +94,7 @@ export async function startCheckoutAction(
                   currency: "usd",
                   unit_amount: plan.setupFeeCents,
                   product_data: { name: "One-time setup fee", tax_code: SAAS_TAX_CODE },
+                  ...inlinePriceTaxBehavior(),
                 },
               },
             ]
@@ -98,7 +105,11 @@ export async function startCheckoutAction(
       success_url: `${env.APP_URL}/clients/${clientId}?billing=success`,
       cancel_url: `${env.APP_URL}/clients/${clientId}?billing=cancel`,
       metadata: { clientId, plan: planKey, interval },
-      subscription_data: { metadata: { clientId, plan: planKey, interval } },
+      subscription_data: {
+        metadata: { clientId, plan: planKey, interval },
+        ...subscriptionAutomaticTaxParams(),
+      },
+      ...checkoutAutomaticTaxParams(),
     });
     url = session.url;
   } catch (err) {
@@ -181,7 +192,9 @@ export async function startSelfServeCheckoutAction(
         metadata: { clientId, plan: planKey, interval },
         // Subscribing early keeps the days left on the free trial.
         ...(trialEnd ? { trial_end: trialEnd } : {}),
+        ...subscriptionAutomaticTaxParams(),
       },
+      ...checkoutAutomaticTaxParams(),
     });
     url = session.url;
     void audit({ clientId, actor: guard.user.id, action: "billing.checkout_opened", detail: { plan: planKey, interval } });
@@ -284,6 +297,7 @@ export async function changePlanAction(_prev: ActionState, formData: FormData): 
         items: [{ id: item.id, price: namedPrice }],
         proration_behavior: "create_prorations",
         metadata: { ...current.metadata, clientId, plan: planKey },
+        ...subscriptionAutomaticTaxParams(),
       });
       void audit({ clientId, actor: guard.user.id, action: "billing.plan_changed", detail: { from: sub.plan, to: planKey } });
       return { ok: true, message: `Switched to ${plan.name}. Your receptionist updates in a minute.` };
@@ -301,11 +315,13 @@ export async function changePlanAction(_prev: ActionState, formData: FormData): 
             product: product.id,
             unit_amount: intervalPriceCents(planKey, interval),
             recurring: { interval },
+            ...inlinePriceTaxBehavior(),
           },
         },
       ],
       proration_behavior: "create_prorations",
       metadata: { ...current.metadata, clientId, plan: planKey },
+      ...subscriptionAutomaticTaxParams(),
     });
     void audit({ clientId, actor: guard.user.id, action: "billing.plan_changed", detail: { from: sub.plan, to: planKey } });
   } catch (err) {

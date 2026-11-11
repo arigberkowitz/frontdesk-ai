@@ -39,8 +39,18 @@ describe("TrialBanner", () => {
   it("the owner gets a real checkout button on their plan", () => {
     const html = render({ state: active, progress, upgrade: upgrade(true) });
     expect(html).toContain("Upgrade to Starter · $300/mo");
+    expect(html).not.toContain("applicable tax");
     expect(html).toContain('name="plan" value="starter"');
     expect(html).toContain('name="interval" value="month"');
+  });
+
+  it("adds + applicable tax when automatic tax is on", () => {
+    const html = render({
+      state: active,
+      progress,
+      upgrade: { ...upgrade(true), plusTax: true },
+    });
+    expect(html).toContain("Upgrade to Starter · $300/mo + applicable tax");
   });
 
   it("staff (or no Stripe) get a link to the plans instead", () => {

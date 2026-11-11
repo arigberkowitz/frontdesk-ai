@@ -26,7 +26,7 @@ import { BlockedCallers } from "@/components/portal/blocked-callers";
 import { TextingBrokenBanner } from "@/components/portal/texting-broken-banner";
 import { TrialBanner } from "@/components/portal/trial-banner";
 import { getTrialProgress } from "@/lib/data/trial-progress";
-import { integrations } from "@/lib/env";
+import { env, integrations } from "@/lib/env";
 import { upgradePlan } from "@/lib/trial-progress";
 import { RoiPanel } from "@/components/portal/roi-panel";
 import { SetupChecklist } from "@/components/portal/setup-checklist";
@@ -239,6 +239,7 @@ export default async function PortalOverviewPage({
                   clientId,
                   plan: upgradePlan(client.setupFlags?.intendedPlan),
                   canCheckout: editAccess.isAdmin && integrations.stripe(),
+                  plusTax: env.STRIPE_AUTOMATIC_TAX,
                 }
               : null
           }

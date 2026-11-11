@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getCurrentDbUser, getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { DEFAULT_VOICE_ID, listRetellVoices } from "@/lib/retell";
-import { integrations } from "@/lib/env";
+import { env, integrations } from "@/lib/env";
 import { PageHeader } from "@/components/page-header";
 import { AgentHero } from "@/components/portal/agent-hero";
 import { EditLockBanner } from "@/components/portal/edit-lock-banner";
@@ -154,6 +154,7 @@ export default async function PortalGuidelinesPage({
                 <ChoosePlan
                   clientId={client.id}
                   cardsReady={integrations.stripe()}
+                  plusTax={env.STRIPE_AUTOMATIC_TAX}
                   preselect={client.setupFlags?.intendedPlan ?? null}
                   preselectInterval={client.setupFlags?.intendedInterval ?? null}
                 />
@@ -196,8 +197,9 @@ export default async function PortalGuidelinesPage({
                         : null
                     }
                     cardsReady={integrations.stripe()}
+                    plusTax={env.STRIPE_AUTOMATIC_TAX}
                     preselect={client.setupFlags?.intendedPlan ?? null}
-                  preselectInterval={client.setupFlags?.intendedInterval ?? null}
+                    preselectInterval={client.setupFlags?.intendedInterval ?? null}
                   />
                 </div>
               </details>

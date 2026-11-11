@@ -73,6 +73,7 @@ const FAQ = [
 /** Structured data so search engines understand the product + pricing. */
 function jsonLd() {
   const plans = planList();
+  const taxExclusive = env.STRIPE_AUTOMATIC_TAX;
   return {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -92,6 +93,7 @@ function jsonLd() {
         price: (p.monthlyPriceCents / 100).toFixed(0),
         priceCurrency: "USD",
         unitText: "MONTH",
+        ...(taxExclusive ? { valueAddedTaxIncluded: false } : {}),
       },
     })),
   };
@@ -323,7 +325,8 @@ export function LandingPage() {
               </h2>
               <p className="mt-2 text-muted-foreground">
                 Two weeks free, no card. One price per location after that, and no setup fee —
-                ever.{" "}
+                ever
+                {env.STRIPE_AUTOMATIC_TAX ? ", plus applicable tax" : ""}.{" "}
                 <Link href="/contact" className="underline underline-offset-2">
                   Questions?
                 </Link>
@@ -389,6 +392,9 @@ export function LandingPage() {
                         {formatCurrencyCents(plan.monthlyPriceCents * 12)}
                       </span>
                     </p>
+                    {env.STRIPE_AUTOMATIC_TAX ? (
+                      <p className="mt-1 text-xs text-muted-foreground">+ applicable tax</p>
+                    ) : null}
                     {/* The setup fee is what we charge to set a business up. A
                         business signing up here sets itself up, so it isn't
                         charged one — and these cards used to advertise up to

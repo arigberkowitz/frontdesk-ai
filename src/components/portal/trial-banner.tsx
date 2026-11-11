@@ -15,6 +15,8 @@ export interface TrialUpgrade {
   plan: { key: string; name: string; monthlyPriceCents: number };
   /** The owner, with card payments switched on: the button opens Stripe Checkout. */
   canCheckout: boolean;
+  /** STRIPE_AUTOMATIC_TAX=on: prices are exclusive, so say so. */
+  plusTax?: boolean;
 }
 
 /**
@@ -65,7 +67,7 @@ export function TrialBanner({
       <UpgradeButton
         clientId={upgrade.clientId}
         planKey={upgrade.plan.key}
-        label={`Upgrade to ${upgrade.plan.name} · ${formatCurrencyCents(upgrade.plan.monthlyPriceCents)}/mo`}
+        label={`Upgrade to ${upgrade.plan.name} · ${formatCurrencyCents(upgrade.plan.monthlyPriceCents)}/mo${upgrade.plusTax ? " + applicable tax" : ""}`}
       />
     ) : (
       <Link
