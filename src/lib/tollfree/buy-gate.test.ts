@@ -6,8 +6,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * claim. Only Twilio is faked; every purchase is counted.
  *
  * Rule: a number is bought only once setup is finished AND a subscription is
- * active/trialing AND the business has no texting number — and never twice,
- * however many Stripe webhooks / setup finishes arrive, even concurrently.
+ * active (paying — trialing does not count) AND the business has no texting
+ * number — and never twice, however many Stripe webhooks / setup finishes
+ * arrive, even concurrently.
  */
 
 vi.mock("@/db", async () => (await import("../../../test/helpers/pglite-db")).pgliteDb());
@@ -95,12 +96,28 @@ describe("toll-free number purchase gate", () => {
     expect(after?.setupFlags?.tollfreeBuyingAt).toBeUndefined();
   });
 
-  it("setup finished first, then payment (trialing counts): exactly one number", async () => {
+  it("setup finished, still trialing: buys nothing", async () => {
     const c = await newClient();
     await finishSetup(c.id);
     await pay(c.id, "trialing");
     await ensureTollfreeNumber(deps, c.id);
+    await ensureTollfreeNumber(deps, c.id); // replayed webhook
+    expect(purchases).toHaveLength(0);
+    expect((await tollfreeRow(c.id))?.phoneNumberSid ?? null).toBeNull();
+  });
+
+  it("trial converts to active: exactly one number, and repeat events still buy once", async () => {
+    const c = await newClient();
+    await finishSetup(c.id);
+    await pay(c.id, "trialing");
+    await ensureTollfreeNumber(deps, c.id); // trial→not yet paying
+    expect(purchases).toHaveLength(0);
+    await db.update(schema.subscriptions).set({ status: "active" }).where(eq(schema.subscriptions.clientId, c.id));
+    await ensureTollfreeNumber(deps, c.id); // customer.subscription.updated / invoice.paid
+    await ensureTollfreeNumber(deps, c.id); // a replayed event
+    await ensureTollfreeNumber(deps, c.id);
     expect(purchases).toHaveLength(1);
+    expect((await tollfreeRow(c.id))?.phoneNumberSid).toBe("PN1");
   });
 
   it("repeat events still buy one number", async () => {

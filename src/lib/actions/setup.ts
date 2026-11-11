@@ -60,9 +60,10 @@ export async function finishSetupAction(
     .where(eq(clients.id, clientId));
 
   logger.info("setup.finished", { clientId, aiChecked: check.checked, notes: notes.length });
-  // Setup is done: if the business is already on a paid plan, this is when its
-  // toll-free texting number gets bought (once). Unpaid → no-op; the Stripe
-  // webhook does it when the card goes on. After the response, never blocking.
+  // Setup is done: if the business has already paid (subscription active, not
+  // just trialing), this is when its toll-free texting number gets bought
+  // (once). Trialing or unpaid → no-op; the Stripe webhook does it when the
+  // first payment goes through. After the response, never blocking.
   after(() => ensureTollfreeNumberSafely(clientId, "setup"));
   revalidatePath("/portal", "layout");
   return {

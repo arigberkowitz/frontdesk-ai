@@ -19,4 +19,10 @@ describe("toll-free status", () => {
     expect(v.showForm).toBe(true);
     expect(v.submitLabel).toMatch(/Resubmit/);
   });
+  it("needs_number view says the number arrives once the first payment goes through", () => {
+    const v = tollfreeView(null);
+    expect(v.title).toMatch(/Getting your texting number/);
+    expect(v.body).toMatch(/arrives once your first payment goes through/);
+    expect(v.showForm).toBe(true);
+  });
 });

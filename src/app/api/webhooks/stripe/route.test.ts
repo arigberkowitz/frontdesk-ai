@@ -46,10 +46,20 @@ vi.mock("@/db", () => ({
   },
 }));
 vi.mock("@/lib/agent-publish", () => ({ syncAgentPrompt: (o: string, c: string) => syncAgentPrompt(o, c) }));
+const { retrieveSubscription } = vi.hoisted(() => ({
+  retrieveSubscription: vi.fn(async (id: string) => ({
+    id,
+    customer: "cus_1",
+    status: "active",
+    metadata: { clientId: "client-1" },
+    items: { data: [] },
+  })),
+}));
+
 vi.mock("@/lib/stripe", () => ({
   getStripe: () => ({
     webhooks: { constructEvent: (body: string) => JSON.parse(body) },
-    subscriptions: { retrieve: vi.fn() },
+    subscriptions: { retrieve: (id: string) => retrieveSubscription(id) },
   }),
   subscriptionPeriodEnd: () => null,
 }));
@@ -81,6 +91,27 @@ function stripeEvent(id: string, status = "active", plan?: string) {
   });
 }
 
+function invoicePaidEvent(id: string, amountPaid = 14900) {
+  return new Request("https://example.test/api/webhooks/stripe", {
+    method: "POST",
+    headers: { "stripe-signature": "t=1,v1=sig" },
+    body: JSON.stringify({
+      id,
+      type: "invoice.paid",
+      data: {
+        object: {
+          id: "in_1",
+          amount_paid: amountPaid,
+          customer: "cus_1",
+          parent: {
+            subscription_details: { subscription: "sub_1", metadata: { clientId: "client-1" } },
+          },
+        },
+      },
+    }),
+  });
+}
+
 describe("stripe webhook retries", () => {
   beforeEach(() => {
     ledger.clear();
@@ -88,6 +119,7 @@ describe("stripe webhook retries", () => {
     failUpsert = false;
     afterTasks.length = 0;
     provisionNumberAfterPayment.mockClear();
+    retrieveSubscription.mockClear();
     storedClient = null;
     previousPlan = null;
     clientUpdates.length = 0;
@@ -185,5 +217,23 @@ describe("stripe webhook retries", () => {
     };
     await POST(stripeEvent("evt_pro", "active", "pro"));
     expect(clientUpdates).toEqual([{ status: "live", trialEndsAt: null, languages: "en-es" }]);
+  });
+
+  it("invoice.paid after a trial converts upserts the subscription and unlocks the number once", async () => {
+    const res = await POST(invoicePaidEvent("evt_inv_1"));
+    expect(res.status).toBe(200);
+    expect(retrieveSubscription).toHaveBeenCalledWith("sub_1");
+    expect(upserted).toEqual(["client-1"]);
+    expect(provisionNumberAfterPayment).not.toHaveBeenCalled();
+    expect(afterTasks).toHaveLength(1);
+    await afterTasks[0]!();
+    expect(provisionNumberAfterPayment).toHaveBeenCalledWith("client-1");
+  });
+
+  it("a replayed invoice.paid event doesn't schedule a second purchase", async () => {
+    await POST(invoicePaidEvent("evt_inv_2"));
+    await POST(invoicePaidEvent("evt_inv_2"));
+    expect(afterTasks).toHaveLength(1);
+    expect(upserted).toHaveLength(1);
   });
 });
