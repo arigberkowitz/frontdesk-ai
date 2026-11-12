@@ -5,6 +5,7 @@ import { getPortalEditAccess, resolvePortalClient } from "@/lib/auth-guard";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { countUnreadMessages } from "@/lib/data/sms-messages";
 import { PortalSidebar, PortalTabBar } from "@/components/portal/portal-nav";
+import { CopilotBubble } from "@/components/portal/copilot-bubble";
 import { UserMenuButton } from "@/components/user-menu-button";
 import { CommandPalette } from "@/components/command-palette";
 import { LiveCallStrip } from "@/components/portal/live-call-strip";
@@ -116,8 +117,9 @@ export default async function PortalLayout({ children }: { children: React.React
         </main>
       </div>
       <PortalTabBar showTeam={showTeam} unreadMessages={unreadMessages} />
-      {/* No public chat widget here: it's the customer-facing Riley and can't
-          see the owner's data. The owner copilot lives on Overview. */}
+      {/* Owner copilot on every portal page. Not the customer-facing
+          ChatBubble / widget.js — that can't see the owner's data. */}
+      <CopilotBubble preview={preview} />
       <footer className="border-t border-border/70 px-4 py-4 text-center text-xs text-muted-foreground sm:px-6">
         FrontDesk AI ·{" "}
         <Link

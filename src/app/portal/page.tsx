@@ -33,7 +33,6 @@ import { SetupChecklist } from "@/components/portal/setup-checklist";
 import { WeeklyRecap } from "@/components/portal/weekly-recap";
 import { ActivityFeed } from "@/components/portal/activity-feed";
 import { AiLearnings } from "@/components/portal/ai-learnings";
-import { CopilotChat } from "@/components/portal/copilot-chat";
 import { AiFeaturesSection, AiFeaturesSkeleton } from "@/components/portal/ai-features-section";
 import { LiveAlerts } from "@/components/portal/live-alerts";
 import { Milestones } from "@/components/portal/milestones";
@@ -419,8 +418,6 @@ export default async function PortalOverviewPage({
           </details>
         </>
       )}
-
-      <CopilotChat />
     </div>
   );
 }
