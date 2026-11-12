@@ -24,6 +24,14 @@ describe("chatChannelPreamble", () => {
   it("forbids invention", () => {
     expect(p).toMatch(/Never invent an opening, a price, or a policy/);
   });
+
+  it("asks for the same plain tone as the owner copilot, without changing tool rules", () => {
+    expect(p).toMatch(/Lead with the answer/);
+    expect(p).toMatch(/No filler openers or closers/);
+    expect(p).toMatch(/no em dashes/i);
+    expect(p).toMatch(/no emoji/i);
+    expect(p).not.toContain("\u2014");
+  });
 });
 
 describe("nowLine", () => {
@@ -44,5 +52,7 @@ describe("chatGreeting", () => {
     expect(g).toContain("Riley");
     expect(g).toContain("Bright Smile Dental");
     expect(g).not.toMatch(/calling/i);
+    expect(g).not.toContain("\u2014");
+    expect(g).toContain("I can answer questions or book you a visit. What can I help with?");
   });
 });

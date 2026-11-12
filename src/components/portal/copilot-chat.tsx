@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PanelHeader } from "@/components/panel-header";
 import { copilotAction } from "@/lib/actions/copilot";
+import { splitCopilotMarkup } from "@/lib/agents/copilot-style";
 import { cn } from "@/lib/utils";
 
 interface Msg {
@@ -14,10 +15,12 @@ interface Msg {
   content: string;
 }
 
+const INTRO = "Ask about your calls, leads, and bookings, or teach your AI a new answer.";
+
 const STARTERS = [
-  "How many after-hours calls did I get last month?",
-  "Which leads are still waiting on me?",
-  "Add a FAQ: we have free parking behind the building.",
+  "After-hours calls last month?",
+  "Which leads are waiting?",
+  "Add a parking FAQ",
 ];
 
 /** Agent #6 — chat over the business's own data (calls, leads, bookings, FAQ).
@@ -55,7 +58,7 @@ export function CopilotChat({ variant = "card" }: { variant?: "card" | "plain" }
       <div className={cn("flex flex-wrap gap-2", variant === "card" ? "mt-4" : "px-4")}>
         {variant === "plain" ? (
           <p className="mb-1 w-full text-sm text-muted-foreground">
-            It knows your calls, leads, and bookings — and can teach your AI new answers.
+            {INTRO}
           </p>
         ) : null}
         {STARTERS.map((s) => (
@@ -90,7 +93,7 @@ export function CopilotChat({ variant = "card" }: { variant?: "card" | "plain" }
                   : "bg-muted text-foreground",
               )}
             >
-              {m.content}
+              {m.role === "assistant" ? <CopilotMessageText text={m.content} /> : m.content}
             </div>
           </div>
         ))}
@@ -141,7 +144,7 @@ export function CopilotChat({ variant = "card" }: { variant?: "card" | "plain" }
         <PanelHeader
           icon={Sparkles}
           title="Ask your front desk"
-          description="It knows your calls, leads, and bookings — and can teach your AI new answers."
+          description={INTRO}
         />
         {thread}
         {form}
@@ -149,3 +152,21 @@ export function CopilotChat({ variant = "card" }: { variant?: "card" | "plain" }
     </Card>
   );
 }
+
+/** Render markdown /portal links, bare portal paths, and email addresses. */
+function CopilotMessageText({ text }: { text: string }) {
+  return (
+    <>
+      {splitCopilotMarkup(text).map((part, i) =>
+        part.href ? (
+          <a key={i} href={part.href} className="underline underline-offset-2">
+            {part.text}
+          </a>
+        ) : (
+          <span key={i}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+

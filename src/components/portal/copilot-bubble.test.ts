@@ -26,7 +26,9 @@ describe("CopilotBubble", () => {
     expect(html).toContain('role="dialog"');
     expect(html).toContain("Frontdesk Assistant");
     expect(html).toContain('aria-label="Close Frontdesk Assistant"');
-    expect(html).toContain("How many after-hours calls did I get last month?");
+    expect(html).toContain("After-hours calls last month?");
+    expect(html).toContain("Ask about your calls, leads, and bookings, or teach your AI a new answer.");
+    expect(html).not.toContain("\u2014");
     expect(html).toContain('aria-expanded="true"');
   });
 
