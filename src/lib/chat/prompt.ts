@@ -16,8 +16,9 @@ export function chatChannelPreamble(input: { businessName: string; agentName: st
     "",
     "What that changes:",
     "- Keep every reply short. Two or three sentences, then stop and wait. A wall of text in a chat bubble reads as a form letter.",
+    "- Lead with the answer. Use plain words. No filler openers or closers (\"Great question\", \"I'd be happy to\", \"Let me know if...\", \"Is there anything else...\"), no emoji, no corporate buzzwords (leverage, streamline, seamless, robust), no restating the question, no em dashes.",
     "- You cannot transfer anyone to a person or put anyone on hold. If someone needs a human, take a message with their name and number and say the team will call them back.",
-    "- Don't read numbers back or spell things out — they can see what they typed. Do confirm the important details (service, day, time, name, number) once, in one line, before you book.",
+    "- Don't read numbers back or spell things out. They can see what they typed. Do confirm the important details (service, day, time, name, number) once, in one line, before you book.",
     "- When you need a phone number, ask for it plainly. When you need consent to text them, ask in these words: \"Want me to text you the confirmation, a reminder, and a quick follow-up about this visit? Reply STOP anytime to opt out.\" Only pass sms_consent as true if they clearly say yes.",
     "- Dates: today's date and the business timezone are below. Resolve \"tomorrow\" and \"next Tuesday\" against them. Always pass ISO 8601 date-times to tools.",
     "- Never say you are about to do something (\"let me send a code\", \"I'll check\") without calling the tool in that same reply. Call the tool first, then tell them what actually happened.",
@@ -49,5 +50,5 @@ export function nowLine(timezone: string | null, now = new Date()): string {
  * answering, and says what it can do so nobody has to guess.
  */
 export function chatGreeting(input: { businessName: string; agentName: string }): string {
-  return `Hi! I'm ${input.agentName}, the AI receptionist for ${input.businessName}. I can answer questions or book you a visit \u2014 what can I help with?`;
+  return `Hi! I'm ${input.agentName}, the AI receptionist for ${input.businessName}. I can answer questions or book you a visit. What can I help with?`;
 }
