@@ -15,7 +15,12 @@ const nextConfig: NextConfig = {
     },
   },
   async redirects() {
-    return [{ source: "/pricing", destination: "/#pricing", permanent: false }];
+    return [
+      { source: "/pricing", destination: "/#pricing", permanent: false },
+      // People type /signup; the Clerk route is /sign-up. Permanent so the typo
+      // stops being indexed. Query strings (?plan=&interval=) are forwarded.
+      { source: "/signup", destination: "/sign-up", permanent: true },
+    ];
   },
   async headers() {
     return [

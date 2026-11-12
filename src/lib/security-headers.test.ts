@@ -22,4 +22,13 @@ describe("site hardening", () => {
   it("sign-in is kept out of search results", () => {
     expect(signInMeta.robots).toMatchObject({ index: false });
   });
+
+  it("redirects /signup to /sign-up permanently and keeps the query string", async () => {
+    const rules = await nextConfig.redirects!();
+    const typo = rules.find((r) => r.source === "/signup");
+    expect(typo).toMatchObject({ destination: "/sign-up", permanent: true });
+    // Next.js appends the original query string to destination unless it already
+    // has one. /sign-up is bare, so ?plan=&interval= survive the hop.
+    expect(typo?.destination).not.toContain("?");
+  });
 });
