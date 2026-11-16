@@ -15,13 +15,13 @@ export interface TollfreeStore {
   /**
    * Atomically claim the right to buy this business's toll-free number. True
    * only if ALL hold right now: setup is finished (clients.setup_completed_at),
-   * an active (paying) subscription exists — trialing does not qualify — the
+   * an active subscription that has actually paid over $0 exists (first_paid_at
+   * is set — trialing and 100%-off "active" promos do not qualify), the
    * business has no texting number (clients.sms_number) and no bought
    * toll-free number, and no other buy is in flight. See TOLLFREE_BUY_LOCK_MINUTES.
-   * The subscriptions table has no invoice amount or discount fields, so a
-   * 100%-off coupon that still leaves status = 'active' is not detectable here
-   * and would still qualify. Comped/free accounts typically have no
-   * subscription row, so they don't get a number.
+   * Comped/free accounts typically have no subscription row, so they don't
+   * get a number. When a promo account later pays a real amount, the Stripe
+   * webhook sets first_paid_at and this claim can succeed.
    */
   claimBuy(clientId: string): Promise<boolean>;
   /** Drop the in-flight buy lock (after the number is saved, or the buy failed). */
@@ -76,7 +76,7 @@ export const tollfreeStore: TollfreeStore = {
           isNull(clients.deletedAt),
           sql`${clients.setupCompletedAt} is not null`,
           isNull(clients.smsNumber),
-          sql`exists (select 1 from subscriptions s where s.client_id = ${clients.id} and s.status = 'active' and s.deleted_at is null)`,
+          sql`exists (select 1 from subscriptions s where s.client_id = ${clients.id} and s.status = 'active' and s.first_paid_at is not null and s.deleted_at is null)`,
           sql`not exists (select 1 from client_tollfree t where t.client_id = ${clients.id} and t.phone_number_sid is not null)`,
           sql`(${clients.setupFlags}->>'tollfreeBuyingAt' is null or (${clients.setupFlags}->>'tollfreeBuyingAt')::timestamptz < now() - make_interval(mins => ${TOLLFREE_BUY_LOCK_MINUTES}))`,
         ),

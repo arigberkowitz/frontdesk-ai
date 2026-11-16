@@ -1251,6 +1251,10 @@ export const subscriptions = pgTable(
     setupFeeCents: integer("setup_fee_cents"),
     status: subscriptionStatus("status"),
     currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    // Set when Stripe collected a real payment (amount_paid > 0). A 100%-off
+    // promo can leave status = 'active' with this still null — those accounts
+    // are not treated as paying. Migration: drizzle/manual/0022_subscription_first_paid_at.sql.
+    firstPaidAt: timestamp("first_paid_at", { withTimezone: true }),
     ...timestamps,
     ...softDelete,
   },
