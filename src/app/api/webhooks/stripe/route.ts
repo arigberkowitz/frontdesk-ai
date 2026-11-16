@@ -16,6 +16,7 @@ import { PLANS, type PlanKey } from "@/config/plans";
 import { planFromPriceId } from "@/lib/stripe-prices";
 import { provisionNumberAfterPayment } from "@/lib/provision";
 import { clientIdForInvoice, notifyPaymentFailed } from "@/lib/payment-failed";
+import { recordFirstPayment } from "@/lib/data/subscription-payment";
 
 export const runtime = "nodejs";
 
@@ -137,11 +138,13 @@ export function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | nul
 }
 
 /**
- * invoice.paid: a trial just converted, or a first invoice was collected.
- * Upsert the subscription (so a race with customer.subscription.updated still
- * leaves status current) and try to provision. Toll-free buying itself is
- * gated on status = 'active' inside claimBuy, so a $0 trial invoice on a
- * still-trialing subscription is a no-op for the texting number.
+ * invoice.paid / invoice.payment_succeeded: a trial just converted, or a
+ * first invoice was collected. Upsert the subscription (so a race with
+ * customer.subscription.updated still leaves status current), record a real
+ * payment when amount_paid > 0, and try to provision. Toll-free buying is
+ * gated on status = 'active' AND first_paid_at inside claimBuy, so a $0
+ * trial invoice or a 100%-off promo invoice is a no-op for the texting
+ * number. A later invoice with amount_paid > 0 sets first_paid_at and buys.
  */
 async function unlockAfterInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
   const clientId = await clientIdForInvoice(invoice);
@@ -152,10 +155,14 @@ async function unlockAfterInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
   const subId = subscriptionIdFromInvoice(invoice);
   if (subId) {
     const sub = await getStripe().subscriptions.retrieve(subId);
-    unlockNumberIfPaid(clientId, await upsert(clientId, sub));
+    const status = await upsert(clientId, sub);
+    await recordFirstPayment(clientId, invoice.amount_paid);
+    unlockNumberIfPaid(clientId, status);
     return;
   }
-  // No subscription on the invoice: still try (claimBuy checks current status).
+  // No subscription on the invoice: still try (claimBuy checks current status
+  // and first_paid_at).
+  await recordFirstPayment(clientId, invoice.amount_paid);
   unlockNumberIfPaid(clientId, "active");
 }
 
@@ -230,16 +237,18 @@ export async function POST(req: Request): Promise<Response> {
       if (clientId && session.subscription) {
         const subId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
         const sub = await getStripe().subscriptions.retrieve(subId);
-        unlockNumberIfPaid(clientId, await upsert(clientId, sub));
+        const status = await upsert(clientId, sub);
+        await recordFirstPayment(clientId, session.amount_total);
+        unlockNumberIfPaid(clientId, status);
       }
     } else if (event.type.startsWith("customer.subscription.")) {
       const sub = event.data.object as Stripe.Subscription;
       const clientId = sub.metadata?.clientId;
       if (clientId) unlockNumberIfPaid(clientId, await upsert(clientId, sub));
-    } else if (event.type === "invoice.paid") {
+    } else if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
       // Trial ending or first real payment. customer.subscription.updated
       // usually arrives too; this is the backup so the texting number is
-      // bought once they actually pay, even if the two race.
+      // bought once they actually pay (amount_paid > 0), even if the two race.
       await unlockAfterInvoicePaid(event.data.object);
     } else if (event.type === "invoice.payment_failed") {
       // Status itself arrives as customer.subscription.updated (past_due);

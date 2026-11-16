@@ -6,9 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * claim. Only Twilio is faked; every purchase is counted.
  *
  * Rule: a number is bought only once setup is finished AND a subscription is
- * active (paying — trialing does not count) AND the business has no texting
- * number — and never twice, however many Stripe webhooks / setup finishes
- * arrive, even concurrently.
+ * active and has a real payment over $0 (trialing and 100%-off "active"
+ * promos do not count) AND the business has no texting number — and never
+ * twice, however many Stripe webhooks / setup finishes arrive, even
+ * concurrently.
  */
 
 vi.mock("@/db", async () => (await import("../../../test/helpers/pglite-db")).pgliteDb());
@@ -56,8 +57,20 @@ async function newClient(extra: Partial<typeof schema.clients.$inferInsert> = {}
     .returning();
   return c!;
 }
-const pay = (clientId: string, status: "active" | "trialing" | "past_due" | "canceled" = "active") =>
-  db.insert(schema.subscriptions).values({ clientId, status, plan: "starter" });
+const pay = (
+  clientId: string,
+  status: "active" | "trialing" | "past_due" | "canceled" = "active",
+  opts: { amountPaidCents?: number } = {},
+) => {
+  // Active defaults to a real payment; pass amountPaidCents: 0 for a 100%-off promo.
+  const amountPaidCents = opts.amountPaidCents ?? (status === "active" ? 14900 : 0);
+  return db.insert(schema.subscriptions).values({
+    clientId,
+    status,
+    plan: "starter",
+    firstPaidAt: amountPaidCents > 0 ? new Date() : null,
+  });
+};
 const finishSetup = (clientId: string) =>
   db.update(schema.clients).set({ setupCompletedAt: new Date() }).where(eq(schema.clients.id, clientId));
 const tollfreeRow = (clientId: string) => tollfreeStore.get(clientId);
@@ -112,10 +125,39 @@ describe("toll-free number purchase gate", () => {
     await pay(c.id, "trialing");
     await ensureTollfreeNumber(deps, c.id); // trial→not yet paying
     expect(purchases).toHaveLength(0);
-    await db.update(schema.subscriptions).set({ status: "active" }).where(eq(schema.subscriptions.clientId, c.id));
-    await ensureTollfreeNumber(deps, c.id); // customer.subscription.updated / invoice.paid
+    await db
+      .update(schema.subscriptions)
+      .set({ status: "active", firstPaidAt: new Date() })
+      .where(eq(schema.subscriptions.clientId, c.id));
+    await ensureTollfreeNumber(deps, c.id); // first real paid invoice
     await ensureTollfreeNumber(deps, c.id); // a replayed event
     await ensureTollfreeNumber(deps, c.id);
+    expect(purchases).toHaveLength(1);
+    expect((await tollfreeRow(c.id))?.phoneNumberSid).toBe("PN1");
+  });
+
+  it("$0 active via a 100% coupon buys nothing", async () => {
+    const c = await newClient();
+    await finishSetup(c.id);
+    await pay(c.id, "active", { amountPaidCents: 0 });
+    await ensureTollfreeNumber(deps, c.id);
+    await ensureTollfreeNumber(deps, c.id); // a replayed event
+    expect(purchases).toHaveLength(0);
+    expect((await tollfreeRow(c.id))?.phoneNumberSid ?? null).toBeNull();
+  });
+
+  it("first real paid invoice after a $0 coupon: exactly one number, and a duplicate event buys nothing more", async () => {
+    const c = await newClient();
+    await finishSetup(c.id);
+    await pay(c.id, "active", { amountPaidCents: 0 });
+    await ensureTollfreeNumber(deps, c.id);
+    expect(purchases).toHaveLength(0);
+    await db
+      .update(schema.subscriptions)
+      .set({ firstPaidAt: new Date() })
+      .where(eq(schema.subscriptions.clientId, c.id));
+    await ensureTollfreeNumber(deps, c.id); // first real paid invoice
+    await ensureTollfreeNumber(deps, c.id); // a replayed event
     expect(purchases).toHaveLength(1);
     expect((await tollfreeRow(c.id))?.phoneNumberSid).toBe("PN1");
   });

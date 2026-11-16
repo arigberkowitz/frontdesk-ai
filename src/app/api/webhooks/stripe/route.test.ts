@@ -15,10 +15,15 @@ const syncAgentPrompt = vi.fn(async (_o: string, _c: string) => true);
 
 const afterTasks: (() => Promise<unknown>)[] = [];
 const provisionNumberAfterPayment = vi.fn(async (_id: string) => {});
+const recordFirstPayment = vi.fn(async (_id: string, _amount: number | null | undefined) => true);
 
 vi.mock("next/server", () => ({ after: (fn: () => Promise<unknown>) => afterTasks.push(fn) }));
 vi.mock("@/lib/provision", () => ({
   provisionNumberAfterPayment: (id: string) => provisionNumberAfterPayment(id),
+}));
+vi.mock("@/lib/data/subscription-payment", () => ({
+  recordFirstPayment: (id: string, amount: number | null | undefined) => recordFirstPayment(id, amount),
+  isRealPayment: (amount: number | null | undefined) => (amount ?? 0) > 0,
 }));
 vi.mock("@/lib/env", () => ({ env: { STRIPE_WEBHOOK_SECRET: "whsec_test" } }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
@@ -91,13 +96,13 @@ function stripeEvent(id: string, status = "active", plan?: string) {
   });
 }
 
-function invoicePaidEvent(id: string, amountPaid = 14900) {
+function invoicePaidEvent(id: string, amountPaid = 14900, type = "invoice.paid") {
   return new Request("https://example.test/api/webhooks/stripe", {
     method: "POST",
     headers: { "stripe-signature": "t=1,v1=sig" },
     body: JSON.stringify({
       id,
-      type: "invoice.paid",
+      type,
       data: {
         object: {
           id: "in_1",
@@ -112,6 +117,25 @@ function invoicePaidEvent(id: string, amountPaid = 14900) {
   });
 }
 
+function checkoutEvent(id: string, amountTotal: number | null = 14900) {
+  return new Request("https://example.test/api/webhooks/stripe", {
+    method: "POST",
+    headers: { "stripe-signature": "t=1,v1=sig" },
+    body: JSON.stringify({
+      id,
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_1",
+          amount_total: amountTotal,
+          subscription: "sub_1",
+          metadata: { clientId: "client-1" },
+        },
+      },
+    }),
+  });
+}
+
 describe("stripe webhook retries", () => {
   beforeEach(() => {
     ledger.clear();
@@ -119,6 +143,7 @@ describe("stripe webhook retries", () => {
     failUpsert = false;
     afterTasks.length = 0;
     provisionNumberAfterPayment.mockClear();
+    recordFirstPayment.mockClear();
     retrieveSubscription.mockClear();
     storedClient = null;
     previousPlan = null;
@@ -224,6 +249,7 @@ describe("stripe webhook retries", () => {
     expect(res.status).toBe(200);
     expect(retrieveSubscription).toHaveBeenCalledWith("sub_1");
     expect(upserted).toEqual(["client-1"]);
+    expect(recordFirstPayment).toHaveBeenCalledWith("client-1", 14900);
     expect(provisionNumberAfterPayment).not.toHaveBeenCalled();
     expect(afterTasks).toHaveLength(1);
     await afterTasks[0]!();
@@ -235,5 +261,31 @@ describe("stripe webhook retries", () => {
     await POST(invoicePaidEvent("evt_inv_2"));
     expect(afterTasks).toHaveLength(1);
     expect(upserted).toHaveLength(1);
+    expect(recordFirstPayment).toHaveBeenCalledTimes(1);
+    expect(recordFirstPayment).toHaveBeenCalledWith("client-1", 14900);
+  });
+
+  it("invoice.paid with a $0 100%-off invoice records no real payment", async () => {
+    const res = await POST(invoicePaidEvent("evt_inv_zero", 0));
+    expect(res.status).toBe(200);
+    expect(upserted).toEqual(["client-1"]);
+    expect(recordFirstPayment).toHaveBeenCalledWith("client-1", 0);
+  });
+
+  it("invoice.payment_succeeded with a real amount records the payment and unlocks once", async () => {
+    const res = await POST(invoicePaidEvent("evt_inv_suc", 14900, "invoice.payment_succeeded"));
+    expect(res.status).toBe(200);
+    expect(recordFirstPayment).toHaveBeenCalledWith("client-1", 14900);
+    expect(afterTasks).toHaveLength(1);
+    await afterTasks[0]!();
+    expect(provisionNumberAfterPayment).toHaveBeenCalledWith("client-1");
+  });
+
+  it("checkout.session.completed records a real payment from amount_total, but not a $0 promo checkout", async () => {
+    await POST(checkoutEvent("evt_cs_paid", 14900));
+    expect(recordFirstPayment).toHaveBeenCalledWith("client-1", 14900);
+    recordFirstPayment.mockClear();
+    await POST(checkoutEvent("evt_cs_free", 0));
+    expect(recordFirstPayment).toHaveBeenCalledWith("client-1", 0);
   });
 });
