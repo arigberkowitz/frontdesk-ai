@@ -13,7 +13,12 @@ import { formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Knowledge" };
 
-export default async function PortalKnowledgePage() {
+export default async function PortalKnowledgePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ add?: string }>;
+}) {
+  const { add } = await searchParams;
   const { clientId } = await resolvePortalClient();
   const editAccess = await getPortalEditAccess(clientId);
   const [knowledge, learned] = await Promise.all([
@@ -30,7 +35,13 @@ export default async function PortalKnowledgePage() {
       {!editAccess.canEdit ? (
         <EditLockBanner clientId={clientId} hasCode={editAccess.hasCode} />
       ) : null}
-      <KnowledgeTab clientId={clientId} knowledge={knowledge} />
+      <KnowledgeTab
+        clientId={clientId}
+        knowledge={knowledge}
+        // "Add an answer" from the unanswered-questions card. Only for people
+        // who can edit; capped so a hand-typed URL can't stuff the form.
+        initialQuestion={editAccess.canEdit && add?.trim() ? add.trim().slice(0, 200) : undefined}
+      />
 
       {editAccess.canEdit ? <DocIngest clientId={clientId} /> : null}
 

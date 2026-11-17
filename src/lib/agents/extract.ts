@@ -5,6 +5,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { appointments, calls, callInsights, leads } from "@/db/schema";
 import { CRITIC_MODEL, getAnthropic, toolInput } from "./anthropic";
+import { recentGapQuestions, recordKnowledgeGaps } from "@/lib/data/knowledge-gaps";
+import { MAX_GAPS_PER_CALL } from "@/lib/knowledge-gaps";
 import { logger } from "@/lib/logger";
 
 /**
@@ -12,6 +14,10 @@ import { logger } from "@/lib/logger";
  * `call_analyzed`. Beyond the stock summary, it classifies intent, pulls
  * structured entities, detects spam, and drafts a follow-up text the owner can
  * send in one tap. Turns each call into an action.
+ *
+ * The same pass also notes any question the receptionist couldn't answer
+ * (knowledge gaps), so the owner can see how often that happens without a
+ * second model call per call.
  *
  * Runs on the cheap/fast model: this is high-volume, margin-sensitive work.
  */
@@ -56,8 +62,15 @@ const EXTRACT_TOOL: Anthropic.Tool = {
         description:
           "A short SMS (≤300 chars) from the business to this caller, ready to send, warm and specific to what they asked. Empty string if no follow-up makes sense (booked, spam, wrong number).",
       },
+      unansweredQuestions: {
+        type: "array",
+        maxItems: MAX_GAPS_PER_CALL,
+        items: { type: "string" },
+        description:
+          "Questions the CALLER asked that the receptionist could NOT answer from what it knew: it said it didn't know or didn't have that information, said someone would follow up / the team would confirm, or dodged without answering. Do NOT include: requests to speak to a person, booking requests where no time was free, things it did answer, or the receptionist's own questions. Write each as a short generic question the business owner would recognize (≤80 chars), with no names, phone numbers, addresses or other personal details — e.g. \"Do you service tankless water heaters?\". If one matches a known unanswered question listed in the prompt, reuse that exact wording. Empty array if none.",
+      },
     },
-    required: ["intent", "entities", "isSpam", "followUpDraft"],
+    required: ["intent", "entities", "isSpam", "followUpDraft", "unansweredQuestions"],
   },
 };
 
@@ -74,6 +87,7 @@ const insightSchema = z.object({
     .default({ name: "", phone: "", service: "", requestedDate: "", budget: "" }),
   isSpam: z.coerce.boolean().default(false),
   followUpDraft: z.string().default(""),
+  unansweredQuestions: z.array(z.string()).default([]),
 });
 
 /** Extract insights for one stored call. Idempotent (unique on call_id). */
@@ -92,6 +106,10 @@ export async function extractCallInsights(callDbId: string): Promise<void> {
   });
   if (existing) return;
 
+  // Same wording for the same question across calls is what makes the
+  // owner's counts group, so show the model what it has written before.
+  const knownGaps = await recentGapQuestions(call.clientId);
+
   try {
     const res = await anthropic.messages.create({
       model: CRITIC_MODEL,
@@ -103,6 +121,8 @@ export async function extractCallInsights(callDbId: string): Promise<void> {
           role: "user",
           content: `Business: ${call.client.name}${call.client.industry ? ` (${call.client.industry})` : ""}
 Call outcome so far: ${call.outcome ?? "unknown"}
+Known unanswered questions for this business (reuse the exact wording if the caller asked the same thing):
+${knownGaps.length ? knownGaps.map((q) => `- ${q}`).join("\n") : "(none yet)"}
 
 Transcript:
 ${call.transcript.slice(0, 8000)}`,
@@ -131,6 +151,17 @@ ${call.transcript.slice(0, 8000)}`,
         followUpDraft: data.followUpDraft || null,
       })
       .onConflictDoNothing({ target: callInsights.callId });
+
+    // One row per checked call (empty = nothing missed) — the denominator for
+    // "calls with a question it couldn't answer". Spam isn't a real caller, so
+    // it isn't counted either way. Fail-soft inside.
+    if (!data.isSpam) {
+      await recordKnowledgeGaps({
+        callId: call.id,
+        clientId: call.clientId,
+        questions: data.unansweredQuestions,
+      });
+    }
 
     // Spam reclassification — but never override a call that actually produced
     // an appointment or a lead.
