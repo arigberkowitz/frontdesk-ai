@@ -213,12 +213,16 @@ function KnowledgeGuide({ onPick }: { onPick: (question: string) => void }) {
 export function KnowledgeTab({
   clientId,
   knowledge,
+  initialQuestion,
 }: {
   clientId: string;
   knowledge: KnowledgeItem[];
+  /** Open the add form on load with this question filled in (e.g. a question
+   *  the AI couldn't answer, linked from the portal overview). */
+  initialQuestion?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const [prefill, setPrefill] = useState<string | undefined>(undefined);
+  const [open, setOpen] = useState(Boolean(initialQuestion));
+  const [prefill, setPrefill] = useState<string | undefined>(initialQuestion);
 
   function openWith(question?: string) {
     setPrefill(question);

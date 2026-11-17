@@ -1388,6 +1388,36 @@ export const callInsights = pgTable(
   ],
 );
 
+/**
+ * Questions a caller asked that the AI couldn't answer from what it knew — one
+ * row per call the post-call extraction checked (so the row is the
+ * denominator, and `questions` empty means "checked, nothing missed").
+ *
+ * Written by the same per-call extraction pass as call_insights (no extra
+ * model call). Its own table rather than a call_insights column so the code can
+ * ship before the migration without breaking extraction: writes and reads here
+ * are fail-soft.
+ */
+export const callKnowledgeGaps = pgTable(
+  "call_knowledge_gaps",
+  {
+    id: pk(),
+    callId: uuid("call_id")
+      .notNull()
+      .references(() => calls.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    /** Short, generalized questions (no names/numbers). Empty = none missed. */
+    questions: jsonb("questions").$type<string[]>().notNull().default([]),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("call_knowledge_gaps_call_id_idx").on(t.callId),
+    index("call_knowledge_gaps_client_created_idx").on(t.clientId, t.createdAt),
+  ],
+);
+
 /** QA supervisor output: per-call grade + flags feeding the operator review
  *  queue and the nightly improvement loop. */
 export const callGrades = pgTable(
@@ -1558,6 +1588,11 @@ export const callInsightsRelations = relations(callInsights, ({ one }) => ({
   client: one(clients, { fields: [callInsights.clientId], references: [clients.id] }),
 }));
 
+export const callKnowledgeGapsRelations = relations(callKnowledgeGaps, ({ one }) => ({
+  call: one(calls, { fields: [callKnowledgeGaps.callId], references: [calls.id] }),
+  client: one(clients, { fields: [callKnowledgeGaps.clientId], references: [clients.id] }),
+}));
+
 export const callGradesRelations = relations(callGrades, ({ one }) => ({
   call: one(calls, { fields: [callGrades.callId], references: [calls.id] }),
   client: one(clients, { fields: [callGrades.clientId], references: [clients.id] }),
@@ -1610,6 +1645,7 @@ export type AgentSuggestion = typeof agentSuggestions.$inferSelect;
 export type NewAgentSuggestion = typeof agentSuggestions.$inferInsert;
 export type CallInsight = typeof callInsights.$inferSelect;
 export type NewCallInsight = typeof callInsights.$inferInsert;
+export type CallKnowledgeGap = typeof callKnowledgeGaps.$inferSelect;
 export type CallGrade = typeof callGrades.$inferSelect;
 export type NewCallGrade = typeof callGrades.$inferInsert;
 export type SmsOptOut = typeof smsOptOuts.$inferSelect;

@@ -7,6 +7,8 @@ import { getClientMetrics, getClientRoi, getClientWeeklyRecap } from "@/lib/data
 import { getClientSetupStatus } from "@/lib/data/setup";
 import { getClientActivity } from "@/lib/data/activity";
 import { listOpenSuggestions } from "@/lib/data/suggestions";
+import { getKnowledgeGapSummary } from "@/lib/data/knowledge-gaps";
+import { planAccessFor } from "@/lib/plan-access";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listAppointmentTimes } from "@/lib/data/appointments";
 import { getCallHealth, listRecentCallTimes } from "@/lib/data/calls";
@@ -33,6 +35,7 @@ import { SetupChecklist } from "@/components/portal/setup-checklist";
 import { WeeklyRecap } from "@/components/portal/weekly-recap";
 import { ActivityFeed } from "@/components/portal/activity-feed";
 import { AiLearnings } from "@/components/portal/ai-learnings";
+import { UnansweredQuestions } from "@/components/portal/unanswered-questions";
 import { AiFeaturesSection, AiFeaturesSkeleton } from "@/components/portal/ai-features-section";
 import { LiveAlerts } from "@/components/portal/live-alerts";
 import { Milestones } from "@/components/portal/milestones";
@@ -80,6 +83,13 @@ export default async function PortalOverviewPage({
   const briefingCard = client
     ? await getStoredBriefingCard(clientId, tzTodayKey(client.timezone))
     : null;
+  // "Questions your AI couldn't answer" rides with the nightly learning loop it
+  // links into, so it follows the same plan gate (Pro; trials and comps get
+  // everything). Null = gated out, no calls yet, or table not migrated.
+  const gapSummary =
+    client && m.totalCalls > 0 && (await planAccessFor(client)).has("ai_improvement")
+      ? await getKnowledgeGapSummary(clientId)
+      : null;
   // First name for the greeting — never the operator's own name in a preview.
   const me = preview ? null : await currentUser().catch(() => null);
   const tz = client?.timezone;
@@ -367,6 +377,10 @@ export default async function PortalOverviewPage({
           {healthNeedsYou ? callHealth : null}
         </section>
       ) : null}
+
+      {/* How often callers ask what the knowledge base doesn't cover — sits
+          right under "Your AI learned", which drafts the answers. */}
+      {gapSummary ? <UnansweredQuestions summary={gapSummary} /> : null}
 
       {/* The optional AI jobs, each with its own switch and what it did lately. */}
       {client ? (

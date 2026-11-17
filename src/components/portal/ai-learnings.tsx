@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Check, GraduationCap, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,23 @@ export function AiLearnings({
   // dozen approval rows shoved the actual numbers below the fold — homework
   // before breakfast. The count in the title still says how many are waiting.
   const [showAll, setShowAll] = useState(false);
+  // "Review drafted answer" on the unanswered-questions card links here as
+  // #suggestion-<id>. If that one is past the first three, open the list so
+  // the link lands on it instead of nowhere.
+  useEffect(() => {
+    const reveal = () => {
+      const m = /^#suggestion-(.+)$/.exec(window.location.hash);
+      if (!m) return;
+      const idx = suggestions.findIndex((s) => s.id === m[1]);
+      if (idx >= 3) setShowAll(true);
+      requestAnimationFrame(() =>
+        document.getElementById(`suggestion-${m[1]}`)?.scrollIntoView({ block: "center" }),
+      );
+    };
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    return () => window.removeEventListener("hashchange", reveal);
+  }, [suggestions]);
   if (suggestions.length === 0) return null;
   const visible = showAll ? suggestions : suggestions.slice(0, 3);
   const hidden = suggestions.length - 3;
@@ -52,7 +69,11 @@ export function AiLearnings({
           {visible.map((s) => {
             const evidence = (s.evidence ?? {}) as { excerpt?: string };
             return (
-              <li key={s.id} className="border-t py-4 first:border-t-0 first:pt-3 last:pb-0">
+              <li
+                key={s.id}
+                id={`suggestion-${s.id}`}
+                className="scroll-mt-24 border-t py-4 first:border-t-0 first:pt-3 last:pb-0"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <span className="fd-section-label">
