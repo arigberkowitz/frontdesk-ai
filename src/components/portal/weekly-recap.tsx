@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CountUp } from "@/components/count-up";
 import { formatCurrencyCents } from "@/lib/format";
 import type { WeeklyRecap as Recap } from "@/lib/data/metrics";
+import { afterHoursComparison, afterHoursHeadline, type AfterHoursWeek } from "@/lib/after-hours-copy";
 
 /** A delta line: "+3", "+$500", or "same as last week" — green only when up. */
 function Delta({ value, money }: { value: number; money?: boolean }) {
@@ -38,7 +39,9 @@ function Cell({ value, label, delta, money }: { value: string; label: string; de
 }
 
 /** "This week" recap with week-over-week change. */
-export function WeeklyRecap({ recap }: { recap: Recap }) {
+export function WeeklyRecap({ recap, afterHours }: { recap: Recap; afterHours?: AfterHoursWeek | null }) {
+  // Same words as the Monday email. Null = no opening hours saved, so skip it.
+  const compare = afterHours && afterHours.answered > 0 ? afterHoursComparison(afterHours) : null;
   return (
     <Card>
       <CardContent className="p-5 sm:p-6">
@@ -49,6 +52,12 @@ export function WeeklyRecap({ recap }: { recap: Recap }) {
           </span>
           <span className="text-xs text-muted-foreground">vs. last week</span>
         </div>
+        {afterHours ? (
+          <div className="mb-5 rounded-lg bg-indigo-50 px-4 py-3">
+            <p className="text-sm font-medium text-indigo-950">{afterHoursHeadline(afterHours)}</p>
+            {compare ? <p className="mt-1 text-xs text-indigo-700">{compare}</p> : null}
+          </div>
+        ) : null}
         <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
           <Cell value={String(recap.calls)} label="Calls answered" delta={recap.callsDelta} />
           <Cell value={String(recap.bookings)} label="Appointments" delta={recap.bookingsDelta} />
@@ -58,7 +67,17 @@ export function WeeklyRecap({ recap }: { recap: Recap }) {
             delta={recap.valueDeltaCents}
             money
           />
-          <Cell value={String(recap.afterHours)} label="After-hours saves" delta={recap.afterHoursDelta} />
+          {afterHours ? (
+            // Same count as the line above (no spam, no dropped calls), so the
+            // card never shows two after-hours numbers that disagree.
+            <Cell
+              value={String(afterHours.answered)}
+              label="Answered after hours"
+              delta={afterHours.answered - afterHours.prior.answered}
+            />
+          ) : (
+            <Cell value={String(recap.afterHours)} label="After-hours saves" delta={recap.afterHoursDelta} />
+          )}
         </div>
       </CardContent>
     </Card>

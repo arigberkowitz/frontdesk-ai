@@ -102,6 +102,48 @@ describe("weeklySummaryEmail", () => {
   });
 });
 
+describe("weeklySummaryEmail — while you were closed", () => {
+  const render = (over: Partial<WeeklySummaryStats>) =>
+    weeklySummaryEmail({ businessName: "Joe's Plumbing", stats: stats(over), baseUrl: "https://app.test" });
+
+  it("leads with the after-hours numbers, above everything else", () => {
+    const { html, text } = render({
+      afterHoursWeek: { answered: 7, booked: 3, messages: 2, prior: { answered: 4, booked: 1 } },
+    });
+    const line = "While you were closed this week, your AI answered 7 calls and booked 3 of them. It took a message on 2 more.";
+    expect(html).toContain(line);
+    expect(html.indexOf(line)).toBeLessThan(html.indexOf("Calls answered"));
+    expect(html).toContain("The week before: 4 after-hours calls, 1 booked.");
+    expect(text.split("\n")[2]).toBe(line);
+    expect(text).toContain("The week before: 4 after-hours calls, 1 booked.");
+    // One after-hours number per email, not two that disagree.
+    expect(html).not.toContain("After-hours saves");
+    expect(text).not.toContain("After-hours saves");
+  });
+
+  it("a zero week gets one honest line and no comparison padding", () => {
+    const { html, text } = render({ afterHoursWeek: { answered: 0, booked: 0, messages: 0, prior: { answered: 3, booked: 1 } } });
+    expect(html).toContain("No calls came in while you were closed this week.");
+    expect(text).toContain("No calls came in while you were closed this week.");
+    expect(html).not.toContain("The week before");
+    expect(text).not.toContain("The week before");
+  });
+
+  it("without saved hours, leaves the section out and keeps the old row", () => {
+    for (const afterHoursWeek of [null, undefined]) {
+      const { html, text } = render({ afterHoursWeek });
+      expect(html).not.toContain("while you were closed");
+      expect(html).not.toContain("While you were closed");
+      expect(text).toContain("After-hours saves: 9");
+    }
+  });
+
+  it("keeps the opt-out link", () => {
+    const { html } = render({ afterHoursWeek: { answered: 2, booked: 1, messages: 0, prior: { answered: 0, booked: 0 } } });
+    expect(html).toContain("https://app.test/portal/settings/alerts#weekly-summary");
+  });
+});
+
 describe("hasWeeklyActivity", () => {
   const zero = stats({
     calls: 0,

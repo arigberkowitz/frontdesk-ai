@@ -4,6 +4,7 @@
  */
 import type { CallHealthSummary } from "./call-health";
 import { formatCurrencyCents } from "./format";
+import { afterHoursComparison, afterHoursHeadline, type AfterHoursWeek } from "./after-hours-copy";
 
 /** The call/booking/lead/revenue numbers from `getClientPeriodSummary`. */
 export interface WeeklyCoreStats {
@@ -28,7 +29,14 @@ export interface WeeklyActivity {
   textsReceived: number;
 }
 
-export type WeeklySummaryStats = WeeklyCoreStats & WeeklyActivity;
+export type WeeklySummaryStats = WeeklyCoreStats &
+  WeeklyActivity & {
+    /**
+     * "While you were closed" counts (data/after-hours.ts). Null / absent when
+     * the business has no opening hours saved — then the section is left out.
+     */
+    afterHoursWeek?: AfterHoursWeek | null;
+  };
 
 /**
  * ISO-8601 week of a date, in UTC: "2026-W40". The dedupe key — one summary
@@ -111,6 +119,23 @@ function healthBlock(health?: CallHealthSummary | null): string {
   </div>`;
 }
 
+/**
+ * The number that sells it: what the AI did while nobody was there to answer.
+ * Top of the email, plain words, real counts. A zero week gets one honest line.
+ */
+function afterHoursBlock(w?: AfterHoursWeek | null): string {
+  if (!w) return "";
+  const compare = afterHoursComparison(w);
+  if (w.answered === 0) {
+    return `<p style="margin:0 0 16px;font-size:14px;color:#555">${afterHoursHeadline(w)}</p>`;
+  }
+  return `<div style="margin:0 0 18px;padding:14px 16px;background:#eef2ff;border-radius:10px">
+    <p style="margin:0;font-size:16px;line-height:1.45;color:#1e1b4b"><strong>${afterHoursHeadline(w)}</strong></p>${
+      compare ? `\n    <p style="margin:6px 0 0;font-size:13px;color:#4338ca">${compare}</p>` : ""
+    }
+  </div>`;
+}
+
 export interface WeeklySummaryEmailInput {
   businessName: string;
   stats: WeeklySummaryStats;
@@ -146,7 +171,8 @@ export function weeklySummaryEmail(input: WeeklySummaryEmailInput): {
 
   const html = `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto">
   <p style="color:#666;margin:0 0 4px;font-size:13px">Your week with FrontDesk AI</p>
-  <h1 style="margin:0 0 6px;font-size:22px">${esc(input.businessName)}</h1>
+  <h1 style="margin:0 0 14px;font-size:22px">${esc(input.businessName)}</h1>
+  ${afterHoursBlock(s.afterHoursWeek)}
   <p style="margin:0 0 18px;font-size:15px;color:#333">
     Your AI receptionist answered <strong>${plural(s.calls, "call", "calls")}</strong>
     and booked <strong>${plural(s.bookingsMade, "appointment", "appointments")}</strong> in the last 7 days.
@@ -155,7 +181,7 @@ export function weeklySummaryEmail(input: WeeklySummaryEmailInput): {
     ${statRow("Calls answered", String(s.calls), "Calls your AI receptionist answered this week")}
     ${statRow("Appointments booked", String(s.bookingsMade), bookedSub)}
     ${statRow("Cancellations", String(s.cancellations), s.cancellations > 0 ? "Those slots are open again — your AI can rebook them" : undefined)}
-    ${statRow("After-hours saves", String(s.afterHours), "Calls that would have gone to voicemail")}
+    ${s.afterHoursWeek ? "" : statRow("After-hours saves", String(s.afterHours), "Calls that would have gone to voicemail")}
     ${statRow("Missed calls won back", String(s.missedRecovered), "Customers who replied to a follow-up text after a missed call or no-show")}
     ${statRow("New leads", String(s.leads), "Callers who left a callback request")}
     ${statRow("Texts from customers", String(s.textsReceived), s.textsReceived > 0 ? `<a href="${base}/portal/messages" style="color:#6366f1">Read and reply in Messages</a>` : undefined)}
@@ -168,13 +194,16 @@ export function weeklySummaryEmail(input: WeeklySummaryEmailInput): {
   Don't want these? <a href="${settingsUrl}" style="color:#999">Turn off the weekly summary in Settings</a>.</p>
 </div>`;
 
+  const ah = s.afterHoursWeek;
+  const ahCompare = ah ? afterHoursComparison(ah) : null;
   const text = [
     `${input.businessName} — your last 7 days with FrontDesk AI`,
     "",
+    ...(ah ? [afterHoursHeadline(ah), ...(ah.answered > 0 && ahCompare ? [ahCompare] : []), ""] : []),
     `Calls answered: ${s.calls}`,
     `Appointments booked: ${s.bookingsMade} (${s.bookings} already happened, worth ${earned}${s.upcomingRevenueCents > 0 ? `; ${upcoming} still to come` : ""})`,
     `Cancellations: ${s.cancellations}`,
-    `After-hours saves: ${s.afterHours}`,
+    ...(ah ? [] : [`After-hours saves: ${s.afterHours}`]),
     `Missed calls won back: ${s.missedRecovered}`,
     `New leads: ${s.leads}`,
     `Texts from customers: ${s.textsReceived}`,

@@ -6,6 +6,7 @@ import { getClientPeriodSummary } from "./data/metrics";
 import { getCallHealth } from "./data/calls";
 import { notifier } from "./notifier";
 import { claimWeeklySummary, finishWeeklySummary, getWeeklyActivity } from "./data/weekly-summary";
+import { getAfterHoursWeek } from "./data/after-hours";
 import {
   hasWeeklyActivity,
   isoWeekKey,
@@ -102,11 +103,13 @@ export interface WeeklySummaryRunResult extends DigestRunResult {
 
 /** Everything the weekly summary shows for one business, last 7 days. */
 export async function getWeeklySummaryStats(clientId: string): Promise<WeeklySummaryStats> {
-  const [core, activity] = await Promise.all([
+  const [core, activity, afterHoursWeek] = await Promise.all([
     getClientPeriodSummary(clientId, 7),
     getWeeklyActivity(clientId, 7),
+    // An extra section, not a reason to lose the whole email.
+    getAfterHoursWeek(clientId).catch(() => null),
   ]);
-  return { ...core, ...activity };
+  return { ...core, ...activity, afterHoursWeek };
 }
 
 /**
@@ -131,7 +134,8 @@ export async function renderWeeklySummaryForClient(
 
 /**
  * Weekly summary email (Monday cron, /api/cron/weekly-report) to each
- * live/trial business's owner email: calls answered, bookings, cancellations,
+ * live/trial business's owner email: what the AI did while the business was
+ * closed (top), then calls answered, bookings, cancellations,
  * missed calls won back, new leads and customer texts for the past 7 days.
  *
  *  - Opt-out: `clients.weekly_summary_enabled` (portal Settings → Alerts).
