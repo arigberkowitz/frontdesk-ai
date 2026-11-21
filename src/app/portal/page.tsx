@@ -8,6 +8,7 @@ import { getClientSetupStatus } from "@/lib/data/setup";
 import { getClientActivity } from "@/lib/data/activity";
 import { listOpenSuggestions } from "@/lib/data/suggestions";
 import { getKnowledgeGapSummary } from "@/lib/data/knowledge-gaps";
+import { getAfterHoursWeek } from "@/lib/data/after-hours";
 import { planAccessFor } from "@/lib/plan-access";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
 import { listAppointmentTimes } from "@/lib/data/appointments";
@@ -56,7 +57,7 @@ export default async function PortalOverviewPage({
 }) {
   const { onboarded } = await searchParams;
   const { clientId, preview } = await resolvePortalClient();
-  const [client, m, appts, callsList, followUps, roi, setup, recap, activity, learnings, team, health, failedTexts, trial, unreadMessages, editAccess] =
+  const [client, m, appts, callsList, followUps, roi, setup, recap, activity, learnings, team, health, failedTexts, trial, unreadMessages, editAccess, afterHoursWeek] =
     await Promise.all([
       getClientByIdUnsafe(clientId),
       getClientMetrics(clientId),
@@ -75,6 +76,8 @@ export default async function PortalOverviewPage({
       // Never throws (0 until the sms_messages migration has run).
       countUnreadMessages(clientId),
       getPortalEditAccess(clientId),
+      // "While you were closed this week…" — null without saved hours.
+      getAfterHoursWeek(clientId).catch(() => null),
     ]);
   // What the AI has done this trial — only read while there's a clock to show.
   const trialProgress =
@@ -418,7 +421,7 @@ export default async function PortalOverviewPage({
             </summary>
             <div className="space-y-6 border-t p-4">
               <RoiPanel roi={roi} />
-              <WeeklyRecap recap={recap} />
+              <WeeklyRecap recap={recap} afterHours={afterHoursWeek} />
               <Milestones totalCalls={m.totalCalls} estRevenueCents={m.estRevenueCents} />
               {healthNeedsYou ? null : callHealth}
               <CallActivity

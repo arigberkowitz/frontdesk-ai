@@ -22,6 +22,13 @@ const core = { calls: 3, bookings: 1, afterHours: 1, leads: 1, estRevenueCents: 
 let activity = { bookingsMade: 2, cancellations: 0, missedRecovered: 0, textsReceived: 1 };
 vi.mock("@/lib/data/metrics", () => ({ getClientPeriodSummary: vi.fn(async () => core) }));
 vi.mock("@/lib/data/calls", () => ({ getCallHealth: vi.fn(async () => null) }));
+let afterHoursWeek: unknown = { answered: 5, booked: 2, messages: 1, prior: { answered: 3, booked: 1 } };
+vi.mock("@/lib/data/after-hours", () => ({
+  getAfterHoursWeek: vi.fn(async () => {
+    if (afterHoursWeek instanceof Error) throw afterHoursWeek;
+    return afterHoursWeek;
+  }),
+}));
 
 // In-memory stand-in for the weekly_summary_sends ledger (the real SQL is
 // covered in data/weekly-summary.test.ts against PGlite).
@@ -74,6 +81,21 @@ describe("sendWeeklyReports", () => {
     expect(sendEmail.mock.calls[0][0].text).toContain("Texts from customers: 1");
     expect(sendSms).not.toHaveBeenCalled();
     expect(inserted[0]).toMatchObject({ type: "digest_weekly", channel: "email", status: "sent" });
+  });
+
+  it("puts the after-hours line at the top of the email", async () => {
+    await sendWeeklyReports(MONDAY);
+    const { text, html } = sendEmail.mock.calls[0][0];
+    expect(text).toContain("While you were closed this week, your AI answered 5 calls and booked 2 of them. It took a message on 1 more.");
+    expect(html).toContain("The week before: 3 after-hours calls, 1 booked.");
+  });
+
+  it("still sends the summary if the after-hours query fails", async () => {
+    afterHoursWeek = new Error("boom");
+    const r = await sendWeeklyReports(MONDAY);
+    expect(r.sent).toBe(1);
+    expect(sendEmail.mock.calls[0][0].text).toContain("After-hours saves: 1");
+    afterHoursWeek = { answered: 5, booked: 2, messages: 1, prior: { answered: 3, booked: 1 } };
   });
 
   it("never sends twice in the same week, even if the cron runs again", async () => {
