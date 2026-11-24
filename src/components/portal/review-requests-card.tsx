@@ -11,6 +11,7 @@ import { PanelHeader } from "@/components/panel-header";
 import { saveReviewRequestSettingsAction } from "@/lib/actions/growth-settings";
 import { initialActionState } from "@/lib/actions/types";
 import { REVIEW_DELAY_HOURS, REVIEW_MIN_DAYS_BETWEEN } from "@/lib/review-requests";
+import { WhatsThis } from "@/components/portal/feature-explainer";
 
 /**
  * Ask happy customers to say so where it counts.
@@ -53,6 +54,7 @@ export function ReviewRequestsCard({
           title="Ask for reviews"
           description="A few hours after a visit, we text the customer a thank-you and your review link. Reviews are how people decide who to call, and the best time to ask is while they still remember you."
         />
+        <WhatsThis feature="reviewRequests" className="sm:ml-12" />
 
         <form action={action} className="mt-5 space-y-4">
           <input type="hidden" name="clientId" value={clientId} />

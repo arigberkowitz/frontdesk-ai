@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { PanelHeader } from "@/components/panel-header";
 import { saveDepositSettingsAction } from "@/lib/actions/growth-settings";
 import { initialActionState } from "@/lib/actions/types";
+import { WhatsThis } from "@/components/portal/feature-explainer";
 
 /**
  * Ask for a deposit on the bookings where a no-show hurts.
@@ -50,6 +51,7 @@ export function DepositsCard({
           title="Take a deposit"
           description="Right after a booking that needs one, we text the customer your payment link. A small deposit is the only thing that reliably stops no-shows."
         />
+        <WhatsThis feature="deposits" className="sm:ml-12" />
 
         <form action={action} className="mt-5 space-y-4">
           <input type="hidden" name="clientId" value={clientId} />

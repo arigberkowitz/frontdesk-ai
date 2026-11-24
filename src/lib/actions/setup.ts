@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
 import { requireClientEditor } from "@/lib/auth-guard";
@@ -94,6 +94,20 @@ export async function setSetupFlagAction(
     await markSetupReviewed(clientId, key);
     revalidatePath("/portal", "layout");
     return { ok: true, message: "Thanks — marked as checked." };
+  }
+  if (flag === "featuresReviewed") {
+    // Merge just this key so a concurrent write to another flag isn't clobbered.
+    await db
+      .update(clients)
+      .set({ setupFlags: sql`${clients.setupFlags} || jsonb_build_object('featuresReviewed', ${value}::boolean)` })
+      .where(eq(clients.id, clientId));
+    revalidatePath("/portal", "layout");
+    return {
+      ok: true,
+      message: value
+        ? "Got it. You can change any feature anytime in Settings → Features."
+        : "Features step reopened.",
+    };
   }
   if (flag !== "calendarSkipped" && flag !== "forwardingDone") {
     return { ok: false, error: "Unknown setting." };

@@ -10,6 +10,7 @@ import { initialActionState } from "@/lib/actions/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatPhone } from "@/lib/format";
+import { WhatsThis } from "@/components/portal/feature-explainer";
 
 export type HandoffMode = "always" | "open_hours" | "never";
 
@@ -79,6 +80,7 @@ export function HandoffCard({
             ? `When your AI puts someone through, it rings ${formatPhone(escalationNumber)}.`
             : null}
         </CardDescription>
+        <WhatsThis feature="transfer" />
         {!escalationNumber ? (
           <p
             role="status"

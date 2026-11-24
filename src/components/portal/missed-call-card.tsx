@@ -10,6 +10,7 @@ import { PanelHeader } from "@/components/panel-header";
 import { saveMissedCallSettingsAction } from "@/lib/actions/missed-call-settings";
 import { initialActionState } from "@/lib/actions/types";
 import { DEDUPE_DAYS, MAX_CALLBACKS_PER_CLIENT_PER_DAY, callbackText } from "@/lib/missed-call";
+import { WhatsThis } from "@/components/portal/feature-explainer";
 
 /**
  * Settings → Follow-ups: text back callers who hung up early, got cut off, or
@@ -52,6 +53,7 @@ export function MissedCallCard({
           title="Text back missed callers"
           description="When someone hangs up before your AI could help, the call drops, or they leave halfway through booking, we text them a few minutes later offering to finish by reply."
         />
+        <WhatsThis feature="missedCallTexts" className="sm:ml-12" />
 
         <form action={action} className="mt-5 space-y-4">
           <input type="hidden" name="clientId" value={clientId} />

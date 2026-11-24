@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { alertContacts, businessHours, calls, clients, knowledgeItems, services } from "@/db/schema";
 import { getBookingProviderForClient } from "@/lib/booking";
 import { formatPhone } from "@/lib/format";
-import { buildSetupSteps, type SetupStep } from "@/lib/setup-steps";
+import { buildSetupSteps, featuresStep, type SetupStep } from "@/lib/setup-steps";
 
 export type { SetupStep } from "@/lib/setup-steps";
 
@@ -19,6 +19,8 @@ export interface SetupStatus {
   reviewNotes: string[];
   /** Owner hid the unfinished checklist from the Overview ("Hide for now"). */
   hiddenAt: string | null;
+  /** The optional "Choose your features" row. Not in `steps`, never counted or gating. */
+  optionalSteps: SetupStep[];
 }
 
 /** Activation checklist state for a client, derived from real data. `complete`
@@ -77,5 +79,6 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
     finishedAt: client?.setupCompletedAt ?? null,
     reviewNotes: client?.setupFlags?.reviewNotes ?? [],
     hiddenAt: client?.setupFlags?.checklistHiddenAt ?? null,
+    optionalSteps: [featuresStep(flags)],
   };
 }

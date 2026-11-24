@@ -11,6 +11,7 @@ import { PanelHeader } from "@/components/panel-header";
 import { saveRecallSettingsAction } from "@/lib/actions/growth-settings";
 import { initialActionState } from "@/lib/actions/types";
 import { RECALL_LEAD_DAYS, RECALL_MIN_DAYS_BETWEEN } from "@/lib/recall";
+import { WhatsThis } from "@/components/portal/feature-explainer";
 
 /**
  * Invite past customers back when they're due.
@@ -49,6 +50,7 @@ export function RecallCard({
           title="Invite customers back"
           description="When someone is due for their next visit, we text and offer to rebook them. This is the difference between a phone that gets answered and a calendar that stays full."
         />
+        <WhatsThis feature="recall" className="sm:ml-12" />
 
         <form action={action} className="mt-5 space-y-4">
           <input type="hidden" name="clientId" value={clientId} />

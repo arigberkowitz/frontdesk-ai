@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, CheckCircle2, EyeOff, Lightbulb, Sparkles } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, EyeOff, Lightbulb, SlidersHorizontal, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,8 @@ export interface SetupStatusView {
   reviewNotes?: string[];
   /** Owner hid the unfinished checklist from the Overview ("Hide for now"). */
   hiddenAt?: string | null;
+  /** Optional rows ("Choose your features"): shown under the steps, never counted. */
+  optionalSteps?: SetupStepView[];
 }
 
 /**
@@ -279,6 +281,53 @@ export function SetupChecklist({
             </li>
           ))}
         </ul>
+
+        {/* Optional extras: not part of "X of Y done", the final check or the
+            phone-number gate — picking features is never required. */}
+        {(status.optionalSteps ?? []).map((step) => (
+          <div key={step.key} className="mt-1 border-t pt-1">
+            {step.done ? (
+              <div className="flex items-center gap-3 py-3">
+                <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                  <Check className="size-3.5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm text-muted-foreground">
+                    {step.label} <span className="text-xs">· optional</span>
+                  </span>
+                  {step.doneHint ? (
+                    <span className="block text-xs text-muted-foreground">{step.doneHint}</span>
+                  ) : null}
+                </span>
+                <Link
+                  href={step.href}
+                  className="-my-2 py-2 pl-2 text-xs text-muted-foreground/70 transition-colors hover:text-foreground"
+                >
+                  Change
+                </Link>
+              </div>
+            ) : (
+              <Link
+                href={step.href}
+                className="group flex items-center gap-3 py-3 transition-colors hover:text-foreground"
+              >
+                <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-muted-foreground/40 text-muted-foreground">
+                  <SlidersHorizontal className="size-3" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">
+                    {step.label}{" "}
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-normal text-muted-foreground">
+                      Optional
+                    </span>
+                  </span>
+                  {step.hint ? <span className="block text-xs text-muted-foreground">{step.hint}</span> : null}
+                </span>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-foreground" />
+              </Link>
+            )}
+          </div>
+        ))}
 
         {canEdit && !finished ? (
           <form action={finishAction} className="mt-4 border-t pt-4">

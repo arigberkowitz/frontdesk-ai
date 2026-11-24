@@ -27,6 +27,8 @@ export interface SetupFlags {
   forwardingDone?: boolean;
   /** ISO time the owner hid the unfinished checklist from the Overview. */
   checklistHiddenAt?: string;
+  /** Owner went through or skipped the optional "Choose your features" step. */
+  featuresReviewed?: boolean;
   /**
    * Set at self-serve signup, where services, hours, FAQs (industry template)
    * and the greeting are pre-filled for the owner. While set, those steps only
@@ -189,6 +191,26 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
         : "The dial code contains your AI's own phone number, so it appears here once that number is assigned. Until then, try your AI with a test call in your browser (Your AI page).",
     },
   ];
+}
+
+/**
+ * The optional "Choose your features" step. Deliberately NOT one of
+ * `buildSetupSteps`: those decide "X of Y done", the "I'm done" button and the
+ * phone-number gate (number-gate.ts). Picking features is never required — the
+ * defaults work — so it sits below the steps as an extra row and gates nothing.
+ */
+export const FEATURES_STEP_HREF = "/portal/settings/features?from=setup";
+
+export function featuresStep(flags: SetupFlags): SetupStep {
+  const done = Boolean(flags.featuresReviewed);
+  return {
+    key: "features",
+    label: "Choose your features",
+    href: FEATURES_STEP_HREF,
+    done,
+    hint: "Turn extras like text replies or the morning briefing on or off, with a short “What's this?” for each. The defaults work fine.",
+    doneHint: done ? "Change any of them anytime in Settings → Features." : undefined,
+  };
 }
 
 export type ChecklistMode =

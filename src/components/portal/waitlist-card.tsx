@@ -10,6 +10,7 @@ import { PanelHeader } from "@/components/panel-header";
 import { saveWaitlistSettingsAction } from "@/lib/actions/growth-settings";
 import { initialActionState } from "@/lib/actions/types";
 import { MAX_OFFERS_PER_ENTRY, MAX_PEOPLE_PER_OPENING, MIN_NOTICE_HOURS } from "@/lib/waitlist";
+import { WhatsThis } from "@/components/portal/feature-explainer";
 
 /**
  * Fill the gap a cancellation leaves.
@@ -47,6 +48,7 @@ export function WaitlistCard({
           title="Keep a waitlist"
           description="When your AI can't offer a caller a time that works, it asks whether they'd like a text if something opens up. The moment an appointment is cancelled, the people who wanted that window hear about it."
         />
+        <WhatsThis feature="waitlist" className="sm:ml-12" />
 
         <form action={action} className="mt-5 space-y-4">
           <input type="hidden" name="clientId" value={clientId} />

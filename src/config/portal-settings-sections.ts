@@ -10,6 +10,7 @@
 
 export type SettingsSectionKey =
   | "business"
+  | "features"
   | "phone"
   | "alerts"
   | "calendar"
@@ -32,6 +33,12 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     label: "Business",
     href: "/portal/settings",
     description: "Your business name and timezone, and your setup progress.",
+  },
+  {
+    key: "features",
+    label: "Features",
+    href: "/portal/settings/features",
+    description: "Turn each extra on or off in one place. Tap “What's this?” under any of them for a plain explanation.",
   },
   {
     key: "phone",
@@ -98,6 +105,7 @@ const LEGACY_HASHES: Record<string, string> = {
   recovery: "/portal/settings/follow-ups",
   team: "/portal/settings/team",
   help: "/portal/settings/help",
+  features: "/portal/settings/features",
 };
 
 export function legacySettingsHashTarget(hash: string): string | null {
