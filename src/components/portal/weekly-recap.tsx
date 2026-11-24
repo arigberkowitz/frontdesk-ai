@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CountUp } from "@/components/count-up";
 import { formatCurrencyCents } from "@/lib/format";
 import type { WeeklyRecap as Recap } from "@/lib/data/metrics";
-import { afterHoursComparison, afterHoursHeadline, type AfterHoursWeek } from "@/lib/after-hours-copy";
+import { afterHoursComparison, afterHoursHeadline, afterHoursValueLine, type AfterHoursWeek } from "@/lib/after-hours-copy";
 
 /** A delta line: "+3", "+$500", or "same as last week" — green only when up. */
 function Delta({ value, money }: { value: number; money?: boolean }) {
@@ -42,6 +42,8 @@ function Cell({ value, label, delta, money }: { value: string; label: string; de
 export function WeeklyRecap({ recap, afterHours }: { recap: Recap; afterHours?: AfterHoursWeek | null }) {
   // Same words as the Monday email. Null = no opening hours saved, so skip it.
   const compare = afterHours && afterHours.answered > 0 ? afterHoursComparison(afterHours) : null;
+  // Only from the owner's listed prices; null when nothing booked was priced.
+  const value = afterHours ? afterHoursValueLine(afterHours) : null;
   return (
     <Card>
       <CardContent className="p-5 sm:p-6">
@@ -55,6 +57,7 @@ export function WeeklyRecap({ recap, afterHours }: { recap: Recap; afterHours?: 
         {afterHours ? (
           <div className="mb-5 rounded-lg bg-indigo-50 px-4 py-3">
             <p className="text-sm font-medium text-indigo-950">{afterHoursHeadline(afterHours)}</p>
+            {value ? <p className="mt-1 text-sm text-indigo-950">{value}</p> : null}
             {compare ? <p className="mt-1 text-xs text-indigo-700">{compare}</p> : null}
           </div>
         ) : null}
