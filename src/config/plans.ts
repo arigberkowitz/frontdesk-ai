@@ -8,7 +8,8 @@
  *               the first bill someone sees — is how a conversion becomes a
  *               refund request. Kept on the type at 0 so a hand-sold deal can
  *               still carry one through the operator checkout.
- *   Monthly:    $149–$500 flat per client
+ *   Monthly:    $199–$599 flat per client (raised from $149/$300/$500,
+ *               Nov 2026; existing subscriptions keep the price they signed at)
  *   Trial:      14 days free, no card, then pick a plan
  */
 export type PlanKey = "backup" | "starter" | "pro" | "scale";
@@ -20,6 +21,12 @@ export interface Plan {
   monthlyPriceCents: number;
   /** One-time setup fee, cents. Zero on every self-serve plan — see below. */
   setupFeeCents: number;
+  /**
+   * Earlier list prices, cents per month. Existing Stripe subscriptions keep
+   * the price they signed up at, so a subscription without our metadata can
+   * still be matched to its plan by amount.
+   */
+  legacyMonthlyPriceCents?: number[];
   /** Shown on the pricing page and offered at checkout. */
   listed: boolean;
   /** Soft cap surfaced to operator; v1 is flat-rate (usage shown, not billed). */
@@ -32,7 +39,8 @@ export const PLANS: Record<PlanKey, Plan> = {
   backup: {
     key: "backup",
     name: "Missed-Call Rescue",
-    monthlyPriceCents: 14_900, // $149
+    monthlyPriceCents: 19_900, // $199
+    legacyMonthlyPriceCents: [14_900],
     setupFeeCents: 0,
     listed: true,
     includedMinutes: 200,
@@ -50,7 +58,8 @@ export const PLANS: Record<PlanKey, Plan> = {
   starter: {
     key: "starter",
     name: "Starter",
-    monthlyPriceCents: 30_000, // $300
+    monthlyPriceCents: 39_900, // $399
+    legacyMonthlyPriceCents: [30_000],
     setupFeeCents: 0,
     listed: true,
     includedMinutes: 500,
@@ -66,7 +75,8 @@ export const PLANS: Record<PlanKey, Plan> = {
   pro: {
     key: "pro",
     name: "Pro",
-    monthlyPriceCents: 50_000, // $500
+    monthlyPriceCents: 59_900, // $599
+    legacyMonthlyPriceCents: [50_000],
     setupFeeCents: 0,
     listed: true,
     includedMinutes: null,

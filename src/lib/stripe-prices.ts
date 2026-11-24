@@ -1,5 +1,6 @@
 import { PLANS, type PlanKey } from "@/config/plans";
 
+
 export type BillingInterval = "month" | "year";
 
 /**
@@ -35,4 +36,61 @@ export function planFromPriceId(priceId: string | null | undefined): PlanKey | n
 export function intervalPriceCents(plan: PlanKey, interval: BillingInterval): number {
   const m = PLANS[plan].monthlyPriceCents;
   return interval === "year" ? m * 10 : m;
+}
+
+/** The slice of the Stripe client this module needs — keeps it unit-testable. */
+export interface PriceReader {
+  prices: {
+    retrieve(id: string): Promise<{
+      active: boolean;
+      unit_amount: number | null;
+      currency: string;
+      recurring: { interval: string } | null;
+    }>;
+  };
+}
+
+/**
+ * The named Price to charge — but only if it still charges what the site
+ * says.
+ *
+ * A Price in Stripe is immutable, so when the list price in PLANS changes, the
+ * STRIPE_PRICE_* env var keeps pointing at the old amount until someone makes
+ * a new Price and swaps the env. Without this check, the pricing page would
+ * show the new number while checkout quietly charged the old one. A mismatch
+ * (or a Price Stripe can't find) falls back to an inline price built from
+ * PLANS, which is always the amount on the page.
+ */
+export async function verifiedStripePriceId(
+  stripe: PriceReader,
+  plan: PlanKey,
+  interval: BillingInterval,
+  onMismatch?: (detail: Record<string, unknown>) => void,
+): Promise<string | null> {
+  const id = stripePriceId(plan, interval);
+  if (!id) return null;
+  const expected = intervalPriceCents(plan, interval);
+  try {
+    const price = await stripe.prices.retrieve(id);
+    if (
+      price.active &&
+      price.currency === "usd" &&
+      price.unit_amount === expected &&
+      price.recurring?.interval === interval
+    ) {
+      return id;
+    }
+    onMismatch?.({
+      plan,
+      interval,
+      priceId: id,
+      expected,
+      actual: price.unit_amount,
+      active: price.active,
+      priceInterval: price.recurring?.interval ?? null,
+    });
+  } catch (err) {
+    onMismatch?.({ plan, interval, priceId: id, error: err instanceof Error ? err.message : String(err) });
+  }
+  return null;
 }

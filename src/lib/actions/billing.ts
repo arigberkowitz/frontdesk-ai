@@ -14,7 +14,7 @@ import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { PLANS, type PlanKey } from "@/config/plans";
 import { type ActionState } from "./types";
-import { intervalPriceCents, stripePriceId } from "@/lib/stripe-prices";
+import { intervalPriceCents, verifiedStripePriceId, type PriceReader } from "@/lib/stripe-prices";
 import {
   checkoutAutomaticTaxParams,
   inlinePriceTaxBehavior,
@@ -31,12 +31,22 @@ import {
  */
 const SAAS_TAX_CODE = "txcd_10103001";
 
+/** Log once per checkout when a STRIPE_PRICE_* env no longer matches PLANS. */
+const priceMismatch = (detail: Record<string, unknown>) => logger.warn("billing.named_price_mismatch", detail);
+
 /**
  * The subscription line: the pre-made Stripe Price when its env is set
- * (STRIPE_PRICE_<PLAN>_MONTHLY / _YEARLY), otherwise an inline price.
+ * (STRIPE_PRICE_<PLAN>_MONTHLY / _YEARLY) AND it charges the amount in PLANS,
+ * otherwise an inline price for exactly that amount.
  */
-function recurringLineItem(planKey: PlanKey, planName: string, interval: "month" | "year", amount: number) {
-  const price = stripePriceId(planKey, interval);
+async function recurringLineItem(
+  stripe: PriceReader,
+  planKey: PlanKey,
+  planName: string,
+  interval: "month" | "year",
+  amount: number,
+) {
+  const price = await verifiedStripePriceId(stripe, planKey, interval, priceMismatch);
   if (price) return { quantity: 1, price };
   return {
     quantity: 1,
@@ -85,7 +95,7 @@ export async function startCheckoutAction(
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [
-        recurringLineItem(planKey, plan.name, interval, recurringAmount),
+        await recurringLineItem(stripe, planKey, plan.name, interval, recurringAmount),
         ...(plan.setupFeeCents > 0
           ? [
               {
@@ -181,7 +191,7 @@ export async function startSelfServeCheckoutAction(
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [
-        recurringLineItem(planKey, plan.name, interval, recurringAmount),
+        await recurringLineItem(stripe, planKey, plan.name, interval, recurringAmount),
       ],
       allow_promotion_codes: true,
       customer_email: client.ownerEmail || undefined,
@@ -291,7 +301,8 @@ export async function changePlanAction(_prev: ActionState, formData: FormData): 
     if (!item) return { ok: false, error: "Couldn't read your current plan. Reach us from Settings → Help." };
     const interval = item.price.recurring?.interval === "year" ? "year" : "month";
     // A named Stripe Price, when one is configured, same as checkout uses.
-    const namedPrice = stripePriceId(planKey, interval);
+    // Only if it still charges the current list price; see verifiedStripePriceId.
+    const namedPrice = await verifiedStripePriceId(stripe, planKey, interval, priceMismatch);
     if (namedPrice) {
       await stripe.subscriptions.update(sub.subId, {
         items: [{ id: item.id, price: namedPrice }],
