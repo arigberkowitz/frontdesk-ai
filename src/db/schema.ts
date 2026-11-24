@@ -249,6 +249,11 @@ export const clients = pgTable(
         reviewed?: Partial<Record<"services" | "hours" | "faqs" | "greeting", boolean>>;
         /** Owner hid the unfinished setup checklist from the Overview (ISO). */
         checklistHiddenAt?: string;
+        /**
+         * Owner went through (or skipped) the optional "Choose your features"
+         * setup step. Only ticks that optional row; never gates anything.
+         */
+        featuresReviewed?: boolean;
         quietAlertAt?: string;
         /** Advisory notes from the AI setup review — suggestions, not blockers. */
         reviewNotes?: string[];

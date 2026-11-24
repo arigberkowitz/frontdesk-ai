@@ -11,6 +11,7 @@ import { PanelHeader } from "@/components/panel-header";
 import { saveAiTextRepliesSettingsAction } from "@/lib/actions/sms-ai";
 import { initialActionState } from "@/lib/actions/types";
 import { AI_REPLIES_PER_THREAD_PER_DAY, PAUSE_HOUR_CHOICES } from "@/lib/sms-ai/rules";
+import { WhatsThis } from "@/components/portal/feature-explainer";
 
 /**
  * Settings → Follow-ups → AI text replies. Off by default; owner/admin only.
@@ -48,6 +49,7 @@ export function AiTextRepliesCard({
           title="AI text replies"
           description="When a customer texts you, your AI answers using only your services, hours and FAQ — and can check times, book, move or cancel their appointment. Anything it isn't sure about comes straight to you."
         />
+        <WhatsThis feature="aiTextReplies" className="sm:ml-12" />
         <form action={action} className="mt-5 space-y-4">
           <input type="hidden" name="clientId" value={clientId} />
           <div className="flex items-center justify-between gap-4 rounded-lg border p-3">

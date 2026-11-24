@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { PanelHeader } from "@/components/panel-header";
 import { saveChatWidgetSettingsAction } from "@/lib/actions/growth-settings";
 import { initialActionState } from "@/lib/actions/types";
+import { WhatsThis } from "@/components/portal/feature-explainer";
 
 /**
  * The same receptionist, on the business's website — and in this portal.
@@ -49,6 +50,7 @@ export function ChatWidgetCard({
           title="Chat on your website"
           description="The same receptionist that answers your phone, as a chat bubble on your site. It knows the same services, hours and answers, and it books into the same calendar."
         />
+        <WhatsThis feature="chatWidget" className="sm:ml-12" />
 
         <form action={action} className="mt-5 space-y-4">
           <input type="hidden" name="clientId" value={clientId} />

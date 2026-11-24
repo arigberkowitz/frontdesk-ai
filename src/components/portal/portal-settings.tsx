@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field } from "@/components/form/field";
 import { NativeSelect } from "@/components/form/native-select";
+import { WhatsThis } from "@/components/portal/feature-explainer";
 import { SubmitButton } from "@/components/form/submit-button";
 import { TIMEZONES, TIMEZONE_LABELS } from "@/config/options";
 import type { SafeClient as Client } from "@/lib/client-safe";
@@ -132,6 +133,7 @@ export function AlertsForm({ client, isAdmin = true }: { client: Client; isAdmin
               <option value="on">On — text me every booking and message</option>
               <option value="off">Off — email only</option>
             </NativeSelect>
+            <WhatsThis feature="smsAlerts" />
           </Field>
           <div id="weekly-summary" className="scroll-mt-24">
             <Field
@@ -145,6 +147,7 @@ export function AlertsForm({ client, isAdmin = true }: { client: Client; isAdmin
                 <option value="on">On — email me a summary every Monday</option>
                 <option value="off">Off — no weekly summary</option>
               </NativeSelect>
+              <WhatsThis feature="weeklySummary" />
             </Field>
             <a
               href="/portal/settings/weekly-summary"
@@ -167,6 +170,7 @@ export function AlertsForm({ client, isAdmin = true }: { client: Client; isAdmin
                 <option value="on">On — email me a briefing every morning</option>
                 <option value="off">Off — no morning briefing</option>
               </NativeSelect>
+              <WhatsThis feature="dailyBriefing" />
             </Field>
             <a
               href="/portal/settings/daily-briefing"
@@ -240,6 +244,7 @@ export function HumanTouchForm({ client }: { client: Client }) {
                 {hasNumber ? "Off — only transfer if the caller asks" : "Off — take a message instead"}
               </option>
             </NativeSelect>
+            <WhatsThis feature="offerHuman" />
           </Field>
           <Field
             label="When is a real person reachable?"
@@ -333,6 +338,7 @@ export function RecoveryTextsForm({ client }: { client: Client }) {
               <option value="off">Off — I&apos;ll follow up myself</option>
               <option value="on">On — recover cold leads and no-shows for me</option>
             </NativeSelect>
+            <WhatsThis feature="recoveryTexts" />
           </Field>
           <div className="flex justify-end">
             <SubmitButton pending={recoveryPending}>Save</SubmitButton>

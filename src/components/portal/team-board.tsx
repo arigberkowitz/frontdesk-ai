@@ -20,6 +20,7 @@ import {
 } from "@/lib/actions/providers";
 import { initialActionState, type ActionState } from "@/lib/actions/types";
 import { formatCurrencyCents } from "@/lib/format";
+import { WhatsThis } from "@/components/portal/feature-explainer";
 
 export interface TeamMemberView {
   id: string;
@@ -291,6 +292,7 @@ export function TeamBoard({
               title="Staff mode"
               description="On: your AI books by person ('anyone in particular?'), each teammate gets their own day view and stats, and whoever's on the clock gets the alerts. Off: simple solo booking."
             />
+            <WhatsThis feature="staffMode" className="sm:ml-12" />
             <form ref={modeFormRef} action={modeAction} className="mt-4">
               <input type="hidden" name="clientId" value={clientId} />
               <input type="hidden" name="enabled" value={enabled ? "false" : "true"} />

@@ -10,6 +10,7 @@ import { PanelHeader } from "@/components/panel-header";
 import { saveSmartRebookingSettingsAction } from "@/lib/actions/rebooking";
 import { initialActionState } from "@/lib/actions/types";
 import { REBOOK_OFFER_HOURS } from "@/lib/rebook";
+import { WhatsThis } from "@/components/portal/feature-explainer";
 
 /** Settings → Follow-ups: let the owner ask affected customers to pick a new time. Off by default. */
 export function SmartRebookingCard({
@@ -39,6 +40,7 @@ export function SmartRebookingCard({
           title="Rebook when you block time"
           description="When you add time off over existing bookings, the Hours page lists who's affected. With this on, you can have us text them 2–3 new times — they reply 1, 2 or 3 and it's moved, or NO to cancel."
         />
+        <WhatsThis feature="smartRebooking" className="sm:ml-12" />
         <form action={action} className="mt-5 space-y-4">
           <input type="hidden" name="clientId" value={clientId} />
           <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
