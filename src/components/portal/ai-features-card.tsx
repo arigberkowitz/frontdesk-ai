@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useId, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { Bot, CalendarClock, PhoneCall, PhoneMissed, Sparkles, Sun, type LucideIcon } from "lucide-react";
+import { Bot, CalendarClock, MoonStar, PhoneCall, PhoneMissed, Sparkles, Sun, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ export interface AiFeaturesCardProps {
   };
   smartRebooking: { enabled: boolean; status: FeatureStatus };
   dailyBriefing: { enabled: boolean; status: FeatureStatus; ownerEmail: string | null };
+  morningUnbookedText: { enabled: boolean; status: FeatureStatus };
   /** Plain-language limits repeated from Settings → Follow-ups. */
   limits: { repliesPerThreadPerDay: number; callbackDedupeDays: number; callbacksPerDay: number; rebookOfferHours: number };
 }
@@ -160,6 +161,23 @@ export function AiFeaturesCard(p: AiFeaturesCardProps) {
             action={savePortalProfileAction}
             // The profile action patches only the fields it's sent — just this flag.
             form={(on) => toForm(switchboardFields("dailyBriefing", clientId, on))}
+            confirmNotes={null}
+          />
+          <FeatureRow
+            icon={MoonStar}
+            title="Morning text: who didn't book"
+            description="A text each morning (8–11am your time) listing last night's after-hours callers who didn't book, with what they wanted and a link to each. No text when there's nobody."
+            status={p.morningUnbookedText.status}
+            statusLink={
+              p.morningUnbookedText.status.tone === "warn" && p.morningUnbookedText.status.text.includes("text alerts")
+                ? { href: "/portal/settings/alerts", label: "Turn on text alerts" }
+                : undefined
+            }
+            initialOn={p.morningUnbookedText.enabled}
+            isAdmin={isAdmin}
+            action={savePortalProfileAction}
+            // Goes only to you (your text-alert numbers), never to customers.
+            form={(on) => toForm(switchboardFields("morningUnbookedText", clientId, on))}
             confirmNotes={null}
           />
         </ul>

@@ -180,6 +180,34 @@
     {
       "path": "/api/cron/sms-queue",
       "schedule": "2 23 * * *"
+    },
+    {
+      "path": "/api/cron/morning-unbooked",
+      "schedule": "15 12 * * *"
+    },
+    {
+      "path": "/api/cron/morning-unbooked",
+      "schedule": "15 13 * * *"
+    },
+    {
+      "path": "/api/cron/morning-unbooked",
+      "schedule": "15 14 * * *"
+    },
+    {
+      "path": "/api/cron/morning-unbooked",
+      "schedule": "15 15 * * *"
+    },
+    {
+      "path": "/api/cron/morning-unbooked",
+      "schedule": "15 16 * * *"
+    },
+    {
+      "path": "/api/cron/morning-unbooked",
+      "schedule": "15 17 * * *"
+    },
+    {
+      "path": "/api/cron/morning-unbooked",
+      "schedule": "15 18 * * *"
     }
   ]
 }
