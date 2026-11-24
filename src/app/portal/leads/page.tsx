@@ -113,7 +113,12 @@ export default async function PortalLeadsPage() {
             }));
             const hasQual = Boolean(l.service || l.urgency || l.budget);
             return (
-              <li key={l.id} className="fd-row p-4">
+              // id: the morning "didn't book" text links straight to a lead (#lead-<id>).
+              <li
+                key={l.id}
+                id={`lead-${l.id}`}
+                className="fd-row scroll-mt-24 p-4 target:ring-2 target:ring-brand/40"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
                     <InitialsAvatar name={l.name} seed={l.phone ?? l.id} className="mt-0.5" />

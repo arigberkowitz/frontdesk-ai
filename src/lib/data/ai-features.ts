@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { notifications, rebookOffers, smsMessages, smsThreads } from "@/db/schema";
 import { callbackStats } from "@/lib/data/call-callbacks";
 import { DAILY_BRIEFING_KIND } from "@/lib/data/daily-briefing";
+import { lastMorningUnbookedSentAt } from "@/lib/data/morning-unbooked";
 import { AI_REPLY_KIND } from "@/lib/sms-ai/rules";
 import type { AiFeatureStats } from "@/lib/ai-features";
 
@@ -15,7 +16,13 @@ import type { AiFeatureStats } from "@/lib/ai-features";
  */
 export async function getAiFeatureStats(
   clientId: string,
-  enabled: { aiTextReplies: boolean; missedCallTexts: boolean; smartRebooking: boolean; dailyBriefing: boolean },
+  enabled: {
+    aiTextReplies: boolean;
+    missedCallTexts: boolean;
+    smartRebooking: boolean;
+    dailyBriefing: boolean;
+    morningUnbookedText?: boolean;
+  },
   now: Date = new Date(),
 ): Promise<AiFeatureStats> {
   const weekAgo = new Date(now.getTime() - 7 * 86_400_000);
@@ -23,7 +30,7 @@ export async function getAiFeatureStats(
   const soft = <T,>(p: Promise<T>): Promise<T | null> => p.catch(() => null);
 
   // Only ask for what an "on" feature will show — an off feature shows no numbers.
-  const [aiReplies7d, aiHandoffs7d, callbacks, rebook, briefing] = await Promise.all([
+  const [aiReplies7d, aiHandoffs7d, callbacks, rebook, briefing, morningText] = await Promise.all([
     enabled.aiTextReplies
       ? soft(
           db
@@ -87,6 +94,7 @@ export async function getAiFeatureStats(
             .then((r) => r[0]?.sentAt ?? null),
         )
       : null,
+    enabled.morningUnbookedText ? soft(lastMorningUnbookedSentAt(clientId)) : null,
   ]);
 
   return {
@@ -101,5 +109,6 @@ export async function getAiFeatureStats(
       : null,
     rebook30d: rebook,
     lastBriefingSentAt: briefing,
+    lastMorningTextSentAt: morningText,
   };
 }

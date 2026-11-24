@@ -15,6 +15,7 @@ const off: AiFeatureFlags = {
   smartRebookingEnabled: false,
   dailyBriefingEnabled: false,
   ownerEmail: "owner@biz.test",
+  morningUnbookedTextEnabled: false,
 };
 const on: AiFeatureFlags = {
   ...off,
@@ -124,5 +125,31 @@ describe("switchboardFields", () => {
 
   it("the briefing switch sends only its own flag (an owner-only profile field)", () => {
     expect(switchboardFields("dailyBriefing", "c1", false)).toEqual({ clientId: "c1", dailyBriefingEnabled: "off" });
+  });
+});
+
+describe("morning 'didn't book' text switch", () => {
+  const mOn = { ...off, morningUnbookedTextEnabled: true };
+  it("reads off / on / last sent, and warns when text alerts are off", () => {
+    expect(aiFeatureStatus("morningUnbookedText", off, stats({ lastMorningTextSentAt: now }), opts)).toEqual({
+      tone: "off",
+      text: "Off · no morning text",
+    });
+    expect(aiFeatureStatus("morningUnbookedText", mOn, stats({}), opts).text).toBe(
+      "On · texts you 8–11am, only when someone didn't book",
+    );
+    expect(aiFeatureStatus("morningUnbookedText", mOn, stats({ lastMorningTextSentAt: now }), opts).text).toBe(
+      "Last sent today",
+    );
+    expect(aiFeatureStatus("morningUnbookedText", { ...mOn, smsAlertsEnabled: false }, stats({}), opts).tone).toBe("warn");
+  });
+  it("says texts are pending until carriers approve texting", () => {
+    expect(aiFeatureStatus("morningUnbookedText", mOn, stats({}), { ...opts, smsEnabled: false }).text).toBe(
+      "On · texts pending carrier approval",
+    );
+  });
+  it("posts only its own flag to the profile action", () => {
+    expect(switchboardFields("morningUnbookedText", "c1", true)).toEqual({ clientId: "c1", morningUnbookedTextEnabled: "on" });
+    expect(switchboardFields("morningUnbookedText", "c1", false)).toEqual({ clientId: "c1", morningUnbookedTextEnabled: "off" });
   });
 });

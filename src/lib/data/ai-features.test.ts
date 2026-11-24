@@ -77,7 +77,14 @@ describe("getAiFeatureStats", () => {
       { aiTextReplies: false, missedCallTexts: false, smartRebooking: false, dailyBriefing: false },
       NOW,
     );
-    expect(st).toEqual({ aiReplies7d: null, aiHandoffs7d: null, callbacks7d: null, rebook30d: null, lastBriefingSentAt: null });
+    expect(st).toEqual({
+      aiReplies7d: null,
+      aiHandoffs7d: null,
+      callbacks7d: null,
+      rebook30d: null,
+      lastBriefingSentAt: null,
+      lastMorningTextSentAt: null,
+    });
   });
 
   it("is scoped to the business", async () => {

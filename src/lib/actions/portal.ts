@@ -141,6 +141,14 @@ export async function savePortalProfileAction(
       .where(eq(clients.id, clientId));
     briefingSaved = true;
   }
+  if (formData.has("morningUnbookedTextEnabled")) {
+    const on = String(formData.get("morningUnbookedTextEnabled")) === "on";
+    await db
+      .update(clients)
+      .set({ setupFlags: sql`${clients.setupFlags} || jsonb_build_object('morningUnbookedText', ${on}::boolean)` })
+      .where(eq(clients.id, clientId));
+    briefingSaved = true;
+  }
 
   if (Object.keys(patch).length === 0) {
     if (briefingSaved) {

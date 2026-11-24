@@ -37,6 +37,7 @@ export const OWNER_ONLY_PROFILE_FIELDS = [
   "smsAlertsEnabled",
   "weeklySummaryEnabled",
   "dailyBriefingEnabled",
+  "morningUnbookedTextEnabled",
 ] as const;
 
 export function ownerOnlyFieldsIn(formData: FormData): string[] {
