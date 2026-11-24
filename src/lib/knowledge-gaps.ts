@@ -187,3 +187,12 @@ export function matchSuggestion(
   );
   return viaCall?.id ?? null;
 }
+
+/** Where "add an answer" goes for a question: the drafted suggestion if the
+ *  nightly loop wrote one, otherwise the knowledge page with it pre-filled.
+ *  Shared by the portal card and the weekly email (which prefixes the origin). */
+export function gapActionHref(g: Pick<GapGroup, "question" | "suggestionId">): string {
+  return g.suggestionId
+    ? `/portal#suggestion-${g.suggestionId}`
+    : `/portal/knowledge?add=${encodeURIComponent(g.question)}`;
+}

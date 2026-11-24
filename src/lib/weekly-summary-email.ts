@@ -5,6 +5,7 @@
 import type { CallHealthSummary } from "./call-health";
 import { formatCurrencyCents } from "./format";
 import { afterHoursComparison, afterHoursHeadline, type AfterHoursWeek } from "./after-hours-copy";
+import { gapActionHref, type GapGroup, type GapSummary } from "./knowledge-gaps";
 
 /** The call/booking/lead/revenue numbers from `getClientPeriodSummary`. */
 export interface WeeklyCoreStats {
@@ -136,12 +137,61 @@ function afterHoursBlock(w?: AfterHoursWeek | null): string {
   </div>`;
 }
 
+/** At most this many unanswered questions go in the email. */
+export const EMAIL_GAP_LIMIT = 3;
+
+/**
+ * The questions worth an owner's minute this week: asked on at least one call,
+ * not already answered in the knowledge base, most-asked first, top 3. Empty
+ * when there's nothing (no data, table not migrated, or every gap answered) —
+ * then the email leaves the section out rather than printing a zero.
+ */
+export function weeklyGapItems(summary?: GapSummary | null): GapGroup[] {
+  if (!summary || summary.withGap === 0) return [];
+  return summary.top.filter((g) => !g.answered && g.calls > 0).slice(0, EMAIL_GAP_LIMIT);
+}
+
+function gapLine(g: GapGroup): string {
+  return `"${g.question}" came up on ${plural(g.calls, "call", "calls")}.`;
+}
+
+function gapLinkLabel(g: GapGroup): string {
+  return g.suggestionId ? "Review the drafted answer" : "Add an answer";
+}
+
+/**
+ * "Questions your AI couldn't answer this week" — each with a one-click way to
+ * teach it. Only real questions from real calls; omitted entirely when empty.
+ */
+function gapsBlock(items: GapGroup[], base: string): string {
+  if (!items.length) return "";
+  return `<div style="margin:18px 0 0;padding:12px 14px;border:1px solid #e0e7ff;border-radius:8px">
+    <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#111">Questions your AI couldn't answer this week</p>
+    <p style="margin:0 0 8px;font-size:12px;color:#666">It took a message instead of guessing. Add an answer and it'll handle these next time.</p>
+    <ul style="margin:0;padding:0;list-style:none">
+      ${items
+        .map(
+          (g) =>
+            `<li style="margin:0;padding:8px 0;border-top:1px solid #eef2ff;font-size:14px;color:#333">${esc(gapLine(g))} <a href="${esc(
+              base + gapActionHref(g),
+            )}" style="color:#4f46e5;font-weight:600;white-space:nowrap">${gapLinkLabel(g)} &rarr;</a></li>`,
+        )
+        .join("\n      ")}
+    </ul>
+  </div>`;
+}
+
 export interface WeeklySummaryEmailInput {
   businessName: string;
   stats: WeeklySummaryStats;
   health?: CallHealthSummary | null;
   /** App origin, e.g. "https://frontdeskai.company". */
   baseUrl: string;
+  /**
+   * This week's knowledge gaps (data/knowledge-gaps.ts), only for businesses
+   * on the ai_improvement gate. Null/absent = section left out.
+   */
+  gaps?: GapSummary | null;
 }
 
 export function weeklySummarySubject(s: WeeklySummaryStats): string {
@@ -168,6 +218,7 @@ export function weeklySummaryEmail(input: WeeklySummaryEmailInput): {
         }`
       : "Appointments your AI put on the calendar";
   const settingsUrl = `${base}/portal/settings/alerts#weekly-summary`;
+  const gapItems = weeklyGapItems(input.gaps);
 
   const html = `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto">
   <p style="color:#666;margin:0 0 4px;font-size:13px">Your week with FrontDesk AI</p>
@@ -187,6 +238,7 @@ export function weeklySummaryEmail(input: WeeklySummaryEmailInput): {
     ${statRow("Texts from customers", String(s.textsReceived), s.textsReceived > 0 ? `<a href="${base}/portal/messages" style="color:#6366f1">Read and reply in Messages</a>` : undefined)}
   </table>
   ${healthBlock(health)}
+  ${gapsBlock(gapItems, base)}
   <p style="margin:20px 0">
     <a href="${base}/portal" style="background:#111;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;display:inline-block">Open your dashboard</a>
   </p>
@@ -207,6 +259,13 @@ export function weeklySummaryEmail(input: WeeklySummaryEmailInput): {
     `Missed calls won back: ${s.missedRecovered}`,
     `New leads: ${s.leads}`,
     `Texts from customers: ${s.textsReceived}`,
+    ...(gapItems.length
+      ? [
+          "",
+          "Questions your AI couldn't answer this week:",
+          ...gapItems.map((g) => `- ${gapLine(g)} ${gapLinkLabel(g)}: ${base}${gapActionHref(g)}`),
+        ]
+      : []),
     "",
     `Dashboard: ${base}/portal`,
     `Turn off the weekly summary: ${settingsUrl}`,

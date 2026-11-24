@@ -3,9 +3,11 @@ import {
   hasWeeklyActivity,
   isoWeekKey,
   weeklySummaryEmail,
+  weeklyGapItems,
   weeklySummarySubject,
   type WeeklySummaryStats,
 } from "./weekly-summary-email";
+import type { GapGroup, GapSummary } from "./knowledge-gaps";
 
 const stats = (over: Partial<WeeklySummaryStats> = {}): WeeklySummaryStats => ({
   calls: 42,
@@ -162,4 +164,70 @@ describe("hasWeeklyActivity", () => {
     expect(hasWeeklyActivity({ ...zero, textsReceived: 1 })).toBe(true));
   it("counts a cancellation alone as activity", () =>
     expect(hasWeeklyActivity({ ...zero, cancellations: 1 })).toBe(true));
+});
+
+describe("weekly email: questions your AI couldn't answer", () => {
+  const g = (question: string, calls: number, over: Partial<GapGroup> = {}): GapGroup => ({
+    question,
+    calls,
+    callIds: Array.from({ length: calls }, (_, i) => `${question}-${i}`),
+    suggestionId: null,
+    answered: false,
+    ...over,
+  });
+  const summary = (top: GapGroup[], withGap = top.length): GapSummary => ({
+    checked: 20,
+    withGap,
+    percent: Math.round((withGap / 20) * 100),
+    top,
+  });
+  const render = (gaps: GapSummary | null | undefined) =>
+    weeklySummaryEmail({ businessName: "Bright Smiles", stats: stats(), baseUrl: "https://app.test/", gaps });
+
+  it("lists the top 3 unanswered questions, most asked first, with a link to add the answer", () => {
+    const { html, text } = render(
+      summary([
+        g("Do you offer financing?", 3),
+        g("Is there parking?", 2, { suggestionId: "sug-1" }),
+        g("Do you take Visa & Amex?", 2),
+        g("Are you open on holidays?", 1),
+      ]),
+    );
+    expect(html).toContain("Questions your AI couldn't answer this week");
+    expect(html).toContain("&quot;Do you offer financing?&quot; came up on 3 calls.");
+    expect(html).toContain('href="https://app.test/portal/knowledge?add=Do%20you%20offer%20financing%3F"');
+    expect(html).toContain('href="https://app.test/portal#suggestion-sug-1"');
+    expect(html).toContain("Review the drafted answer &rarr;");
+    expect(html).toContain("Add an answer &rarr;");
+    expect(html).not.toContain("holidays");
+    expect(text).toContain(
+      `- "Do you offer financing?" came up on 3 calls. Add an answer: https://app.test/portal/knowledge?add=Do%20you%20offer%20financing%3F`,
+    );
+    expect(text).toContain(`- "Is there parking?" came up on 2 calls. Review the drafted answer: https://app.test/portal#suggestion-sug-1`);
+    expect(text).not.toContain("holidays");
+  });
+
+  it("escapes the question text in the HTML", () => {
+    const { html } = render(summary([g("<b>Do you price-match?</b>", 1)]));
+    expect(html).toContain("&lt;b&gt;Do you price-match?&lt;/b&gt;");
+    expect(html).toContain("came up on 1 call.");
+  });
+
+  it("skips questions already answered in the knowledge base", () => {
+    const items = weeklyGapItems(summary([g("Is there parking?", 4, { answered: true }), g("Do you offer financing?", 1)]));
+    expect(items.map((i) => i.question)).toEqual(["Do you offer financing?"]);
+  });
+
+  it.each([
+    ["no gap data (gated out or table not migrated)", null],
+    ["no gaps argument at all", undefined],
+    ["zero gaps this week", summary([], 0)],
+    ["nothing checked this week", { checked: 0, withGap: 0, percent: 0, top: [] }],
+    ["every gap already answered", summary([g("Is there parking?", 2, { answered: true })])],
+  ] as const)("leaves the section out entirely: %s", (_label, gaps) => {
+    const { html, text } = render(gaps as GapSummary | null | undefined);
+    expect(html).not.toContain("couldn't answer");
+    expect(text).not.toContain("couldn't answer");
+    expect(html).not.toContain("Add an answer");
+  });
 });
