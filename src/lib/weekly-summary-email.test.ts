@@ -140,6 +140,42 @@ describe("weeklySummaryEmail — while you were closed", () => {
     }
   });
 
+  it("adds the booked-value line from listed prices, under the headline", () => {
+    const { html, text } = render({
+      afterHoursWeek: {
+        answered: 7, booked: 3, messages: 2, prior: { answered: 4, booked: 1 },
+        value: { priced: 3, cents: 42000, atLeast: false },
+      },
+    });
+    const line = "Those 3 bookings are worth about $420 at your listed prices.";
+    expect(html).toContain(line);
+    expect(html.indexOf(line)).toBeGreaterThan(html.indexOf("While you were closed"));
+    expect(html.indexOf(line)).toBeLessThan(html.indexOf("The week before"));
+    expect(text.split("\n")[3]).toBe(line);
+  });
+
+  it("says how many had a price when only some did", () => {
+    const { html, text } = render({
+      afterHoursWeek: {
+        answered: 5, booked: 3, messages: 0, prior: { answered: 0, booked: 0 },
+        value: { priced: 2, cents: 30000, atLeast: false },
+      },
+    });
+    expect(html).toContain("2 of 3 bookings had a listed price, worth about $300.");
+    expect(text).toContain("2 of 3 bookings had a listed price, worth about $300.");
+  });
+
+  it("leaves the money out when nothing booked had a listed price", () => {
+    const { html, text } = render({
+      afterHoursWeek: {
+        answered: 5, booked: 3, messages: 0, prior: { answered: 0, booked: 0 },
+        value: { priced: 0, cents: 0, atLeast: false },
+      },
+    });
+    expect(html).not.toMatch(/bookings are worth|booking is worth|had a listed price/);
+    expect(text).not.toMatch(/bookings are worth|booking is worth|had a listed price/);
+  });
+
   it("keeps the opt-out link", () => {
     const { html } = render({ afterHoursWeek: { answered: 2, booked: 1, messages: 0, prior: { answered: 0, booked: 0 } } });
     expect(html).toContain("https://app.test/portal/settings/alerts#weekly-summary");

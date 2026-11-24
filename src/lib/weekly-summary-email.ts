@@ -4,7 +4,7 @@
  */
 import type { CallHealthSummary } from "./call-health";
 import { formatCurrencyCents } from "./format";
-import { afterHoursComparison, afterHoursHeadline, type AfterHoursWeek } from "./after-hours-copy";
+import { afterHoursComparison, afterHoursHeadline, afterHoursValueLine, type AfterHoursWeek } from "./after-hours-copy";
 import { gapActionHref, type GapGroup, type GapSummary } from "./knowledge-gaps";
 
 /** The call/booking/lead/revenue numbers from `getClientPeriodSummary`. */
@@ -130,8 +130,11 @@ function afterHoursBlock(w?: AfterHoursWeek | null): string {
   if (w.answered === 0) {
     return `<p style="margin:0 0 16px;font-size:14px;color:#555">${afterHoursHeadline(w)}</p>`;
   }
+  const value = afterHoursValueLine(w);
   return `<div style="margin:0 0 18px;padding:14px 16px;background:#eef2ff;border-radius:10px">
     <p style="margin:0;font-size:16px;line-height:1.45;color:#1e1b4b"><strong>${afterHoursHeadline(w)}</strong></p>${
+      value ? `\n    <p style="margin:6px 0 0;font-size:14px;color:#1e1b4b">${value}</p>` : ""
+    }${
       compare ? `\n    <p style="margin:6px 0 0;font-size:13px;color:#4338ca">${compare}</p>` : ""
     }
   </div>`;
@@ -248,10 +251,18 @@ export function weeklySummaryEmail(input: WeeklySummaryEmailInput): {
 
   const ah = s.afterHoursWeek;
   const ahCompare = ah ? afterHoursComparison(ah) : null;
+  const ahValue = ah ? afterHoursValueLine(ah) : null;
   const text = [
     `${input.businessName} — your last 7 days with FrontDesk AI`,
     "",
-    ...(ah ? [afterHoursHeadline(ah), ...(ah.answered > 0 && ahCompare ? [ahCompare] : []), ""] : []),
+    ...(ah
+      ? [
+          afterHoursHeadline(ah),
+          ...(ahValue ? [ahValue] : []),
+          ...(ah.answered > 0 && ahCompare ? [ahCompare] : []),
+          "",
+        ]
+      : []),
     `Calls answered: ${s.calls}`,
     `Appointments booked: ${s.bookingsMade} (${s.bookings} already happened, worth ${earned}${s.upcomingRevenueCents > 0 ? `; ${upcoming} still to come` : ""})`,
     `Cancellations: ${s.cancellations}`,
