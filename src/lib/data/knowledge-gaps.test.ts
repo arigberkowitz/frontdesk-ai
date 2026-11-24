@@ -110,6 +110,14 @@ describe("getKnowledgeGapSummary", () => {
     ]);
   });
 
+  it("narrows to the last 7 days for the weekly email", async () => {
+    await recordKnowledgeGaps({ callId: await call(A, { daysAgo: 2 }), clientId: A, questions: ["Do you offer financing?"] });
+    await recordKnowledgeGaps({ callId: await call(A, { daysAgo: 10 }), clientId: A, questions: ["Is there parking?"] });
+    const s = await getKnowledgeGapSummary(A, 7);
+    expect(s).toMatchObject({ checked: 1, withGap: 1 });
+    expect(s!.top.map((g) => g.question)).toEqual(["Do you offer financing?"]);
+  });
+
   it("returns zero checked (not a fake number) when nothing has been checked", async () => {
     await call(A);
     expect(await getKnowledgeGapSummary(A)).toEqual({ checked: 0, withGap: 0, percent: 0, top: [] });

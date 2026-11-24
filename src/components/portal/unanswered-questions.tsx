@@ -2,15 +2,10 @@ import Link from "next/link";
 import { CircleHelp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { PanelHeader } from "@/components/panel-header";
-import type { GapGroup, GapSummary } from "@/lib/knowledge-gaps";
+import { gapActionHref, type GapSummary } from "@/lib/knowledge-gaps";
 
-/** Where "add an answer" goes for a question: the drafted suggestion if the
- *  nightly loop wrote one, otherwise the knowledge page with it pre-filled. */
-export function gapActionHref(g: Pick<GapGroup, "question" | "suggestionId">): string {
-  return g.suggestionId
-    ? `/portal#suggestion-${g.suggestionId}`
-    : `/portal/knowledge?add=${encodeURIComponent(g.question)}`;
-}
+// Kept here too so existing imports keep working; the email uses the same links.
+export { gapActionHref };
 
 /**
  * "Questions your AI couldn't answer" — how often a caller asks something the
