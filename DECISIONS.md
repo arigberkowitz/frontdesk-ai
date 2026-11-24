@@ -845,3 +845,25 @@ pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
 - **Reminder email is opt-in.** A new d3 email ("You asked us for this reminder…") only sends if the owner ticks "Email me 3 days before it ends" (`setup_flags.trialReminderOptIn`, default off). It rides the existing `runTrialReminders` in the daily retention cron — no new cron, `vercel.json` untouched. The existing automatic d7/d1 emails are unchanged; if d3 went out, d7 is skipped so owners never get two in a row. Tests mock the notifier — no sends.
 - **postgres-js gotcha.** Raw `Date` values inside `sql\`\`` fragments throw on postgres-js (PGlite accepts them); pass `toISOString()` with `::timestamptz`.
 - No migration; no new env vars.
+
+## 2026-11-24 — Price raise: $199 / $399 / $599
+
+- **List prices** (`src/config/plans.ts`): Missed-Call Rescue $149 → **$199**, Starter $300 → **$399**,
+  Pro $500 → **$599** a month. Yearly is still 10× monthly (two months free): $1,990 / $3,990 / $5,990.
+  Minutes, features, no setup fee and the 14-day no-card trial are unchanged. Legacy Scale is untouched.
+- **Existing subscribers keep their price.** Nothing here touches a Stripe subscription; Stripe keeps
+  charging whatever price each subscription was created with. The old amounts live on
+  `Plan.legacyMonthlyPriceCents` so `resolvePlanKey` still matches a subscription by amount.
+- **Named Stripe Prices are checked, not trusted.** A Stripe Price is immutable, and production sets
+  `STRIPE_PRICE_{BACKUP,STARTER,PRO}_{MONTHLY,YEARLY}` to the old amounts. `verifiedStripePriceId`
+  retrieves the named Price and only uses it when it is active, USD, the right interval and exactly
+  `intervalPriceCents`; otherwise checkout and plan changes fall back to an inline price from PLANS and
+  log `billing.named_price_mismatch`. So the page and the charge can't disagree; making new Prices and
+  swapping the env vars just turns the named-product path back on.
+- **The subscription row stores what Stripe charges.** The webhook used to write today's list price into
+  `subscriptions.monthly_price_cents`, which would have silently re-priced every old subscriber in MRR on
+  their next subscription event. It now writes the subscription item's own `unit_amount` (yearly ÷ 10,
+  same basis as PLANS), falling back to the list price only when the event has no price. The portal plan
+  card shows that stored amount for the plan you're on.
+- No migration; no new env vars.
+

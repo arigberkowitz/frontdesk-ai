@@ -137,9 +137,16 @@ describe("plan changes", () => {
 describe("resolvePlanKey", () => {
   it("prefers metadata, falls back to the price", () => {
     expect(resolvePlanKey("starter", { unitAmount: 50_000, interval: "month" })).toBe("starter");
-    expect(resolvePlanKey(undefined, { unitAmount: 50_000, interval: "month" })).toBe("pro");
-    expect(resolvePlanKey(undefined, { unitAmount: 149_000, interval: "year" })).toBe("backup");
+    expect(resolvePlanKey(undefined, { unitAmount: 59_900, interval: "month" })).toBe("pro");
+    expect(resolvePlanKey(undefined, { unitAmount: 199_000, interval: "year" })).toBe("backup");
+    expect(resolvePlanKey(undefined, { unitAmount: 39_900, interval: "month" })).toBe("starter");
     expect(resolvePlanKey("bogus", { unitAmount: 1, interval: "month" })).toBeNull();
+  });
+  it("still resolves a subscription signed at an earlier price", () => {
+    expect(resolvePlanKey(undefined, { unitAmount: 14_900, interval: "month" })).toBe("backup");
+    expect(resolvePlanKey(undefined, { unitAmount: 300_000, interval: "year" })).toBe("starter");
+    expect(resolvePlanKey(undefined, { unitAmount: 50_000, interval: "month" })).toBe("pro");
+    expect(resolvePlanKey(undefined, { unitAmount: 12_345, interval: "month" })).toBeNull();
   });
   it("adds Spanish without dropping other languages", () => {
     expect(addSpanish("en")).toBe("en-es");

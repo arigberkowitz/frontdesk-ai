@@ -47,6 +47,7 @@ export default async function PortalSettingsPage({
           status: subscriptions.status,
           currentPeriodEnd: subscriptions.currentPeriodEnd,
           subId: subscriptions.stripeSubscriptionId,
+          monthlyPriceCents: subscriptions.monthlyPriceCents,
         })
         .from(subscriptions)
         .where(and(eq(subscriptions.clientId, clientId), isNull(subscriptions.deletedAt)))
@@ -92,7 +93,7 @@ export default async function PortalSettingsPage({
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
       />
       )}
-      {planKey && usage ? <PlanCard clientId={clientId} plan={planKey} usage={usage} interval={interval} plusTax={env.STRIPE_AUTOMATIC_TAX} /> : null}
+      {planKey && usage ? <PlanCard clientId={clientId} plan={planKey} usage={usage} interval={interval} paidMonthlyCents={sub?.monthlyPriceCents ?? null} plusTax={env.STRIPE_AUTOMATIC_TAX} /> : null}
       {sub?.customerId ? <ManageBilling clientId={clientId} /> : null}
       <DangerZone clientId={clientId} businessName={client.name} isAdmin={editAccess.isAdmin} hasBilling={Boolean(sub?.customerId)} />
     </div>

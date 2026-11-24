@@ -86,7 +86,7 @@ function jsonLd() {
       "@type": "Offer",
       name: p.name,
       priceCurrency: "USD",
-      // Without the billing period, search engines surfaced "$149" as the
+      // Without the billing period, search engines surfaced the plan price as the
       // price of the product rather than the price of a month.
       priceSpecification: {
         "@type": "UnitPriceSpecification",

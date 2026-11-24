@@ -22,12 +22,15 @@ export async function AiFeaturesSection({ client, isAdmin }: { client: Client; i
     smartRebookingEnabled: client.smartRebookingEnabled,
     dailyBriefingEnabled: client.setupFlags?.dailyBriefing === true,
     ownerEmail: client.ownerEmail,
+    morningUnbookedTextEnabled: client.setupFlags?.morningUnbookedText === true,
+    smsAlertsEnabled: client.smsAlertsEnabled,
   };
   const stats = await getAiFeatureStats(client.id, {
     aiTextReplies: flags.aiTextRepliesEnabled,
     missedCallTexts: flags.missedCallTextsEnabled,
     smartRebooking: flags.smartRebookingEnabled,
     dailyBriefing: flags.dailyBriefingEnabled,
+    morningUnbookedText: flags.morningUnbookedTextEnabled,
   });
   const opts = { timeZone: client.timezone, smsEnabled: env.SMS_ENABLED };
   let bookingEnabled = false;
@@ -62,6 +65,10 @@ export async function AiFeaturesSection({ client, isAdmin }: { client: Client; i
         enabled: flags.dailyBriefingEnabled,
         status: aiFeatureStatus("dailyBriefing", flags, stats, opts),
         ownerEmail: client.ownerEmail?.trim() || null,
+      }}
+      morningUnbookedText={{
+        enabled: flags.morningUnbookedTextEnabled,
+        status: aiFeatureStatus("morningUnbookedText", flags, stats, opts),
       }}
       limits={{
         repliesPerThreadPerDay: AI_REPLIES_PER_THREAD_PER_DAY,

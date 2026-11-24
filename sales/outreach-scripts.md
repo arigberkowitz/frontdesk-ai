@@ -81,7 +81,7 @@ afternoon.
 3. **Show the compounding part** (3 min): the portal's "Your AI learned"
    panel and prompt version history — it gets smarter from their real calls,
    with their approval on every change.
-4. **Price + close** (5 min): "$300/mo Starter, less than one missed job.
+4. **Price + close** (5 min): "$399/mo Starter, less than one missed job.
    14-day free trial, no charge until you go live. Want me to point your
    number at it today?"
 

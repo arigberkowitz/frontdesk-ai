@@ -19,7 +19,14 @@ export function PlanCard({
   usage,
   interval = "month",
   plusTax = false,
+  paidMonthlyCents = null,
 }: {
+  /**
+   * What their subscription charges per month (yearly = 10 months), from the
+   * subscription row. Earlier customers keep the price they signed at, so this
+   * wins over today's list price for the plan they're on.
+   */
+  paidMonthlyCents?: number | null;
   /** What they actually pay: prices are quoted per month or per year to match. */
   interval?: "month" | "year";
   clientId: string;
@@ -48,7 +55,7 @@ export function PlanCard({
       <CardHeader>
         <CardTitle>Your plan: {current?.name ?? plan}</CardTitle>
         <CardDescription>{current
-            ? `${price(current.monthlyPriceCents)}${interval === "year" ? " (billed yearly)" : ""} · no overage charges`
+            ? `${price(paidMonthlyCents ?? current.monthlyPriceCents)}${interval === "year" ? " (billed yearly)" : ""} · no overage charges`
             : null}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

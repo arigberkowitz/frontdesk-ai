@@ -6,7 +6,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * failed send. Never sends anything real.
  */
 
-type C = { id: string; name: string; ownerEmail: string | null; weeklySummaryEnabled: boolean };
+type C = {
+  id: string;
+  name: string;
+  ownerEmail: string | null;
+  weeklySummaryEnabled: boolean;
+  status?: string;
+  setupFlags?: { comped?: boolean } | null;
+};
 let clientsList: C[] = [];
 const inserted: Record<string, unknown>[] = [];
 vi.mock("@/db", () => ({
@@ -29,6 +36,29 @@ vi.mock("@/lib/data/after-hours", () => ({
     return afterHoursWeek;
   }),
 }));
+
+// Knowledge gaps: the plan gate and the data layer, mocked. The data layer's own
+// null-when-the-table-is-missing behavior is tested on PGlite in
+// data/knowledge-gaps.test.ts; here `null` stands in for that.
+let planHasAiImprovement = true;
+vi.mock("@/lib/plan-access", () => ({
+  planAccessFor: vi.fn(async () => ({ has: (f: string) => f === "ai_improvement" && planHasAiImprovement })),
+}));
+const GAPS = {
+  checked: 10,
+  withGap: 4,
+  percent: 40,
+  top: [
+    { question: "Do you offer financing?", calls: 3, callIds: ["a", "b", "c"], suggestionId: null, answered: false },
+    { question: "Is there parking?", calls: 1, callIds: ["d"], suggestionId: null, answered: false },
+  ],
+};
+let gapSummary: unknown = GAPS;
+const getKnowledgeGapSummary = vi.fn(async (_clientId: string, _days?: number) => {
+  if (gapSummary instanceof Error) throw gapSummary;
+  return gapSummary;
+});
+vi.mock("@/lib/data/knowledge-gaps", () => ({ getKnowledgeGapSummary }));
 
 // In-memory stand-in for the weekly_summary_sends ledger (the real SQL is
 // covered in data/weekly-summary.test.ts against PGlite).
@@ -64,6 +94,9 @@ beforeEach(() => {
   inserted.length = 0;
   sendEmail.mockClear();
   sendSms.mockClear();
+  getKnowledgeGapSummary.mockClear();
+  planHasAiImprovement = true;
+  gapSummary = GAPS;
   activity = { bookingsMade: 2, cancellations: 0, missedRecovered: 0, textsReceived: 1 };
   clientsList = [
     { id: "c1", name: "Alpha Dental", ownerEmail: "a@a.test", weeklySummaryEnabled: true },
@@ -130,5 +163,48 @@ describe("sendWeeklyReports", () => {
     core.calls = 3;
     core.bookings = 1;
     core.leads = 1;
+  });
+
+  describe("questions your AI couldn't answer", () => {
+    it("adds this week's top questions with a link to add the answer", async () => {
+      await sendWeeklyReports(MONDAY);
+      const { text, html } = sendEmail.mock.calls[0][0];
+      expect(getKnowledgeGapSummary).toHaveBeenCalledWith("c1", 7);
+      expect(text).toContain("Questions your AI couldn't answer this week:");
+      expect(text).toContain(
+        `- "Do you offer financing?" came up on 3 calls. Add an answer: https://app.test/portal/knowledge?add=Do%20you%20offer%20financing%3F`,
+      );
+      expect(html).toContain("Add an answer &rarr;");
+    });
+
+    it("leaves it out for plans without ai_improvement, without querying", async () => {
+      planHasAiImprovement = false;
+      const r = await sendWeeklyReports(MONDAY);
+      expect(r.sent).toBe(1);
+      expect(getKnowledgeGapSummary).not.toHaveBeenCalled();
+      expect(sendEmail.mock.calls[0][0].text).not.toContain("couldn't answer");
+    });
+
+    it("silently leaves it out when the table isn't migrated yet (summary is null)", async () => {
+      gapSummary = null;
+      const r = await sendWeeklyReports(MONDAY);
+      expect(r).toMatchObject({ sent: 1, failed: 0 });
+      const { text, html } = sendEmail.mock.calls[0][0];
+      expect(text).not.toContain("couldn't answer");
+      expect(html).not.toContain("couldn't answer");
+    });
+
+    it("leaves it out on a week with zero gaps", async () => {
+      gapSummary = { checked: 12, withGap: 0, percent: 0, top: [] };
+      await sendWeeklyReports(MONDAY);
+      expect(sendEmail.mock.calls[0][0].text).not.toContain("couldn't answer");
+    });
+
+    it("still sends the summary if the gaps lookup throws", async () => {
+      gapSummary = new Error("relation \"call_knowledge_gaps\" does not exist");
+      const r = await sendWeeklyReports(MONDAY);
+      expect(r).toMatchObject({ sent: 1, failed: 0 });
+      expect(sendEmail.mock.calls[0][0].text).not.toContain("couldn't answer");
+    });
   });
 });

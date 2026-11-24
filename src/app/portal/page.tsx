@@ -8,6 +8,7 @@ import { getClientSetupStatus } from "@/lib/data/setup";
 import { getClientActivity } from "@/lib/data/activity";
 import { listOpenSuggestions } from "@/lib/data/suggestions";
 import { getKnowledgeGapSummary } from "@/lib/data/knowledge-gaps";
+import { getFollowUpComparison } from "@/lib/data/followup-channels";
 import { getAfterHoursWeek } from "@/lib/data/after-hours";
 import { planAccessFor } from "@/lib/plan-access";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
@@ -37,6 +38,7 @@ import { WeeklyRecap } from "@/components/portal/weekly-recap";
 import { ActivityFeed } from "@/components/portal/activity-feed";
 import { AiLearnings } from "@/components/portal/ai-learnings";
 import { UnansweredQuestions } from "@/components/portal/unanswered-questions";
+import { FollowUpChannels } from "@/components/portal/followup-channels";
 import { AiFeaturesSection, AiFeaturesSkeleton } from "@/components/portal/ai-features-section";
 import { LiveAlerts } from "@/components/portal/live-alerts";
 import { Milestones } from "@/components/portal/milestones";
@@ -93,6 +95,9 @@ export default async function PortalOverviewPage({
     client && m.totalCalls > 0 && (await planAccessFor(client)).has("ai_improvement")
       ? await getKnowledgeGapSummary(clientId)
       : null;
+  // Text back vs AI call back for missed callers (last 30 days). Null = no
+  // follow-ups sent yet or the table isn't there; the card hides.
+  const followUpComparison = await getFollowUpComparison(clientId);
   // First name for the greeting — never the operator's own name in a preview.
   const me = preview ? null : await currentUser().catch(() => null);
   const tz = client?.timezone;
@@ -384,6 +389,9 @@ export default async function PortalOverviewPage({
       {/* How often callers ask what the knowledge base doesn't cover — sits
           right under "Your AI learned", which drafts the answers. */}
       {gapSummary ? <UnansweredQuestions summary={gapSummary} /> : null}
+
+      {/* Did texting missed callers back or calling them back work better? */}
+      {followUpComparison ? <FollowUpChannels data={followUpComparison} /> : null}
 
       {/* The optional AI jobs, each with its own switch and what it did lately. */}
       {client ? (

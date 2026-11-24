@@ -7,6 +7,9 @@ import { getCallHealth } from "./data/calls";
 import { notifier } from "./notifier";
 import { claimWeeklySummary, finishWeeklySummary, getWeeklyActivity } from "./data/weekly-summary";
 import { getAfterHoursWeek } from "./data/after-hours";
+import { getKnowledgeGapSummary } from "./data/knowledge-gaps";
+import { planAccessFor } from "./plan-access";
+import type { GapSummary } from "./knowledge-gaps";
 import {
   hasWeeklyActivity,
   isoWeekKey,
@@ -113,20 +116,45 @@ export async function getWeeklySummaryStats(clientId: string): Promise<WeeklySum
 }
 
 /**
+ * This week's unanswered questions for the email. Same gate as the portal
+ * card (ai_improvement: Pro, trials, comps). Null when gated out, when the
+ * call_knowledge_gaps table isn't migrated yet (getKnowledgeGapSummary fails
+ * soft to null), or on any error — an extra section never costs the email.
+ */
+export async function getWeeklyGaps(
+  client: Pick<Client, "id" | "status" | "setupFlags">,
+): Promise<GapSummary | null> {
+  try {
+    if (!(await planAccessFor(client)).has("ai_improvement")) return null;
+    return await getKnowledgeGapSummary(client.id, 7);
+  } catch (err) {
+    logger.warn("digest.weekly_gaps_failed", {
+      clientId: client.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+}
+
+/**
  * Render one business's weekly summary email without sending it — used by the
  * portal preview route (Settings → Weekly summary → Preview).
  */
 export async function renderWeeklySummaryForClient(
-  client: Pick<Client, "id" | "name">,
+  client: Pick<Client, "id" | "name" | "status" | "setupFlags">,
 ): Promise<ReturnType<typeof weeklySummaryEmail> & { stats: WeeklySummaryStats }> {
   const stats = await getWeeklySummaryStats(client.id);
-  const health = await getCallHealth(client.id, 7).catch(() => null);
+  const [health, gaps] = await Promise.all([
+    getCallHealth(client.id, 7).catch(() => null),
+    getWeeklyGaps(client),
+  ]);
   return {
     ...weeklySummaryEmail({
       businessName: client.name,
       stats,
       health: health?.summary,
       baseUrl: env.APP_URL,
+      gaps,
     }),
     stats,
   };
@@ -136,7 +164,8 @@ export async function renderWeeklySummaryForClient(
  * Weekly summary email (Monday cron, /api/cron/weekly-report) to each
  * live/trial business's owner email: what the AI did while the business was
  * closed (top), then calls answered, bookings, cancellations,
- * missed calls won back, new leads and customer texts for the past 7 days.
+ * missed calls won back, new leads and customer texts for the past 7 days,
+ * then (ai_improvement plans) the top 3 questions the AI couldn't answer.
  *
  *  - Opt-out: `clients.weekly_summary_enabled` (portal Settings → Alerts).
  *  - Dedupe: one `weekly_summary_sends` row per business per ISO week, claimed

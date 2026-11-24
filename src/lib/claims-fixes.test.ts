@@ -11,6 +11,7 @@ const flags: AiFeatureFlags = {
   smartRebookingEnabled: false,
   dailyBriefingEnabled: true,
   ownerEmail: "o@x.com",
+  morningUnbookedTextEnabled: false,
 };
 
 describe("texts pending carrier approval", () => {

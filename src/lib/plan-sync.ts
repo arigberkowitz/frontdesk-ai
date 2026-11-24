@@ -42,8 +42,11 @@ export function resolvePlanKey(
   if (metadataPlan && (SELLABLE as string[]).includes(metadataPlan)) return metadataPlan as PlanKey;
   if (!item?.unitAmount) return null;
   const listed = Object.values(PLANS).filter((p) => p.listed);
+  // Current list price first, then earlier ones: a subscription signed at the
+  // old price keeps it, and still has to resolve to its plan.
+  const amounts = (p: (typeof listed)[number]) => [p.monthlyPriceCents, ...(p.legacyMonthlyPriceCents ?? [])];
   const match = listed.find((p) =>
-    item.interval === "year" ? p.monthlyPriceCents * 10 === item.unitAmount : p.monthlyPriceCents === item.unitAmount,
+    amounts(p).some((m) => (item.interval === "year" ? m * 10 : m) === item.unitAmount),
   );
   return match?.key ?? null;
 }

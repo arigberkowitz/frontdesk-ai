@@ -9,7 +9,12 @@
  * "nothing yet", never as a made-up success.
  */
 
-export type AiFeatureKey = "aiTextReplies" | "missedCallTexts" | "smartRebooking" | "dailyBriefing";
+export type AiFeatureKey =
+  | "aiTextReplies"
+  | "missedCallTexts"
+  | "smartRebooking"
+  | "dailyBriefing"
+  | "morningUnbookedText";
 
 export interface AiFeatureStats {
   /** AI-written texts sent in the last 7 days (kind ai_reply, not failed). */
@@ -22,6 +27,8 @@ export interface AiFeatureStats {
   rebook30d: { sent: number; rebooked: number } | null;
   /** When the last morning briefing email actually went out. */
   lastBriefingSentAt: Date | null;
+  /** When the last "didn't book" morning text actually went out. */
+  lastMorningTextSentAt: Date | null;
 }
 
 export const EMPTY_AI_FEATURE_STATS: AiFeatureStats = {
@@ -30,6 +37,7 @@ export const EMPTY_AI_FEATURE_STATS: AiFeatureStats = {
   callbacks7d: null,
   rebook30d: null,
   lastBriefingSentAt: null,
+  lastMorningTextSentAt: null,
 };
 
 export interface AiFeatureFlags {
@@ -40,6 +48,9 @@ export interface AiFeatureFlags {
   dailyBriefingEnabled: boolean;
   /** Where the briefing is emailed; without one, nothing can be sent. */
   ownerEmail: string | null;
+  morningUnbookedTextEnabled: boolean;
+  /** The owner's text-alerts switch; the morning text rides on it. Unset = treated as on. */
+  smsAlertsEnabled?: boolean;
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -74,7 +85,7 @@ export function aiFeatureStatus(
 }
 
 export const SMS_PENDING_TEXT = "On · texts pending carrier approval";
-const TEXT_FEATURES = new Set<AiFeatureKey>(["aiTextReplies", "missedCallTexts", "smartRebooking"]);
+const TEXT_FEATURES = new Set<AiFeatureKey>(["aiTextReplies", "missedCallTexts", "smartRebooking", "morningUnbookedText"]);
 
 function aiFeatureStatusInner(
   key: AiFeatureKey,
@@ -124,6 +135,16 @@ function aiFeatureStatusInner(
       }
       return { tone: "on", text: "On · the first one arrives the next morning, 7–10am" };
     }
+    case "morningUnbookedText": {
+      if (!flags.morningUnbookedTextEnabled) return { tone: "off", text: "Off · no morning text" };
+      if (flags.smsAlertsEnabled === false) {
+        return { tone: "warn", text: "On, but text alerts are off, so nothing can be sent" };
+      }
+      if (stats.lastMorningTextSentAt) {
+        return { tone: "on", text: `Last sent ${relativeDay(stats.lastMorningTextSentAt, now, tz)}` };
+      }
+      return { tone: "on", text: "On · texts you 8–11am, only when someone didn't book" };
+    }
   }
 }
 
@@ -138,7 +159,8 @@ export type SwitchKey = AiFeatureKey | "aiCallbacks";
  *    switch the AI phone callback on; the call-back has its own switch, which
  *    always sends texts-on with it (the action requires both).
  *  - The briefing posts only `dailyBriefingEnabled`, so the profile action
- *    patches that one flag and nothing else.
+ *    patches that one flag and nothing else. Same for the morning text
+ *    (`morningUnbookedTextEnabled`).
  */
 export function switchboardFields(
   key: SwitchKey,
@@ -157,5 +179,7 @@ export function switchboardFields(
       return { clientId, enabled: "on", ...checked("aiCallbacks") };
     case "dailyBriefing":
       return { clientId, dailyBriefingEnabled: on ? "on" : "off" };
+    case "morningUnbookedText":
+      return { clientId, morningUnbookedTextEnabled: on ? "on" : "off" };
   }
 }

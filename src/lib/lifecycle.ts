@@ -8,6 +8,9 @@ import { env, integrations } from "@/lib/env";
 import { formatPhone, formatCurrencyCents } from "@/lib/format";
 import { getClientPeriodSummary } from "@/lib/data/metrics";
 import { planList, TRIAL_DAYS } from "@/config/plans";
+import { trialStart } from "@/lib/trial-progress";
+import { getTrialSummaryStats } from "@/lib/data/trial-summary";
+import { trialSummaryEmail } from "@/lib/trial-summary-email";
 import { logger } from "@/lib/logger";
 
 /**
@@ -20,7 +23,10 @@ import { logger } from "@/lib/logger";
  *
  *   welcome   — the moment signup finishes: your number, call it, forward
  *               your line (the actual dial code), where alerts go.
- *   7 days    — what the AI has done so far, and the plans.
+ *   7 days    — halfway: the real counts so far (calls answered, booked,
+ *               messages, after-hours), or — with no calls yet — how to
+ *               forward the line / finish setup. One flat monthly price, no
+ *               prices in the email. Rendered by trial-summary-email.ts.
  *   3 days    — OPT-IN only (the owner ticks "Email me 3 days before it
  *               ends" on their Overview): what it's done, and the upgrade link.
  *   1 day     — tomorrow it ends; three days after that the number goes.
@@ -150,8 +156,10 @@ export async function runTrialReminders(now = new Date()): Promise<TrialReminder
       name: clients.name,
       ownerEmail: clients.ownerEmail,
       phone: clients.retellPhoneNumber,
+      agentName: clients.agentName,
       answeringMode: clients.answeringMode,
       trialEndsAt: clients.trialEndsAt,
+      createdAt: clients.createdAt,
       setupFlags: clients.setupFlags,
     })
     .from(clients)
@@ -176,6 +184,29 @@ export async function runTrialReminders(now = new Date()): Promise<TrialReminder
     if (!key) continue;
 
     try {
+      if (key === "d7") {
+        const stats = await getTrialSummaryStats(c.id, trialStart(c.trialEndsAt, c.createdAt));
+        const helpUrl = appUrl("/portal/settings/help");
+        const m = trialSummaryEmail({
+          businessName: c.name,
+          agentName: c.agentName ?? "",
+          stats,
+          daysLeft,
+          aiNumber: c.phone,
+          answeringMode: c.answeringMode,
+          forwardingDone: Boolean(c.setupFlags?.forwardingDone),
+          baseUrl: env.APP_URL,
+          questionsHtml: questionsLineHtml(helpUrl),
+          questionsText: questionsLine(helpUrl),
+        });
+        const r = await notifier.sendEmail({ to: c.ownerEmail, subject: m.subject, html: m.html, text: m.text });
+        if (!r.ok) throw new Error(r.error ?? "send failed");
+        await stamp(c.id, c.setupFlags, key);
+        sent += 1;
+        logger.info("lifecycle.trial_reminder.sent", { clientId: c.id, key, daysLeft, calls: stats.calls });
+        continue;
+      }
+
       const s = await getClientPeriodSummary(c.id, TRIAL_DAYS);
       const did =
         s.calls > 0
@@ -190,11 +221,7 @@ export async function runTrialReminders(now = new Date()): Promise<TrialReminder
 
       const plansUrl = appUrl("/portal/guidelines#plans");
       const subject =
-        key === "d7"
-          ? `${c.name}: one week left on your free trial`
-          : key === "d3"
-            ? `${c.name}: 3 days left on your free trial`
-            : `${c.name}: your free trial ends tomorrow`;
+        key === "d3" ? `${c.name}: 3 days left on your free trial` : `${c.name}: your free trial ends tomorrow`;
       const paragraphs =
         key === "d3"
           ? [
@@ -202,12 +229,6 @@ export async function runTrialReminders(now = new Date()): Promise<TrialReminder
               did,
               `<a href="${plansUrl}">Upgrade in a minute</a> and nothing changes — ${esc(plansLine())}. Everything you've set up stays.`,
               `You asked us for this reminder. Turn it off any time from your Overview.`,
-            ]
-          : key === "d7"
-          ? [
-              `Your free trial has a week to go.`,
-              did,
-              `To keep it answering after that, <a href="${plansUrl}">pick a plan</a> — ${esc(plansLine())}. Nothing changes until you do; everything you've set up stays.`,
             ]
           : [
               `Your free trial ends tomorrow.`,

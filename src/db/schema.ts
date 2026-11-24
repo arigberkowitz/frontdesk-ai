@@ -307,6 +307,12 @@ export const clients = pgTable(
          * feature ships without a migration (dedupe lives in notifications).
          */
         dailyBriefing?: boolean;
+        /**
+         * Morning owner text listing last night's after-hours callers who
+         * didn't book (lib/morning-unbooked.ts). Opt-in, off by default; dedupe
+         * lives in notifications, so no migration.
+         */
+        morningUnbookedText?: boolean;
         /** When each trial-lifecycle email went out (ISO). Dedupe state, not business data. */
         trialEmails?: { welcome?: string; d7?: string; d3?: string; d1?: string };
         /**

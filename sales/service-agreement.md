@@ -22,9 +22,9 @@ everything it knows, and nothing goes live until you approve it.
 
 | Plan | Monthly | One-time setup |
 | --- | --- | --- |
-| Starter | $300 | $750 |
-| Pro | $450 | $1,000 |
-| Scale | $600 | $1,500 |
+| Missed-Call Rescue | $199 | None |
+| Starter | $399 | None |
+| Pro | $599 | None |
 
 Your plan: ____________. First 14 days are free; billing starts when your
 receptionist goes live on your number, not before. Cancel any month with 30
