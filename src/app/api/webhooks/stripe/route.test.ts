@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const ledger = new Map<string, string>();
 const upserted: string[] = [];
+const upsertedValues: Record<string, unknown>[] = [];
 let failUpsert = false;
 let storedClient: Record<string, unknown> | null = null;
 let previousPlan: string | null = null;
@@ -34,6 +35,7 @@ vi.mock("@/db", () => ({
         onConflictDoUpdate: async () => {
           if (failUpsert) throw new Error("db blip");
           upserted.push(v.clientId);
+          upsertedValues.push(v);
         },
       }),
     }),
@@ -82,7 +84,12 @@ vi.mock("@/lib/data/webhook-events", () => ({
 
 const { POST } = await import("./route");
 
-function stripeEvent(id: string, status = "active", plan?: string) {
+function stripeEvent(
+  id: string,
+  status = "active",
+  plan?: string,
+  price?: { unit_amount: number; recurring: { interval: string } },
+) {
   return new Request("https://example.test/api/webhooks/stripe", {
     method: "POST",
     headers: { "stripe-signature": "t=1,v1=sig" },
@@ -90,7 +97,13 @@ function stripeEvent(id: string, status = "active", plan?: string) {
       id,
       type: "customer.subscription.updated",
       data: {
-        object: { id: "sub_1", customer: "cus_1", status, metadata: { clientId: "client-1", ...(plan ? { plan } : {}) } },
+        object: {
+          id: "sub_1",
+          customer: "cus_1",
+          status,
+          metadata: { clientId: "client-1", ...(plan ? { plan } : {}) },
+          ...(price ? { items: { data: [{ price: { id: "price_x", ...price } }] } } : {}),
+        },
       },
     }),
   });
@@ -140,6 +153,7 @@ describe("stripe webhook retries", () => {
   beforeEach(() => {
     ledger.clear();
     upserted.length = 0;
+    upsertedValues.length = 0;
     failUpsert = false;
     afterTasks.length = 0;
     provisionNumberAfterPayment.mockClear();
@@ -149,6 +163,16 @@ describe("stripe webhook retries", () => {
     previousPlan = null;
     clientUpdates.length = 0;
     syncAgentPrompt.mockClear();
+  });
+
+  it("records what the subscription charges, so an earlier price stays put", async () => {
+    await POST(stripeEvent("evt_px1", "active", "backup", { unit_amount: 14_900, recurring: { interval: "month" } }));
+    expect(upsertedValues[0]).toMatchObject({ plan: "backup", monthlyPriceCents: 14_900 });
+    await POST(stripeEvent("evt_px2", "active", "starter", { unit_amount: 300_000, recurring: { interval: "year" } }));
+    expect(upsertedValues[1]).toMatchObject({ plan: "starter", monthlyPriceCents: 30_000 });
+    // No price on the event: fall back to today's list price.
+    await POST(stripeEvent("evt_px3", "active", "pro"));
+    expect(upsertedValues[2]).toMatchObject({ plan: "pro", monthlyPriceCents: 59_900 });
   });
 
   it("processes a new event and marks it processed", async () => {

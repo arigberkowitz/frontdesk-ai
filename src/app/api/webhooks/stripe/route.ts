@@ -41,6 +41,16 @@ function mapStatus(s: Stripe.Subscription.Status): SubStatus {
   }
 }
 
+/** Monthly-equivalent of a recurring price, on the same basis as PLANS (yearly = 10 months). */
+function chargedMonthlyCents(
+  price: { unit_amount: number | null; recurring?: { interval: string } | null } | undefined,
+): number | null {
+  if (!price?.unit_amount || !price.recurring) return null;
+  if (price.recurring.interval === "month") return price.unit_amount;
+  if (price.recurring.interval === "year") return Math.round(price.unit_amount / 10);
+  return null;
+}
+
 async function upsert(clientId: string, sub: Stripe.Subscription): Promise<SubStatus> {
   // Metadata first (every checkout we open sets it); then the Price ID
   // (maps monthly and yearly prices to the same plan); then amount/interval.
@@ -62,7 +72,10 @@ async function upsert(clientId: string, sub: Stripe.Subscription): Promise<SubSt
     stripeCustomerId: customerId,
     stripeSubscriptionId: sub.id,
     plan: planKey ?? null,
-    monthlyPriceCents: plan?.monthlyPriceCents ?? null,
+    // What this subscription actually charges, not today's list price: a
+    // customer who signed at an earlier price keeps it in Stripe, so MRR and
+    // their billing card must keep it too.
+    monthlyPriceCents: chargedMonthlyCents(item) ?? plan?.monthlyPriceCents ?? null,
     setupFeeCents: plan?.setupFeeCents ?? null,
     status: mapStatus(sub.status),
     currentPeriodEnd: subscriptionPeriodEnd(sub),
