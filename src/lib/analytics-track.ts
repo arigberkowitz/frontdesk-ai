@@ -1,26 +1,23 @@
 /**
- * Queue a custom event for Vercel Analytics when that snippet is on the page.
+ * Custom events for Vercel Web Analytics.
  *
- * `@vercel/analytics` is landing in a separate PR. This talks to the same
- * `window.va` / `window.vaq` queue that package uses, so events are kept if
- * the snippet loads later, and this module is a no-op until then. It must
- * never throw — a missing or blocked analytics script cannot break the page.
+ * Uses the official `@vercel/analytics` `track()` helper already mounted in
+ * the root layout. It queues events if the snippet has not loaded yet and is
+ * a no-op when the script is missing or blocked. This must never throw — a
+ * missing analytics script cannot break the page.
+ *
+ * Experiment events (`pricing_impression`, `pricing_cta`, `signup_view`) are
+ * separate from the signup-funnel events in `funnel-events.ts`. Event names
+ * are kept as-is so existing test and dashboard queries still match.
  */
-export type TrackProps = Record<string, string | number | boolean | null>;
+import { track } from "@vercel/analytics";
 
-type Va = (...args: unknown[]) => void;
+export type TrackProps = Record<string, string | number | boolean | null>;
 
 export function trackEvent(name: string, properties?: TrackProps): void {
   if (typeof window === "undefined") return;
   try {
-    const w = window as Window & { va?: Va; vaq?: unknown[] };
-    const payload = properties ? { name, data: properties } : { name };
-    if (typeof w.va === "function") {
-      w.va("event", payload);
-      return;
-    }
-    w.vaq = w.vaq ?? [];
-    w.vaq.push(["event", payload]);
+    track(name, properties);
   } catch {
     // Analytics must never break the page.
   }

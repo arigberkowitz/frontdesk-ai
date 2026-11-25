@@ -1,34 +1,39 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const track = vi.fn();
+vi.mock("@vercel/analytics", () => ({
+  track: (...args: unknown[]) => track(...args),
+}));
+
 import { trackEvent } from "./analytics-track";
 
 afterEach(() => {
+  track.mockReset();
   vi.unstubAllGlobals();
 });
 
 describe("trackEvent", () => {
   it("is a no-op when window is missing", () => {
     expect(() => trackEvent("pricing_cta", { headline: "control" })).not.toThrow();
+    expect(track).not.toHaveBeenCalled();
   });
 
-  it("calls window.va when the analytics snippet is present", () => {
-    const va = vi.fn();
-    vi.stubGlobal("window", { va });
+  it("forwards the event name and properties to track()", () => {
+    vi.stubGlobal("window", {});
     trackEvent("pricing_cta", { headline: "variant", plan: "pro" });
-    expect(va).toHaveBeenCalledWith("event", {
-      name: "pricing_cta",
-      data: { headline: "variant", plan: "pro" },
+    expect(track).toHaveBeenCalledWith("pricing_cta", {
+      headline: "variant",
+      plan: "pro",
     });
   });
 
-  it("queues on window.vaq when the snippet has not loaded yet", () => {
-    const w: { vaq?: unknown[] } = {};
-    vi.stubGlobal("window", w);
-    trackEvent("pricing_impression", { headline: "control", highlight: "pro" });
-    expect(w.vaq).toEqual([
-      [
-        "event",
-        { name: "pricing_impression", data: { headline: "control", highlight: "pro" } },
-      ],
-    ]);
+  it("does not throw if track() throws", () => {
+    vi.stubGlobal("window", {});
+    track.mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    expect(() =>
+      trackEvent("pricing_impression", { headline: "control", highlight: "pro" }),
+    ).not.toThrow();
   });
 });
