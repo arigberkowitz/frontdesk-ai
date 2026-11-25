@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${env.APP_URL.replace(/\/$/, "")}/privacy` },
 };
 
-const UPDATED = "August 18, 2026";
+const UPDATED = "November 24, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -91,6 +91,12 @@ export default function PrivacyPage() {
             name, callback number, the service they want, preferred times, and messages they leave.
             The business the caller dialed controls this data; we process it on that
             business&rsquo;s behalf.
+          </p>
+          <p>
+            <strong>From visitors to this website:</strong> we collect anonymous,
+            cookie-less usage analytics — page views, how fast pages load, and a
+            few conversion events such as starting sign-up or clicking a plan. These
+            do not include names, email addresses, or phone numbers.
           </p>
         </Section>
 

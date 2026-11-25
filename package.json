@@ -21,6 +21,8 @@
     "@react-three/fiber": "^9.6.1",
     "@sentry/nextjs": "^10.78.0",
     "@types/three": "^0.184.1",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.1.0",
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
