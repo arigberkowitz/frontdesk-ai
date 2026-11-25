@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Fraunces, Sora } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -81,6 +83,11 @@ export default function RootLayout({
           <ThemeProvider>
             <TooltipProvider delay={150}>{children}</TooltipProvider>
             <Toaster richColors closeButton />
+            {/* Page views and custom funnel events (see src/lib/funnel-events.ts).
+                Data only appears once Web Analytics / Speed Insights are enabled
+                on the Vercel project — the components themselves are inert until then. */}
+            <Analytics />
+            <SpeedInsights />
           </ThemeProvider>
         </body>
       </html>

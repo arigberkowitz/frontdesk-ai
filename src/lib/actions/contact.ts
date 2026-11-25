@@ -5,6 +5,7 @@ import { notifier } from "@/lib/notifier";
 import { consumeAttempt, formatRetryAfter } from "@/lib/rate-limit";
 import { WAF_RATE_LIMIT_IDS, wafRateLimited } from "@/lib/waf-rate-limit";
 import { logger } from "@/lib/logger";
+import { checkPublicBot } from "@/lib/botid";
 import { type ActionState } from "./types";
 
 /**
@@ -57,6 +58,9 @@ export async function sendContactMessageAction(
     logger.info("contact.honeypot");
     return { ok: true, message: "Thanks — I'll get back to you." };
   }
+
+  const bot = await checkPublicBot();
+  if (bot.isBot) return { ok: false, error: bot.message };
 
   const fieldErrors: Record<string, string[]> = {};
   if (name.length > 0 && /https?:\/\//i.test(name)) fieldErrors.name = ["Just your name, please"];

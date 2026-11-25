@@ -7,8 +7,13 @@ vi.mock("next/headers", () => ({
 const sendEmail = vi.fn();
 vi.mock("@/lib/notifier", () => ({ notifier: { sendEmail: (...a: unknown[]) => sendEmail(...a) } }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+const checkPublicBot = vi.fn<
+  () => Promise<{ isBot: false } | { isBot: true; message: string }>
+>(async () => ({ isBot: false }));
+vi.mock("@/lib/botid", () => ({ checkPublicBot: () => checkPublicBot() }));
 
 import { sendContactMessageAction } from "./contact";
+import { BOT_BLOCKED_MESSAGE } from "@/lib/botid-protect";
 
 const form = (fields: Record<string, string>) => {
   const fd = new FormData();
@@ -18,7 +23,18 @@ const form = (fields: Record<string, string>) => {
 const good = { name: "Pat", email: "pat@example.com", subject: "Hi", message: "Interested" };
 
 describe("sendContactMessageAction", () => {
-  beforeEach(() => sendEmail.mockReset().mockResolvedValue({ ok: true }));
+  beforeEach(() => {
+    sendEmail.mockReset().mockResolvedValue({ ok: true });
+    checkPublicBot.mockReset().mockResolvedValue({ isBot: false });
+  });
+
+  it("returns a friendly error and does not send when BotID flags a bot", async () => {
+    checkPublicBot.mockResolvedValue({ isBot: true, message: BOT_BLOCKED_MESSAGE });
+    const r = await sendContactMessageAction({ ok: false }, form(good));
+    expect(r.ok).toBe(false);
+    expect(r.error).toBe(BOT_BLOCKED_MESSAGE);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
 
   it("rejects a bad email without sending", async () => {
     const r = await sendContactMessageAction({ ok: false }, form({ ...good, email: "nope" }));

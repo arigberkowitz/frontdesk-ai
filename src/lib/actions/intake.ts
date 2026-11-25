@@ -11,6 +11,7 @@ import { applyClientEdit } from "@/lib/agent-publish";
 import { consumeAttempt } from "@/lib/rate-limit";
 import { WAF_RATE_LIMIT_IDS, wafRateLimited } from "@/lib/waf-rate-limit";
 import { countDraftableContent, intakeLinkLocked, markIntakeCompleted } from "@/lib/data/intake";
+import { checkPublicBot } from "@/lib/botid";
 import { logger } from "@/lib/logger";
 import { type ActionState, fieldErrorsOf } from "./types";
 
@@ -68,6 +69,11 @@ export async function submitIntakeAction(
   if (await intakeLinkLocked(clientId, link.issuedAt)) {
     logger.info("intake.locked_after_sign_in", { clientId });
     redirect(INTAKE_USED_SIGN_IN);
+  }
+
+  const bot = await checkPublicBot();
+  if (bot.isBot) {
+    return { ok: false, error: bot.message, data: { values: echo(formData) } };
   }
 
   // Every submit can re-read a website through a paid model, and the link is
