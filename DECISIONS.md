@@ -867,3 +867,21 @@ pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
   card shows that stored amount for the plan you're on.
 - No migration; no new env vars.
 
+## 2026-11-24 — Pricing A/B test (Flags SDK)
+
+- **Two flags, decided in code.** `pricing-headline` (control = “Simple, flat pricing”; variant =
+  “One flat monthly price” with “Then $199, $399, or $599 a month per location”) and
+  `pricing-highlight` (control = Pro card highlighted, variant = Starter). Prices and plan
+  features are not part of the test. Assignment is a stable 50/50 hash of an anonymous
+  `fd_visitor_id` cookie set in `src/proxy.ts`.
+- **No new required env vars.** `decide()` runs locally. Missing visitor cookie or a thrown
+  decide function returns the control variant. `FLAGS_SECRET` is optional and only enables
+  Flags Explorer / Vercel Toolbar overrides at `/.well-known/vercel/flags`. Off Vercel, that
+  route 401s when the secret is unset instead of throwing. The site works without it.
+- **Dynamic, not precomputed.** The landing page was already dynamic because of the Clerk
+  `auth()` gate. Precompute would need a signing secret off Vercel, so we evaluate flags in
+  the page and accept that tradeoff.
+- **Measurement.** A client beacon records `pricing_impression`, `pricing_cta`, and
+  `signup_view` with the variants (and plan/interval on the CTA) onto the Vercel Analytics
+  `window.va` / `window.vaq` queue, so events land when `@vercel/analytics` is added and
+  are a no-op until then.

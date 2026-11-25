@@ -17,6 +17,12 @@ import { PricingCtaButton } from "@/components/landing/pricing-cta-button";
 import { planList, minutesLabel } from "@/config/plans";
 import { formatCurrencyCents, formatPhone } from "@/lib/format";
 import { env } from "@/lib/env";
+import { PricingExperimentBeacon } from "@/components/pricing-experiment-beacon";
+import {
+  PRICING_HEADLINE_COPY,
+  type HeadlineVariant,
+  type HighlightVariant,
+} from "@/lib/pricing-experiment";
 
 const VALUE = [
   { icon: Clock, chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400", title: "Answers 24/7", body: "Every call picked up on the first ring — nights, weekends, lunch rushes." },
@@ -100,9 +106,17 @@ function jsonLd() {
   };
 }
 
-export function LandingPage() {
+export function LandingPage({
+  pricingHeadline = "control",
+  pricingHighlight = "pro",
+}: {
+  pricingHeadline?: HeadlineVariant;
+  pricingHighlight?: HighlightVariant;
+} = {}) {
+  const headline = PRICING_HEADLINE_COPY[pricingHeadline];
   return (
     <div className="flex min-h-screen flex-col">
+      <PricingExperimentBeacon headline={pricingHeadline} highlight={pricingHighlight} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd()) }}
@@ -322,11 +336,10 @@ export function LandingPage() {
             <div className="text-center">
               <p className="fd-section-label">Pricing</p>
               <h2 className="mt-2 font-heading text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-                Simple, flat pricing
+                {headline.title}
               </h2>
               <p className="mt-2 text-muted-foreground">
-                Two weeks free, no card. One price per location after that, and no setup fee —
-                ever
+                {headline.sub}
                 {env.STRIPE_AUTOMATIC_TAX ? ", plus applicable tax" : ""}.{" "}
                 <Link href="/contact" className="underline underline-offset-2">
                   Questions?
@@ -360,7 +373,7 @@ export function LandingPage() {
             </fieldset>
             <div className="mx-auto mt-10 grid max-w-4xl items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {planList().map((plan) => {
-                const featured = plan.key === "pro";
+                const featured = plan.key === pricingHighlight;
                 return (
                   <div
                     key={plan.key}

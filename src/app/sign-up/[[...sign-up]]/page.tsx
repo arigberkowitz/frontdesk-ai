@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
+import { evaluate } from "flags/next";
 import { SignInPage } from "@/components/ui/sign-in-flow-1";
+import { SignupExperimentBeacon } from "@/components/signup-experiment-beacon";
+import { pricingHeadlineFlag, pricingHighlightFlag } from "@/flags";
 import { afterSignUpUrl } from "@/lib/signup-intent";
 
 export const metadata: Metadata = { title: "Sign up" };
@@ -28,5 +31,19 @@ export default async function SignUpPage({
   // Junk values are dropped, never echoed into the redirect.
   const { plan, interval } = await searchParams;
   const next = afterSignUpUrl(plan, interval);
-  return <SignInPage initialView="signup" afterUrl={next} />;
+  const { pricingHeadline, pricingHighlight } = await evaluate({
+    pricingHeadline: pricingHeadlineFlag,
+    pricingHighlight: pricingHighlightFlag,
+  });
+  return (
+    <>
+      <SignupExperimentBeacon
+        headline={pricingHeadline}
+        highlight={pricingHighlight}
+        plan={typeof plan === "string" ? plan : ""}
+        interval={typeof interval === "string" ? interval : ""}
+      />
+      <SignInPage initialView="signup" afterUrl={next} />
+    </>
+  );
 }

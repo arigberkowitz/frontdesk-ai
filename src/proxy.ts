@@ -1,6 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { PROTECTED_ROUTE_PATTERNS } from "@/lib/route-access";
+import {
+  isUsableVisitorId,
+  newVisitorId,
+  VISITOR_COOKIE,
+  visitorCookieOptions,
+} from "@/lib/visitor-id";
 
 /**
  * The old Vercel alias served a byte-identical copy of every legal page. TCR
@@ -40,6 +46,8 @@ const isPublicRoute = createRouteMatcher([
   // sign-in redirect here hides the sitemap and breaks share cards.
   "/robots.txt",
   "/sitemap.xml",
+  // Flags Explorer discovery. Public metadata, gated by FLAGS_SECRET inside the route.
+  "/.well-known(.*)",
   "/opengraph-image(.*)",
   "/apple-icon(.*)",
   // The one route a stranger takes to ask for a trial. Leaving it off this list
@@ -101,7 +109,38 @@ export default clerkMiddleware(async (auth, req) => {
       unauthenticatedUrl: new URL("/sign-in", req.url).toString(),
     });
   }
+
+  // Machine callers sign the exact URL they post to. A Set-Cookie on those
+  // responses is unused and not worth adding to a signed request path.
+  if (isMachineRoute(req) || req.nextUrl.pathname.startsWith("/api/")) {
+    return;
+  }
+  return nextWithVisitorId(req);
 });
+
+/**
+ * Give every browser visitor a stable anonymous id, and make it visible to
+ * this same request's server components. Setting the cookie only on the
+ * response would leave the first page view without an id, so decide() would
+ * fall back to control and the next load would flip to the real bucket.
+ */
+function nextWithVisitorId(req: NextRequest) {
+  const requestHeaders = new Headers(req.headers);
+  const existing = req.cookies.get(VISITOR_COOKIE)?.value;
+  const hasId = isUsableVisitorId(existing);
+  const id = hasId ? existing : newVisitorId();
+  if (!hasId) {
+    const cookie = `${VISITOR_COOKIE}=${id}`;
+    const header = requestHeaders.get("cookie");
+    requestHeaders.set("cookie", header ? `${header}; ${cookie}` : cookie);
+  }
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  if (!hasId) {
+    const secure = req.nextUrl.protocol === "https:";
+    res.cookies.set(VISITOR_COOKIE, id, visitorCookieOptions(secure));
+  }
+  return res;
+}
 
 export const config = {
   matcher: [
