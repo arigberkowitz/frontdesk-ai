@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useSignIn, useSignUp } from "@clerk/nextjs/legacy";
 import { isClerkAPIResponseError } from "@clerk/nextjs/errors";
 import { cn } from "@/lib/utils";
+import { trackFunnelEvent } from "@/lib/funnel-events";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 
 import * as THREE from "three";
@@ -439,6 +440,8 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
         try {
           await signUp.create({ emailAddress: email });
           await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+          // Event only — the email itself is never sent as a property.
+          trackFunnelEvent("signup_start", { method: "email" });
           setMode("signUp");
           setStep("code");
         } catch (signUpErr) {
@@ -489,6 +492,7 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
         }
         if (su.status === "complete") {
           await setActiveSignUp({ session: su.createdSessionId });
+          trackFunnelEvent("signup_complete", { method: "email" });
           playSuccess();
         } else {
           setError(
@@ -540,6 +544,8 @@ export const SignInPage = ({ className, initialView = "signin", afterUrl = AFTER
     if (!signInHook.isLoaded || submitting) return;
     const { signIn } = signInHook;
     try {
+      // OAuth leaves this page, so we can record the start but not the completion.
+      if (authView === "signup") trackFunnelEvent("signup_start", { method: "google" });
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: SSO_CALLBACK_URL,
