@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { DemoCall } from "@/components/demo-call";
 import { TrustSection } from "@/components/landing/trust-section";
+import { PricingCtaButton } from "@/components/landing/pricing-cta-button";
 import { planList, minutesLabel } from "@/config/plans";
 import { formatCurrencyCents, formatPhone } from "@/lib/format";
 import { env } from "@/lib/env";
@@ -444,24 +445,20 @@ export function LandingPage({
                           Monthly/Yearly switch — all the way to checkout. The
                           switch is CSS-only, so there is one link per interval
                           and the switch decides which one shows. */}
-                      <Button
+                      <PricingCtaButton
                         className="w-full group-has-[#billing-yearly:checked]/billing:hidden"
-                        size="lg"
-                        variant={featured ? "default" : "outline"}
-                        nativeButton={false}
-                        render={<Link href={signUpHref(plan.key as IntentPlan, "month")} />}
-                      >
-                        Get started
-                      </Button>
-                      <Button
+                        plan={plan.key as IntentPlan}
+                        interval="month"
+                        href={signUpHref(plan.key as IntentPlan, "month")}
+                        featured={featured}
+                      />
+                      <PricingCtaButton
                         className="hidden w-full group-has-[#billing-yearly:checked]/billing:inline-flex"
-                        size="lg"
-                        variant={featured ? "default" : "outline"}
-                        nativeButton={false}
-                        render={<Link href={signUpHref(plan.key as IntentPlan, "year")} />}
-                      >
-                        Get started
-                      </Button>
+                        plan={plan.key as IntentPlan}
+                        interval="year"
+                        href={signUpHref(plan.key as IntentPlan, "year")}
+                        featured={featured}
+                      />
                     </div>
                   </div>
                 );

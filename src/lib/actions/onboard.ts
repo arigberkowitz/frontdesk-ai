@@ -13,6 +13,7 @@ import { finishSignup } from "@/lib/signup";
 import { tidyBusinessName } from "@/lib/format";
 import { safeIndustry } from "@/config/starter-packs";
 import { DEFAULT_TIMEZONE } from "@/config/app";
+import { WAF_RATE_LIMIT_IDS, wafRateLimited } from "@/lib/waf-rate-limit";
 import { type ActionState, fieldErrorsOf } from "./types";
 
 const onboardSchema = z.object({
@@ -118,6 +119,14 @@ export async function onboardFromWebsitePortalAction(
     return {
       ok: false,
       fieldErrors: { ownerCell: ["That doesn't look like a phone number — try 415 555 0123, or leave it blank"] },
+      data: { values: submittedSetupValues(formData) },
+    };
+  }
+
+  if (await wafRateLimited(WAF_RATE_LIMIT_IDS.signupOnboard)) {
+    return {
+      ok: false,
+      error: "That's a few setup attempts in a row — wait a few minutes and try again.",
       data: { values: submittedSetupValues(formData) },
     };
   }

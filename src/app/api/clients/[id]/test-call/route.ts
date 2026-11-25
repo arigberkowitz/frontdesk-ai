@@ -2,6 +2,7 @@ import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
 import { getClient } from "@/lib/data/clients";
 import { getRetellClient } from "@/lib/retell";
 import { logger } from "@/lib/logger";
+import { WAF_RATE_LIMIT_IDS, wafRateLimited } from "@/lib/waf-rate-limit";
 
 export const runtime = "nodejs";
 
@@ -10,7 +11,7 @@ export const runtime = "nodejs";
  * Returns an access token the browser SDK uses to connect — no phone number needed.
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id } = await params;
@@ -29,6 +30,18 @@ export async function POST(
   if (!client) return new Response("Not found", { status: 404 });
   if (!client.retellAgentId) {
     return Response.json({ error: "Your receptionist isn't set up yet." }, { status: 400 });
+  }
+
+  if (
+    await wafRateLimited(WAF_RATE_LIMIT_IDS.testCall, {
+      request: req,
+      rateLimitKey: `test-call:${user.id}:${id}`,
+    })
+  ) {
+    return Response.json(
+      { error: "That's a few test calls in a row — try again in a few minutes." },
+      { status: 429 },
+    );
   }
 
   try {

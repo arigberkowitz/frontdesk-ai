@@ -3,7 +3,9 @@
 import { headers } from "next/headers";
 import { notifier } from "@/lib/notifier";
 import { consumeAttempt, formatRetryAfter } from "@/lib/rate-limit";
+import { WAF_RATE_LIMIT_IDS, wafRateLimited } from "@/lib/waf-rate-limit";
 import { logger } from "@/lib/logger";
+import { checkPublicBot } from "@/lib/botid";
 import { type ActionState } from "./types";
 
 /**
@@ -57,6 +59,9 @@ export async function sendContactMessageAction(
     return { ok: true, message: "Thanks — I'll get back to you." };
   }
 
+  const bot = await checkPublicBot();
+  if (bot.isBot) return { ok: false, error: bot.message };
+
   const fieldErrors: Record<string, string[]> = {};
   if (name.length > 0 && /https?:\/\//i.test(name)) fieldErrors.name = ["Just your name, please"];
   if (!email) fieldErrors.email = ["We need an email to reply to"];
@@ -66,6 +71,13 @@ export async function sendContactMessageAction(
 
   // Counted only for messages that would actually send, so a typo-and-retry
   // doesn't burn the allowance.
+  if (await wafRateLimited(WAF_RATE_LIMIT_IDS.contact, { headers: await headers() })) {
+    logger.warn("contact.rate_limited", { via: "waf" });
+    return {
+      ok: false,
+      error: `That's a lot of messages in a row — try again in a few minutes, or write to ${OWNER_EMAIL}.`,
+    };
+  }
   const limit = consumeAttempt(`contact:${await clientIp()}`, SENDS_PER_WINDOW, WINDOW_MS);
   if (!limit.ok) {
     logger.warn("contact.rate_limited");

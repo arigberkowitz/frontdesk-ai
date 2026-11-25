@@ -43,8 +43,13 @@ vi.mock("next/navigation", () => ({
   },
 }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+const checkPublicBot = vi.fn<
+  () => Promise<{ isBot: false } | { isBot: true; message: string }>
+>(async () => ({ isBot: false }));
+vi.mock("@/lib/botid", () => ({ checkPublicBot: () => checkPublicBot() }));
 
 const { submitIntakeAction } = await import("./intake");
+const { BOT_BLOCKED_MESSAGE } = await import("@/lib/botid-protect");
 
 let n = 0;
 function form(fields: Record<string, string>, token = `ok-client-${n}`) {
@@ -61,6 +66,7 @@ beforeEach(() => {
   updateClient.mockClear();
   applyWebsiteToClient.mockClear();
   applyClientEdit.mockClear();
+  checkPublicBot.mockReset().mockResolvedValue({ isBot: false });
 });
 
 describe("submitIntakeAction", () => {
@@ -68,6 +74,15 @@ describe("submitIntakeAction", () => {
     const r = await submitIntakeAction({}, form({ name: "X" }, "bad"));
     expect(r.ok).toBe(false);
     expect(updateClient).not.toHaveBeenCalled();
+  });
+
+  it("returns a friendly error and saves nothing when BotID flags a bot", async () => {
+    checkPublicBot.mockResolvedValue({ isBot: true, message: BOT_BLOCKED_MESSAGE });
+    const r = await submitIntakeAction({}, form({ name: "Harbor View", websiteUrl: "harborview.com" }));
+    expect(r.ok).toBe(false);
+    expect(r.error).toBe(BOT_BLOCKED_MESSAGE);
+    expect(updateClient).not.toHaveBeenCalled();
+    expect(applyWebsiteToClient).not.toHaveBeenCalled();
   });
 
   it("caps guidance at the portal's limit and keeps what was typed", async () => {
