@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Download, MessageSquareOff, PhoneCall, ShieldCheck, UserCheck } from "lucide-react";
+import { DemoPhoneLink } from "@/components/landing/demo-phone-link";
 import { publishableTestimonials } from "@/config/trust";
 import { formatPhone } from "@/lib/format";
 
@@ -57,12 +58,7 @@ export function TrustSection({ demoPhone }: { demoPhone?: string | null }) {
           {phone ? (
             <>
               <p className="mt-3 font-medium">Call our demo line and talk to it yourself</p>
-              <a
-                href={`tel:${phone.replace(/[^\d+]/g, "")}`}
-                className="mt-2 inline-block font-heading text-2xl font-semibold tracking-tight underline-offset-4 hover:underline"
-              >
-                {formatPhone(phone)}
-              </a>
+              <DemoPhoneLink phone={phone} label={formatPhone(phone)} />
               <p className="mt-2 text-sm text-muted-foreground">
                 Ask it what a customer would: hours, prices, or to book a time.
               </p>
