@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { notifier } from "@/lib/notifier";
 import { consumeAttempt, formatRetryAfter } from "@/lib/rate-limit";
+import { WAF_RATE_LIMIT_IDS, wafRateLimited } from "@/lib/waf-rate-limit";
 import { logger } from "@/lib/logger";
 import { type ActionState } from "./types";
 
@@ -66,6 +67,13 @@ export async function sendContactMessageAction(
 
   // Counted only for messages that would actually send, so a typo-and-retry
   // doesn't burn the allowance.
+  if (await wafRateLimited(WAF_RATE_LIMIT_IDS.contact, { headers: await headers() })) {
+    logger.warn("contact.rate_limited", { via: "waf" });
+    return {
+      ok: false,
+      error: `That's a lot of messages in a row — try again in a few minutes, or write to ${OWNER_EMAIL}.`,
+    };
+  }
   const limit = consumeAttempt(`contact:${await clientIp()}`, SENDS_PER_WINDOW, WINDOW_MS);
   if (!limit.ok) {
     logger.warn("contact.rate_limited");

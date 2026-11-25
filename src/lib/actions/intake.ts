@@ -9,6 +9,7 @@ import { getClientByIdUnsafe, updateClient } from "@/lib/data/clients";
 import { applyWebsiteToClient } from "@/lib/onboarding-apply";
 import { applyClientEdit } from "@/lib/agent-publish";
 import { consumeAttempt } from "@/lib/rate-limit";
+import { WAF_RATE_LIMIT_IDS, wafRateLimited } from "@/lib/waf-rate-limit";
 import { countDraftableContent, intakeLinkLocked, markIntakeCompleted } from "@/lib/data/intake";
 import { logger } from "@/lib/logger";
 import { type ActionState, fieldErrorsOf } from "./types";
@@ -71,6 +72,14 @@ export async function submitIntakeAction(
 
   // Every submit can re-read a website through a paid model, and the link is
   // shareable. A leaked link shouldn't be a free scraping/LLM endpoint.
+  if (await wafRateLimited(WAF_RATE_LIMIT_IDS.intake, { rateLimitKey: `intake:${clientId}` })) {
+    logger.warn("intake.throttled", { clientId, via: "waf" });
+    return {
+      ok: false,
+      error: "Too many submissions from this link. Wait a little and try again, or reply to whoever sent it.",
+      data: { values: echo(formData) },
+    };
+  }
   const gate = consumeAttempt(`intake:${clientId}`, INTAKE_LIMIT, INTAKE_WINDOW_MS);
   if (!gate.ok) {
     logger.warn("intake.throttled", { clientId });

@@ -7,6 +7,7 @@ import { getRetellClient } from "@/lib/retell";
 import { integrations } from "@/lib/env";
 import { toE164, formatPhone } from "@/lib/format";
 import { consumeAttempt, formatRetryAfter } from "@/lib/rate-limit";
+import { WAF_RATE_LIMIT_IDS, wafRateLimited } from "@/lib/waf-rate-limit";
 import { logger } from "@/lib/logger";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { type ActionState } from "./types";
@@ -72,6 +73,9 @@ export async function callMeNowAction(
     return { ok: false, error: "That's your AI's own number — it can't call itself." };
   }
 
+  if (await wafRateLimited(WAF_RATE_LIMIT_IDS.callMe, { rateLimitKey: `call-me:${clientId}` })) {
+    return { ok: false, error: "That's a few test calls in a row — try again in a few minutes." };
+  }
   const limit = consumeAttempt(`call-me:${clientId}`, CALLS_PER_WINDOW, WINDOW_MS);
   if (!limit.ok) {
     return {
