@@ -40,6 +40,8 @@ export const PUBLIC_TOP_LEVEL_SEGMENTS = [
   "privacy",
   "sms-consent",
   "terms",
+  // Flags Explorer discovery for the Vercel Toolbar. Not a product page.
+  ".well-known",
 ] as const;
 
 /**
