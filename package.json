@@ -21,6 +21,7 @@
     "@react-three/fiber": "^9.6.1",
     "@sentry/nextjs": "^10.78.0",
     "@types/three": "^0.184.1",
+    "botid": "^1.5.13",
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
