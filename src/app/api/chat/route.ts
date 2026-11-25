@@ -8,6 +8,7 @@ import { agentToolUrl } from "@/lib/retell";
 import { CHAT_SIGNATURE_HEADER, agentToolHeaders, signChatToolRequest } from "@/lib/agent-tool-token";
 import { CHAT_MODEL, getAnthropic } from "@/lib/agents/anthropic";
 import { consumeAttempt } from "@/lib/rate-limit";
+import { WAF_RATE_LIMIT_IDS, wafRateLimited } from "@/lib/waf-rate-limit";
 import { allowChatTurn } from "@/lib/data/chat-limits";
 import { chatChannelPreamble, chatGreeting, nowLine } from "@/lib/chat/prompt";
 import { chatTools } from "@/lib/chat/tools";
@@ -78,6 +79,9 @@ export async function POST(req: Request): Promise<Response> {
   const json = (body: unknown, status = 200) =>
     Response.json(body, { status, headers: { ...cors, "cache-control": "no-store" } });
 
+  if (await wafRateLimited(WAF_RATE_LIMIT_IDS.chat, { request: req })) {
+    return json({ error: "Too many messages — give it a minute." }, 429);
+  }
   const limit = consumeAttempt(`chat:${ip(req)}`, RATE_LIMIT_PER_10_MIN, 10 * 60_000);
   if (!limit.ok) {
     return json({ error: "Too many messages — give it a minute." }, 429);
