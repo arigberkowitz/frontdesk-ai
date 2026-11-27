@@ -91,7 +91,7 @@ async function upsert(clientId: string, sub: Stripe.Subscription): Promise<SubSt
 
 /**
  * Make the business match what it bought: live (so gates bind), Rescue on
- * missed-only answering, staff mode only on Pro, Spanish on Starter and up —
+ * missed-only answering, staff mode only on Pro, language support on every plan —
  * then republish the live agent so the phone line matches too.
  */
 async function applyPlanToClient(

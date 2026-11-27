@@ -78,7 +78,7 @@ async function assessProspect(anthropic: Anthropic, url: string): Promise<Prospe
       model: DRAFT_MODEL,
       max_tokens: 1200,
       system:
-        "You prospect local service businesses for an agency selling an AI phone receptionist (answers 24/7, books appointments, bilingual, captures leads). From the website text, judge fit and draft outreach. Look for: phone-first contact flow, no online booking, appointment-based services, small team, after-hours exposure. The email must reference something genuinely specific from their site — a service, a claim, their hours — and offer one concrete value line. No 'I hope this finds you well', no exclamation marks, no 'seamless/unlock/leverage'.",
+        "You prospect local service businesses for an agency selling an AI phone receptionist (answers 24/7 in 10 languages, books appointments, captures leads). Do not claim it is only bilingual or only English and Spanish. From the website text, judge fit and draft outreach. Look for: phone-first contact flow, no online booking, appointment-based services, small team, after-hours exposure. The email must reference something genuinely specific from their site — a service, a claim, their hours — and offer one concrete value line. No 'I hope this finds you well', no exclamation marks, no 'seamless/unlock/leverage'.",
       messages: [
         {
           role: "user",

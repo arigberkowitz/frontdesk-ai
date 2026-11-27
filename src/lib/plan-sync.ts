@@ -88,7 +88,9 @@ export function planSyncPatch(
   // Fix 3: staff mode is Pro.
   if (!features.has("staff_mode") && client.staffModeEnabled) patch.staffModeEnabled = false;
 
-  // Fix 6: every plan advertises English & Spanish automatically.
+  // Fix 6: every plan includes language support. If Spanish is missing on a
+  // plan change, add it. Signups still default to English + Spanish; owners
+  // pick up to 4 of the 10 languages in settings.
   if (planChanged && !hasSpanish(client.languages)) {
     patch.languages = addSpanish(client.languages);
   }

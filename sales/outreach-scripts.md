@@ -20,8 +20,9 @@ phone. But about a third of callers who hit voicemail just call the next
 
 I run FrontDesk AI — a phone receptionist that answers every call on the first
 ring, books appointments straight into your calendar, and texts you the
-moment someone leaves a message. English and Spanish. It costs less per month
-than one missed job.
+moment someone leaves a message. Answers in English, Spanish, French,
+Portuguese, and 6 more — you pick up to 4. One flat monthly price, less than
+one missed job.
 
 Fastest way to judge it: I'll set one up from your website in about 10
 minutes and you can call it yourself. Free to try for 14 days. Worth a look?
@@ -81,13 +82,13 @@ afternoon.
 3. **Show the compounding part** (3 min): the portal's "Your AI learned"
    panel and prompt version history — it gets smarter from their real calls,
    with their approval on every change.
-4. **Price + close** (5 min): "$399/mo Starter, less than one missed job.
-   14-day free trial, no charge until you go live. Want me to point your
-   number at it today?"
+4. **Price + close** (5 min): "One flat monthly price — $399/mo Starter, less
+   than one missed job. 14-day free trial, no charge until you go live. Want
+   me to point your number at it today?"
 
 ## Objection cheat sheet
 
-- **"My customers hate robots."** — It answers naturally, speaks Spanish,
+- **"My customers hate robots."** — It answers naturally, in 10 languages,
   and offers a human handoff for anything sensitive. Play them a real call.
 - **"I already have voicemail."** — Voicemail doesn't book appointments.
   ~⅓ of voicemail callers never call back.
