@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
       // Document uploads (Teach it from a document): PDFs/DOCX up to 8 MB.
       bodySizeLimit: "8mb",
     },
+    // Official next upgrade --agent=security policy. Enables future security
+    // reminders during next dev / next build; does not auto-upgrade.
+    agentUpgrade: "security",
   },
   async redirects() {
     return [
