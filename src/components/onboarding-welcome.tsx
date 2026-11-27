@@ -13,6 +13,9 @@ import { Field } from "@/components/form/field";
 import { NativeSelect } from "@/components/form/native-select";
 import { DemoCall } from "@/components/demo-call";
 import { welcomeBusyMessage } from "@/components/welcome-busy-message";
+import { LANGUAGE_OPTIONS, MAX_LANGUAGES } from "@/lib/languages";
+
+const LANGUAGE_COUNT = LANGUAGE_OPTIONS.length;
 
 const RESCUE_STEPS = [
   {
@@ -31,7 +34,7 @@ const RESCUE_STEPS = [
     icon: MessageSquare,
     chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
     title: "Texts you right away",
-    body: "Every missed call becomes a lead in your pocket — in English or Spanish.",
+    body: `Every missed call becomes a lead in your pocket — in ${LANGUAGE_COUNT} languages.`,
   },
 ];
 
@@ -221,8 +224,8 @@ export function OnboardingWelcome({
         <h1 className="font-heading text-3xl font-semibold tracking-tight">Welcome to FrontDesk AI</h1>
         <p className="mx-auto max-w-lg text-muted-foreground">
           {plan === "backup"
-            ? "You answer when you can. When you can't, your AI picks up, books the job or takes a message, and texts you right away — in English or Spanish."
-            : "Your AI receptionist answers every call, books appointments, and takes messages — around the clock, in English and Spanish."}{" "}
+            ? `You answer when you can. When you can't, your AI picks up, books the job or takes a message, and texts you right away — in ${LANGUAGE_COUNT} languages. Pick up to ${MAX_LANGUAGES}.`
+            : `Your AI receptionist answers every call, books appointments, and takes messages — around the clock, in ${LANGUAGE_COUNT} languages. Pick up to ${MAX_LANGUAGES}.`}{" "}
           Let&apos;s get yours set up. It only takes a couple of minutes.
         </p>
       </div>
