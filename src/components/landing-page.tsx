@@ -23,12 +23,18 @@ import {
   type HeadlineVariant,
   type HighlightVariant,
 } from "@/lib/pricing-experiment";
+import { LANGUAGE_OPTIONS, MAX_LANGUAGES, languageNames } from "@/lib/languages";
+
+const LANGUAGE_COUNT = LANGUAGE_OPTIONS.length;
+const LANGUAGE_LEAD = LANGUAGE_OPTIONS.slice(0, 4).map((l) => l.label).join(", ");
+const LANGUAGE_REST = LANGUAGE_COUNT - 4;
+const ALL_LANGUAGE_NAMES = languageNames(LANGUAGE_OPTIONS.map((l) => l.code));
 
 const VALUE = [
   { icon: Clock, chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400", title: "Answers 24/7", body: "Every call picked up on the first ring — nights, weekends, lunch rushes." },
   { icon: CalendarCheck, chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", title: "Books on the call", body: "Checks your hours and schedules the appointment live, straight into your calendar." },
   { icon: MessageSquare, chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400", title: "Never loses a lead", body: "Captures name, number, and reason — and texts or emails you the moment it happens." },
-  { icon: Languages, chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400", title: "English & Spanish", body: "Switches to fluent Spanish the second a caller speaks it — no extra staff." },
+  { icon: Languages, chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400", title: `${LANGUAGE_COUNT} languages`, body: `Answers in ${LANGUAGE_LEAD}, and ${LANGUAGE_REST} more. Pick up to ${MAX_LANGUAGES}, and it switches the moment a caller speaks one.` },
 ];
 
 /** Example trades, not customers — no logos or names we haven't earned. */
@@ -73,7 +79,7 @@ const FAQ = [
   },
   {
     q: "What about Spanish-speaking customers?",
-    a: "The moment a caller speaks Spanish, it answers in fluent Spanish — every plan, no extra cost, no setup.",
+    a: `It answers in ${LANGUAGE_COUNT} languages: ${ALL_LANGUAGE_NAMES}. You pick up to ${MAX_LANGUAGES}, and it switches the moment a caller speaks one — every plan, no extra cost.`,
   },
 ];
 
@@ -88,7 +94,7 @@ function jsonLd() {
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     description:
-      "AI phone receptionist for local service businesses — answers every call, books appointments, and captures leads 24/7 in English and Spanish.",
+      `AI phone receptionist for local service businesses — answers every call, books appointments, and captures leads 24/7 in ${LANGUAGE_COUNT} languages.`,
     offers: plans.map((p) => ({
       "@type": "Offer",
       name: p.name,
@@ -188,7 +194,7 @@ export function LandingPage({
                 </h1>
                 <p className="mx-auto mt-6 max-w-xl text-balance text-base leading-relaxed text-slate-600 sm:text-lg lg:mx-0">
                   Every call answered on the first ring. Appointments booked straight into your
-                  calendar. Every lead captured — 24/7, in English and Spanish, for a fraction of a
+                  calendar. Every lead captured — 24/7, in {LANGUAGE_COUNT} languages, for a fraction of a
                   hire.
                 </p>
                 <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
@@ -234,7 +240,7 @@ export function LandingPage({
                 ) : null}
 
                 <ul className="mt-10 flex flex-wrap justify-center gap-x-6 gap-y-2 border-t border-slate-200/80 pt-5 text-sm text-slate-600 lg:justify-start">
-                  {["Picks up on the first ring", "Books on the call", "English y Español"].map(
+                  {["Picks up on the first ring", "Books on the call", `${LANGUAGE_COUNT} languages`].map(
                     (item) => (
                       <li key={item} className="flex items-center gap-1.5">
                         <span className="flex size-4 items-center justify-center rounded-full bg-emerald-100">
