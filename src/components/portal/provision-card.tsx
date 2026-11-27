@@ -26,6 +26,7 @@ export function ProvisionCard({
   onTrial = false,
   ownerPhone = null,
   numberGate = null,
+  firstChargeOn = null,
 }: {
   clientId: string;
   hasAgent: boolean;
@@ -40,7 +41,9 @@ export function ProvisionCard({
    * Whether this business may get its phone number yet (number-gate.ts). Only
    * passed while it has none; null = no gate to show (operator, or has one).
    */
-  numberGate?: { unlocked: boolean; setupStepsLeft: { key: string; label: string; href: string }[] } | null;
+  numberGate?: { unlocked: boolean; awaitingFirstCharge: boolean } | null;
+  /** When a saved card is first charged (Stripe trial end), formatted. */
+  firstChargeOn?: string | null;
 }) {
   const reserved = Boolean(!phoneNumber && numberGate && !numberGate.unlocked);
   const readyToClaim = Boolean(hasAgent && !phoneNumber && numberGate?.unlocked);
@@ -55,7 +58,7 @@ export function ProvisionCard({
         toast.success(`Your AI is live on ${formatPhone(data.phoneNumber)}.`);
       } else if (data?.numberReserved) {
         toast.success(
-          "Your AI is ready — try a test call below. Your number is reserved once you add a card or finish setup.",
+          "Your AI is ready — try a test call below. Your phone number comes with your first payment.",
         );
       } else {
         toast.success("Your AI is ready — try a test call below.");
@@ -74,14 +77,14 @@ export function ProvisionCard({
           {hasAgent
             ? "Your receptionist is set up. Changes you save publish to it automatically — use the button below only if something looks out of date."
             : reserved
-              ? "Activate your receptionist so you can hear it in your browser. Its phone number comes once you add a card or finish setup."
+              ? "Activate your receptionist so you can hear it in your browser. Its phone number comes with your first payment."
               : "Activate your receptionist so you can hear it and put it to work."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {onTrial ? (
           <p className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-            <CheckCircle2 className="size-3.5" /> Free trial — full access, nothing held back
+            <CheckCircle2 className="size-3.5" /> Free trial — every feature on
           </p>
         ) : null}
         {hasAgent ? (
@@ -110,7 +113,13 @@ export function ProvisionCard({
           </div>
         ) : null}
 
-        {reserved && numberGate ? <NumberReserved stepsLeft={numberGate.setupStepsLeft} /> : null}
+        {reserved && numberGate ? (
+          <NumberReserved
+            clientId={clientId}
+            awaitingFirstCharge={numberGate.awaitingFirstCharge}
+            firstChargeOn={firstChargeOn}
+          />
+        ) : null}
 
         {/* Anchor: the setup checklist's "make a test call" step links here.
             Two ways to hear it: in the browser, or on your own phone from the

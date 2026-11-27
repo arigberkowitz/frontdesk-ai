@@ -13,6 +13,10 @@ import { agentConversationSettings, agentSpeechSettings, buildAgentTools, getRet
 import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { planAccessFor } from "@/lib/plan-access";
+import { and, desc, eq, isNull } from "drizzle-orm";
+import { db } from "@/db";
+import { subscriptions } from "@/db/schema";
+import { onTrialHold } from "@/lib/billing-hold";
 
 /**
  * The live agent's tools, built from what this business has actually chosen.
@@ -89,14 +93,45 @@ export function buildPromptForClient(
  * Rebuild and push the prompt to the live Retell LLM. Returns false (without
  * throwing) when the client isn't provisioned yet or Retell is unconfigured.
  */
+/** Whether this business's free trial ended unpaid (billing-hold.ts). Fails open: unknown → not on hold. */
+async function isOnTrialHold(client: {
+  id: string;
+  status: string;
+  trialEndsAt: Date | null;
+  setupFlags: { comped?: boolean } | null;
+}): Promise<boolean> {
+  if (client.status !== "trial" || !client.trialEndsAt) return false;
+  try {
+    const [sub] = await db
+      .select({ status: subscriptions.status })
+      .from(subscriptions)
+      .where(and(eq(subscriptions.clientId, client.id), isNull(subscriptions.deletedAt)))
+      .orderBy(desc(subscriptions.createdAt))
+      .limit(1);
+    return onTrialHold({
+      status: client.status,
+      comped: Boolean(client.setupFlags?.comped),
+      trialEndsAt: client.trialEndsAt,
+      subscriptionStatus: sub?.status ?? null,
+    });
+  } catch (err) {
+    logger.warn("agent.trial_hold_check_failed", {
+      clientId: client.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return false;
+  }
+}
+
 export async function syncAgentPrompt(orgId: string, clientId: string): Promise<boolean> {
   const client = await getClient(orgId, clientId);
   if (!client?.retellLlmId || !integrations.retell()) return false;
 
-  // Paused (portal Settings → Receptionist off): the number still answers, but
-  // the agent only takes a brief message — no booking, no FAQ answering, no
-  // texting. Resume re-syncs and everything comes straight back.
-  if (client.status === "paused") {
+  // Paused (portal Settings → Receptionist off), or a free trial that ended
+  // unpaid (billing-hold.ts): the number still answers, but the agent only
+  // takes a brief message — no booking, no FAQ answering, no texting. Resume
+  // or paying re-syncs and everything comes straight back.
+  if (client.status === "paused" || (await isOnTrialHold(client))) {
     await getRetellClient().llm.update(client.retellLlmId, {
       general_prompt: `You are the answering service for ${client.name}. The business has TEMPORARILY TURNED OFF its automated receptionist. Apologize briefly, say the team will call back, and take a message: ask for the caller's name, then their phone number (one question at a time, read the number back), then a one-sentence reason for the call. Do not answer questions about prices, hours, or services. Do not book appointments. Keep the whole call under a minute.`,
       begin_message: withRequiredDisclosure(

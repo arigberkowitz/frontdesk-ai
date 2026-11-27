@@ -73,11 +73,28 @@ describe("TrialBanner", () => {
     expect(html).toContain("border-amber-500/40");
   });
 
-  it("an expired trial says calls still work and offers the upgrade", () => {
-    const html = render({ state: { ...active, active: false, expired: true, daysLeft: 0 }, progress, upgrade: upgrade(true) });
+  it("an expired trial says the AI only takes messages, when the number goes, and offers the upgrade", () => {
+    const html = render({
+      state: { ...active, active: false, expired: true, daysLeft: 0 },
+      progress,
+      hasNumber: true,
+      upgrade: upgrade(true),
+      timezone: "America/New_York",
+    });
     expect(html).toContain("Your free trial has ended.");
-    expect(html).toContain("still answering");
+    expect(html).toContain("Your AI now only takes messages");
+    expect(html).toContain("doesn&#x27;t book or answer questions");
+    // Ended Fri Oct 16 → released three days later.
+    expect(html).toContain("its number is released on Mon, Oct 19");
+    expect(html).not.toContain("still answering");
     expect(html).toContain("Upgrade to Starter");
+  });
+
+  it("an expired trial with no number yet doesn't talk about messages or a release date", () => {
+    const html = render({ state: { ...active, active: false, expired: true, daysLeft: 0 }, hasNumber: false });
+    expect(html).toContain("Pick a plan to get your AI its phone number");
+    expect(html).not.toContain("only takes messages");
+    expect(html).not.toContain("released on");
   });
 
   it("paying businesses see nothing; comped ones one quiet line", () => {

@@ -11,7 +11,7 @@
  *  - calls > 0: the counts, then the plan link.
  *  - calls = 0: zeros prove nothing and read like a failure, so it skips the
  *    table and says the one thing that usually fixes it — forward the line,
- *    or finish setup so the AI gets its number.
+ *    or pick a plan so the AI gets its number (it comes with the first payment).
  */
 import { formatPhone } from "./format";
 import { forwardingCodes, type ForwardMode } from "./forwarding-codes";
@@ -164,14 +164,14 @@ export function trialSummaryEmail(input: TrialSummaryEmailInput): {
       `${agent} is built and ready for ${name}, but it doesn't have its own phone number yet, so no customer calls have reached it.`,
     );
     p(
-      `It gets one as soon as you finish the setup checklist on your <a href="${base}/portal" style="color:#4f46e5">Overview</a> (a quick test call in your browser is one of the steps) or <a href="${plansUrl}" style="color:#4f46e5">add a card</a>.`,
+      `It gets one with your first payment: <a href="${plansUrl}" style="color:#4f46e5">pick a plan</a> when you're ready for real calls. Your <a href="${base}/portal" style="color:#4f46e5">Overview</a> shows what's left to set up before then.`,
     );
     p(`Haven't heard it yet? <a href="${base}/portal/guidelines" style="color:#4f46e5">Try a test call in your browser</a>.`);
   }
 
   // The plan line. Prices are deliberately not here — they're on the plans page.
   p(
-    `Your free trial has <strong>${days}</strong> left. To keep ${agent} answering after that, pick a plan. Every plan is one flat monthly price. Nothing changes until you do, and everything you've set up stays.`,
+    `Your free trial has <strong>${days}</strong> left. To keep ${agent} booking and answering questions after that, pick a plan. Every plan is one flat monthly price. Everything you've set up stays.`,
   );
   blocks.push(`<p style="margin:6px 0 20px">${button(plansUrl, "Pick a plan")}</p>`);
   textLines.push(`Pick a plan: ${plansUrl}`, "");

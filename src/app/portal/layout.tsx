@@ -53,7 +53,11 @@ export default async function PortalLayout({ children }: { children: React.React
     ]);
     const plan = upgradePlan(client.setupFlags?.intendedPlan);
     strip = {
-      headline: trial.expired ? "Your free trial has ended — your AI is still answering" : daysLeftLabel(trial.daysLeft),
+      headline: trial.expired
+        ? client.retellPhoneNumber
+          ? "Your free trial has ended — your AI is only taking messages"
+          : "Your free trial has ended — pick a plan to get your number"
+        : daysLeftLabel(trial.daysLeft),
       shortHeadline: trial.expired
         ? "Free trial ended"
         : trial.daysLeft <= 0

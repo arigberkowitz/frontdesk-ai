@@ -344,3 +344,49 @@ export async function changePlanAction(_prev: ActionState, formData: FormData): 
   }
   return { ok: true, message: `Switched to ${plan.name}. Your receptionist updates in a minute.` };
 }
+
+/**
+ * End the Stripe free-trial period now and take the first payment today.
+ *
+ * A business that saves a card during its free trial keeps the trial days
+ * (billing-trial.ts), but its phone number waits for a real payment
+ * (number-gate.ts). This is the owner choosing not to wait: Stripe charges the
+ * saved card now, and the webhook that follows (subscription "active", then
+ * invoice.paid) hands over the number. Only for the business's own owner, and
+ * only from a Stripe trial — anything else has nothing to start.
+ */
+export async function startPlanNowAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const guard = await requireClientOwner(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  await assertClientInOrg(guard.user.orgId, clientId);
+  if (!integrations.stripe()) {
+    return { ok: false, error: "Card payments aren't switched on yet. Reach us from Settings → Help." };
+  }
+
+  const [sub] = await db
+    .select({ subId: subscriptions.stripeSubscriptionId, status: subscriptions.status })
+    .from(subscriptions)
+    .where(and(eq(subscriptions.clientId, clientId), isNull(subscriptions.deletedAt)))
+    .orderBy(desc(subscriptions.createdAt))
+    .limit(1);
+  if (!sub?.subId) return { ok: false, error: "There's no card on file yet — pick a plan first." };
+  if (sub.status !== "trialing") {
+    return { ok: true, message: "Your plan has already started — nothing more to do." };
+  }
+
+  try {
+    await getStripe().subscriptions.update(sub.subId, { trial_end: "now", proration_behavior: "none" });
+    void audit({ clientId, actor: guard.user.id, action: "billing.trial_ended_early", detail: {} });
+  } catch (err) {
+    logger.error("billing.start_now.failed", {
+      clientId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { ok: false, error: "Couldn't start your plan just now. Try again in a moment, or reach us from Settings → Help." };
+  }
+  return {
+    ok: true,
+    message: "Your plan has started and your card is being charged. Your phone number shows up here in about a minute.",
+  };
+}

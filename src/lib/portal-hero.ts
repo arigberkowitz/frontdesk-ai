@@ -56,9 +56,16 @@ export function heroStatus(input: {
   aiLive: boolean;
   setupDone: number;
   setupTotal: number;
+  /** The free trial ended unpaid: the AI only takes messages (billing-hold.ts). */
+  trialEnded?: boolean;
 }): { tone: HeroStatusTone; label: string } {
   if (input.clientStatus === "paused") {
     return { tone: "paused", label: "Your AI receptionist is paused" };
+  }
+  if (input.trialEnded && input.clientStatus === "trial") {
+    return input.aiLive
+      ? { tone: "paused", label: "Your AI is only taking messages" }
+      : { tone: "paused", label: "Free trial ended · pick a plan to get your number" };
   }
   if (input.aiLive) {
     return { tone: "live", label: "Your AI receptionist is live" };

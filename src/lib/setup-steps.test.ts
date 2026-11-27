@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { buildSetupSteps, checklistMode, featuresStep, FEATURES_STEP_HREF, type SetupFacts } from "./setup-steps";
-import { numberGate } from "./number-gate";
 
 const fresh: SetupFacts = {
   services: 0,
@@ -84,7 +83,7 @@ describe("buildSetupSteps", () => {
 
   it("going live needs the agent AND a phone number", () => {
     expect(byKey({ ...fresh, agentId: "agent_1" }).live.done).toBe(false);
-    expect(byKey({ ...fresh, agentId: "agent_1" }).live.hint).toMatch(/Add a card under Plans/);
+    expect(byKey({ ...fresh, agentId: "agent_1" }).live.hint).toMatch(/comes with your first payment — pick a plan under Plans/);
     expect(byKey({ ...fresh, agentId: "agent_1" }).live.hint).not.toMatch(/Get my phone number/);
     expect(byKey({ ...fresh, agentId: "agent_1" }).live.href).toBe("/portal/guidelines#plans");
     expect(byKey({ ...fresh, agentId: "agent_1", aiNumber: "(415) 555-0100" }).live.done).toBe(true);
@@ -173,19 +172,9 @@ describe("pre-filled template steps", () => {
 });
 
 describe("featuresStep (optional “Choose your features”)", () => {
-  it("is never one of the counted steps, so it can't block finishing or the phone number", () => {
+  it("is never one of the counted steps, so it can't block finishing", () => {
     expect(buildSetupSteps(done).map((s) => s.key)).not.toContain("features");
     expect(buildSetupSteps(done).every((s) => s.done)).toBe(true);
-    const gate = numberGate({
-      actorRole: "client_admin",
-      status: "trial",
-      comped: false,
-      subscriptionStatus: null,
-      trialApproved: false,
-      steps: buildSetupSteps({ ...done, aiNumber: null, agentId: null }),
-    });
-    expect(gate.setupStepsLeft.map((s) => s.key)).not.toContain("features");
-    expect(gate.via).toBe("setup");
   });
 
   it("is open until the owner continues or skips, then ticks with a way back", () => {

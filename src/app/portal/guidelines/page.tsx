@@ -45,9 +45,18 @@ export default async function PortalGuidelinesPage({
   const canManage = me.role === "operator" || me.role === "client_admin";
   const mayActivate = me.role === "operator" ? true : await clientMayActivate(clientId);
   const trial = await getTrialState(clientId);
-  // No number yet: may this business get one (card / finished setup), or is it reserved?
+  // No number yet: may this business get one (it has paid), or is it reserved?
   const numberGate =
     canManage && !client.retellPhoneNumber ? await getNumberGate(clientId, me.role) : null;
+  const firstChargeAt =
+    numberGate?.firstChargeAt ?? (checkoutTrialEnd(trial) !== undefined ? trial.endsAt : null);
+  const firstChargeOn = firstChargeAt
+    ? firstChargeAt.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        timeZone: client.timezone || "America/Los_Angeles",
+      })
+    : null;
   const retellReady = integrations.retell();
   const agentName = client.agentName?.trim() || DEFAULT_AGENT_NAME;
 
@@ -104,9 +113,14 @@ export default async function PortalGuidelinesPage({
               Your receipt is on its way by email.{" "}
               {client.retellPhoneNumber
                 ? "Your AI keeps answering on the same number."
-                : client.retellAgentId
-                  ? "Your phone number is being assigned now — refresh in a minute, or press Get my phone number below."
-                  : "Activate below and your AI takes its first call."}
+                : numberGate?.awaitingFirstCharge ||
+                    // Back from Stripe before its webhook landed: a checkout
+                    // during the trial keeps the trial, so the charge is later.
+                    (numberGate && !numberGate.unlocked && checkoutTrialEnd(trial) !== undefined)
+                  ? `Your card is saved, and your free trial carries on${firstChargeOn ? ` until ${firstChargeOn}` : ""}. Your phone number is assigned when that first payment goes through, or start your plan now below to get it today.`
+                  : client.retellAgentId
+                    ? "Your phone number is being assigned now — refresh in a minute, or press Get my phone number below."
+                    : "Activate below and your AI takes its first call."}
             </span>
           </CardContent>
         </Card>
@@ -138,6 +152,7 @@ export default async function PortalGuidelinesPage({
                 onTrial={client.status === "trial"}
                 ownerPhone={client.escalationNumber}
                 numberGate={numberGate}
+                firstChargeOn={firstChargeOn}
               />
             </div>
           ) : null}

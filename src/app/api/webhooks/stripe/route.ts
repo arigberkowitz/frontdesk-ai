@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import { after } from "next/server";
 import { db } from "@/db";
 import { clients, subscriptions } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { planSyncPatch, resolvePlanKey } from "@/lib/plan-sync";
 import { getStripe, subscriptionPeriodEnd } from "@/lib/stripe";
 import {
@@ -109,6 +109,7 @@ async function applyPlanToClient(
       answeringMode: client.answeringMode,
       staffModeEnabled: client.staffModeEnabled,
       languages: client.languages,
+      trialLapsed: Boolean(client.setupFlags?.trialLapsedAt),
     },
     plan,
     subStatus,
@@ -116,7 +117,22 @@ async function applyPlanToClient(
   );
   const changed = Object.keys(patch).length > 0;
   if (changed) {
-    await db.update(clients).set(patch).where(eq(clients.id, clientId));
+    // Going live clears the trial-lapse markers, so a later pause by the owner
+    // is never mistaken for a lapse and undone by a plan change.
+    const flags = client.setupFlags ?? {};
+    const clearLapse = patch.status === "live" && (flags.trialLapsedAt || flags.trialHoldAt);
+    await db
+      .update(clients)
+      .set(
+        clearLapse
+          ? {
+              ...patch,
+              // In SQL, so a flag written meanwhile (e.g. a minute-cap mark) isn't lost.
+              setupFlags: sql`coalesce(${clients.setupFlags}, '{}'::jsonb) - 'trialLapsedAt' - 'trialHoldAt'`,
+            }
+          : patch,
+      )
+      .where(eq(clients.id, clientId));
     logger.info("stripe.webhook.plan_applied", { clientId, plan, patch });
   }
   if (changed || previousPlan !== plan) {
@@ -186,7 +202,11 @@ async function unlockAfterInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
  * number is skipped, and the first-provision lock stops a replay buying twice.
  */
 function unlockNumberIfPaid(clientId: string, status: SubStatus): void {
-  if (status !== "active" && status !== "trialing") return;
+  // "active" only: a Stripe trial ("trialing") has a card but no payment yet,
+  // and a number waits for a payment (number-gate.ts). When the trial
+  // converts, customer.subscription.updated → active (or invoice.paid) lands
+  // here again — so a missing invoice event still hands the number over.
+  if (status !== "active") return;
   after(() =>
     provisionNumberAfterPayment(clientId).catch((err) =>
       logger.warn("stripe.webhook.number_after_payment_failed", {

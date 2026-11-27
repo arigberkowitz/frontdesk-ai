@@ -1,7 +1,11 @@
+import { minuteAlertThreshold } from "@/config/plans";
+
 /**
  * Minutes used against a plan's included minutes — pure, client-safe.
  * The cap is soft (no overage charges, calls never cut off); this is what the
- * owner sees so a cap is never a surprise.
+ * owner sees so a cap is never a surprise. Past the cap plus
+ * MINUTE_CAP_GRACE_PCT, the owner gets one email per billing period
+ * (minute-cap.ts) — the meter says so before it happens.
  */
 export interface MinutesUsage {
   usedMinutes: number;
@@ -19,13 +23,14 @@ export function minutesUsage(usedSeconds: number, includedMinutes: number | null
   }
   const percent = Math.min(100, Math.round((usedMinutes / includedMinutes) * 100));
   const tone = usedMinutes >= includedMinutes ? "over" : percent >= 80 ? "near" : "ok";
+  const alertAt = minuteAlertThreshold({ includedMinutes }) ?? includedMinutes;
   const tail =
     tone === "over"
-      ? " · you're past your included minutes. Calls still get answered and there's no overage charge, but upgrading keeps you covered."
+      ? ` · you're past your included minutes. Calls still get answered and there's no overage charge. Past ${alertAt.toLocaleString("en-US")} minutes, we email you once a billing period about a plan that fits.`
       : tone === "near"
         ? " · getting close to your included minutes"
         : "";
-  return { usedMinutes, includedMinutes, percent, tone, text: `${usedMinutes} of ${includedMinutes} minutes used this period${tail}` };
+  return { usedMinutes, includedMinutes, percent, tone, text: `${usedMinutes.toLocaleString("en-US")} of ${includedMinutes.toLocaleString("en-US")} minutes used this period${tail}` };
 }
 
 /** Start of the current billing period, from Stripe's period end (monthly or yearly). */

@@ -8,6 +8,7 @@ import { env, integrations } from "@/lib/env";
 import { formatPhone } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { questionsLine, questionsLineHtml } from "@/lib/lifecycle";
+import { LAPSE_GRACE_DAYS } from "@/lib/billing-hold";
 
 /**
  * A free trial that ends unpaid gives its phone number back.
@@ -23,7 +24,7 @@ import { questionsLine, questionsLineHtml } from "@/lib/lifecycle";
  * pay on day 15. After release the business is paused (nothing answers), the
  * owner gets one email, and choosing a plan later activates a fresh number.
  */
-export const LAPSE_GRACE_DAYS = 3;
+export { LAPSE_GRACE_DAYS };
 
 export interface TrialLapseResult {
   released: number;
@@ -74,7 +75,13 @@ export async function runTrialLapse(now = new Date()): Promise<TrialLapseResult>
       }
       await db
         .update(clients)
-        .set({ retellPhoneNumber: null, status: "paused" })
+        .set({
+          retellPhoneNumber: null,
+          status: "paused",
+          // Marks this pause as the lapse's, so paying turns it back on
+          // (plan-sync.ts) — an owner's own pause is never undone that way.
+          setupFlags: sql`jsonb_set(coalesce(${clients.setupFlags}, '{}'::jsonb), '{trialLapsedAt}', to_jsonb(${now.toISOString()}::text))`,
+        })
         .where(eq(clients.id, c.id));
       released += 1;
       logger.info("trial.lapsed.number_released", { clientId: c.id, phone });
@@ -111,4 +118,59 @@ export async function runTrialLapse(now = new Date()): Promise<TrialLapseResult>
     }
   }
   return { released, failed };
+}
+
+/**
+ * The day a free trial ends unpaid: switch its live agent to taking messages
+ * only (billing-hold.ts) — before the number is released three days later.
+ *
+ * The rule itself is worked out from the trial date and the subscription
+ * every time the agent is published, so this job only has to publish once;
+ * `trialHoldAt` records that it did. Paying republishes the full agent from
+ * the Stripe webhook. Fail-soft per business: a Retell hiccup leaves the flag
+ * unset, so tomorrow's run tries again.
+ */
+export async function runTrialHold(now = new Date()): Promise<{ held: number; failed: number }> {
+  const rows = await db
+    .select({ id: clients.id, orgId: clients.orgId, setupFlags: clients.setupFlags })
+    .from(clients)
+    .leftJoin(subscriptions, eq(subscriptions.clientId, clients.id))
+    .where(
+      and(
+        isNull(clients.deletedAt),
+        eq(clients.status, "trial"),
+        isNotNull(clients.trialEndsAt),
+        lt(clients.trialEndsAt, now),
+        isNotNull(clients.retellLlmId),
+        sql`coalesce(${subscriptions.status}::text, '') not in ('active', 'trialing')`,
+        sql`${clients.setupFlags}->>'trialHoldAt' is null`,
+      ),
+    );
+
+  let held = 0;
+  let failed = 0;
+  for (const c of rows) {
+    if (c.setupFlags?.comped) continue;
+    try {
+      // Lazy: agent-publish pulls in the whole calendar/voice stack.
+      const { syncAgentPrompt } = await import("@/lib/agent-publish");
+      const synced = await syncAgentPrompt(c.orgId, c.id);
+      if (!synced) continue; // Retell not configured / not provisioned: nothing to switch.
+      await db
+        .update(clients)
+        .set({
+          setupFlags: sql`jsonb_set(coalesce(${clients.setupFlags}, '{}'::jsonb), '{trialHoldAt}', to_jsonb(${now.toISOString()}::text))`,
+        })
+        .where(eq(clients.id, c.id));
+      held += 1;
+      logger.info("trial.hold.messages_only", { clientId: c.id });
+    } catch (err) {
+      failed += 1;
+      logger.error("trial.hold.failed", {
+        clientId: c.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return { held, failed };
 }

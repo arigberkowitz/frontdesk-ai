@@ -272,8 +272,8 @@ export const clients = pgTable(
         comped?: boolean;
         /**
          * When an operator approved this business's free trial (trial-code
-         * flow). Someone vouched for it, so it may get a phone number without
-         * a card — self-serve trials wait for a card or finished setup.
+         * flow). Record only: like every trial, its phone number waits for the
+         * first payment (number-gate.ts); an operator can still provision one.
          */
         trialApprovedAt?: string;
         /** The pricing card they clicked before signing up. Preselects checkout. */
@@ -325,6 +325,23 @@ export const clients = pgTable(
          * default; the 7-day and 1-day check-ins are separate and unchanged).
          */
         trialReminderOptIn?: boolean;
+        /**
+         * The free trial ended unpaid and the live agent was switched to
+         * taking messages only (lib/trial-lapse.ts). ISO. Dedupe state: the
+         * hold itself is worked out from the trial date and subscription.
+         */
+        trialHoldAt?: string;
+        /**
+         * Paused by the trial-lapse job (number released), not by the owner.
+         * Paying clears it and turns the receptionist back on; an owner's own
+         * pause is never undone by a payment.
+         */
+        trialLapsedAt?: string;
+        /**
+         * Minute-cap emails sent this billing period (lib/minute-cap.ts).
+         * `period` is the ISO period start; a new period starts clean.
+         */
+        minuteCap?: { period?: string; ownerWarnedAt?: string; adminFlaggedAt?: string };
       }>()
       .notNull()
       .default({}),

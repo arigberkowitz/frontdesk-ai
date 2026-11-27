@@ -229,6 +229,70 @@ describe("stripe webhook retries", () => {
     expect(provisionNumberAfterPayment).not.toHaveBeenCalled();
   });
 
+  it("a Stripe trial (card saved, nothing charged yet) doesn't buy a number", async () => {
+    await POST(stripeEvent("evt_trialing", "trialing"));
+    expect(afterTasks).toHaveLength(0);
+    expect(provisionNumberAfterPayment).not.toHaveBeenCalled();
+  });
+
+  it("no invoice event at all: the subscription turning active still buys the number", async () => {
+    // Trial converts; Stripe only tells us via customer.subscription.updated.
+    await POST(stripeEvent("evt_trial_start", "trialing"));
+    await POST(stripeEvent("evt_trial_converted", "active"));
+    expect(afterTasks).toHaveLength(1);
+    await afterTasks[0]!();
+    expect(provisionNumberAfterPayment).toHaveBeenCalledTimes(1);
+    expect(provisionNumberAfterPayment).toHaveBeenCalledWith("client-1");
+  });
+
+  it("paying after a lapsed trial switches the business back on and clears the lapse markers", async () => {
+    storedClient = {
+      id: "client-1",
+      orgId: "org-1",
+      status: "paused",
+      setupFlags: { trialLapsedAt: "2026-10-19T12:45:00.000Z", trialHoldAt: "2026-10-16T12:45:00.000Z" },
+      answeringMode: "all_calls",
+      staffModeEnabled: true,
+      languages: "en",
+    };
+    await POST(stripeEvent("evt_lapsed_pays", "active", "starter"));
+    expect(clientUpdates).toHaveLength(1);
+    expect(clientUpdates[0]).toMatchObject({ status: "live", trialEndsAt: null });
+    expect(clientUpdates[0]).toHaveProperty("setupFlags"); // SQL: drops trialLapsedAt / trialHoldAt
+    for (const t of afterTasks) await t();
+    expect(syncAgentPrompt).toHaveBeenCalledWith("org-1", "client-1"); // full agent back
+    expect(provisionNumberAfterPayment).toHaveBeenCalledWith("client-1"); // a new number
+  });
+
+  it("an owner's own pause is not undone by a plan change", async () => {
+    storedClient = {
+      id: "client-1",
+      orgId: "org-1",
+      status: "paused",
+      setupFlags: {},
+      answeringMode: "all_calls",
+      staffModeEnabled: true,
+      languages: "en",
+    };
+    await POST(stripeEvent("evt_owner_paused", "active", "starter"));
+    for (const u of clientUpdates) expect(u).not.toHaveProperty("status");
+  });
+
+  it("a held trial that pays goes live without touching other flags", async () => {
+    storedClient = {
+      id: "client-1",
+      orgId: "org-1",
+      status: "trial",
+      setupFlags: { trialHoldAt: "2026-10-16T12:45:00.000Z" },
+      answeringMode: "all_calls",
+      staffModeEnabled: true,
+      languages: "en",
+    };
+    await POST(stripeEvent("evt_held_pays", "active", "pro"));
+    expect(clientUpdates[0]).toMatchObject({ status: "live" });
+    expect(clientUpdates[0]).toHaveProperty("setupFlags");
+  });
+
   it("a replayed paid event doesn't schedule a second purchase", async () => {
     await POST(stripeEvent("evt_6", "active"));
     await POST(stripeEvent("evt_6", "active"));

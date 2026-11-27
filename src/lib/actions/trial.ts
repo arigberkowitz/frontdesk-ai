@@ -179,8 +179,9 @@ export async function approveTrialAction(
     .set({
       status: "trial",
       trialEndsAt,
-      // An operator vouched for this one, so it may get its phone number without
-      // a card (self-serve trials wait for a card or finished setup).
+      // Record that an operator vouched for this one. Its phone number still
+      // waits for the first payment (number-gate.ts), unless an operator
+      // provisions one from the dashboard.
       setupFlags: { ...(client.setupFlags ?? {}), trialApprovedAt: new Date().toISOString() },
     })
     .where(eq(clients.id, clientId));
@@ -193,8 +194,8 @@ export async function approveTrialAction(
       await notifier.sendEmail({
         to: ownerEmail,
         subject: `Your free trial is on — ${client.name}`,
-        html: `<div style="font-family:system-ui,sans-serif;max-width:480px"><h2 style="font-size:17px;margin:0 0 8px">🎉 You're in</h2><p style="margin:0 0 6px">Your free trial for <strong>${client.name}</strong> is approved — the full product, every feature unlocked, nothing to pay.</p><p style="margin:0 0 6px">Head to your portal and hit <strong>Activate</strong> on the Your AI page to bring your receptionist live.</p><p><a href="${base}/portal">Open your portal →</a></p></div>`,
-        text: `Your free trial for ${client.name} is approved — full product, nothing to pay. Open your portal and hit Activate on the Your AI page: ${base}/portal`,
+        html: `<div style="font-family:system-ui,sans-serif;max-width:480px"><h2 style="font-size:17px;margin:0 0 8px">🎉 You're in</h2><p style="margin:0 0 6px">Your free trial for <strong>${client.name}</strong> is approved — the full product, every feature unlocked, nothing to pay.</p><p style="margin:0 0 6px">Head to your portal and hit <strong>Activate</strong> on the Your AI page to hear your receptionist in your browser. Its own phone number comes with your first payment.</p><p><a href="${base}/portal">Open your portal →</a></p></div>`,
+        text: `Your free trial for ${client.name} is approved — full product, nothing to pay. Open your portal and hit Activate on the Your AI page to hear your receptionist in your browser. Its own phone number comes with your first payment: ${base}/portal`,
       });
     } catch (err) {
       logger.warn("trial.approve.notify_failed", {
