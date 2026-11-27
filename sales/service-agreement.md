@@ -26,10 +26,17 @@ everything it knows, and nothing goes live until you approve it.
 | Starter | $399 | None |
 | Pro | $599 | None |
 
-Your plan: ____________. First 14 days are free; billing starts when your
-receptionist goes live on your number, not before. Cancel any month with 30
-days' notice — no termination fee, and you can export your leads and call
-history before you go.
+Your plan: ____________. Billed monthly (a yearly option is 10 months' price).
+
+- **Free trial:** the first 14 days are free, and we don't ask for a card. If
+  you do nothing, the trial simply ends and you're never charged.
+- **When billing starts:** if you pick a plan during the trial, your card is
+  saved and first charged when the trial ends; after the trial, the first
+  month is charged when you subscribe.
+- **Cancel anytime** from your account or by emailing us. No termination fee
+  and no notice period. You keep the service until the end of the month
+  you've paid for. Fees aren't refunded for partial months, except where the
+  law requires it. You can export your leads and call history before you go.
 
 ## What we promise
 
@@ -39,7 +46,7 @@ history before you go.
 - Any change the AI proposes to its own knowledge reaches you first; nothing
   changes on your phone line without your approval.
 - Every call recorded, transcribed, and visible to you.
-- If something breaks, email arigberkowitz@gmail.com — we respond within one business
+- If something breaks, email support@frontdeskai.company — we respond within one business
   day, usually much faster.
 
 ## What we need from you
@@ -67,14 +74,15 @@ You agree not to use the service for cold texting or spam.
 
 **Your data.** Your call data belongs to you. We process it through the vendors
 that run the service (voice, AI, texting, email) and never sell it. Full detail:
-https://frontdesk-ai-alpha.vercel.app/privacy.
+https://frontdeskai.company/privacy.
 
 **If things go wrong.** Our total liability is capped at what you paid us in
 the last 12 months. We're not liable for the value of a missed call or booking
 — telephone networks and third-party services fail in ways nobody can fully
 control, which is also why you keep a forwarding number.
 
-**Governing law:** California.
+**Governing law:** California. Full Terms of Service:
+https://frontdeskai.company/terms.
 
 ## Signatures
 
@@ -82,5 +90,5 @@ We: ______________________________  Date: ____________
 
 You: ______________________________  Date: ____________
 
-*Questions before signing? Call or email — arigberkowitz@gmail.com. We'd rather answer
+*Questions before signing? Call or email — support@frontdeskai.company. We'd rather answer
 them now than surprise you later.*

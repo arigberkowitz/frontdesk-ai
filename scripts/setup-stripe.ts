@@ -5,7 +5,7 @@
  *
  * Run with your Stripe TEST secret key (so nothing real is charged):
  *   STRIPE_SECRET_KEY=sk_test_xxx \
- *   APP_URL=https://frontdesk-ai-alpha.vercel.app \
+ *   APP_URL=https://frontdeskai.company \
  *   PROMO_CODE=FOUNDER \
  *   npx tsx scripts/setup-stripe.ts
  *
@@ -14,7 +14,7 @@
 import Stripe from "stripe";
 
 const key = process.env.STRIPE_SECRET_KEY;
-const appUrl = (process.env.APP_URL ?? "https://frontdesk-ai-alpha.vercel.app").replace(/\/$/, "");
+const appUrl = (process.env.APP_URL ?? "https://frontdeskai.company").replace(/\/$/, "");
 const code = (process.env.PROMO_CODE ?? "FOUNDER").toUpperCase();
 
 if (!key) {

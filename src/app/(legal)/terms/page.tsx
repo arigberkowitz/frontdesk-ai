@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${env.APP_URL.replace(/\/$/, "")}/terms` },
 };
 
-const UPDATED = "July 30, 2026";
+const UPDATED = "November 27, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -20,9 +20,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /**
- * Terms of service. NOTE FOR THE OPERATOR: this is a solid starting draft, not
- * legal advice — have a lawyer review before selling, and replace the
- * bracketed placeholders (entity name, governing state, contact email).
+ * Terms of Service for FrontDesk AI, operated by Ari Berkowitz d/b/a FrontDesk
+ * AI (sole proprietor), governed by California law. Keep section 5 in step
+ * with the billing code (src/lib/actions/billing.ts, src/lib/billing-trial.ts)
+ * and with sales/service-agreement.md, and bump UPDATED on any change.
  */
 export default function TermsPage() {
   return (
@@ -84,7 +85,9 @@ export default function TermsPage() {
         <Section title="5. Fees and trials">
           <p>
             Paid plans are billed monthly (or yearly) per business location. When you sign up and
-            subscribe yourself, the first period is charged at checkout and there is no setup fee.
+            subscribe yourself, there is no setup fee. If you subscribe during your free trial, your
+            card is saved at checkout and first charged when the trial ends; otherwise the first
+            period is charged at checkout.
             A one-time setup fee applies only where we set the service up for you, and is shown at
             purchase before you pay. Every new account starts with a 14-day free trial: we do
             not ask for a card during it, it is never charged, and it does not become a paid plan
