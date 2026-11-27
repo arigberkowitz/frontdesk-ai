@@ -6,6 +6,7 @@ import { analyzeCall, type CallProblem } from "@/lib/call-health";
 import { env } from "@/lib/env";
 import { notifier } from "@/lib/notifier";
 import { logger } from "@/lib/logger";
+import { markAdminFlagged, runMinuteCapAlerts, type AdminCapFlag } from "@/lib/minute-cap-run";
 
 /**
  * The operator health check: one email, only when something is wrong.
@@ -105,7 +106,7 @@ export function issuesFromTrials(rows: TrialClientRow[], now: Date): HealthIssue
     if (msLeft <= 0) {
       issues.push({
         severity: "critical",
-        line: `${c.name}'s free trial has EXPIRED. It keeps answering for 3 more days, then its number is released automatically — comp them now if you want to keep it.`,
+        line: `${c.name}'s free trial has EXPIRED. Its AI now only takes messages, and in 3 days its number is released automatically — comp them now if you want to keep it.`,
       });
     } else if (msLeft <= TRIAL_WARN_DAYS * DAY_MS) {
       const days = Math.ceil(msLeft / DAY_MS);
@@ -279,7 +280,18 @@ export async function runHealthCheck(now = new Date()): Promise<HealthCheckResul
       ),
   ]);
 
+  // Minute caps: emails owners past cap + grace (once per billing period) and
+  // hands back the businesses to flag here. Fail-soft — the health check is
+  // the watcher, and must still run if this part breaks.
+  let capFlags: AdminCapFlag[] = [];
+  try {
+    capFlags = (await runMinuteCapAlerts(now)).adminFlags;
+  } catch (err) {
+    logger.warn("health_check.minute_cap_failed", { error: err instanceof Error ? err.message : String(err) });
+  }
+
   const issues: HealthIssue[] = [
+    ...capFlags.map((f) => ({ severity: "warning" as const, line: f.line })),
     ...issuesFromFailedTexts(failedTexts),
     ...issuesFromWebhooks(stuckWebhooks),
     ...issuesFromTrials(trialClients, now),
@@ -297,6 +309,8 @@ export async function runHealthCheck(now = new Date()): Promise<HealthCheckResul
     const sent = await notifier.sendEmail({ to: env.ALERT_EMAIL, subject, text, html });
     emailed = sent.ok;
     if (!sent.ok && !sent.skipped) emailError = sent.error;
+    // Only once it actually reached you: a failed send flags them again tomorrow.
+    if (sent.ok && capFlags.length > 0) await markAdminFlagged(capFlags, now);
   } else if (mondayAllClear) {
     const allClearText = `Nothing needed your attention this week — texts sending, webhooks processing, calls healthy, no trials expiring.\n\n— automated morning health check, ${now.toISOString().slice(0, 10)}.`;
     const sent = await notifier.sendEmail({

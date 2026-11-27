@@ -39,8 +39,8 @@ export interface ProvisionActor {
  *
  * The agent is always built — it's free until called and it's what the browser
  * test call talks to. The NUMBER is a monthly vendor charge, so a business only
- * gets one after adding a card or finishing setup (or when an operator does it);
- * until then this returns `numberReserved: true`. See number-gate.ts.
+ * gets one after its first real payment (or when an operator does it, or it's
+ * comped); until then this returns `numberReserved: true`. See number-gate.ts.
  *
  * Lives outside the "use server" action modules on purpose: exporting it from
  * one would expose it as a callable server action that takes an arbitrary

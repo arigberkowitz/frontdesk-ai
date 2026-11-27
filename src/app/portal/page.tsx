@@ -187,6 +187,7 @@ export default async function PortalOverviewPage({
     aiLive,
     setupDone: setup.doneCount,
     setupTotal: setup.total,
+    trialEnded: trial.expired,
   });
   const statusDetail =
     status.tone === "live" && client?.retellPhoneNumber

@@ -18,6 +18,11 @@ export interface PlanSyncClient {
   answeringMode: string;
   staffModeEnabled: boolean;
   languages: string;
+  /**
+   * Paused by the trial-lapse job (setup_flags.trialLapsedAt), not by the
+   * owner. Paying turns it back on; an owner's own pause is left alone.
+   */
+  trialLapsed?: boolean;
 }
 
 export interface PlanSyncPatch {
@@ -67,8 +72,9 @@ export function planSyncPatch(
   const paying = subStatus === "active" || subStatus === "trialing";
   if (!paying || !plan) return patch;
 
-  // Fix 1: paid → live, so plan gates bind.
-  if (client.status === "trial") {
+  // Fix 1: paid → live, so plan gates bind. A business the trial-lapse job
+  // paused (its trial ran out unpaid) comes back on the moment it pays.
+  if (client.status === "trial" || (client.status === "paused" && client.trialLapsed)) {
     patch.status = "live";
     patch.trialEndsAt = null;
   }

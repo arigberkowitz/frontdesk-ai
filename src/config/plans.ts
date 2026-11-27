@@ -33,8 +33,17 @@ export interface Plan {
   legacyMonthlyPriceCents?: number[];
   /** Shown on the pricing page and offered at checkout. */
   listed: boolean;
-  /** Soft cap surfaced to operator; v1 is flat-rate (usage shown, not billed). */
+  /**
+   * Minutes a month the price covers. Never billed and never enforced on a
+   * live call: past it (plus MINUTE_CAP_GRACE_PCT) the owner and the operator
+   * get one email each per billing period (minute-cap.ts). Null = no cap.
+   */
   includedMinutes: number | null;
+  /**
+   * The cap is a fair-use ceiling rather than a bundle (Pro). Only changes
+   * the wording: "up to 2,500 minutes a month (fair use)".
+   */
+  fairUse?: boolean;
   description: string;
   highlights: string[];
 }
@@ -83,7 +92,8 @@ export const PLANS: Record<PlanKey, Plan> = {
     legacyMonthlyPriceCents: [50_000],
     setupFeeCents: 0,
     listed: true,
-    includedMinutes: null,
+    includedMinutes: 2_500,
+    fairUse: true,
     description: "For teams: calls leads back on request, books by team member, and gets better every week.",
     highlights: [
       "Everything in Starter",
@@ -101,7 +111,8 @@ export const PLANS: Record<PlanKey, Plan> = {
     monthlyPriceCents: 60_000, // $600
     setupFeeCents: 0,
     listed: false,
-    includedMinutes: null,
+    includedMinutes: 2_500,
+    fairUse: true,
     description: "Folded into Pro.",
     highlights: [],
   },
@@ -111,11 +122,28 @@ export const DEFAULT_PLAN: PlanKey = "pro";
 export const TRIAL_DAYS = 14;
 
 /**
+ * How far past its included minutes a business may go before anyone is told.
+ * 10 = Rescue 220, Starter 550, Pro 2,750. A busy week shouldn't trigger an
+ * email; a business living well above its plan should. One constant, so the
+ * alert, the portal meter and the tests can't drift apart.
+ */
+export const MINUTE_CAP_GRACE_PCT = 10;
+
+/** The minute count at which the over-cap emails go out (cap + grace), or null with no cap. */
+export function minuteAlertThreshold(plan: Pick<Plan, "includedMinutes">): number | null {
+  if (plan.includedMinutes === null) return null;
+  return Math.ceil((plan.includedMinutes * (100 + MINUTE_CAP_GRACE_PCT)) / 100);
+}
+
+/**
  * Operator margin inputs (§10, EPIC A4). Cents. Tune to actual vendor costs.
  * Margin = monthly price − Retell minutes − SMS − per-client overhead.
  */
 export const COST_ASSUMPTIONS = {
-  retellPerMinuteCents: 10, // ~$0.10/min voice — adjust to your Retell rate
+  // ~$0.13/min: Retell voice infra $0.055 + ElevenLabs $0.04 + GPT-4.1 mini
+  // $0.0128 + telephony $0.015 (retellai.com/pricing, Nov 2026), rounded up
+  // for long prompts, which Retell bills as extra time.
+  retellPerMinuteCents: 13,
   smsPerMessageCents: 1, // ~$0.0079/segment Twilio, rounded up
   overheadPerClientCents: 2_000, // $20/mo: Cal.com, Resend, misc.
 } as const;
@@ -132,10 +160,27 @@ export const COST_ASSUMPTIONS = {
  * so say so on the card where it can do some work.
  */
 export function minutesLabel(plan: Plan): string {
-  return plan.includedMinutes === null
-    ? "Unlimited minutes \u00b7 no overage charges"
-    : `${plan.includedMinutes} minutes included \u00b7 no overage charges`;
+  if (plan.includedMinutes === null) return "No overage charges";
+  const n = plan.includedMinutes.toLocaleString("en-US");
+  return plan.fairUse
+    ? `Up to ${n} min a month (fair use) \u00b7 no overage charges`
+    : `${n} minutes included \u00b7 no overage charges`;
 }
 
 /** The plans a customer can actually see and buy. */
 export const planList = (): Plan[] => Object.values(PLANS).filter((p) => p.listed);
+
+/** e.g. "Missed-Call Rescue covers 200 minutes a month, Starter 500, and Pro up to 2,500 (fair use)." */
+export function minutesFaqLine(plans: Plan[] = planList()): string {
+  const parts = plans
+    .filter((p) => p.includedMinutes !== null)
+    .map((p, i) => {
+      const n = `${p.fairUse ? "up to " : ""}${p.includedMinutes!.toLocaleString("en-US")}`;
+      return i === 0
+        ? `${p.name} covers ${n} minutes a month${p.fairUse ? " (fair use)" : ""}`
+        : `${p.name} ${n}${p.fairUse ? " (fair use)" : ""}`;
+    });
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return `${parts[0]}.`;
+  return `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}.`;
+}

@@ -29,7 +29,8 @@ import { logger } from "@/lib/logger";
  *               prices in the email. Rendered by trial-summary-email.ts.
  *   3 days    — OPT-IN only (the owner ticks "Email me 3 days before it
  *               ends" on their Overview): what it's done, and the upgrade link.
- *   1 day     — tomorrow it ends; three days after that the number goes.
+ *   1 day     — tomorrow it ends and the AI only takes messages; three days
+ *               after that the number goes.
  *
  * Dedupe lives in setupFlags.trialEmails — per-client state, no migration.
  */
@@ -94,9 +95,9 @@ export async function sendWelcomeEmail(clientId: string): Promise<void> {
       ]
     : [
         `Your AI receptionist is built and ready to talk to in your browser — <a href="${appUrl("/portal/guidelines")}">try a test call</a>.`,
-        `Its own phone number is reserved for you: it's assigned as soon as you <a href="${appUrl("/portal/guidelines?plans=open#plans")}">add a card</a> or finish the setup checklist on your Overview (a quick test call in your browser is one of the steps).`,
+        `Its own phone number comes with your first payment. When you're ready for real calls, <a href="${appUrl("/portal/guidelines?plans=open#plans")}">pick a plan</a> and the number is assigned as soon as the payment goes through.`,
         `Its services, hours and answers are drafted for your industry. <a href="${appUrl("/portal/services")}">Check the prices</a> especially — they're examples until you say otherwise.`,
-        `Your free trial runs ${TRIAL_DAYS} days with everything switched on, and you don't need a card to try it.`,
+        `Your free trial runs ${TRIAL_DAYS} days. Try everything in your browser, no card needed.`,
       ];
 
   const text = paragraphs.map((p) => p.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&")).join("\n\n");
@@ -235,7 +236,7 @@ export async function runTrialReminders(now = new Date()): Promise<TrialReminder
               did,
               `<a href="${plansUrl}">Pick a plan</a> and nothing changes — ${esc(plansLine())}.`,
               c.phone
-                ? `If you don't, it keeps answering for three more days as a courtesy, then ${formatPhone(c.phone)} is released. If your line is forwarded to it, dial <strong>*73</strong> (AT&amp;T/T-Mobile: <strong>##21#</strong>) from that phone first so callers don't reach a dead number.`
+                ? `If you don't, from tomorrow it only takes messages (no booking, no answering questions), and three days later ${formatPhone(c.phone)} is released. If your line is forwarded to it, dial <strong>*73</strong> (AT&amp;T/T-Mobile: <strong>##21#</strong>) from that phone first so callers don't reach a dead number.`
                 : `If you don't, it switches off three days later. Everything you set up is kept.`,
             ];
       const text = paragraphs.map((p) => p.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&")).join("\n\n");

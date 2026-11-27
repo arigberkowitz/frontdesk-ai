@@ -89,11 +89,13 @@ describe("trialSummaryEmail — no calls yet", () => {
     expect(m.text).toContain("call your business number from another phone");
   });
 
-  it("no number yet: finish setup or add a card", () => {
+  it("no number yet: it comes with the first payment", () => {
     const m = trialSummaryEmail(
       input({ stats: { calls: 0, booked: 0, messages: 0, afterHours: null }, aiNumber: null, forwardingDone: false }),
     );
     expect(m.text).toContain("doesn't have its own phone number yet");
+    expect(m.text).toContain("It gets one with your first payment");
+    expect(m.text).not.toMatch(/finish the setup checklist/);
     expect(m.html).toContain('href="https://app.test/portal"');
     expect(m.html).toContain("Try a test call in your browser");
     expect(m.text).not.toContain("*72");

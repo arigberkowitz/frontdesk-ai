@@ -885,3 +885,28 @@ pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
   `signup_view` with the variants (and plan/interval on the CTA) onto the Vercel Analytics
   `window.va` / `window.vaq` queue, so events land when `@vercel/analytics` is added and
   are a no-op until then.
+
+## 2026-11-27 — Billing guardrails: trial hold, payment-only numbers, minute caps
+
+- **A free trial that ends unpaid only takes messages.** From the trial end (picked up by the
+  daily retention cron, `runTrialHold`) the agent is republished with the existing paused
+  prompt: name, number and reason, no booking tools, no answering questions. The rule lives in
+  `billing-hold.ts` and is applied by `syncAgentPrompt`, so any later edit keeps the hold;
+  `setup_flags.trialHoldAt` only stops the cron republishing daily. Three days later
+  `trial-lapse.ts` releases the number as before and now marks `trialLapsedAt`, so paying
+  after a lapse turns the business back on (plan-sync) while an owner's own pause is never undone.
+- **A phone number needs a real payment.** `number-gate.ts` unlocks only on `first_paid_at`, an
+  `active` subscription (the fallback when `invoice.*` events don't arrive), comped, operator, or
+  a `live` business with no Stripe subscription. Finished setup, an operator-approved trial and a
+  Stripe trial (`trialing`, card saved, nothing charged) no longer buy one. Before paying, the
+  browser test call works; a business with a saved card can press "Start my plan now", which
+  ends the Stripe trial early (`trial_end: "now"`) so the charge, and the number, happen today.
+- **Minute caps warn, never cut.** Rescue 200, Starter 500, Pro 2,500 (fair use).
+  `MINUTE_CAP_GRACE_PCT = 10`: past 220 / 550 / 2,750 counted minutes in a billing period
+  (robocalls and blocked callers excluded) the owner gets one email suggesting a plan that fits,
+  and the operator gets one line in the morning health check, once each per period
+  (`setup_flags.minuteCap`). No call is shortened or refused and nothing is billed: no Stripe
+  metered billing, no auto-upgrade. A hard stop would punish the caller; a surprise overage bill
+  breaks the "one flat monthly price" promise.
+- **Cost assumption** raised to ~13¢/min all-in (voice + LLM + telephony).
+- No migration (all new state is in `setup_flags` jsonb); no new env vars; no vendor settings.

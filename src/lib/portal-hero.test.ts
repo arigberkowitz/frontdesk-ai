@@ -31,6 +31,15 @@ describe("portal hero helpers", () => {
   it("picks paused, live or finish-setup", () => {
     expect(heroStatus({ clientStatus: "paused", aiLive: true, setupDone: 9, setupTotal: 9 }).tone).toBe("paused");
     expect(heroStatus({ clientStatus: "trial", aiLive: true, setupDone: 7, setupTotal: 9 }).tone).toBe("live");
+    // A free trial that ended unpaid doesn't claim to be live: it only takes messages.
+    expect(heroStatus({ clientStatus: "trial", aiLive: true, setupDone: 9, setupTotal: 9, trialEnded: true })).toEqual({
+      tone: "paused",
+      label: "Your AI is only taking messages",
+    });
+    expect(heroStatus({ clientStatus: "trial", aiLive: false, setupDone: 3, setupTotal: 9, trialEnded: true }).label).toBe(
+      "Free trial ended · pick a plan to get your number",
+    );
+    expect(heroStatus({ clientStatus: "live", aiLive: true, setupDone: 9, setupTotal: 9, trialEnded: true }).tone).toBe("live");
     const s = heroStatus({ clientStatus: "draft", aiLive: false, setupDone: 3, setupTotal: 9 });
     expect(s.tone).toBe("setup");
     expect(s.label).toContain("3 of 9");

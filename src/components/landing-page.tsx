@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { DemoCall } from "@/components/demo-call";
 import { TrustSection } from "@/components/landing/trust-section";
 import { PricingCtaButton } from "@/components/landing/pricing-cta-button";
-import { planList, minutesLabel } from "@/config/plans";
+import { planList, minutesLabel, minutesFaqLine, MINUTE_CAP_GRACE_PCT } from "@/config/plans";
 import { formatCurrencyCents, formatPhone } from "@/lib/format";
 import { env } from "@/lib/env";
 import { PricingExperimentBeacon } from "@/components/pricing-experiment-beacon";
@@ -74,6 +74,10 @@ const FAQ = [
     a: "No. Pay month to month, or yearly for two months free, with no setup fee, and the trial is two weeks with no card. If you leave, undo your call forwarding (one dial code from your phone — we show you which) and your phone works the way it did before you found us.",
   },
   {
+    q: "What if I go over my minutes?",
+    a: `Nothing changes on your line: every call still gets answered and nothing extra is billed. ${minutesFaqLine()} Calls flagged as spam and numbers you block don't count. If you go more than ${MINUTE_CAP_GRACE_PCT}% over in a month, we email you about the plan that fits.`,
+  },
+  {
     q: "Will callers know they're talking to an AI?",
     a: "It introduces itself by name as your AI assistant and never pretends to be a person. What callers remember is that someone answered on the first ring at 9pm — not who.",
   },
@@ -98,6 +102,7 @@ function jsonLd() {
     offers: plans.map((p) => ({
       "@type": "Offer",
       name: p.name,
+      description: minutesLabel(p),
       priceCurrency: "USD",
       // Without the billing period, search engines surfaced the plan price as the
       // price of the product rather than the price of a month.

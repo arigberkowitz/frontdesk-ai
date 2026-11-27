@@ -7,8 +7,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  *
  *  - A self-serve signup builds the agent but buys no number.
  *  - Repeated signups / repeated Activate presses still buy nothing.
- *  - A card on file, finished setup, an operator, a comp, or an operator-
- *    approved trial unlocks exactly one number — even under concurrent clicks.
+ *  - A real payment (recorded, or an "active" subscription when the invoice
+ *    event is missing), an operator, or a comp unlocks exactly one number —
+ *    even under concurrent clicks. Finished setup, an operator-approved trial
+ *    and a Stripe trial (card saved, nothing charged) do not.
  */
 
 process.env.RETELL_API_KEY = "key_test";
@@ -192,25 +194,63 @@ describe("what unlocks the number", () => {
     expect(purchases).toHaveLength(0);
   });
 
-  it("finished guided setup — including a browser test call", async () => {
+  it("finished guided setup — browser test call and all — no longer buys a number", async () => {
     const { org, user } = await seed();
     const c = await newClient(org.id);
-    await finishGuidedSetup(c.id, { testCall: false });
-    await runProvision(actor(user), c.id);
-    expect(purchases).toHaveLength(0); // no test call yet
-
-    await db.insert(schema.calls).values({ clientId: c.id, retellCallId: `web_${c.id}`, startAt: new Date() });
-    await runProvision(actor(user), c.id);
-    expect(purchases).toEqual([c.id]);
+    await finishGuidedSetup(c.id, { testCall: true });
+    const r = await runProvision(actor(user), c.id);
+    expect(r.ok).toBe(true);
+    expect((r.data as { numberReserved: boolean }).numberReserved).toBe(true);
+    expect(purchases).toHaveLength(0);
+    // The agent is still built, so the browser test call keeps working.
+    expect((await row(c.id))?.retellAgentId).toBe(`agent_${c.id}`);
   });
 
-  it("comped, and operator-approved trials", async () => {
+  it("comped businesses get a number; operator-approved trials wait for a payment like everyone else", async () => {
     const { org, user } = await seed();
     const comped = await newClient(org.id, { status: "live", trialEndsAt: null, setupFlags: { comped: true } });
     const approved = await newClient(org.id, { setupFlags: { trialApprovedAt: new Date().toISOString() } });
     await runProvision(actor(user), comped.id);
     await runProvision(actor(user), approved.id);
-    expect(purchases.sort()).toEqual([comped.id, approved.id].sort());
+    expect(purchases).toEqual([comped.id]);
+  });
+
+  it("a Stripe trial (card saved, nothing charged) buys nothing — until it converts", async () => {
+    const { org, user } = await seed();
+    const c = await newClient(org.id);
+    await runProvision(actor(user), c.id); // agent only
+    await db.insert(schema.subscriptions).values({ clientId: c.id, status: "trialing", plan: "starter" });
+    await runProvision(actor(user), c.id);
+    await provisionNumberAfterPayment(c.id);
+    expect(purchases).toHaveLength(0);
+
+    // The trial converts: Stripe charges the card and the subscription goes active.
+    await db
+      .update(schema.subscriptions)
+      .set({ status: "active", firstPaidAt: new Date() })
+      .where(eq(schema.subscriptions.clientId, c.id));
+    await provisionNumberAfterPayment(c.id);
+    expect(purchases).toEqual([c.id]);
+  });
+
+  it("invoice events missing: an active subscription with no recorded payment still gets its number", async () => {
+    const { org, user } = await seed();
+    const c = await newClient(org.id);
+    await runProvision(actor(user), c.id);
+    await db.insert(schema.subscriptions).values({ clientId: c.id, status: "active", plan: "starter", firstPaidAt: null });
+    await provisionNumberAfterPayment(c.id);
+    expect(purchases).toEqual([c.id]);
+  });
+
+  it("a recorded payment unlocks it even if the subscription has since gone past due", async () => {
+    const { org, user } = await seed();
+    const c = await newClient(org.id);
+    await runProvision(actor(user), c.id);
+    await db
+      .insert(schema.subscriptions)
+      .values({ clientId: c.id, status: "past_due", plan: "starter", firstPaidAt: new Date() });
+    await runProvision(actor(user), c.id);
+    expect(purchases).toEqual([c.id]);
   });
 
   it("operators can always provision a client by hand", async () => {

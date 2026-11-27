@@ -163,10 +163,30 @@ describe("minutes", () => {
     expect(over.tone).toBe("over");
     expect(over.percent).toBe(100);
     expect(over.text).toContain("no overage charge");
+    expect(over.text).toContain("Past 220 minutes, we email you once a billing period about a plan that fits");
+    expect(minutesUsage(2_600 * 60, 2_500).text).toBe(
+      "2,600 of 2,500 minutes used this period · you're past your included minutes. Calls still get answered and there's no overage charge. Past 2,750 minutes, we email you once a billing period about a plan that fits.",
+    );
     expect(minutesUsage(999 * 60, null).text).toContain("unlimited");
   });
   it("finds the period start from Stripe's period end", () => {
     const start = periodStart(new Date("2026-11-20T00:00:00Z"), new Date("2026-11-02T00:00:00Z"));
     expect(start.toISOString().slice(0, 10)).toBe("2026-10-20");
+  });
+});
+
+describe("paying after the trial lapsed", () => {
+  it("a business the trial lapse paused goes live again", () => {
+    const patch = planSyncPatch({ ...fresh, status: "paused", trialLapsed: true }, "starter", "active", null);
+    expect(patch.status).toBe("live");
+  });
+  it("an owner's own pause stays paused", () => {
+    expect(planSyncPatch({ ...fresh, status: "paused" }, "starter", "active", null).status).toBeUndefined();
+    expect(planSyncPatch({ ...fresh, status: "paused", trialLapsed: false }, "pro", "active", "starter").status).toBeUndefined();
+  });
+  it("a lapsed business whose payment didn't go through stays paused", () => {
+    for (const s of ["incomplete", "past_due", "canceled"]) {
+      expect(planSyncPatch({ ...fresh, status: "paused", trialLapsed: true }, "starter", s, null).status).toBeUndefined();
+    }
   });
 });

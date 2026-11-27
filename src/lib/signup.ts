@@ -25,8 +25,8 @@ import { signupDefaults } from "@/lib/signup-defaults";
  * welcome email.
  *
  * The agent, not the number. A self-serve signup gets a receptionist it can
- * hear in the browser straight away; its phone number is reserved until the
- * owner adds a card or finishes setup (number-gate.ts). Buying one per signup
+ * hear in the browser straight away; its phone number waits for the first
+ * real payment (number-gate.ts). Buying one per signup
  * let anyone with a few email addresses run up the vendor bill.
  */
 export async function finishSignup(

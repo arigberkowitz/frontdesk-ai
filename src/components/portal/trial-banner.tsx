@@ -9,6 +9,7 @@ import { TRIAL_DAYS } from "@/config/plans";
 import { UpgradeButton } from "@/components/portal/upgrade-button";
 import { TrialReminderToggle } from "@/components/portal/trial-reminder-toggle";
 import { cn } from "@/lib/utils";
+import { numberReleaseDate } from "@/lib/billing-hold";
 
 export interface TrialUpgrade {
   clientId: string;
@@ -26,8 +27,10 @@ export interface TrialUpgrade {
  * A trial that ends without warning is a bill that arrives without warning.
  * This counts down from the day they sign up, gets more insistent in the last
  * three days, and after it lapses says plainly what still works and what
- * doesn't — because their calls keep being answered either way, and a business
- * that assumes otherwise will go and un-forward its phone line in a panic.
+ * doesn't: the AI only takes messages (billing-hold.ts), and on a set date
+ * its number is released (trial-lapse.ts). Saying both, with the date, is
+ * what stops an owner un-forwarding a line in a panic — or finding out from
+ * a customer that it went dead.
  */
 export function TrialBanner({
   state,
@@ -86,8 +89,13 @@ export function TrialBanner({
             <span className="font-medium">Your free trial has ended.</span>{" "}
             <span className="text-muted-foreground">
               {progress && progress.calls > 0 ? `${trialSummaryLine(progress, hasNumber)} ` : ""}
-              Your AI is still answering your calls — nothing has been switched off. Pick a plan to
-              keep it that way and to make any more changes.
+              {hasNumber
+                ? `Your AI now only takes messages: it answers, takes the caller's name, number and reason, and sends them to you, but it doesn't book or answer questions. Pick a plan and everything is back within a minute.${
+                    state.endsAt
+                      ? ` If you don't, its number is released on ${numberReleaseDate(state.endsAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: timezone })}.`
+                      : ""
+                  }`
+                : "Pick a plan to get your AI its phone number and switch everything back on. Everything you set up is kept."}
             </span>
           </p>
           {cta(true)}

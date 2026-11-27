@@ -10,14 +10,15 @@ import { DangerZone } from "@/components/portal/danger-zone";
 import { LegacySettingsHash } from "@/components/portal/legacy-settings-hash";
 import { toSafeClient } from "@/lib/client-safe";
 import { ManageBilling } from "@/components/portal/manage-billing";
-import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { subscriptionInterval } from "@/lib/subscription-interval";
 import { PlanCard } from "@/components/portal/plan-card";
 import { minutesUsage, periodStart } from "@/lib/minutes";
+import { countedMinutesSince } from "@/lib/minute-cap-run";
 import { PLANS, type PlanKey } from "@/config/plans";
 import { env } from "@/lib/env";
 import { db } from "@/db";
-import { calls, subscriptions } from "@/db/schema";
+import { subscriptions } from "@/db/schema";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -62,11 +63,13 @@ export default async function PortalSettingsPage({
   let usage = null;
   const interval = planKey ? await subscriptionInterval(sub?.subId) : "month";
   if (planKey) {
-    const [row] = await db
-      .select({ seconds: sql<number>`coalesce(sum(${calls.durationSec}), 0)::int` })
-      .from(calls)
-      .where(and(eq(calls.clientId, clientId), gte(calls.startAt, periodStart(sub!.currentPeriodEnd))));
-    usage = minutesUsage(Number(row?.seconds ?? 0), PLANS[planKey].includedMinutes);
+    // Same count the minute-cap emails use: robocalls and blocked callers don't count.
+    const used = await countedMinutesSince(
+      clientId,
+      periodStart(sub!.currentPeriodEnd),
+      client.setupFlags?.blockedNumbers ?? [],
+    );
+    usage = minutesUsage(used * 60, PLANS[planKey].includedMinutes);
   }
 
   return (

@@ -152,9 +152,9 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
         ? "Live. Your AI picks up changes automatically whenever you save in Services, Hours, Knowledge or Your AI."
         : undefined,
       hint: f.agentId && !aiNumber
-        ? // Self-serve numbers wait for a card or finished setup (number-gate.ts).
-          "Your AI is built. Add a card under Plans on Your AI, or finish the other steps here (a browser test call counts), to get its phone number."
-        : "Build your AI so you can hear it. Its phone number comes once you add a card or finish setup.",
+        ? // Self-serve numbers wait for the first payment (number-gate.ts).
+          "Your AI is built. Its phone number comes with your first payment — pick a plan under Plans on Your AI."
+        : "Build your AI so you can hear it. Its phone number comes with your first payment.",
     },
     // Test BEFORE forwarding: once the business line forwards, real customers
     // are the first to hear the AI. The checklist used to put the test call last.
