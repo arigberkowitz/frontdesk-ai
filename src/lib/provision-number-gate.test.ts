@@ -5,12 +5,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * schema. Only the voice vendor is faked: every number "purchase" is counted,
  * so these tests say exactly how many phone numbers each path would buy.
  *
- *  - A self-serve signup builds the agent but buys no number.
- *  - Repeated signups / repeated Activate presses still buy nothing.
- *  - A real payment (recorded, or an "active" subscription when the invoice
- *    event is missing), an operator, or a comp unlocks exactly one number —
- *    even under concurrent clicks. Finished setup, an operator-approved trial
- *    and a Stripe trial (card saved, nothing charged) do not.
+ *  - A self-serve signup builds the agent but buys no number until the owner
+ *    has made one test call; then exactly one, however often it's asked for.
+ *  - Repeated signups / repeated Activate presses without a test call buy nothing.
+ *  - A real payment, a saved card (Stripe trial), an operator, a comp or an
+ *    operator-approved trial unlocks exactly one number — even under
+ *    concurrent clicks.
+ *  - An ended or lapsed trial never gets one; a platform-wide daily cap
+ *    stops a burst of trial signups buying more than TRIAL_NUMBERS_PER_DAY.
  */
 
 process.env.RETELL_API_KEY = "key_test";
@@ -50,7 +52,8 @@ vi.mock("@/lib/retell", async (orig) => ({
 const { db } = await import("@/db");
 const schema = await import("@/db/schema");
 const { eq } = await import("drizzle-orm");
-const { runProvision, provisionNumberAfterPayment } = await import("./provision");
+const { runProvision, provisionNumberAfterPayment, provisionNumberIfUnlocked } = await import("./provision");
+const { TRIAL_NUMBERS_PER_DAY } = await import("./number-gate");
 const { finishSignup } = await import("./signup");
 
 type Role = "operator" | "client_admin";
@@ -114,7 +117,11 @@ beforeEach(async () => {
 
 const actor = (u: { id: string; orgId: string; role: Role | "client_viewer" }) => ({ id: u.id, orgId: u.orgId, role: u.role });
 
-describe("signup no longer buys a phone number", () => {
+async function testCall(clientId: string) {
+  await db.insert(schema.calls).values({ clientId, retellCallId: `web_${clientId}_${Math.random()}`, startAt: new Date() });
+}
+
+describe("signup buys no number until the first test call", () => {
   it("builds the agent for browser test calls, but buys no number", async () => {
     const { org, user } = await seed();
     const c = await newClient(org.id, { status: "draft", trialEndsAt: null });
@@ -194,43 +201,35 @@ describe("what unlocks the number", () => {
     expect(purchases).toHaveLength(0);
   });
 
-  it("finished guided setup — browser test call and all — no longer buys a number", async () => {
+  it("finished guided setup (which includes the test call) buys exactly one number", async () => {
     const { org, user } = await seed();
     const c = await newClient(org.id);
     await finishGuidedSetup(c.id, { testCall: true });
     const r = await runProvision(actor(user), c.id);
-    expect(r.ok).toBe(true);
-    expect((r.data as { numberReserved: boolean }).numberReserved).toBe(true);
-    expect(purchases).toHaveLength(0);
-    // The agent is still built, so the browser test call keeps working.
-    expect((await row(c.id))?.retellAgentId).toBe(`agent_${c.id}`);
+    expect((r.data as { phoneNumber: string }).phoneNumber).toMatch(/^\+1415555/);
+    expect(purchases).toEqual([c.id]);
   });
 
-  it("comped businesses get a number; operator-approved trials wait for a payment like everyone else", async () => {
+  it("comped businesses and operator-approved trials get a number straight away", async () => {
     const { org, user } = await seed();
     const comped = await newClient(org.id, { status: "live", trialEndsAt: null, setupFlags: { comped: true } });
     const approved = await newClient(org.id, { setupFlags: { trialApprovedAt: new Date().toISOString() } });
     await runProvision(actor(user), comped.id);
     await runProvision(actor(user), approved.id);
-    expect(purchases).toEqual([comped.id]);
+    expect(purchases).toEqual([comped.id, approved.id]);
   });
 
-  it("a Stripe trial (card saved, nothing charged) buys nothing — until it converts", async () => {
+  it("a saved card (Stripe trial) unlocks it, and the webhook hands it over by itself", async () => {
     const { org, user } = await seed();
     const c = await newClient(org.id);
     await runProvision(actor(user), c.id); // agent only
-    await db.insert(schema.subscriptions).values({ clientId: c.id, status: "trialing", plan: "starter" });
-    await runProvision(actor(user), c.id);
-    await provisionNumberAfterPayment(c.id);
     expect(purchases).toHaveLength(0);
-
-    // The trial converts: Stripe charges the card and the subscription goes active.
-    await db
-      .update(schema.subscriptions)
-      .set({ status: "active", firstPaidAt: new Date() })
-      .where(eq(schema.subscriptions.clientId, c.id));
+    await db.insert(schema.subscriptions).values({ clientId: c.id, status: "trialing", plan: "starter" });
     await provisionNumberAfterPayment(c.id);
+    await provisionNumberAfterPayment(c.id); // replay
     expect(purchases).toEqual([c.id]);
+    // A card-unlocked number doesn't count toward the trial cap.
+    expect((await row(c.id))?.setupFlags?.trialNumberAt).toBeUndefined();
   });
 
   it("invoice events missing: an active subscription with no recorded payment still gets its number", async () => {
@@ -279,5 +278,98 @@ describe("what unlocks the number", () => {
     await runProvision(actor(user), c.id);
     expect(purchases).toHaveLength(0);
     expect((await row(c.id))?.retellPhoneNumber).toBe("+14155550100");
+  });
+});
+
+describe("free trials get a number after their first test call", () => {
+  it("the test call unlocks it: the Retell webhook path hands it over, once", async () => {
+    const { org, user } = await seed();
+    const c = await newClient(org.id, { status: "draft", trialEndsAt: null });
+    await finishSignup(actor(user), c.id, { industry: "barber", seedFromPack: false, companySize: "solo" });
+    expect(purchases).toHaveLength(0);
+
+    await testCall(c.id);
+    await provisionNumberIfUnlocked(c.id);
+    await provisionNumberIfUnlocked(c.id); // a replayed call_ended
+    expect(purchases).toEqual([c.id]);
+    const after = await row(c.id);
+    expect(after?.retellPhoneNumber).toMatch(/^\+1415555/);
+    // Stamped for the daily cap.
+    expect(after?.setupFlags?.trialNumberAt).toBeTruthy();
+  });
+
+  it("the same unlock from the page: Get my phone number buys exactly one, even with concurrent clicks", async () => {
+    const { org, user } = await seed();
+    const c = await newClient(org.id);
+    await runProvision(actor(user), c.id); // agent only
+    await testCall(c.id);
+    const results = await Promise.all([
+      runProvision(actor(user), c.id),
+      runProvision(actor(user), c.id),
+      runProvision(actor(user), c.id),
+    ]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(purchases).toEqual([c.id]);
+  });
+
+  it("without a test call, the page says what to do next", async () => {
+    const { org, user } = await seed();
+    const c = await newClient(org.id);
+    const r = await runProvision(actor(user), c.id);
+    expect(r.data).toMatchObject({ numberReserved: true, reservedReason: "needs_test_call" });
+    await provisionNumberIfUnlocked(c.id);
+    expect(purchases).toHaveLength(0);
+  });
+
+  it("an ended trial, or one whose number was already released, never gets one", async () => {
+    const { org, user } = await seed();
+    const ended = await newClient(org.id, {
+      trialEndsAt: new Date(Date.now() - 86_400_000),
+      retellAgentId: "agent_e",
+    });
+    const lapsed = await newClient(org.id, {
+      status: "paused",
+      trialEndsAt: new Date(Date.now() - 5 * 86_400_000),
+      retellAgentId: "agent_l",
+      setupFlags: { trialLapsedAt: new Date().toISOString() },
+    });
+    for (const c of [ended, lapsed]) {
+      await testCall(c.id);
+      await provisionNumberIfUnlocked(c.id);
+      await runProvision(actor(user), c.id);
+    }
+    expect(purchases).toHaveLength(0);
+  });
+
+  it("abuse: the daily cap stops a burst of trial signups from buying more than TRIAL_NUMBERS_PER_DAY", async () => {
+    const { org, user } = await seed();
+    const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    // Numbers already bought for trials in the last 24 hours.
+    for (let i = 0; i < TRIAL_NUMBERS_PER_DAY; i++) {
+      await newClient(org.id, { retellPhoneNumber: `+1415000${String(1000 + i)}`, setupFlags: { trialNumberAt: recent } });
+    }
+    const c = await newClient(org.id);
+    await runProvision(actor(user), c.id);
+    await testCall(c.id);
+    const r = await runProvision(actor(user), c.id);
+    expect(r.data).toMatchObject({ numberReserved: true, reservedReason: "daily_cap" });
+    expect(purchases).toHaveLength(0);
+
+    // A paying business is never held by the trial cap.
+    await db.insert(schema.subscriptions).values({ clientId: c.id, status: "active", plan: "starter" });
+    await runProvision(actor(user), c.id);
+    expect(purchases).toEqual([c.id]);
+  });
+
+  it("numbers older than 24 hours don't count toward the cap", async () => {
+    const { org, user } = await seed();
+    const old = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    for (let i = 0; i < TRIAL_NUMBERS_PER_DAY; i++) {
+      await newClient(org.id, { retellPhoneNumber: `+1415000${String(2000 + i)}`, setupFlags: { trialNumberAt: old } });
+    }
+    const c = await newClient(org.id);
+    await testCall(c.id);
+    await runProvision(actor(user), c.id);
+    expect(purchases).toEqual([c.id]);
   });
 });

@@ -11,6 +11,7 @@ import { TestCallButton } from "@/components/clients/test-call-button";
 import { CallMeNow } from "@/components/portal/call-me-now";
 import { formatPhone } from "@/lib/format";
 import { NumberReserved } from "@/components/portal/number-reserved";
+import type { NumberLockReason } from "@/lib/number-gate";
 
 /**
  * Self-serve "activate your AI" card for the client portal. Lets a business
@@ -26,7 +27,7 @@ export function ProvisionCard({
   onTrial = false,
   ownerPhone = null,
   numberGate = null,
-  firstChargeOn = null,
+  trialEndsOn = null,
 }: {
   clientId: string;
   hasAgent: boolean;
@@ -41,9 +42,9 @@ export function ProvisionCard({
    * Whether this business may get its phone number yet (number-gate.ts). Only
    * passed while it has none; null = no gate to show (operator, or has one).
    */
-  numberGate?: { unlocked: boolean; awaitingFirstCharge: boolean } | null;
-  /** When a saved card is first charged (Stripe trial end), formatted. */
-  firstChargeOn?: string | null;
+  numberGate?: { unlocked: boolean; reason: NumberLockReason | null } | null;
+  /** When the free trial ends, formatted ("December 9"); null when not on one. */
+  trialEndsOn?: string | null;
 }) {
   const reserved = Boolean(!phoneNumber && numberGate && !numberGate.unlocked);
   const readyToClaim = Boolean(hasAgent && !phoneNumber && numberGate?.unlocked);
@@ -52,13 +53,22 @@ export function ProvisionCard({
   useEffect(() => {
     if (state.ok) {
       const data = state.data as
-        | { phoneNumber?: string | null; phoneError?: string | null; numberReserved?: boolean }
+        | {
+            phoneNumber?: string | null;
+            phoneError?: string | null;
+            numberReserved?: boolean;
+            reservedReason?: NumberLockReason | null;
+          }
         | undefined;
       if (data?.phoneNumber) {
         toast.success(`Your AI is live on ${formatPhone(data.phoneNumber)}.`);
       } else if (data?.numberReserved) {
         toast.success(
-          "Your AI is ready — try a test call below. Your phone number comes with your first payment.",
+          data.reservedReason === "needs_test_call"
+            ? "Your AI is ready. Make a test call below and your phone number is set up when you hang up."
+            : data.reservedReason === "daily_cap"
+              ? "Your AI is ready. Your phone number will be ready tomorrow; try a test call below meanwhile."
+              : "Your AI is ready. Try a test call below; pick a plan to get its phone number.",
         );
       } else {
         toast.success("Your AI is ready — try a test call below.");
@@ -76,15 +86,17 @@ export function ProvisionCard({
         <CardDescription>
           {hasAgent
             ? "Your receptionist is set up. Changes you save publish to it automatically — use the button below only if something looks out of date."
-            : reserved
-              ? "Activate your receptionist so you can hear it in your browser. Its phone number comes with your first payment."
-              : "Activate your receptionist so you can hear it and put it to work."}
+            : reserved && numberGate?.reason === "needs_test_call"
+              ? "Activate your receptionist and make a test call in your browser. Its own phone number is set up right after that call."
+              : reserved
+                ? "Activate your receptionist so you can hear it in your browser."
+                : "Activate your receptionist so you can hear it and put it to work."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {onTrial ? (
           <p className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-            <CheckCircle2 className="size-3.5" /> Free trial — every feature on
+            <CheckCircle2 className="size-3.5" /> Free trial: every feature on, phone number included
           </p>
         ) : null}
         {hasAgent ? (
@@ -113,12 +125,8 @@ export function ProvisionCard({
           </div>
         ) : null}
 
-        {reserved && numberGate ? (
-          <NumberReserved
-            clientId={clientId}
-            awaitingFirstCharge={numberGate.awaitingFirstCharge}
-            firstChargeOn={firstChargeOn}
-          />
+        {reserved && numberGate?.reason && hasAgent ? (
+          <NumberReserved reason={numberGate.reason} trialEndsOn={trialEndsOn} />
         ) : null}
 
         {/* Anchor: the setup checklist's "make a test call" step links here.
@@ -128,7 +136,7 @@ export function ProvisionCard({
           <div id="test-call" className="scroll-mt-24 space-y-4">
             <div>
               <p className="mb-2 text-sm font-medium">In your browser</p>
-              <TestCallButton clientId={clientId} agentName={agentName} />
+              <TestCallButton clientId={clientId} agentName={agentName} refreshAfterCall={!phoneNumber} />
             </div>
             <div>
               <p className="mb-2 text-sm font-medium">On your phone</p>

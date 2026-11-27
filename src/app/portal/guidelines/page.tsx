@@ -17,6 +17,10 @@ import { clientMayActivate, getTrialState } from "@/lib/data/trial";
 import { checkoutTrialEnd } from "@/lib/billing-trial";
 import { getNumberGate } from "@/lib/data/number-gate";
 import { TestCallButton } from "@/components/clients/test-call-button";
+import { StartPlanNow } from "@/components/portal/start-plan-now";
+import { and, desc, eq, isNull } from "drizzle-orm";
+import { db } from "@/db";
+import { subscriptions } from "@/db/schema";
 import { CallMeNow } from "@/components/portal/call-me-now";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { toSafeClient } from "@/lib/client-safe";
@@ -45,18 +49,29 @@ export default async function PortalGuidelinesPage({
   const canManage = me.role === "operator" || me.role === "client_admin";
   const mayActivate = me.role === "operator" ? true : await clientMayActivate(clientId);
   const trial = await getTrialState(clientId);
-  // No number yet: may this business get one (it has paid), or is it reserved?
+  // No number yet: may this business get one now (number-gate.ts), and if
+  // not, what's the one thing to do next?
   const numberGate =
     canManage && !client.retellPhoneNumber ? await getNumberGate(clientId, me.role) : null;
-  const firstChargeAt =
-    numberGate?.firstChargeAt ?? (checkoutTrialEnd(trial) !== undefined ? trial.endsAt : null);
-  const firstChargeOn = firstChargeAt
-    ? firstChargeAt.toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        timeZone: client.timezone || "America/Los_Angeles",
-      })
-    : null;
+  // A card saved during the free trial (Stripe trial): offer to start the
+  // plan now instead of waiting for the first charge.
+  const [sub] = canManage
+    ? await db
+        .select({ status: subscriptions.status, currentPeriodEnd: subscriptions.currentPeriodEnd })
+        .from(subscriptions)
+        .where(and(eq(subscriptions.clientId, clientId), isNull(subscriptions.deletedAt)))
+        .orderBy(desc(subscriptions.createdAt))
+        .limit(1)
+    : [];
+  const fmtDay = (d: Date) =>
+    d.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      timeZone: client.timezone || "America/Los_Angeles",
+    });
+  const firstChargeOn =
+    sub?.status === "trialing" && sub.currentPeriodEnd ? fmtDay(sub.currentPeriodEnd) : null;
+  const trialEndsOn = trial.endsAt && trial.active ? fmtDay(trial.endsAt) : null;
   const retellReady = integrations.retell();
   const agentName = client.agentName?.trim() || DEFAULT_AGENT_NAME;
 
@@ -113,14 +128,12 @@ export default async function PortalGuidelinesPage({
               Your receipt is on its way by email.{" "}
               {client.retellPhoneNumber
                 ? "Your AI keeps answering on the same number."
-                : numberGate?.awaitingFirstCharge ||
-                    // Back from Stripe before its webhook landed: a checkout
-                    // during the trial keeps the trial, so the charge is later.
-                    (numberGate && !numberGate.unlocked && checkoutTrialEnd(trial) !== undefined)
-                  ? `Your card is saved, and your free trial carries on${firstChargeOn ? ` until ${firstChargeOn}` : ""}. Your phone number is assigned when that first payment goes through, or start your plan now below to get it today.`
-                  : client.retellAgentId
-                    ? "Your phone number is being assigned now — refresh in a minute, or press Get my phone number below."
-                    : "Activate below and your AI takes its first call."}
+                : client.retellAgentId
+                  ? "Your phone number is being assigned now. Refresh in a minute, or press Get my phone number below."
+                  : "Activate below and your AI takes its first call."}
+              {sub?.status === "trialing" || checkoutTrialEnd(trial) !== undefined
+                ? ` Your free trial carries on${firstChargeOn ? ` until ${firstChargeOn}` : ""}; your card is first charged then.`
+                : ""}
             </span>
           </CardContent>
         </Card>
@@ -152,9 +165,13 @@ export default async function PortalGuidelinesPage({
                 onTrial={client.status === "trial"}
                 ownerPhone={client.escalationNumber}
                 numberGate={numberGate}
-                firstChargeOn={firstChargeOn}
+                trialEndsOn={trialEndsOn}
               />
             </div>
+          ) : null}
+
+          {sub?.status === "trialing" ? (
+            <StartPlanNow clientId={client.id} firstChargeOn={firstChargeOn} />
           ) : null}
 
           {/* Plans and the code box stay reachable throughout the trial. They
@@ -233,7 +250,11 @@ export default async function PortalGuidelinesPage({
           <CardContent className="space-y-5">
             <div>
               <p className="mb-2 text-sm font-medium">In your browser</p>
-              <TestCallButton clientId={client.id} agentName={agentName} />
+              <TestCallButton
+                clientId={client.id}
+                agentName={agentName}
+                refreshAfterCall={!client.retellPhoneNumber}
+              />
             </div>
             <div>
               <p className="mb-2 text-sm font-medium">On your phone</p>

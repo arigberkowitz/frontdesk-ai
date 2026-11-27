@@ -24,10 +24,11 @@ import { signupDefaults } from "@/lib/signup-defaults";
  * (the prompt is built from services and hours), then the agent, then the
  * welcome email.
  *
- * The agent, not the number. A self-serve signup gets a receptionist it can
- * hear in the browser straight away; its phone number waits for the first
- * real payment (number-gate.ts). Buying one per signup
- * let anyone with a few email addresses run up the vendor bill.
+ * The agent first, the number right after. A self-serve signup gets a
+ * receptionist it can hear in the browser straight away; its own phone number
+ * is set up after the owner's first test call (number-gate.ts), under a daily
+ * cap. Buying one the instant a form was submitted let anyone with a few email
+ * addresses run up the vendor bill.
  */
 export async function finishSignup(
   user: Omit<ProvisionActor, "id"> & { id: string },
@@ -58,7 +59,8 @@ export async function finishSignup(
     await seedClientFromPack(user.orgId, clientId, opts.industry);
   }
 
-  // Built before they see the portal (the number waits — see above). If the
+  // Built before they see the portal (the number follows the first test
+  // call — see above). If the
   // voice vendor is down the Activate button is still there as the fallback;
   // signup never fails here.
   if (integrations.retell()) {

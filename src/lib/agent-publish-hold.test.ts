@@ -104,3 +104,29 @@ describe("syncAgentPrompt on an ended, unpaid trial", () => {
     expect(messageOnly()).toBe(false);
   });
 });
+
+describe("syncAgentPrompt on a live plan whose subscription ended", () => {
+  beforeEach(() => {
+    current = { ...current, status: "live", trialEndsAt: null };
+  });
+
+  it("canceled → the message-taking agent", async () => {
+    await db.insert(schema.subscriptions).values({ clientId, status: "canceled", plan: "starter" });
+    await syncAgentPrompt("org", clientId);
+    expect(messageOnly()).toBe(true);
+  });
+
+  it("Stripe 'unpaid' (past_due + flag) → message-taking; plain past_due (still retrying) → full agent", async () => {
+    await db.insert(schema.subscriptions).values({ clientId, status: "past_due", plan: "starter" });
+    await syncAgentPrompt("org", clientId);
+    expect(messageOnly()).toBe(false);
+    current = { ...current, setupFlags: { stripeUnpaidAt: new Date().toISOString() } };
+    await syncAgentPrompt("org", clientId);
+    expect(messageOnly()).toBe(true);
+  });
+
+  it("live with no subscription at all (an off-Stripe deal) keeps the full agent", async () => {
+    await syncAgentPrompt("org", clientId);
+    expect(messageOnly()).toBe(false);
+  });
+});

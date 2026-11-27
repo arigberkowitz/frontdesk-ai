@@ -34,17 +34,18 @@ export interface TrialLapseResult {
 export async function runTrialLapse(now = new Date()): Promise<TrialLapseResult> {
   const cutoff = new Date(now.getTime() - LAPSE_GRACE_DAYS * 24 * 60 * 60 * 1000);
 
+  const columns = {
+    id: clients.id,
+    name: clients.name,
+    ownerEmail: clients.ownerEmail,
+    phone: clients.retellPhoneNumber,
+    setupFlags: clients.setupFlags,
+    subStatus: subscriptions.status,
+  };
   // Trial ended past the grace, still holding a number, not comped, and no
   // subscription that's active or in a Stripe trial.
-  const rows = await db
-    .select({
-      id: clients.id,
-      name: clients.name,
-      ownerEmail: clients.ownerEmail,
-      phone: clients.retellPhoneNumber,
-      setupFlags: clients.setupFlags,
-      subStatus: subscriptions.status,
-    })
+  const trialRows = await db
+    .select(columns)
     .from(clients)
     .leftJoin(subscriptions, eq(subscriptions.clientId, clients.id))
     .where(
@@ -57,6 +58,26 @@ export async function runTrialLapse(now = new Date()): Promise<TrialLapseResult>
         sql`coalesce(${subscriptions.status}::text, '') not in ('active', 'trialing')`,
       ),
     );
+  // A Stripe free trial (card saved, so it got its number and went "live")
+  // that ended without a single payment: the card failed and Stripe canceled
+  // the subscription. Same rule as a no-card trial — the number goes after the
+  // grace. A business that ever paid keeps its number on the billing hold.
+  const cardTrialRows = await db
+    .select(columns)
+    .from(clients)
+    .innerJoin(subscriptions, eq(subscriptions.clientId, clients.id))
+    .where(
+      and(
+        isNull(clients.deletedAt),
+        eq(clients.status, "live"),
+        isNotNull(clients.retellPhoneNumber),
+        eq(subscriptions.status, "canceled"),
+        isNull(subscriptions.firstPaidAt),
+        isNotNull(subscriptions.currentPeriodEnd),
+        lt(subscriptions.currentPeriodEnd, cutoff),
+      ),
+    );
+  const rows = [...trialRows, ...cardTrialRows];
 
   let released = 0;
   let failed = 0;

@@ -56,7 +56,7 @@ export default async function PortalLayout({ children }: { children: React.React
       headline: trial.expired
         ? client.retellPhoneNumber
           ? "Your free trial has ended — your AI is only taking messages"
-          : "Your free trial has ended — pick a plan to get your number"
+          : "Your free trial has ended — pick a plan to turn your AI back on"
         : daysLeftLabel(trial.daysLeft),
       shortHeadline: trial.expired
         ? "Free trial ended"

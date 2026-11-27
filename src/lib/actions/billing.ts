@@ -349,10 +349,9 @@ export async function changePlanAction(_prev: ActionState, formData: FormData): 
  * End the Stripe free-trial period now and take the first payment today.
  *
  * A business that saves a card during its free trial keeps the trial days
- * (billing-trial.ts), but its phone number waits for a real payment
- * (number-gate.ts). This is the owner choosing not to wait: Stripe charges the
- * saved card now, and the webhook that follows (subscription "active", then
- * invoice.paid) hands over the number. Only for the business's own owner, and
+ * (billing-trial.ts) and is first charged when they run out. This is the
+ * owner choosing not to wait: Stripe charges the saved card now, and the
+ * webhook that follows (subscription "active", then invoice.paid) records it. Only for the business's own owner, and
  * only from a Stripe trial — anything else has nothing to start.
  */
 export async function startPlanNowAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -387,6 +386,6 @@ export async function startPlanNowAction(_prev: ActionState, formData: FormData)
   }
   return {
     ok: true,
-    message: "Your plan has started and your card is being charged. Your phone number shows up here in about a minute.",
+    message: "Your plan has started and your card is being charged. Your receipt is on its way by email.",
   };
 }

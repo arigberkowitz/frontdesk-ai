@@ -179,9 +179,8 @@ export async function approveTrialAction(
     .set({
       status: "trial",
       trialEndsAt,
-      // Record that an operator vouched for this one. Its phone number still
-      // waits for the first payment (number-gate.ts), unless an operator
-      // provisions one from the dashboard.
+      // An operator vouched for this one, so it gets its phone number at
+      // Activate without the first-test-call step (number-gate.ts).
       setupFlags: { ...(client.setupFlags ?? {}), trialApprovedAt: new Date().toISOString() },
     })
     .where(eq(clients.id, clientId));
@@ -194,8 +193,8 @@ export async function approveTrialAction(
       await notifier.sendEmail({
         to: ownerEmail,
         subject: `Your free trial is on — ${client.name}`,
-        html: `<div style="font-family:system-ui,sans-serif;max-width:480px"><h2 style="font-size:17px;margin:0 0 8px">🎉 You're in</h2><p style="margin:0 0 6px">Your free trial for <strong>${client.name}</strong> is approved — the full product, every feature unlocked, nothing to pay.</p><p style="margin:0 0 6px">Head to your portal and hit <strong>Activate</strong> on the Your AI page to hear your receptionist in your browser. Its own phone number comes with your first payment.</p><p><a href="${base}/portal">Open your portal →</a></p></div>`,
-        text: `Your free trial for ${client.name} is approved — full product, nothing to pay. Open your portal and hit Activate on the Your AI page to hear your receptionist in your browser. Its own phone number comes with your first payment: ${base}/portal`,
+        html: `<div style="font-family:system-ui,sans-serif;max-width:480px"><h2 style="font-size:17px;margin:0 0 8px">🎉 You're in</h2><p style="margin:0 0 6px">Your free trial for <strong>${client.name}</strong> is approved — the full product, every feature unlocked, nothing to pay.</p><p style="margin:0 0 6px">Head to your portal and hit <strong>Activate</strong> on the Your AI page. Your receptionist gets its own phone number, and you can hear it in your browser too.</p><p><a href="${base}/portal">Open your portal →</a></p></div>`,
+        text: `Your free trial for ${client.name} is approved — full product, nothing to pay. Open your portal and hit Activate on the Your AI page. Your receptionist gets its own phone number, and you can hear it in your browser too: ${base}/portal`,
       });
     } catch (err) {
       logger.warn("trial.approve.notify_failed", {

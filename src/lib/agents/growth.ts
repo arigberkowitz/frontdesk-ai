@@ -23,13 +23,13 @@ const PROSPECT_TOOL: Anthropic.Tool = {
     additionalProperties: false,
     properties: {
       businessName: { type: "string" },
-      businessType: { type: "string", description: "e.g. plumber, dental office, salon." },
+      businessType: { type: "string", description: "e.g. plumber, auto repair shop, salon." },
       fitScore: {
         type: "integer",
         minimum: 1,
         maximum: 5,
         description:
-          "5 = ideal (phone-first service business, no online booking, likely misses calls); 1 = poor fit (e-commerce, enterprise, already automated).",
+          "5 = ideal (phone-first service business, no online booking, likely misses calls); 1 = poor fit (e-commerce, enterprise, already automated, or any medical/health business — we don't contact those).",
       },
       signals: {
         type: "array",
@@ -78,7 +78,7 @@ async function assessProspect(anthropic: Anthropic, url: string): Promise<Prospe
       model: DRAFT_MODEL,
       max_tokens: 1200,
       system:
-        "You prospect local service businesses for an agency selling an AI phone receptionist (answers 24/7 in 10 languages, books appointments, captures leads). Do not claim it is only bilingual or only English and Spanish. From the website text, judge fit and draft outreach. Look for: phone-first contact flow, no online booking, appointment-based services, small team, after-hours exposure. The email must reference something genuinely specific from their site — a service, a claim, their hours — and offer one concrete value line. No 'I hope this finds you well', no exclamation marks, no 'seamless/unlock/leverage'.",
+        "You prospect local service businesses for an agency selling an AI phone receptionist (answers 24/7 in 10 languages, books appointments, captures leads). Do not claim it is only bilingual or only English and Spanish. From the website text, judge fit and draft outreach. Look for: phone-first contact flow, no online booking, appointment-based services, small team, after-hours exposure. The email must reference something genuinely specific from their site — a service, a claim, their hours — and offer one concrete value line. No 'I hope this finds you well', no exclamation marks, no 'seamless/unlock/leverage'. Only claim what the product really does: it books appointments once the owner connects a calendar (until then it takes a message); it texts or emails the owner when it books someone or takes a message, not after every call; the free trial is 14 days, no card, and the AI gets its own phone number after the owner's first browser test call. Say 'one flat monthly price' instead of quoting minutes or plan details. Never include a demo or test phone number. Use plain words and real numbers. If the business is medical or health-related (doctor, dentist, chiropractor, therapist, clinic, med spa, pharmacy, etc.), set fitScore to 1 and leave outreachSubject and outreachBody empty.",
       messages: [
         {
           role: "user",

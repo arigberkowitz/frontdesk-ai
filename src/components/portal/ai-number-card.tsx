@@ -165,11 +165,11 @@ export function AiNumberCard({
                     is activated, and if that attempt failed there is nobody
                     queued to retry it. A business reading a promise sits and
                     waits instead of asking. */}
-                <strong>No AI phone number yet.</strong> It comes with your first payment. Until
-                then you can talk to your AI with a test call in the browser, and the dial-in
-                steps appear here as soon as the number is assigned.{" "}
-                <Link href="/portal/guidelines?plans=open#plans" className="underline underline-offset-2">
-                  Pick a plan
+                <strong>No AI phone number yet.</strong> On a free trial, make one test call to
+                your AI in the browser and its own number is set up when you hang up. The dial-in
+                steps appear here as soon as it is.{" "}
+                <Link href="/portal/guidelines#activate" className="underline underline-offset-2">
+                  Go to Your AI
                 </Link>
                 .
               </>

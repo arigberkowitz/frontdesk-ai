@@ -32,7 +32,7 @@ const ALL_LANGUAGE_NAMES = languageNames(LANGUAGE_OPTIONS.map((l) => l.code));
 
 const VALUE = [
   { icon: Clock, chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400", title: "Answers 24/7", body: "Every call picked up on the first ring — nights, weekends, lunch rushes." },
-  { icon: CalendarCheck, chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", title: "Books on the call", body: "Checks your hours and schedules the appointment live, straight into your calendar." },
+  { icon: CalendarCheck, chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", title: "Books on the call", body: "Connect your calendar and it books the appointment while the caller is on the line. Until then, it takes a message." },
   { icon: MessageSquare, chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400", title: "Never loses a lead", body: "Captures name, number, and reason — and texts or emails you the moment it happens." },
   { icon: Languages, chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400", title: `${LANGUAGE_COUNT} languages`, body: `Answers in ${LANGUAGE_LEAD}, and ${LANGUAGE_REST} more. Pick up to ${MAX_LANGUAGES}, and it switches the moment a caller speaks one.` },
 ];
@@ -52,7 +52,7 @@ const INDUSTRIES = [
 const STEPS = [
   { n: "1", title: "Set it up in minutes", body: "Paste your website — we draft your services, hours, and FAQs. Review and tweak." },
   { n: "2", title: "It answers every call", body: "Your AI greets callers, answers questions, books appointments, and takes messages 24/7." },
-  { n: "3", title: "You see everything", body: "Bookings hit your calendar; leads, recordings, and summaries land in one dashboard." },
+  { n: "3", title: "You see everything", body: "Bookings go into the calendar you connected. Every call's recording and summary, and every message, are in one dashboard." },
 ];
 
 /**
@@ -68,6 +68,10 @@ const FAQ = [
   {
     q: "What happens when it can't answer something?",
     a: "It never guesses. It takes the caller's name, number, and what they needed, and texts or emails you right away so you can follow up. Once you add your cell, anything urgent — or anyone who asks for a person — gets transferred live to you.",
+  },
+  {
+    q: "Does it book appointments into my calendar?",
+    a: "Yes, once you connect it. Google Calendar connects directly; Outlook, Apple and others connect through a free Cal.com account, and we walk you through it. Until a calendar is connected, it doesn't book anyone: it takes the caller's name, number and what they want, and sends that to you.",
   },
   {
     q: "Am I locked into a contract?",
@@ -477,7 +481,7 @@ export function LandingPage({
             </div>
 
             <p className="mt-8 text-center text-sm text-muted-foreground">
-              Every plan starts with two weeks free. No card until you decide.
+              Every plan is one flat monthly price and starts with two weeks free. No card until you decide.
             </p>
           </div>
         </section>
@@ -530,7 +534,7 @@ export function LandingPage({
               Stop sending customers <em className="fd-gradient-text font-medium">to voicemail.</em>
             </h2>
             <p className="relative mx-auto mt-3 max-w-lg text-balance text-slate-600">
-              Two weeks free, no card. Most businesses are live the same afternoon.
+              Two weeks free, no card. Make one test call in your browser and your AI gets its own phone number, included in the trial.
             </p>
             <div className="relative mt-8 flex justify-center">
               <Button

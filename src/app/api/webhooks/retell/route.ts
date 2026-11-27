@@ -218,6 +218,24 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ ok: true, blocked: true });
     }
 
+    // A free trial's first test call is what unlocks its own phone number
+    // (number-gate.ts). Hand it over now rather than waiting for the owner to
+    // find "Get my phone number": the gate, the daily cap and the
+    // first-provision lock all still decide, so a replay buys nothing extra.
+    if (event === "call_ended" && client.status === "trial" && !client.retellPhoneNumber) {
+      const clientId = client.id;
+      after(() =>
+        import("@/lib/provision")
+          .then(({ provisionNumberIfUnlocked }) => provisionNumberIfUnlocked(clientId))
+          .catch((err) =>
+            logger.warn("webhook.retell.trial_number_failed", {
+              clientId,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          ),
+      );
+    }
+
     // Classify only on terminal events (appointments/leads now exist).
     let recap: { kind: RecapKind; problems: string[] } | null = null;
     if ((event === "call_ended" || event === "call_analyzed") && row) {

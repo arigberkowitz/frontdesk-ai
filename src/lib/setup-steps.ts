@@ -137,8 +137,9 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
     {
       key: "live",
       label: "Activate your receptionist",
-      // Built but no number yet: the real next step is a card, so go to Plans.
-      href: f.agentId && !aiNumber ? "/portal/guidelines#plans" : "/portal/guidelines#activate",
+      // Built but no number yet: on a trial the next step is the test call
+      // that unlocks it (number-gate.ts), which lives on Your AI.
+      href: f.agentId && !aiNumber ? "/portal/guidelines#test-call" : "/portal/guidelines#activate",
       // An agent without a number cannot answer a phone. Provisioning the
       // number is deliberately allowed to fail without losing the agent, which
       // is right — but this step used to go green on the agent alone, so the
@@ -152,9 +153,9 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
         ? "Live. Your AI picks up changes automatically whenever you save in Services, Hours, Knowledge or Your AI."
         : undefined,
       hint: f.agentId && !aiNumber
-        ? // Self-serve numbers wait for the first payment (number-gate.ts).
-          "Your AI is built. Its phone number comes with your first payment — pick a plan under Plans on Your AI."
-        : "Build your AI so you can hear it. Its phone number comes with your first payment.",
+        ? // A trial's number unlocks with its first test call (number-gate.ts).
+          "Your AI is built. Make one test call in your browser and its own phone number is set up when you hang up."
+        : "Build your AI so you can hear it. Its own phone number comes right after your first test call."
     },
     // Test BEFORE forwarding: once the business line forwards, real customers
     // are the first to hear the AI. The checklist used to put the test call last.
@@ -168,7 +169,7 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
       done: f.calls > 0,
       hint: aiNumber
         ? `Call your AI at ${aiNumber}. This checks itself off when your first call appears.`
-        : "Use “Test call in browser” on the Your AI page. This checks itself off when your first call appears — and it's one of the steps that unlocks your phone number.",
+        : "Use “Test call in browser” on the Your AI page. This checks itself off when your first call appears, and it's what gets your AI its own phone number.",
     },
     {
       key: "forwarding",
