@@ -265,6 +265,13 @@ export const clients = pgTable(
          */
         blockedNumbers?: string[];
         /**
+         * Numbers the owner said to always let through, even if our call log
+         * keeps marking them as spam (spam.ts screenInboundCaller). Last ten
+         * digits. Overrides only the automatic rule, never the owner's own
+         * block list.
+         */
+        allowedNumbers?: string[];
+        /**
          * Comped: someone we know, on the full product for free, indefinitely.
          * Set by redeeming the comp code. No trial clock, no plan, no card —
          * so nothing that chases a business for payment should chase this one.

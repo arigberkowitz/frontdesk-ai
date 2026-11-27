@@ -27,13 +27,20 @@ export const DEFAULT_RETELL_MODEL = "gpt-4.1-mini" as const;
 export const DEFAULT_VOICE_ID = "11labs-Marissa";
 
 /**
- * Dead-air handling (butt dials, fake numbers, dropped audio). After this much
- * silence following agent speech, Retell ends the call instead of holding the
- * line open (its default is 10 minutes). We nudge the caller once partway
- * through so a real caller who simply paused isn't hung up on.
+ * Dead-air handling (butt dials, robodialers that never speak, dropped audio).
+ * After this much silence from the caller, Retell ends the call instead of
+ * holding the line open (its default is 10 minutes). Every second of a silent
+ * call is a billed minute.
+ *
+ * 20s, with one "Are you still there?" at 10s. A real caller who goes quiet
+ * to find a pen or an address is prompted, answers, and the clock starts over;
+ * a line that says nothing for 20 seconds after being asked is not a caller.
+ * Retell's floor is 10s, which is too tight for someone reading out a long
+ * address. Pushed on every sync (CONVERSATION_SETTINGS), so existing agents
+ * pick it up on their next publish.
  */
-export const END_CALL_AFTER_SILENCE_MS = 30_000; // ~30s of silence → hang up
-export const SILENCE_REMINDER_MS = 15_000; // "Are you still there?" at ~15s
+export const END_CALL_AFTER_SILENCE_MS = 20_000;
+export const SILENCE_REMINDER_MS = 10_000;
 
 export const AGENT_TOOL_NAMES = {
   checkAvailability: "check_availability",
@@ -475,6 +482,8 @@ export function agentSpeechSettings(languages?: string | null): {
  *   problem, which is what makes a long description feel listened to.
  * - noise cancellation: callers ring from trucks, kitchens and job sites.
  * - max_call_duration 20 min: a stuck or looping call can't burn an hour.
+ * - silence: end after END_CALL_AFTER_SILENCE_MS, one reminder at
+ *   SILENCE_REMINDER_MS (see those constants).
  * - timezone: the business's, so {{current_time}} and friends read local time.
  */
 export const CONVERSATION_SETTINGS = {
@@ -484,6 +493,9 @@ export const CONVERSATION_SETTINGS = {
   backchannel_frequency: 0.4,
   denoising_mode: "noise-cancellation" as const,
   max_call_duration_ms: 20 * 60_000,
+  end_call_after_silence_ms: END_CALL_AFTER_SILENCE_MS,
+  reminder_trigger_ms: SILENCE_REMINDER_MS,
+  reminder_max_count: 1,
 };
 
 export function agentConversationSettings(timezone?: string | null): typeof CONVERSATION_SETTINGS & {
@@ -558,12 +570,8 @@ export async function provisionAgentForClient(
     // catch-all "multi", which meant ten languages and the least accurate
     // recognition) plus a voice model that can pronounce them.
     ...agentSpeechSettings(input.languages),
+    // Includes the dead-air settings (END_CALL_AFTER_SILENCE_MS).
     ...agentConversationSettings(input.timezone),
-    // End dead-air calls (butt dials / fake numbers) instead of holding the line
-    // open for 10 minutes, with one reminder so real callers who paused aren't cut off.
-    end_call_after_silence_ms: END_CALL_AFTER_SILENCE_MS,
-    reminder_trigger_ms: SILENCE_REMINDER_MS,
-    reminder_max_count: 1,
   };
   let agentId = input.existingAgentId ?? null;
   if (agentId) {

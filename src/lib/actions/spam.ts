@@ -16,10 +16,10 @@ import { type ActionState } from "./types";
 /**
  * Block and unblock callers.
  *
- * A blocked number still reaches the phone line — we don't control the carrier
- * — but from that point on it is treated as noise: the agent is told to end the
- * call immediately, no lead is created, no alert is sent, and it never enters
- * the numbers the business is asked to trust.
+ * A blocked number is turned away before the AI answers (Retell's inbound
+ * webhook → spam.ts screenInboundCaller), so it uses no minutes. If it does
+ * get through (the screen fails open), it is treated as noise: no lead, no
+ * alert, and it never enters the numbers the business is asked to trust.
  */
 
 async function loadBlocked(clientId: string): Promise<string[]> {
@@ -90,6 +90,48 @@ export async function unblockNumberAction(
   revalidatePath("/portal");
   revalidatePath("/portal/settings", "layout");
   return { ok: true, message: `${formatPhone(phone)} can get through again.` };
+}
+
+/**
+ * "Let them through": a number the automatic spam rule is turning away
+ * (3 spam calls in 30 days, nothing real — spam.ts) is answered from now on.
+ * The escape hatch for a real customer our classifier got wrong.
+ */
+export async function allowNumberAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const phone = String(formData.get("phone") ?? "").trim();
+
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return { ok: false, error: guard.error };
+  await assertClientInOrg(guard.user.orgId, clientId);
+
+  const key = normalizeForBlock(phone);
+  if (!key) return { ok: false, error: "That doesn't look like a phone number." };
+
+  const client = await db.query.clients.findFirst({
+    where: and(eq(clients.id, clientId), isNull(clients.deletedAt)),
+    columns: { setupFlags: true },
+  });
+  const flags = client?.setupFlags ?? {};
+  await db
+    .update(clients)
+    .set({
+      setupFlags: {
+        ...flags,
+        // Same list helpers as the block list: last ten digits, deduped, capped.
+        allowedNumbers: addBlocked(key, flags.allowedNumbers ?? []),
+        blockedNumbers: removeBlocked(key, flags.blockedNumbers ?? []),
+      },
+    })
+    .where(eq(clients.id, clientId));
+  void audit({ clientId, actor: guard.user.id, action: "caller.allowed", detail: { phone: key } });
+  logger.info("spam.allowed", { clientId, phone: key });
+  revalidatePath("/portal");
+  revalidatePath("/portal/settings", "layout");
+  return { ok: true, message: `${formatPhone(key)} will be answered from now on.` };
 }
 
 /**

@@ -910,3 +910,21 @@ pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
   breaks the "one flat monthly price" promise.
 - **Cost assumption** raised to ~13¢/min all-in (voice + LLM + telephony).
 - No migration (all new state is in `setup_flags` jsonb); no new env vars; no vendor settings.
+
+## 2026-11-27 — Spam screening: turn callers away before the AI answers
+
+- **Blocked numbers never reach the AI.** Retell's `call_inbound` webhook (already pointed at
+  `/api/webhooks/retell` by provisioning) now answers `reject: true` for a number on the owner's
+  block list, so Retell hangs up before any agent or voice starts: no minutes, no vendor cost.
+- **One automatic rule, deliberately narrow.** 3+ calls marked spam from the same number in 30
+  days, and none of them ever booked, left a lead or was escalated → turned away. It ages out by
+  itself (rejected calls leave no rows). The owner sees these under "Turned away automatically"
+  and can tap "Let through" (`setup_flags.allowedNumbers`), which beats the rule but never the
+  owner's own block. Withheld or unreadable caller IDs are always answered.
+- **Fail-open.** An error, a 3s timeout, an unknown business or an unsigned request answers the
+  call as before. Missing a robocall costs a minute; dropping a customer costs the customer.
+- **Dead air ends sooner.** `end_call_after_silence_ms` 30s → 20s, reminder 15s → 10s, one
+  reminder. Pushed with the other conversation settings on every agent sync.
+- **Silent repeat callers are only suggested.** 3+ calls of ≤10s or with nothing said, and no
+  real conversation → a "Worth blocking" suggestion. Nothing is blocked until the owner taps.
+- No migration (jsonb), no new env vars, no vendor settings, no paid add-ons.

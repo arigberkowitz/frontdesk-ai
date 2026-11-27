@@ -3,7 +3,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { callGrades, calls, clients, type NewCall } from "@/db/schema";
 import { analyzeCall, summarize } from "@/lib/call-health";
-import { spamCandidates } from "@/lib/spam";
+import { autoRejectedNumbers, SCREEN_WINDOW_DAYS, silentRepeatCandidates, spamCandidates } from "@/lib/spam";
 
 /** Call data access + the idempotent webhook upsert. */
 
@@ -197,10 +197,42 @@ export async function getCallHealth(clientId: string, days = 30) {
   // offering nothing to do about them is the vendor behaviour this market
   // cancels over.
   const blockedNumbers = client?.setupFlags?.blockedNumbers ?? [];
-  const suggestedBlocks = spamCandidates(
+  const spammers = spamCandidates(
     rows.map((c) => ({ fromNumber: c.fromNumber, outcome: c.outcome, startAt: c.startAt })),
     blockedNumbers,
-  ).slice(0, 5);
+  ).map((s) => ({ ...s, reason: "spam" as const }));
+  // And numbers that keep calling and saying nothing (never auto-blocked).
+  const spamPhones = new Set(spammers.map((s) => s.phone));
+  const silent = silentRepeatCandidates(
+    rows.map((c) => ({
+      fromNumber: c.fromNumber,
+      durationSec: c.durationSec,
+      transcript: c.transcript,
+      hasContact: c.leads.length > 0 || c.appointments.length > 0,
+      startAt: c.startAt,
+    })),
+    blockedNumbers,
+  )
+    .filter((s) => !spamPhones.has(s.phone))
+    .map((s) => ({ ...s, reason: "silent" as const }));
+  // What the automatic rule turns away right now (spam.ts), so the owner can
+  // see it and let a number through. The screen reads the last 30 days.
+  const screenSince = Date.now() - SCREEN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const autoRejected = autoRejectedNumbers(
+    rows
+      .filter((c) => c.startAt && c.startAt.getTime() >= screenSince)
+      .map((c) => ({
+        fromNumber: c.fromNumber,
+        outcome: c.outcome,
+        hasContact: c.leads.length > 0 || c.appointments.length > 0,
+        startAt: c.startAt,
+      })),
+    blockedNumbers,
+    client?.setupFlags?.allowedNumbers ?? [],
+  ).slice(0, 10);
+  // Already turned away automatically: shown in that list, not as a suggestion.
+  const autoPhones = new Set(autoRejected.map((a) => a.phone));
+  const suggestedBlocks = [...spammers, ...silent].filter((s) => !autoPhones.has(s.phone)).slice(0, 5);
 
   return {
     summary: summarize(scored.map((s) => s.health)),
@@ -210,6 +242,7 @@ export async function getCallHealth(clientId: string, days = 30) {
     latencySampleSize: latencies.length,
     blockedNumbers,
     suggestedBlocks,
+    autoRejected,
     // Worst first: the ones an owner should actually listen to.
     needsAttention: scored
       .filter((s) => !s.health.clean)
