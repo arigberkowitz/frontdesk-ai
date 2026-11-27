@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_TURNED_AWAY,
+  summarizeTurnedAway,
+  turnedAwayLine,
   addBlocked,
   isBlocked,
   normalizeForBlock,
@@ -228,5 +231,45 @@ describe("autoRejectedNumbers — what the owner sees as turned away", () => {
     expect(autoRejectedNumbers(calls, ["4155550166"], ["4155550155"])).toEqual([
       { phone: "4155550199", calls: 3, lastAt: new Date(Date.UTC(2026, 10, 3)) },
     ]);
+  });
+});
+
+describe("summarizeTurnedAway", () => {
+  const now = new Date("2026-11-27T20:00:00.000Z");
+  const ago = (d: number) => new Date(now.getTime() - d * 86_400_000).toISOString();
+
+  it("counts the window, newest first, by reason", () => {
+    const s = summarizeTurnedAway(
+      [
+        { at: ago(40), phone: "4155550101", reason: "blocked" },
+        { at: ago(1), phone: "4155550102", reason: "repeat_spam" },
+        { at: ago(0.5), phone: "4155550101", reason: "blocked" },
+        { at: "junk", phone: "4155550103", reason: "blocked" },
+      ],
+      30,
+      now,
+    );
+    expect(s).toMatchObject({ total: 2, blocked: 1, repeatSpam: 1, capped: false });
+    expect(s.recent.map((r) => r.phone)).toEqual(["4155550101", "4155550102"]);
+    expect(turnedAwayLine(s)).toBe("2 calls (1 from numbers you blocked, 1 repeat spam)");
+  });
+
+  it("empty and missing logs are zero", () => {
+    expect(summarizeTurnedAway(undefined, 30, now)).toMatchObject({ total: 0, recent: [] });
+  });
+
+  it("a full log whose oldest entry is still in the window is a floor", () => {
+    const full = Array.from({ length: MAX_TURNED_AWAY }, (_, i) => ({
+      at: ago(i / 100),
+      phone: "4155550101",
+      reason: "blocked" as const,
+    }));
+    const s = summarizeTurnedAway(full, 30, now);
+    expect(s.capped).toBe(true);
+    expect(turnedAwayLine({ ...s, recent: [] })).toBe("100+ calls (100 from numbers you blocked)");
+    expect(summarizeTurnedAway(full, 0.5, now).capped).toBe(false);
+    expect(turnedAwayLine(summarizeTurnedAway(full.slice(0, 1), 30, now))).toBe(
+      "1 call (1 from numbers you blocked)",
+    );
   });
 });

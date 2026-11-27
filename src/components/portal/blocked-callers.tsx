@@ -8,6 +8,7 @@ import { allowNumberAction, blockNumberAction, unblockNumberAction } from "@/lib
 import { initialActionState, type ActionState } from "@/lib/actions/types";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatPhone } from "@/lib/format";
+import { turnedAwayLine, type TurnedAwaySummary } from "@/lib/spam";
 
 export interface SuggestedBlock {
   phone: string;
@@ -89,6 +90,7 @@ export function BlockedCallers({
   blocked,
   suggested,
   autoRejected = [],
+  turnedAway,
   timeZone,
 }: {
   clientId: string;
@@ -96,12 +98,16 @@ export function BlockedCallers({
   suggested: SuggestedBlock[];
   /** Turned away by the automatic rule right now (3 spam calls in 30 days). */
   autoRejected?: SuggestedBlock[];
+  /** Calls actually hung up on before the AI answered (they're not in the call log). */
+  turnedAway?: TurnedAwaySummary;
   timeZone?: string;
 }) {
-  if (!blocked.length && !suggested.length && !autoRejected.length) return null;
+  const turnedAwayTotal = turnedAway?.total ?? 0;
+  if (!blocked.length && !suggested.length && !autoRejected.length && !turnedAwayTotal) return null;
+  const blockedSet = new Set(blocked);
 
   return (
-    <div className="space-y-3 border-t pt-4">
+    <div id="blocked-callers" className="scroll-mt-24 space-y-3 border-t pt-4">
       <div>
         <p className="text-sm font-medium">Blocked callers</p>
         <p className="text-xs text-muted-foreground">
@@ -111,6 +117,15 @@ export function BlockedCallers({
           Numbers with only a Block button are suggestions: nothing happens until you tap it.
         </p>
       </div>
+
+      {turnedAway && turnedAwayTotal > 0 ? (
+        <TurnedAwayList
+          clientId={clientId}
+          summary={turnedAway}
+          stillBlocked={blockedSet}
+          timeZone={timeZone}
+        />
+      ) : null}
 
       {suggested.length ? (
         <div className="space-y-1.5">
@@ -176,6 +191,70 @@ export function BlockedCallers({
             </li>
           ))}
         </ul>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Calls the screen hung up on. They never reach the call log (so the
+ * automatic rule can age out), which is exactly why the owner needs to see
+ * them here: a screen you can't check is a screen you can't trust, and the
+ * one failure that matters is a real customer in this list.
+ */
+function TurnedAwayList({
+  clientId,
+  summary,
+  stillBlocked,
+  timeZone,
+}: {
+  clientId: string;
+  summary: TurnedAwaySummary;
+  stillBlocked: Set<string>;
+  timeZone?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-muted-foreground">Turned away before answering</p>
+      <p className="text-sm">
+        <strong className="tabular-nums">{turnedAwayLine(summary)}</strong>{" "}
+        <span className="text-muted-foreground">
+          in the last 30 days. They used no minutes and aren&apos;t in your call log.
+        </span>
+      </p>
+      {summary.recent.length ? (
+        <details className="group rounded-lg border">
+          <summary className="cursor-pointer select-none rounded-lg px-3 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {summary.total > summary.recent.length
+              ? `Show the latest ${summary.recent.length}`
+              : `Show ${summary.recent.length === 1 ? "it" : `all ${summary.recent.length}`}`}
+          </summary>
+          <ul className="space-y-1.5 border-t px-3 py-2">
+            {summary.recent.map((e, i) => (
+              <li
+                key={`${e.phone}-${e.at}`}
+                className="flex flex-wrap items-center justify-between gap-2 py-0.5"
+              >
+                <span className="text-sm">
+                  <strong className="tabular-nums">{formatPhone(e.phone)}</strong>{" "}
+                  <span className="text-muted-foreground">
+                    — {e.reason === "blocked" ? "blocked by you" : "repeat spam"},{" "}
+                    {formatDateTime(e.at, timeZone)}
+                  </span>
+                </span>
+                {/* One button per number: the first (newest) row carries it. */}
+                {summary.recent.findIndex((r) => r.phone === e.phone) !== i ? null : e.reason ===
+                  "blocked" ? (
+                  stillBlocked.has(e.phone) ? (
+                    <UnblockButton clientId={clientId} phone={e.phone} />
+                  ) : null
+                ) : (
+                  <AllowButton clientId={clientId} phone={e.phone} />
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
       ) : null}
     </div>
   );

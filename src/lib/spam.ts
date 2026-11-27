@@ -220,3 +220,67 @@ export function autoRejectedNumbers(
     .map(([phone, v]) => ({ phone, calls: v.spam, lastAt: v.lastAt }))
     .sort((a, b) => b.calls - a.calls);
 }
+
+/** How many turned-away calls we keep per business (newest first, 30 days). */
+export const MAX_TURNED_AWAY = 100;
+
+export type InboundScreenReason = "blocked" | "repeat_spam";
+
+export interface TurnedAwayEntry {
+  at: string;
+  phone: string;
+  reason: InboundScreenReason;
+  callId?: string;
+}
+
+export interface TurnedAwaySummary {
+  /** Calls hung up on before the AI answered, inside the window. */
+  total: number;
+  blocked: number;
+  repeatSpam: number;
+  /** The log was full for this window, so `total` is a floor ("100+"). */
+  capped: boolean;
+  /** Newest first, for the owner to look through. */
+  recent: { phone: string; reason: InboundScreenReason; at: string }[];
+}
+
+/**
+ * What the owner sees about calls the screen turned away. Rejected calls leave
+ * no row in the call log on purpose, so without this a business would have no
+ * way to know the screen did anything, or to notice a real customer in it.
+ */
+export function summarizeTurnedAway(
+  entries: TurnedAwayEntry[] | null | undefined,
+  days: number,
+  now = new Date(),
+  recentLimit = 10,
+): TurnedAwaySummary {
+  const since = now.getTime() - days * 24 * 60 * 60 * 1000;
+  const inWindow = (entries ?? [])
+    .filter((e) => {
+      const t = Date.parse(e.at);
+      return Number.isFinite(t) && t >= since && t <= now.getTime() + 60_000;
+    })
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  return {
+    total: inWindow.length,
+    blocked: inWindow.filter((e) => e.reason === "blocked").length,
+    repeatSpam: inWindow.filter((e) => e.reason === "repeat_spam").length,
+    // The log drops its oldest entries past MAX_TURNED_AWAY. If even the oldest
+    // one we kept is inside the window, some dropped ones may be too.
+    capped:
+      (entries?.length ?? 0) >= MAX_TURNED_AWAY &&
+      inWindow.length > 0 &&
+      inWindow.length === (entries ?? []).length,
+    recent: inWindow.slice(0, recentLimit).map(({ phone, reason, at }) => ({ phone, reason, at })),
+  };
+}
+
+/** "12 calls (9 from numbers you blocked, 3 repeat spam)". Overview and the call log. */
+export function turnedAwayLine(summary: TurnedAwaySummary): string {
+  const n = `${summary.total}${summary.capped ? "+" : ""}`;
+  const parts: string[] = [];
+  if (summary.blocked) parts.push(`${summary.blocked} from numbers you blocked`);
+  if (summary.repeatSpam) parts.push(`${summary.repeatSpam} repeat spam`);
+  return `${n} ${summary.total === 1 ? "call" : "calls"}${parts.length ? ` (${parts.join(", ")})` : ""}`;
+}

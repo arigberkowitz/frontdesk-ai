@@ -10,7 +10,8 @@ vi.mock("@/db", async () => (await import("../../../test/helpers/pglite-db")).pg
 
 const { db } = await import("@/db");
 const schema = await import("@/db/schema");
-const { screenInboundCall } = await import("./inbound-screen");
+const { recordTurnedAway, screenInboundCall } = await import("./inbound-screen");
+const { eq } = await import("drizzle-orm");
 
 const NOW = new Date("2026-11-27T20:00:00.000Z");
 const DAY = 86_400_000;
@@ -117,5 +118,72 @@ describe("screenInboundCall", () => {
     for (const d of [1, 2, 3]) await call("+14155550199", d);
     await db.update(schema.clients).set({ setupFlags: { blockedNumbers: [], allowedNumbers: ["4155550199"] } });
     expect((await screen("+14155550199")).screen.reject).toBe(false);
+  });
+});
+
+describe("recordTurnedAway", () => {
+  const flags = async () =>
+    (await db.query.clients.findFirst({ where: eq(schema.clients.id, clientId) }))!.setupFlags!;
+
+  it("adds newest first and keeps every other setting", async () => {
+    await recordTurnedAway(clientId, { phone: "4155550134", reason: "blocked", callId: "a" }, NOW);
+    await recordTurnedAway(
+      clientId,
+      { phone: "4155550199", reason: "repeat_spam", callId: "b" },
+      new Date(NOW.getTime() + 1000),
+    );
+    const f = await flags();
+    expect(f.blockedNumbers).toEqual(["4155550134"]);
+    expect(f.turnedAway).toEqual([
+      {
+        at: new Date(NOW.getTime() + 1000).toISOString(),
+        phone: "4155550199",
+        reason: "repeat_spam",
+        callId: "b",
+      },
+      { at: NOW.toISOString(), phone: "4155550134", reason: "blocked", callId: "a" },
+    ]);
+  });
+
+  it("doesn't count as an edit to the business", async () => {
+    const before = (await db.query.clients.findFirst({ where: eq(schema.clients.id, clientId) }))!
+      .updatedAt;
+    await recordTurnedAway(clientId, { phone: "4155550134", reason: "blocked", callId: "a" }, NOW);
+    const after = (await db.query.clients.findFirst({ where: eq(schema.clients.id, clientId) }))!
+      .updatedAt;
+    expect(after.getTime()).toBe(before.getTime());
+  });
+
+  it("a Retell retry of the same call is counted once", async () => {
+    await recordTurnedAway(clientId, { phone: "4155550134", reason: "blocked", callId: "a" }, NOW);
+    await recordTurnedAway(clientId, { phone: "4155550134", reason: "blocked", callId: "a" }, NOW);
+    expect((await flags()).turnedAway).toHaveLength(1);
+  });
+
+  it("drops entries older than 30 days and keeps at most 100", async () => {
+    await recordTurnedAway(
+      clientId,
+      { phone: "4155550134", reason: "blocked", callId: "old" },
+      new Date(NOW.getTime() - 31 * DAY),
+    );
+    for (let i = 0; i < 105; i++) {
+      await recordTurnedAway(
+        clientId,
+        { phone: "4155550134", reason: "blocked", callId: `c${i}` },
+        new Date(NOW.getTime() + i * 1000),
+      );
+    }
+    const list = (await flags()).turnedAway!;
+    expect(list).toHaveLength(100);
+    expect(list[0]!.callId).toBe("c104");
+    expect(list.some((e) => e.callId === "old")).toBe(false);
+  });
+
+  it("works when the business has no settings saved yet", async () => {
+    await db.update(schema.clients).set({ setupFlags: {} }).where(eq(schema.clients.id, clientId));
+    await recordTurnedAway(clientId, { phone: "4155550134", reason: "blocked" }, NOW);
+    expect((await flags()).turnedAway).toEqual([
+      { at: NOW.toISOString(), phone: "4155550134", reason: "blocked" },
+    ]);
   });
 });

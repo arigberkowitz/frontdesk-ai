@@ -3,7 +3,13 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { callGrades, calls, clients, type NewCall } from "@/db/schema";
 import { analyzeCall, summarize } from "@/lib/call-health";
-import { autoRejectedNumbers, SCREEN_WINDOW_DAYS, silentRepeatCandidates, spamCandidates } from "@/lib/spam";
+import {
+  autoRejectedNumbers,
+  SCREEN_WINDOW_DAYS,
+  silentRepeatCandidates,
+  spamCandidates,
+  summarizeTurnedAway,
+} from "@/lib/spam";
 
 /** Call data access + the idempotent webhook upsert. */
 
@@ -243,6 +249,8 @@ export async function getCallHealth(clientId: string, days = 30) {
     blockedNumbers,
     suggestedBlocks,
     autoRejected,
+    /** Calls hung up on before the AI answered (not in `calls`; see recordTurnedAway). */
+    turnedAway: summarizeTurnedAway(client?.setupFlags?.turnedAway, days),
     // Worst first: the ones an owner should actually listen to.
     needsAttention: scored
       .filter((s) => !s.health.clean)

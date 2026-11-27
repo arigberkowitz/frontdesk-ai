@@ -6,7 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * error or a slow answer — lets the call through to the AI.
  */
 
-vi.mock("next/server", () => ({ after: vi.fn() }));
+const after = vi.fn((fn: () => unknown) => void fn());
+vi.mock("next/server", () => ({ after: (fn: () => unknown) => after(fn) }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 let signatureOk = true;
 vi.mock("@/lib/retell", () => ({ verifyRetellSignature: () => signatureOk }));
@@ -25,7 +26,11 @@ vi.mock("@/lib/call-recap-send", () => ({ sendCallRecap: vi.fn() }));
 vi.mock("@/lib/hours-util", () => ({ isAfterHours: () => false }));
 vi.mock("@/lib/webhooks-emit", () => ({ emitWebhook: vi.fn() }));
 const screenInboundCall = vi.fn();
-vi.mock("@/lib/data/inbound-screen", () => ({ screenInboundCall: (i: unknown) => screenInboundCall(i) }));
+const recordTurnedAway = vi.fn(async (..._args: unknown[]) => {});
+vi.mock("@/lib/data/inbound-screen", () => ({
+  screenInboundCall: (i: unknown) => screenInboundCall(i),
+  recordTurnedAway: (...a: unknown[]) => recordTurnedAway(...a),
+}));
 
 const { POST, INBOUND_SCREEN_TIMEOUT_MS } = await import("./route");
 
@@ -42,6 +47,8 @@ beforeEach(() => {
   signatureOk = true;
   screenInboundCall.mockReset();
   recordWebhookEvent.mockClear();
+  recordTurnedAway.mockReset();
+  after.mockClear();
 });
 
 describe("call_inbound", () => {
@@ -88,6 +95,41 @@ describe("call_inbound", () => {
     await POST(inbound());
     expect(recordWebhookEvent).not.toHaveBeenCalled();
     expect(screenInboundCall).toHaveBeenCalledTimes(2);
+  });
+
+  it("notes a turned-away call for the owner after answering (they aren't in the call log)", async () => {
+    screenInboundCall.mockResolvedValue({
+      clientId: "c1",
+      screen: { reject: true, reason: "repeat_spam" },
+    });
+    expect(await (await POST(inbound())).json()).toEqual({ call_inbound: { reject: true } });
+    expect(after).toHaveBeenCalledTimes(1);
+    expect(recordTurnedAway).toHaveBeenCalledWith("c1", {
+      phone: "4155550134",
+      reason: "repeat_spam",
+      callId: "call_1",
+    });
+  });
+
+  it("still rejects when noting it fails, and notes nothing for answered calls", async () => {
+    screenInboundCall.mockResolvedValue({
+      clientId: "c1",
+      screen: { reject: true, reason: "blocked" },
+    });
+    recordTurnedAway.mockRejectedValue(new Error("db down"));
+    expect(await (await POST(inbound())).json()).toEqual({ call_inbound: { reject: true } });
+    after.mockImplementationOnce(() => {
+      throw new Error("no request scope");
+    });
+    expect(await (await POST(inbound())).json()).toEqual({ call_inbound: { reject: true } });
+
+    recordTurnedAway.mockClear();
+    screenInboundCall.mockResolvedValue({
+      clientId: "c1",
+      screen: { reject: false, reason: null },
+    });
+    await POST(inbound());
+    expect(recordTurnedAway).not.toHaveBeenCalled();
   });
 
   it("an unsigned request is refused, so it can never reject a call", async () => {
