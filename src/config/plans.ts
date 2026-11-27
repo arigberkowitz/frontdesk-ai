@@ -12,6 +12,10 @@
  *               Nov 2026; existing subscriptions keep the price they signed at)
  *   Trial:      14 days free, no card, then pick a plan
  */
+import { LANGUAGE_OPTIONS, MAX_LANGUAGES } from "@/lib/languages";
+
+const LANGUAGE_HIGHLIGHT = `${LANGUAGE_OPTIONS.length} languages — pick up to ${MAX_LANGUAGES}`;
+
 export type PlanKey = "backup" | "starter" | "pro" | "scale";
 
 export interface Plan {
@@ -50,7 +54,7 @@ export const PLANS: Record<PlanKey, Plan> = {
       "Books appointments & captures leads on those calls",
       "Confirmation & reminder texts",
       "Instant owner alerts",
-      "English & Spanish, automatically",
+      LANGUAGE_HIGHLIGHT,
       "Spam & robocall screening",
       "Upgrade to 24/7 coverage anytime",
     ],
@@ -68,7 +72,7 @@ export const PLANS: Record<PlanKey, Plan> = {
       "24/7 AI receptionist — every call answered",
       "Appointment booking + confirmation texts",
       "Lead capture & instant owner alerts",
-      "English & Spanish, automatically",
+      LANGUAGE_HIGHLIGHT,
       "Spam & robocall screening",
     ],
   },
