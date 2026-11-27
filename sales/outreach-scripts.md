@@ -28,7 +28,7 @@ Fastest way to judge it: I'll set one up from your website in about 10
 minutes and you can call it yourself. Free to try for 14 days. Worth a look?
 
 {{YourName}}
-{{Phone}} · frontdesk-ai-alpha.vercel.app
+{{Phone}} · frontdeskai.company
 
 ---
 

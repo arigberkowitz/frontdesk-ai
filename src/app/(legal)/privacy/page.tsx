@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${env.APP_URL.replace(/\/$/, "")}/privacy` },
 };
 
-const UPDATED = "November 24, 2026";
+const UPDATED = "November 27, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -25,8 +25,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /**
- * Privacy policy. NOTE FOR THE OPERATOR: starting draft, not legal advice —
- * lawyer review before selling; replace bracketed placeholders.
+ * Privacy Policy for FrontDesk AI (Ari Berkowitz d/b/a FrontDesk AI). Keep the
+ * subprocessor list in step with the vendors the app actually calls, keep the
+ * SMS statements above the fold, and bump UPDATED on any change.
  */
 export default function PrivacyPage() {
   return (
