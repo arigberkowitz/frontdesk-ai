@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LOCATION_TYPES, VIDEO_PROVIDERS } from "./service-location";
 
 /**
  * Input schemas for operator mutations. Validated server-side in each Server
@@ -24,7 +25,11 @@ export const clientCreateSchema = z.object({
 });
 export type ClientCreateInput = z.infer<typeof clientCreateSchema>;
 
+/** "How to find us": parking, suite, which entrance. Short, because it goes in a text. */
+export const howToFindUsSchema = z.string().trim().max(200, "Keep it under 200 characters");
+
 export const clientProfileSchema = clientCreateSchema.extend({
+  howToFindUs: howToFindUsSchema.optional().or(z.literal("")),
   escalationNumber: optionalString,
   forwardingNumber: optionalString,
   ownerEmail: z.string().trim().email("Enter a valid email").optional().or(z.literal("")),
@@ -42,8 +47,9 @@ export const serviceSchema = z.object({
   // How many staff can perform this service at once (1 = no overlapping slots).
   providerCount: z.coerce.number().int().min(1).max(50).default(1),
   description: optionalString,
-  // Bookable by video: Google/Microsoft calendars attach a Meet/Teams link.
-  virtualOk: z.coerce.boolean().default(false),
+  // Where it happens. Video gets a Meet / Teams / Zoom link when booked.
+  locationType: z.enum(LOCATION_TYPES).default("in_person"),
+  videoProvider: z.enum(VIDEO_PROVIDERS).optional(),
   // How long until this customer is due again, in days. Empty means "one-off" —
   // a consultation, a repair — and one-offs must never trigger a recall text.
   // Capped at two years: past that it isn't a recall, it's a cold list.

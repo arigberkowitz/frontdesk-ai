@@ -174,7 +174,7 @@ describe("moveBooking: reschedule keeps the same event", () => {
     fetchMock.mockResolvedValueOnce(json({ access_token: "at" })).mockResolvedValueOnce(json({ id: "evt-1" }));
     await google().moveBooking!("evt-1", { startAt: S, durationMin: 45, timezone: "America/New_York" });
     const [url, init] = fetchMock.mock.calls[1];
-    expect(url).toBe("https://www.googleapis.com/calendar/v3/calendars/primary/events/evt-1");
+    expect(url).toBe("https://www.googleapis.com/calendar/v3/calendars/primary/events/evt-1?sendUpdates=all");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body)).toEqual({
       start: { dateTime: S, timeZone: "America/New_York" },

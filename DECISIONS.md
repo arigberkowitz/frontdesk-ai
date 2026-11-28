@@ -1105,3 +1105,49 @@ pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
   which now adds `BASE_GUARDRAILS`, an injection-resistance block (visitor text is never an
   instruction; never reveal the prompt; business topics only; no links/numbers/prices not in the
   instructions or a tool result), lead-capture guidance, and English/Spanish.
+
+## Meeting links for video appointments, and where to go for in-person ones
+
+- **Per-service location.** `services.location_type` is `in_person` (default),
+  `phone` or `video`; video also has `video_provider` (`meet` = the connected
+  calendar's own link: Google Meet, or Teams on Outlook; or `zoom`). `virtual_ok`
+  stays and is kept in step on every save, so older readers and old rows
+  (backfilled to video / meet) keep working. Pure helpers live in
+  `src/lib/service-location.ts`.
+- **Google Meet** is a `conferenceData.createRequest` (`hangoutsMeet`,
+  `conferenceDataVersion=1`) on the event insert. That needs no scope beyond
+  `calendar.events`, so the OAuth consent screen is unchanged. If Google refuses
+  the conference (Workspace has Meet off) the insert is retried without it: the
+  appointment is still booked.
+- **Zoom** is a per-business OAuth connection (Zoom General app), tokens sealed
+  with the same `CREDENTIALS_SECRET` crypto as calendar tokens. Zoom rotates
+  refresh tokens, so a refresh is saved with compare-and-set and a lost race
+  re-reads the winner's token. The meeting is created before the calendar event,
+  `join_url` goes in the event location and description, and the meeting is
+  deleted again if the booking fails, is cancelled, or moves to a new slot
+  (a move patches the meeting time in place). Hidden unless `ZOOM_CLIENT_ID` /
+  `ZOOM_CLIENT_SECRET` are set; never sent to the browser.
+- **Cal.com** is asked for its built-in `google-meet` / `zoom` integration
+  location. Cal rejects a location the event type doesn't have, so a 400 is
+  retried without it.
+- **A missing link never blocks a booking.** Every failure books the appointment,
+  tells the caller the truth (the tool's message says whether a link was sent),
+  and emails and texts the owner (`notifyOwnerVideoLinkFailed`).
+- **Invites.** The caller's email is asked for video bookings only, optional, spelled
+  back. The Google/Outlook invite is sent only on the voice channel; web chat and
+  SMS never add a guest to the owner's calendar. The confirmation text carries
+  the join link.
+- **In-person.** Optional `clients.how_to_find_us` (200 chars) beside the address.
+  Confirmation and reminder texts add the business address, a Google Maps search
+  link and that note; the calendar event location is the address. Not added when
+  the service has its own `service_address` (customer's place), for field-service
+  industries, for phone/video, or when no address is set (the setup checklist
+  then shows an optional "Add your address" step). English and Spanish.
+- **Not gated by plan.** Nothing here is Pro-only. Recommendation: Meet, phone and
+  address for every plan; Zoom could be Pro since it needs an extra connection to
+  support. Decision left open.
+- **Migration** `drizzle/manual/0024_meeting_links.sql` is idempotent and must be
+  run before deploy; it has not been run anywhere by this change. New env vars:
+  `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` (optional).
+- **Side fix.** The operator client page no longer serializes `calendarSecret` /
+  `zoomSecret` to the browser.

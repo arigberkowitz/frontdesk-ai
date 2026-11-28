@@ -254,6 +254,11 @@ export function buildAgentTools(
             description:
               "Street address where the work is (with unit and town), when the job is at the caller's location.",
           },
+          email: {
+            type: "string",
+            description:
+              "Optional. For a video-call service: the email the caller gave for the video invite, spelled out and read back to them. Omit if they decline.",
+          },
         },
         required: ["service", "datetime", "name", "phone", "sms_consent"],
       },

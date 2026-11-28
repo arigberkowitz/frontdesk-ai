@@ -92,6 +92,8 @@ export function buildPromptForClient(
       name: client.name,
       industry: client.industry,
       address: client.address,
+      howToFindUs: client.howToFindUs,
+      calendarProvider: client.calendarProvider,
       timezone: client.timezone,
       escalationNumber: client.escalationNumber,
       recordingDisclosureEnabled: client.recordingDisclosureEnabled,

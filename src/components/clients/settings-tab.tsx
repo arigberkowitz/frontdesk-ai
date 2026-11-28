@@ -146,8 +146,21 @@ export function SettingsTab({
                 </NativeSelect>
               </Field>
             </div>
-            <Field label="Address">
+            <Field label="Address" hint="Where customers go. Added to in-person confirmation and reminder texts with a map link.">
               <Textarea name="address" rows={2} defaultValue={client.address ?? ""} />
+            </Field>
+            <Field
+              label="How to find us — optional"
+              hint="Parking, suite number, which entrance. Up to 200 characters; the AI says it and it goes in the text."
+              error={profile.fieldErrors?.howToFindUs}
+            >
+              <Textarea
+                name="howToFindUs"
+                rows={2}
+                maxLength={200}
+                defaultValue={client.howToFindUs ?? ""}
+                placeholder="Suite 210, second floor. Free parking behind the building."
+              />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Escalation number" hint="Owner alerts + transfers">

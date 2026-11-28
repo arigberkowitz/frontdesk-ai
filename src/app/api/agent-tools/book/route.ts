@@ -16,7 +16,15 @@ import { blocksForProvider, businessWideBlocks, checkSlot, slotRefusal } from "@
 import { matchService, serviceClarification } from "@/lib/service-match";
 import { parseInClientTimezone } from "@/lib/hours-util";
 import { toE164 } from "@/lib/format";
-import { notifyOwnerBooking, notifyOwnerCancellation } from "@/lib/notify";
+import { notifyOwnerBooking, notifyOwnerCancellation, notifyOwnerVideoLinkFailed } from "@/lib/notify";
+import {
+  checkMeetingResult,
+  discardZoomMeeting,
+  meetingNote,
+  planMeeting,
+  type MeetingPlan,
+} from "@/lib/meeting-links";
+import { serviceLocation } from "@/lib/service-location";
 import { sendBookingConfirmation } from "@/lib/appointment-texts";
 import { recordSmsConsent } from "@/lib/data/sms-consents";
 import { rememberCustomerLanguage } from "@/lib/data/customer-languages";
@@ -33,9 +41,12 @@ import { requestDeposit } from "@/lib/deposit-request";
  * we have no record of who it's for.
  */
 async function releaseExternalBooking(
-  client: Parameters<typeof getBookingProviderForClient>[0],
+  client: Parameters<typeof getBookingProviderForClient>[0] & { id: string; name: string; timezone: string; zoomSecret?: string | null },
   externalBookingId: string | null,
+  zoomMeetingId: string | null = null,
 ): Promise<void> {
+  // The Zoom meeting made for this booking goes with it.
+  await discardZoomMeeting(client, zoomMeetingId);
   if (!externalBookingId) return;
   try {
     await getBookingProviderForClient(client).cancelBooking(externalBookingId);
@@ -73,6 +84,7 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ message: serviceClarification(match) });
   }
   const service = match.service;
+  const location = serviceLocation(service);
 
   const durationMin = service.durationMin ?? 30;
   const endAt = new Date(startAt.getTime() + durationMin * 60_000);
@@ -211,6 +223,19 @@ export async function POST(req: Request): Promise<Response> {
   // must degrade to a local booking, not 500 mid-call.
   let externalBookingId: string | null = null;
   let meetingUrl: string | null = null;
+  // The email the caller gave (optional). For a VIDEO booking made by phone it
+  // goes on the calendar event so their provider emails them the invite with
+  // the link. Not on web chat: there an anonymous visitor types the address,
+  // and an invite from the owner's own account must not be mailable to anyone.
+  const customerEmail = cleanEmail(args.email) ?? moving?.customerEmail ?? null;
+  const inviteGuest = location.type === "video" && channel === "voice" && Boolean(customerEmail);
+  // What kind of link this booking gets, and (for Zoom) the meeting already made.
+  let plan: MeetingPlan = {
+    location,
+    fields: { locationType: location.type },
+    zoomMeetingId: null,
+    setupFailure: null,
+  };
   // A reschedule whose old appointment already has a Google / Outlook event
   // moves that event in place AFTER the local reserve (see below), instead of
   // creating a second event now.
@@ -230,20 +255,34 @@ export async function POST(req: Request): Promise<Response> {
         });
       }
       if (!mover) {
+        // Video → make the link (Meet / Teams on the calendar, or a Zoom
+        // meeting on the owner's Zoom). A link that can't be made never fails
+        // the booking; it's alerted on below.
+        plan = await planMeeting({
+          client,
+          service,
+          provider,
+          startAt,
+          durationMin,
+          serviceAddress: String(args.service_address ?? ""),
+        });
         const r = await provider.createBooking({
           startAt: startAt.toISOString(),
           durationMin,
           customerName,
           customerPhone,
           timezone: client.timezone,
-          // Video-friendly service → the calendar event gets a Meet/Teams link.
-          virtual: Boolean(service.virtualOk),
+          ...plan.fields,
+          ...(inviteGuest ? { customerEmail: customerEmail!, inviteCustomer: true } : {}),
         });
         externalBookingId = r.externalBookingId;
         meetingUrl = r.meetingUrl ?? null;
       }
     }
   } catch (err) {
+    // A Zoom meeting made for a booking whose event then failed would be left
+    // on the owner's Zoom with nothing behind it.
+    await discardZoomMeeting(client, plan.zoomMeetingId);
     logger.error("agent-tools.book.provider_failed", {
       clientId: client.id,
       error: err instanceof Error ? err.message : String(err),
@@ -271,7 +310,7 @@ export async function POST(req: Request): Promise<Response> {
         // new one was given.
         customerName: customerName || moving?.customerName || null,
         customerPhone: customerPhone || null,
-        customerEmail: cleanEmail(args.email) ?? moving?.customerEmail ?? null,
+        customerEmail,
         serviceAddress:
           String(args.service_address ?? "").trim().slice(0, 300) || moving?.serviceAddress || null,
         serviceId: service.id ?? null,
@@ -281,6 +320,7 @@ export async function POST(req: Request): Promise<Response> {
         status: "booked",
         externalBookingId,
         meetingUrl,
+        zoomMeetingId: plan.zoomMeetingId,
       },
       service,
     );
@@ -293,7 +333,7 @@ export async function POST(req: Request): Promise<Response> {
       externalBookingId,
       error: err instanceof Error ? err.message : String(err),
     });
-    await releaseExternalBooking(client, externalBookingId);
+    await releaseExternalBooking(client, externalBookingId, plan.zoomMeetingId);
     return Response.json({
       success: false,
       error:
@@ -304,7 +344,7 @@ export async function POST(req: Request): Promise<Response> {
   if (!appt) {
     // Someone else took it in the seconds we spent talking to the calendar.
     logger.info("agent-tools.book.lost_race", { clientId: client.id, startAt: startAt.toISOString() });
-    await releaseExternalBooking(client, externalBookingId);
+    await releaseExternalBooking(client, externalBookingId, plan.zoomMeetingId);
     return Response.json({
       success: false,
       error:
@@ -316,13 +356,15 @@ export async function POST(req: Request): Promise<Response> {
     // Bring the calendar along, then release the old time. The event move
     // never blocks: the new appointment is already reserved.
     if (mover) {
-      const moved = await moveAppointmentEvent(client, moving, appt, {
-        virtual: Boolean(service.virtualOk),
-        provider: mover,
-      });
-      appt = { ...appt, externalBookingId: moved.externalBookingId, meetingUrl: moved.meetingUrl };
+      const moved = await moveAppointmentEvent(client, moving, appt, { service, provider: mover });
+      appt = {
+        ...appt,
+        externalBookingId: moved.externalBookingId,
+        meetingUrl: moved.meetingUrl,
+        zoomMeetingId: moved.zoomMeetingId ?? null,
+      };
     } else if (moving.externalBookingId) {
-      await releaseExternalBooking(client, moving.externalBookingId);
+      await releaseExternalBooking(client, moving.externalBookingId, moving.zoomMeetingId ?? null);
     }
     const released = await cancelAppointment(client.id, moving.id);
     if (released) {
@@ -339,6 +381,26 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   await notifyOwnerBooking(client, appt);
+
+  // Video appointment whose link couldn't be made: the booking stands, the
+  // owner is told (and the agent is told, below, not to promise a link).
+  const meetingFailure = checkMeetingResult(plan, appt.meetingUrl);
+  if (meetingFailure) {
+    logger.warn("agent-tools.book.video_link_missing", {
+      clientId: client.id,
+      appointmentId: appt.id,
+      reason: meetingFailure.reason,
+    });
+    after(() =>
+      notifyOwnerVideoLinkFailed(client, appt, meetingFailure).catch((err) =>
+        logger.error("agent-tools.book.video_alert_failed", {
+          clientId: client.id,
+          appointmentId: appt.id,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      ),
+    );
+  }
 
   // Declared before the after() callbacks below that read it (it used to be
   // declared after them, which only worked because after() runs later).
@@ -405,7 +467,7 @@ export async function POST(req: Request): Promise<Response> {
   }
   if (mayText) {
     after(() =>
-      sendBookingConfirmation(client, appt, service.name, language).catch((err) =>
+      sendBookingConfirmation(client, appt, service.name, language, { locationType: location.type }).catch((err) =>
         logger.error("agent-tools.book.confirmation_failed", {
           clientId: client.id,
           appointmentId: appt.id,
@@ -425,9 +487,22 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
+  // What to say about the link. "I've sent you a video link" only when it
+  // exists and actually reached them: the invite to their email, or the
+  // confirmation text they agreed to.
+  const note = meetingNote({
+    location,
+    calendarProvider: client.calendarProvider,
+    link: appt.meetingUrl ?? null,
+    invited: inviteGuest && Boolean(appt.meetingUrl),
+    texted: mayText,
+    channel,
+    customerPhone,
+  });
+
   return Response.json({
     success: true,
     confirmation_id: appt.id,
-    message: `Booked ${service.name}${providerName ? ` with ${providerName}` : ""} for ${customerName || "you"} on ${spokenDateTime(appt.startAt, client.timezone)}. We'll see you then!`,
+    message: `Booked ${service.name}${providerName ? ` with ${providerName}` : ""} for ${customerName || "you"} on ${spokenDateTime(appt.startAt, client.timezone)}. We'll see you then!${note}`,
   });
 }

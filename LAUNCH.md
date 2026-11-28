@@ -167,6 +167,22 @@ All require `CRON_SECRET` (already set). Manual trigger for testing:
     `calendar.calendarlist.readonly` — deliberately not requested while
     verification is pending (owners type extra calendar IDs instead).
 
+- **Video appointments (Google Meet / Zoom) and "how to find us".** Run
+  `drizzle/manual/0024_meeting_links.sql` **before** deploying (adds
+  `services.location_type` / `video_provider`, `clients.zoom_*` and
+  `how_to_find_us`, `appointments.zoom_meeting_id`; backfills old "virtual OK"
+  services to video / Meet).
+  - **Google Meet:** nothing to set up. It uses the Calendar scopes already in the
+    consent screen (`calendar.events`) — no new scope.
+  - **Zoom (optional, hidden until set):** Zoom App Marketplace → Develop → Build
+    App → **General app** (user-managed OAuth) → redirect URL
+    `https://<domain>/api/calendar/zoom/callback` → scopes `meeting:write:meeting`,
+    `meeting:update:meeting`, `meeting:delete:meeting`, `user:read:user` → set
+    `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET`. Other businesses can only authorize it
+    once the app is published (Zoom review).
+  - **Cal.com:** the event type needs the Google Meet / Zoom location enabled and
+    the app installed in the owner's Cal account; otherwise the booking is made
+    without a link and the owner is alerted.
 - **AI text replies — MIGRATION REQUIRED:** apply `drizzle/manual/0010_ai_text_replies.sql`
   (Neon SQL editor, idempotent) **before** the deploy (renumber if another branch merged a
   0010 first). No new env vars: uses `ANTHROPIC_API_KEY` (optional `CHAT_MODEL`),

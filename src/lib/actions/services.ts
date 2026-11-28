@@ -7,6 +7,7 @@ import { assertClientInOrg } from "@/lib/data/clients";
 import * as servicesData from "@/lib/data/services";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { type ActionState, fieldErrorsOf } from "./types";
+import { locationFieldsForSave } from "@/lib/service-location";
 import { priceFields, priceRangeError } from "@/lib/service-price";
 
 function parseService(formData: FormData) {
@@ -18,7 +19,8 @@ function parseService(formData: FormData) {
     priceFrom: formData.get("priceFrom") !== null,
     providerCount: formData.get("providerCount") || 1,
     description: formData.get("description"),
-    virtualOk: formData.get("virtualOk") !== null,
+    locationType: formData.get("locationType") || "in_person",
+    videoProvider: formData.get("videoProvider") || undefined,
     recallIntervalDays: formData.get("recallIntervalDays") || undefined,
     depositDollars: formData.get("depositDollars") || undefined,
     isActive: formData.get("isActive") !== null,
@@ -46,7 +48,7 @@ export async function createServiceAction(
     ...priceFields(d),
     providerCount: d.providerCount,
     description: emptyToNull(d.description),
-    virtualOk: d.virtualOk,
+    ...locationFieldsForSave(d),
     recallIntervalDays: d.recallIntervalDays ?? null,
     depositCents: d.depositDollars ? Math.round(d.depositDollars * 100) : null,
     isActive: d.isActive,
@@ -78,7 +80,7 @@ export async function updateServiceAction(
     ...priceFields(d),
     providerCount: d.providerCount,
     description: emptyToNull(d.description),
-    virtualOk: d.virtualOk,
+    ...locationFieldsForSave(d),
     recallIntervalDays: d.recallIntervalDays ?? null,
     depositCents: d.depositDollars ? Math.round(d.depositDollars * 100) : null,
     isActive: d.isActive,

@@ -50,6 +50,16 @@ export async function savePortalProfileAction(
     if (name.length > 120) return { ok: false, fieldErrors: { name: ["Keep it under 120 characters"] } };
     patch.name = name;
   }
+  if (formData.has("address")) {
+    const address = String(formData.get("address") ?? "").trim();
+    if (address.length > 300) return { ok: false, fieldErrors: { address: ["Keep it under 300 characters"] } };
+    patch.address = address || null;
+  }
+  if (formData.has("howToFindUs")) {
+    const note = String(formData.get("howToFindUs") ?? "").trim();
+    if (note.length > 200) return { ok: false, fieldErrors: { howToFindUs: ["Keep it under 200 characters"] } };
+    patch.howToFindUs = note || null;
+  }
   if (formData.has("timezone")) {
     const tz = String(formData.get("timezone") ?? "").trim();
     if (tz) patch.timezone = tz;

@@ -6,6 +6,7 @@ import { assertClientInOrg, updateClient } from "@/lib/data/clients";
 import { applyClientEdit } from "@/lib/agent-publish";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { revokeGoogleToken } from "@/lib/google-calendar";
+import { openZoomTokens, revokeZoomTokens } from "@/lib/zoom";
 import { logger } from "@/lib/logger";
 import {
   MAX_BUSY_CALENDARS,
@@ -176,4 +177,19 @@ export async function saveBusyCalendarsAction(
       ? `Saved. Your AI now treats ${ids.length === 1 ? "1 more calendar" : `${ids.length} more calendars`} as busy.`
       : "Saved. Only your main calendar counts as busy.",
   };
+}
+
+/** Disconnect Zoom: revoke the grant, forget the tokens. Services set to Zoom then book without a link and alert the owner. */
+export async function disconnectZoomAction(formData: FormData): Promise<void> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const guard = await requireClientEditor(clientId);
+  if (!guard.ok) return; // locked staff: silent no-op (banner explains)
+  const user = guard.user;
+  const client = await assertClientInOrg(user.orgId, clientId);
+  if (client.zoomSecret) {
+    const tokens = openZoomTokens(client.zoomSecret);
+    if (tokens && !(await revokeZoomTokens(tokens))) logger.warn("calendar.zoom.revoke_failed", { clientId });
+  }
+  await updateClient(user.orgId, clientId, { zoomSecret: null, zoomAccount: null, zoomConnectedAt: null });
+  revalidatePath("/portal/settings/calendar");
 }

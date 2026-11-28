@@ -12,6 +12,8 @@
  * parts worth arguing about in a test.
  */
 
+import { isFieldService } from "./vocab";
+
 export interface ReminderCandidate {
   id: string;
   startAt: Date;
@@ -112,6 +114,33 @@ export function formatWhen(at: Date, timeZone: string, language?: string | null)
   }).format(at);
 }
 
+/** Google Maps search link for an address — opens the map app on a phone. */
+export function mapsUrl(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address.trim())}`;
+}
+
+/**
+ * Where an in-person customer should go: the business's own address plus the
+ * owner's "how to find us" note. Only when the appointment is at the business:
+ * not for phone or video, not for a job at the customer's place (that one has
+ * its own service address and keeps using it), and not for a field-service
+ * business with no address captured (it travels, so its office isn't "where").
+ */
+export function businessWhere(opts: {
+  locationType?: string | null;
+  serviceAddress?: string | null;
+  industry?: string | null;
+  address?: string | null;
+  howToFindUs?: string | null;
+}): { address: string; howToFind: string } | null {
+  if (opts.locationType && opts.locationType !== "in_person") return null;
+  if (opts.serviceAddress?.trim()) return null;
+  const address = (opts.address ?? "").trim().replace(/\s+/g, " ").slice(0, 160);
+  if (!address) return null;
+  if (isFieldService(opts.industry)) return null;
+  return { address, howToFind: (opts.howToFindUs ?? "").trim().replace(/\s+/g, " ").slice(0, 200) };
+}
+
 /** Close a sentence that ends in a time: Spanish "9:00 a.m." already has its period. */
 export function endSentence(when: string): string {
   return when.endsWith(".") ? when : `${when}.`;
@@ -120,6 +149,15 @@ export function endSentence(when: string): string {
 function lineFor(opts: { businessLine?: string | null }): string {
   const l = (opts.businessLine ?? "").trim();
   return /^[\d\s()+.-]{7,20}$/.test(l) ? l : "";
+}
+
+/** " Where: 12 Main St (map: https://…). Use the back door." — empty when there's no address to give. */
+function whereText(where: { address: string; howToFind: string } | null | undefined, lang: "en" | "es"): string {
+  if (!where) return "";
+  const note = where.howToFind ? ` ${endSentence(where.howToFind)}` : "";
+  return lang === "es"
+    ? ` Dónde: ${where.address} (mapa: ${mapsUrl(where.address)}).${note}`
+    : ` Where: ${where.address} (map: ${mapsUrl(where.address)}).${note}`;
 }
 
 export function confirmationText(opts: {
@@ -134,6 +172,10 @@ export function confirmationText(opts: {
   language?: string | null;
   /** The business's own AI line (formatted). Never an escalation/personal number. */
   businessLine?: string | null;
+  /** A phone appointment: the business calls the customer. */
+  phoneCall?: boolean;
+  /** An in-person appointment at the business: its address, and how to find the door. */
+  where?: { address: string; howToFind: string } | null;
 }): string {
   const business = stripPhoneNumbers(opts.business);
   const serviceName = stripPhoneNumbers(opts.serviceName);
@@ -144,6 +186,8 @@ export function confirmationText(opts: {
       `Hola${firstName(opts.customerName)}, su cita con ${business} está confirmada: ${serviceName ? `${serviceName}, ` : ""}${endSentence(opts.when)}` +
       (address ? ` Dirección: ${endSentence(address)}` : "") +
       (opts.meetingUrl ? ` Únase por video: ${opts.meetingUrl}` : "") +
+      (opts.phoneCall ? ` Le llamaremos a este número a la hora de su cita.` : "") +
+      whereText(opts.where, "es") +
       (lineFor(opts) ? ` ¿Necesita cambiarla? Llame al ${lineFor(opts)}.` : ` ¿Necesita cambiarla? Llame a ${business}.`) +
       ` Responda STOP para no recibir más mensajes.`
     );
@@ -153,6 +197,8 @@ export function confirmationText(opts: {
     `Hi${firstName(opts.customerName)}, you're booked with ${business} — ${service}on ${endSentence(opts.when)}` +
     (address ? ` At: ${endSentence(address)}` : "") +
     (opts.meetingUrl ? ` Join by video: ${opts.meetingUrl}` : "") +
+    (opts.phoneCall ? ` We'll call you at this number at your appointment time.` : "") +
+    whereText(opts.where, "en") +
     (lineFor(opts) ? ` Need to change it? Call ${business} at ${lineFor(opts)}.` : ` Need to change it? Give ${business} a call.`) +
     ` Reply STOP to opt out.`
   );
@@ -167,12 +213,18 @@ export function reminderText(opts: {
   language?: string | null;
   /** The business's own AI line (formatted). Never an escalation/personal number. */
   businessLine?: string | null;
+  /** A phone appointment: the business calls the customer. */
+  phoneCall?: boolean;
+  /** An in-person appointment at the business: its address, and how to find the door. */
+  where?: { address: string; howToFind: string } | null;
 }): string {
   const business = stripPhoneNumbers(opts.business);
   if (textLanguage(opts.language) === "es") {
     return (
       `Hola${firstName(opts.customerName)}, le recordamos su cita con ${business}: ${endSentence(opts.when)}` +
       (opts.meetingUrl ? ` Únase por video: ${opts.meetingUrl}` : "") +
+      (opts.phoneCall ? ` Le llamaremos a este número.` : "") +
+      whereText(opts.where, "es") +
       (lineFor(opts) ? ` ¿Necesita cambiarla? Llame al ${lineFor(opts)}.` : ` ¿Necesita cambiarla? Llame a ${business}.`) +
       ` Responda STOP para no recibir más mensajes.`
     );
@@ -180,6 +232,8 @@ export function reminderText(opts: {
   return (
     `Hi${firstName(opts.customerName)}, a reminder of your appointment with ${business} on ${endSentence(opts.when)}` +
     (opts.meetingUrl ? ` Join by video: ${opts.meetingUrl}` : "") +
+    (opts.phoneCall ? ` We'll call you at this number.` : "") +
+    whereText(opts.where, "en") +
     (lineFor(opts) ? ` Need to reschedule? Call ${business} at ${lineFor(opts)}.` : ` Need to reschedule? Give ${business} a call.`) +
     ` Reply STOP to opt out.`
   );

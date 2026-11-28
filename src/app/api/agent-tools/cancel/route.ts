@@ -1,3 +1,4 @@
+import { discardZoomMeeting } from "@/lib/meeting-links";
 import { after } from "next/server";
 import { authorizeAgentTool, type ToolClient } from "@/lib/agent-tools-auth";
 import { integrations } from "@/lib/env";
@@ -112,6 +113,8 @@ export async function POST(req: Request): Promise<Response> {
       if (provider.isConfigured()) {
         await provider.cancelBooking(target.externalBookingId, "Cancelled by caller via FrontDesk AI");
       }
+      // The Zoom meeting made for this appointment goes too (best-effort).
+      await discardZoomMeeting(client, target.zoomMeetingId);
     } catch (err) {
       logger.error("agent-tools.cancel.provider_failed", {
         clientId: client.id,

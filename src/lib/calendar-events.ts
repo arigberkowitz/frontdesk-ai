@@ -9,6 +9,8 @@ import {
   type ClientCalendarConnection,
 } from "./booking";
 import { logger } from "./logger";
+import { discardZoomMeeting, moveZoomMeeting, planMeeting } from "./meeting-links";
+import type { ServiceLocationFields } from "./service-location";
 
 /**
  * Calendar side effects that happen AFTER an appointment already exists
@@ -20,7 +22,16 @@ import { logger } from "./logger";
  * booking stands. Nothing in this file throws.
  */
 
-type Conn = ClientCalendarConnection & { id: string };
+type Conn = ClientCalendarConnection & {
+  id: string;
+  name?: string;
+  zoomSecret?: string | null;
+  address?: string | null;
+  industry?: string | null;
+};
+
+/** A service as the calendar side needs it: where it happens, and its name for the Zoom topic. */
+type ServiceInfo = ServiceLocationFields & { name?: string | null };
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -41,11 +52,16 @@ async function setEventOnRow(
   appointmentId: string,
   externalBookingId: string | null,
   meetingUrl: string | null | undefined,
+  zoomMeetingId?: string | null,
 ): Promise<void> {
   try {
     await db
       .update(appointments)
-      .set(meetingUrl === undefined ? { externalBookingId } : { externalBookingId, meetingUrl })
+      .set({
+        externalBookingId,
+        ...(meetingUrl === undefined ? {} : { meetingUrl }),
+        ...(zoomMeetingId === undefined ? {} : { zoomMeetingId }),
+      })
       .where(and(eq(appointments.id, appointmentId), eq(appointments.clientId, clientId)));
   } catch (err) {
     logger.error("calendar.events.row_update_failed", { clientId, appointmentId, error: errMsg(err) });
@@ -53,7 +69,7 @@ async function setEventOnRow(
 }
 
 export type PushResult =
-  | { status: "pushed"; externalBookingId: string; meetingUrl: string | null }
+  | { status: "pushed"; externalBookingId: string; meetingUrl: string | null; videoLinkMissing?: boolean }
   | { status: "skipped" } // no Google/Outlook calendar connected
   | { status: "failed"; error: string };
 
@@ -64,25 +80,57 @@ export type PushResult =
  */
 export async function pushAppointmentToCalendar(
   client: Conn & { timezone: string },
-  appt: Pick<Appointment, "id" | "startAt" | "endAt" | "customerName" | "customerPhone">,
-  opts: { virtual?: boolean; provider?: BookingProvider | null } = {},
+  appt: Pick<Appointment, "id" | "startAt" | "endAt" | "customerName" | "customerPhone"> &
+    Partial<Pick<Appointment, "customerEmail" | "serviceAddress">>,
+  opts: { virtual?: boolean; service?: ServiceInfo | null; provider?: BookingProvider | null } = {},
 ): Promise<PushResult> {
   const provider = resolveProvider(client, opts.provider);
   if (!provider || !isOwnCalendarProvider(provider)) return { status: "skipped" };
   const endMs = appt.endAt ? appt.endAt.getTime() : appt.startAt.getTime() + 30 * 60_000;
+  const durationMin = Math.max(5, Math.round((endMs - appt.startAt.getTime()) / 60_000));
+  const mc = { ...client, name: client.name ?? "" };
+  let zoomMeetingId: string | null = null;
   try {
-    const r = await provider.createBooking({
-      startAt: appt.startAt.toISOString(),
-      durationMin: Math.max(5, Math.round((endMs - appt.startAt.getTime()) / 60_000)),
-      customerName: appt.customerName ?? "",
-      customerPhone: appt.customerPhone ?? "",
-      timezone: client.timezone,
-      virtual: Boolean(opts.virtual),
-      source: "manual",
-    });
-    await setEventOnRow(client.id, appt.id, r.externalBookingId, r.meetingUrl ?? null);
+    // Where it happens: video gets a Meet / Teams / Zoom link, phone is written
+    // into the event. `virtual` alone still means "Meet / Teams link".
+    const plan = opts.service
+      ? await planMeeting({
+          client: mc,
+          service: opts.service,
+          provider,
+          startAt: appt.startAt,
+          durationMin,
+          serviceAddress: appt.serviceAddress,
+        })
+      : null;
+    zoomMeetingId = plan?.zoomMeetingId ?? null;
+    let r: Awaited<ReturnType<BookingProvider["createBooking"]>>;
+    try {
+      r = await provider.createBooking({
+        startAt: appt.startAt.toISOString(),
+        durationMin,
+        customerName: appt.customerName ?? "",
+        customerPhone: appt.customerPhone ?? "",
+        timezone: client.timezone,
+        ...(plan ? plan.fields : { virtual: Boolean(opts.virtual) }),
+        // A hand-entered appointment with an email on it: the invite carries the link.
+        ...(plan?.location.type === "video" && appt.customerEmail
+          ? { customerEmail: appt.customerEmail, inviteCustomer: true }
+          : {}),
+        source: "manual",
+      });
+    } catch (err) {
+      await discardZoomMeeting(mc, zoomMeetingId);
+      throw err;
+    }
+    await setEventOnRow(client.id, appt.id, r.externalBookingId, r.meetingUrl ?? null, zoomMeetingId ?? undefined);
     logger.info("calendar.events.manual_pushed", { clientId: client.id, appointmentId: appt.id });
-    return { status: "pushed", externalBookingId: r.externalBookingId, meetingUrl: r.meetingUrl ?? null };
+    return {
+      status: "pushed",
+      externalBookingId: r.externalBookingId,
+      meetingUrl: r.meetingUrl ?? null,
+      videoLinkMissing: plan ? plan.location.type === "video" && !r.meetingUrl : false,
+    };
   } catch (err) {
     logger.error("calendar.events.manual_push_failed", {
       clientId: client.id,
@@ -103,6 +151,8 @@ export type MoveResult = {
   mode: "moved" | "recreated" | "none" | "failed";
   externalBookingId: string | null;
   meetingUrl: string | null;
+  /** The Zoom meeting now behind this appointment's link, if any. */
+  zoomMeetingId?: string | null;
 };
 
 /**
@@ -118,9 +168,9 @@ export type MoveResult = {
  */
 export async function moveAppointmentEvent(
   client: Conn & { timezone: string },
-  from: Pick<Appointment, "id" | "externalBookingId" | "meetingUrl">,
+  from: Pick<Appointment, "id" | "externalBookingId" | "meetingUrl"> & Partial<Pick<Appointment, "zoomMeetingId">>,
   to: Pick<Appointment, "id" | "startAt" | "endAt" | "customerName" | "customerPhone">,
-  opts: { virtual?: boolean; provider?: BookingProvider | null } = {},
+  opts: { virtual?: boolean; service?: ServiceInfo | null; provider?: BookingProvider | null } = {},
 ): Promise<MoveResult> {
   const provider = resolveProvider(client, opts.provider);
   if (!provider) return { mode: "none", externalBookingId: null, meetingUrl: null };
@@ -134,10 +184,18 @@ export async function moveAppointmentEvent(
         durationMin,
         timezone: client.timezone,
       });
-      await setEventOnRow(client.id, to.id, from.externalBookingId, from.meetingUrl ?? null);
-      await setEventOnRow(client.id, from.id, null, undefined);
+      // A Zoom meeting follows the appointment to its new time.
+      const zoomId = from.zoomMeetingId ?? null;
+      if (zoomId) await moveZoomMeeting({ ...client, name: client.name ?? "" }, zoomId, { startAt: to.startAt, durationMin });
+      await setEventOnRow(client.id, to.id, from.externalBookingId, from.meetingUrl ?? null, zoomId ?? undefined);
+      await setEventOnRow(client.id, from.id, null, undefined, zoomId ? null : undefined);
       logger.info("calendar.events.moved", { clientId: client.id, from: from.id, to: to.id });
-      return { mode: "moved", externalBookingId: from.externalBookingId, meetingUrl: from.meetingUrl ?? null };
+      return {
+        mode: "moved",
+        externalBookingId: from.externalBookingId,
+        meetingUrl: from.meetingUrl ?? null,
+        zoomMeetingId: zoomId,
+      };
     } catch (err) {
       logger.error("calendar.events.move_failed", {
         clientId: client.id,
@@ -149,17 +207,34 @@ export async function moveAppointmentEvent(
   }
 
   let result: MoveResult = { mode: "failed", externalBookingId: null, meetingUrl: null };
+  const mc = { ...client, name: client.name ?? "" };
+  let newZoomId: string | null = null;
   try {
-    const r = await provider.createBooking({
-      startAt: to.startAt.toISOString(),
-      durationMin,
-      customerName: to.customerName ?? "",
-      customerPhone: to.customerPhone ?? "",
-      timezone: client.timezone,
-      virtual: Boolean(opts.virtual),
-    });
-    await setEventOnRow(client.id, to.id, r.externalBookingId, r.meetingUrl ?? null);
-    result = { mode: "recreated", externalBookingId: r.externalBookingId, meetingUrl: r.meetingUrl ?? null };
+    const plan = opts.service
+      ? await planMeeting({ client: mc, service: opts.service, provider, startAt: to.startAt, durationMin })
+      : null;
+    newZoomId = plan?.zoomMeetingId ?? null;
+    let r: Awaited<ReturnType<BookingProvider["createBooking"]>>;
+    try {
+      r = await provider.createBooking({
+        startAt: to.startAt.toISOString(),
+        durationMin,
+        customerName: to.customerName ?? "",
+        customerPhone: to.customerPhone ?? "",
+        timezone: client.timezone,
+        ...(plan ? plan.fields : { virtual: Boolean(opts.virtual) }),
+      });
+    } catch (err) {
+      await discardZoomMeeting(mc, newZoomId);
+      throw err;
+    }
+    await setEventOnRow(client.id, to.id, r.externalBookingId, r.meetingUrl ?? null, newZoomId ?? undefined);
+    result = {
+      mode: "recreated",
+      externalBookingId: r.externalBookingId,
+      meetingUrl: r.meetingUrl ?? null,
+      zoomMeetingId: newZoomId,
+    };
   } catch (err) {
     logger.error("calendar.events.reschedule_create_failed", {
       clientId: client.id,
@@ -169,6 +244,9 @@ export async function moveAppointmentEvent(
     });
   }
 
+  // The old appointment's Zoom meeting is replaced by the new one (or, if the
+  // new event failed, it's still the one the customer has — leave it).
+  if (newZoomId && from.zoomMeetingId) await discardZoomMeeting(mc, from.zoomMeetingId);
   if (from.externalBookingId) {
     try {
       await provider.cancelBooking(from.externalBookingId, "Rescheduled via FrontDesk AI");

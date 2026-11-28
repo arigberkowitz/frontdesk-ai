@@ -7,6 +7,7 @@ import { notifier } from "./notifier";
 import { createReminder } from "./data/reminders";
 import { isOptedOut } from "./data/sms-optouts";
 import {
+  businessWhere,
   confirmationText,
   dueForReminder,
   formatWhen,
@@ -37,6 +38,8 @@ export async function sendBookingConfirmation(
   serviceName?: string | null,
   /** The language the customer spoke on the call; falls back to what we stored for them. */
   language?: string | null,
+  /** Where it happens: phone says "we'll call you", in person gives the address. */
+  opts: { locationType?: string | null } = {},
 ): Promise<void> {
   const to = appt.customerPhone?.trim();
   if (!to) return;
@@ -53,6 +56,14 @@ export async function sendBookingConfirmation(
     when: whenFor(client, appt.startAt, lang),
     meetingUrl: appt.meetingUrl,
     serviceAddress: appt.serviceAddress,
+    phoneCall: opts.locationType === "phone",
+    where: businessWhere({
+      locationType: opts.locationType ?? "in_person",
+      serviceAddress: appt.serviceAddress,
+      industry: client.industry,
+      address: client.address,
+      howToFindUs: client.howToFindUs,
+    }),
     language: lang,
     businessLine: client.retellPhoneNumber ? formatPhone(client.retellPhoneNumber) : null,
   });
@@ -123,7 +134,7 @@ export async function sendAppointmentReminders(now: Date = new Date()): Promise<
           gte(appointments.startAt, new Date(now.getTime() + 6 * HOUR)),
           lte(appointments.startAt, new Date(now.getTime() + 48 * HOUR)),
         ),
-        with: { service: { columns: { name: true } }, reminders: { columns: { id: true } } },
+        with: { service: { columns: { name: true, locationType: true } }, reminders: { columns: { id: true } } },
       });
 
       const due = dueForReminder(
@@ -151,6 +162,14 @@ export async function sendAppointmentReminders(now: Date = new Date()): Promise<
           customerName: a.customerName,
           when: whenFor(client, a.startAt, lang),
           meetingUrl: row.meetingUrl,
+          phoneCall: row.service?.locationType === "phone",
+          where: businessWhere({
+            locationType: row.service?.locationType ?? "in_person",
+            serviceAddress: row.serviceAddress,
+            industry: client.industry,
+            address: client.address,
+            howToFindUs: client.howToFindUs,
+          }),
           language: lang,
           businessLine: client.retellPhoneNumber ? formatPhone(client.retellPhoneNumber) : null,
         });

@@ -8,6 +8,7 @@ import { CalendarConnect } from "@/components/calendar-connect";
 import { CalendarStatusToast } from "@/components/calendar-status-toast";
 import { BusyCalendarsCard, type BusyCalendarsData } from "@/components/portal/busy-calendars-card";
 import { loadOwnerCalendars } from "@/lib/busy-calendars";
+import { ZoomConnectCard } from "@/components/portal/zoom-connect-card";
 
 export const metadata: Metadata = { title: "Calendar · Settings" };
 
@@ -45,6 +46,14 @@ export default async function PortalSettingsCalendarPage({
         googleReady={integrations.google()}
         from="settings"
       />
+      {integrations.zoom() ? (
+        <ZoomConnectCard
+          clientId={clientId}
+          account={client.zoomAccount ?? null}
+          connected={Boolean(client.zoomSecret)}
+          canEdit={editAccess.canEdit}
+        />
+      ) : null}
       {busyData ? (
         <BusyCalendarsCard
           clientId={clientId}

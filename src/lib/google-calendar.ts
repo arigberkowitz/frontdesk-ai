@@ -218,46 +218,108 @@ export async function freeBusyMany(
   return busy;
 }
 
+export type GoogleEventInput = {
+  summary: string;
+  description?: string;
+  start: string;
+  end: string;
+  timeZone: string;
+  /** Attach a Google Meet link (video services on the calendar's own link). */
+  withMeet?: boolean;
+  /** Shown as the event location (a Zoom join link, or "Phone call"). */
+  location?: string;
+  /**
+   * Put this person on the event as a guest and let Google email them the
+   * invite (which carries the Meet / Zoom link and puts it on their
+   * calendar). Needs only the calendar.events scope already granted.
+   */
+  attendee?: { email: string; name?: string };
+};
+
+/**
+ * Create the event. When a Meet link was asked for and Google refuses the
+ * conference part (a Workspace admin turned Meet off, say), book the
+ * appointment anyway without it — `meetingUrl` comes back null and the caller
+ * alerts the owner. A refusal of the event itself still throws.
+ */
 export async function insertEvent(
   accessToken: string,
   calendarId: string,
-  event: {
-    summary: string;
-    description?: string;
-    start: string;
-    end: string;
-    timeZone: string;
-    /** Attach a Google Meet link (video-friendly services). */
-    withMeet?: boolean;
-  },
+  event: GoogleEventInput,
 ): Promise<{ id: string; meetingUrl: string | null }> {
-  const qs = event.withMeet ? "?conferenceDataVersion=1" : "";
-  const res = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events${qs}`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        summary: event.summary,
-        description: event.description,
-        start: { dateTime: event.start, timeZone: event.timeZone },
-        end: { dateTime: event.end, timeZone: event.timeZone },
-        ...(event.withMeet
-          ? {
-              conferenceData: {
-                createRequest: {
-                  requestId: crypto.randomUUID(),
-                  conferenceSolutionKey: { type: "hangoutsMeet" },
-                },
+  if (!event.withMeet) return insertEventOnce(accessToken, calendarId, event);
+  try {
+    return await insertEventOnce(accessToken, calendarId, event);
+  } catch (err) {
+    if (!/insert failed: 400/.test(err instanceof Error ? err.message : "")) throw err;
+    return insertEventOnce(accessToken, calendarId, { ...event, withMeet: false });
+  }
+}
+
+async function insertEventOnce(
+  accessToken: string,
+  calendarId: string,
+  event: GoogleEventInput,
+): Promise<{ id: string; meetingUrl: string | null }> {
+  const params = new URLSearchParams();
+  if (event.withMeet) params.set("conferenceDataVersion", "1");
+  if (event.attendee) params.set("sendUpdates", "all");
+  const qs = params.size ? `?${params.toString()}` : "";
+  const base = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
+  const res = await fetch(`${base}${qs}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      summary: event.summary,
+      description: event.description,
+      ...(event.location ? { location: event.location } : {}),
+      start: { dateTime: event.start, timeZone: event.timeZone },
+      end: { dateTime: event.end, timeZone: event.timeZone },
+      ...(event.attendee
+        ? { attendees: [{ email: event.attendee.email, ...(event.attendee.name ? { displayName: event.attendee.name } : {}) }] }
+        : {}),
+      ...(event.withMeet
+        ? {
+            conferenceData: {
+              createRequest: {
+                requestId: crypto.randomUUID(),
+                conferenceSolutionKey: { type: "hangoutsMeet" },
               },
-            }
-          : {}),
-      }),
-    },
-  );
+            },
+          }
+        : {}),
+    }),
+  });
   if (!res.ok) throw new Error(`Google event insert failed: ${res.status} ${await res.text()}`);
-  const data = (await res.json()) as { id: string; hangoutLink?: string };
-  return { id: data.id, meetingUrl: data.hangoutLink ?? null };
+  const data = (await res.json()) as GoogleEventResponse;
+  let url = meetUrlOf(data);
+  // Meet creation can come back "pending" for a moment. Ask once more before
+  // reporting that no link was made.
+  if (event.withMeet && !url && data.conferenceData?.createRequest?.status?.statusCode === "pending") {
+    await new Promise((r) => setTimeout(r, 800));
+    const again = await fetch(`${base}/${encodeURIComponent(data.id)}?conferenceDataVersion=1`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (again.ok) url = meetUrlOf((await again.json()) as GoogleEventResponse);
+  }
+  return { id: data.id, meetingUrl: url };
+}
+
+interface GoogleEventResponse {
+  id: string;
+  hangoutLink?: string;
+  conferenceData?: {
+    entryPoints?: Array<{ entryPointType?: string; uri?: string }>;
+    createRequest?: { status?: { statusCode?: string } };
+  };
+}
+
+function meetUrlOf(d: GoogleEventResponse): string | null {
+  return (
+    d.hangoutLink ??
+    d.conferenceData?.entryPoints?.find((e) => e.entryPointType === "video")?.uri ??
+    null
+  );
 }
 
 /**
@@ -271,7 +333,9 @@ export async function patchEventTime(
   time: { start: string; end: string; timeZone: string },
 ): Promise<void> {
   const res = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    // sendUpdates=all: a guest on the event (a customer given an invite for a
+    // video appointment) is told about the new time. No guests, no emails.
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`,
     {
       method: "PATCH",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },

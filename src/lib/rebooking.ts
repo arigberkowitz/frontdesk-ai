@@ -20,6 +20,7 @@ import {
 } from "@/lib/data/rebook-offers";
 import { calendarSlotIsFree, getBookingProviderForClient, type BookingProvider } from "@/lib/booking";
 import { moveAppointmentEvent } from "@/lib/calendar-events";
+import { discardZoomMeeting, planMeeting, type MeetingPlan } from "@/lib/meeting-links";
 import { businessWideBlocks, checkSlot, type AvailabilityBlockLite } from "@/lib/booking-window";
 import { withinTextingHours } from "@/lib/appointment-messages";
 import { offerFreedSlot } from "@/lib/agents/waitlist-backfill";
@@ -354,6 +355,7 @@ async function releaseOld(
     try {
       const provider = getBookingProviderForClient(client);
       if (provider.isConfigured()) await provider.cancelBooking(appt.externalBookingId, reason);
+      await discardZoomMeeting(client, appt.zoomMeetingId);
     } catch (err) {
       logger.error("rebook.provider_cancel_failed", {
         clientId: client.id,
@@ -523,14 +525,12 @@ async function bookReplacement(
       return null;
     }
     if (!reserved) return null;
-    const moved = await moveAppointmentEvent(client, old, reserved, {
-      virtual: Boolean(service?.virtualOk),
-      provider: mover,
-    });
+    const moved = await moveAppointmentEvent(client, old, reserved, { service, provider: mover });
     return {
       ...reserved,
       externalBookingId: moved.externalBookingId,
       meetingUrl: moved.meetingUrl,
+      zoomMeetingId: moved.zoomMeetingId ?? null,
       calendarHandled: true,
     };
   }
@@ -538,22 +538,26 @@ async function bookReplacement(
   let externalBookingId: string | null = null;
   let meetingUrl: string | null = null;
   let provider: BookingProvider | null = null;
+  let plan: MeetingPlan | null = null;
   try {
     provider = getBookingProviderForClient(client);
     if (provider.isConfigured()) {
       if (!(await calendarSlotIsFree(provider, startAt, endAt))) return null;
+      const rebookMinutes = Math.round((endAt.getTime() - startAt.getTime()) / 60_000);
+      plan = await planMeeting({ client, service, provider, startAt, durationMin: rebookMinutes });
       const r = await provider.createBooking({
         startAt: startAt.toISOString(),
-        durationMin: Math.round((endAt.getTime() - startAt.getTime()) / 60_000),
+        durationMin: rebookMinutes,
         customerName: old.customerName ?? "",
         customerPhone: old.customerPhone ?? "",
         timezone: client.timezone,
-        virtual: Boolean(service?.virtualOk),
+        ...plan.fields,
       });
       externalBookingId = r.externalBookingId;
       meetingUrl = r.meetingUrl ?? null;
     }
   } catch (err) {
+    await discardZoomMeeting(client, plan?.zoomMeetingId);
     logger.error("rebook.provider_book_failed", {
       clientId: client.id,
       error: err instanceof Error ? err.message : String(err),
@@ -562,6 +566,7 @@ async function bookReplacement(
   }
 
   const release = async () => {
+    await discardZoomMeeting(client, plan?.zoomMeetingId);
     if (!externalBookingId || !provider) return;
     try {
       await provider.cancelBooking(externalBookingId);
@@ -588,6 +593,7 @@ async function bookReplacement(
         status: "booked",
         externalBookingId,
         meetingUrl,
+        zoomMeetingId: plan?.zoomMeetingId ?? null,
       },
       service,
     );

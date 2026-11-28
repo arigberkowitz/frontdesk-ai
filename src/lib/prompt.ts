@@ -1,3 +1,4 @@
+import { serviceLocation, videoProviderLabel } from "./service-location";
 import { DAYS } from "@/config/options";
 import { formatCurrencyCents } from "./format";
 import { hasCustomVocab, isFieldService, vocabFor } from "./vocab";
@@ -13,6 +14,10 @@ export interface PromptClient {
   name: string;
   industry?: string | null;
   address?: string | null;
+  /** Parking, suite, which entrance — said when asked and when confirming an in-person booking. */
+  howToFindUs?: string | null;
+  /** "google" | "microsoft" | "calcom" — names the built-in video link (Meet / Teams). */
+  calendarProvider?: string | null;
   timezone: string;
   escalationNumber?: string | null;
   recordingDisclosureEnabled: boolean;
@@ -60,8 +65,12 @@ export interface PromptService {
   /** priceCents is a "starts at" floor. */
   priceFrom?: boolean | null;
   description?: string | null;
-  /** Can be done by video — a Meet/Teams link is added to the booking. */
+  /** Can be done by video — a Meet/Teams link is added to the booking. (Older flag; see locationType.) */
   virtualOk?: boolean;
+  /** "in_person" | "phone" | "video" — where it happens. */
+  locationType?: string | null;
+  /** For video: "meet" (calendar's own link) or "zoom". */
+  videoProvider?: string | null;
   isActive: boolean;
 }
 export interface PromptHours {
@@ -178,7 +187,7 @@ function servicePriceLabel(s: PromptService): string {
   return ` — ${t}${estimate ? " (estimate — final price after the job is seen)" : ""}`;
 }
 
-function servicesBlock(services: PromptService[]): string {
+function servicesBlock(services: PromptService[], calendarProvider?: string | null): string {
   const active = services.filter((s) => s.isActive);
   if (!active.length) return "No bookable services configured yet.";
   return active
@@ -186,9 +195,13 @@ function servicesBlock(services: PromptService[]): string {
       const price = servicePriceLabel(s);
       const dur = ` (${s.durationMin} min)`;
       const desc = s.description?.trim() ?? "";
-      const video = s.virtualOk
-        ? " [can be done by video — a video link is added to the booking automatically]"
-        : "";
+      const loc = serviceLocation(s);
+      const video =
+        loc.type === "video"
+          ? ` [video call — a ${videoProviderLabel(loc.videoProvider, calendarProvider)} link is sent after booking]`
+          : loc.type === "phone"
+            ? " [phone call — the team calls the customer at the number they give]"
+            : "";
       return `- ${ownerLine(s.name)}${dur}${price}${desc ? ` — ${ownerLine(s.description)}` : ""}${video}`;
     })
     .join("\n");
@@ -339,6 +352,14 @@ export function resolveDisclosureLine(client: PromptClient): string | null {
     : `Just so you know, I'm an AI assistant for ${client.name} and this call may be recorded.`;
 }
 
+/** The "where are you / how do I get there" rule, from the business address and the owner's note. */
+function whereRule(client: PromptClient): string | null {
+  const address = ownerLine(client.address);
+  if (!address) return null;
+  const note = ownerLine(client.howToFindUs);
+  return `The business's address is ${address}.${note ? ` How to find it: ${note}.` : ""} If a caller asks where you are, how to get there${note ? ", or about parking or the entrance" : ""}, tell them. When you confirm an appointment that happens at the business (a service not marked as a phone or video call and not at the caller's location), say the address${note ? " and how to find it" : ""}; if they agreed to texts, their confirmation text repeats it with a map link.`;
+}
+
 export function buildGeneralPrompt(input: BuildPromptInput): string {
   const { client, agentName, services, hours, knowledge, staffNames } = input;
   const team = (staffNames ?? []).filter((n) => n.trim());
@@ -424,6 +445,17 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     // it's quoted verbatim on /sms-consent — if the agent stops performing it,
     // the whole messaging program is misrepresented. Keep all three in step.
     "Before any confirmation or reminder text can be sent, you must get explicit permission, as its own question. First ask for the best mobile number. Then ask: \"Would you like me to text you the confirmation, a reminder, and a quick follow-up about this visit? Message and data rates may apply, and you can reply STOP at any time to opt out.\" Only a clear yes counts. If they decline or hesitate, keep the number for a callback only and tell them you won't text. Never treat someone giving you their number as agreement to be texted. When you book, pass sms_consent as true only if they clearly said yes, and false otherwise — this is what decides whether they actually get the text you promised them.",
+    // Where to go. The agent has always known "based at <address>"; this makes
+    // it say so when asked and when confirming a visit, with the owner's note
+    // (parking, suite, entrance).
+    whereRule(client),
+    // Video: the link needs somewhere to go. Email is optional and asked once.
+    canBook && services.some((s) => s.isActive && serviceLocation(s).type === "video")
+      ? "Some services are video calls (marked in the services list). For those, after the time is agreed, ask once: \"What's the best email for the video link? You can skip it and I'll text it instead.\" If they give one, ask them to spell it, read it back letter by letter, and get a yes before using it; pass it as email when you book. It is optional: if they decline, book anyway. After booking, follow what the booking tool tells you about the link — say \"I've sent you a video link\" (in Spanish, \"Le envié un enlace de video\") ONLY when the tool says the link was sent. Never read a link aloud and never promise one the tool says could not be made."
+      : null,
+    canBook && services.some((s) => s.isActive && serviceLocation(s).type === "phone")
+      ? "Some services are phone calls (marked in the services list): the team calls the customer. Confirm the number to call, and tell them we'll call that number at the appointment time."
+      : null,
     // Owner-controlled (Settings → Follow-ups → Quote follow-up). Off unless
     // the owner turned it on, so a business that didn't ask for it never has
     // its AI asking callers to be texted.
@@ -544,7 +576,7 @@ ${capabilities}
 ${hoursBlock(hours)}
 
 # Services
-${servicesBlock(services)}
+${servicesBlock(services, client.calendarProvider)}
 
 # How to handle booking
 ${bookingBlock}

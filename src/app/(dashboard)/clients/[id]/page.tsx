@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Eye, Sparkles } from "lucide-react";
 import { requireOperator } from "@/lib/auth-guard";
 import { getClient } from "@/lib/data/clients";
+import { videoOptionsFor } from "@/lib/meeting-links";
 import { listCalls } from "@/lib/data/calls";
 import { listAppointments } from "@/lib/data/appointments";
 import { listProviders } from "@/lib/data/providers";
@@ -148,7 +149,9 @@ export default async function ClientPage({
         </Card>
       ) : null}
       <ClientDetail
-        client={client}
+        // The browser never needs the calendar or Zoom credentials.
+        client={{ ...client, calendarSecret: null, zoomSecret: null }}
+        videoOptions={videoOptionsFor(client)}
         services={client.services}
         hours={client.businessHours}
         knowledge={client.knowledgeItems}
