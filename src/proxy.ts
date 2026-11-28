@@ -62,6 +62,7 @@ const isPublicRoute = createRouteMatcher([
   // people's websites, by visitors who have no account here. It gates itself
   // on the business having turned the widget on, and rate-limits by IP.
   "/api/chat",
+  "/api/csp-report",
 ]);
 
 /**
@@ -74,6 +75,7 @@ const isMachineRoute = createRouteMatcher([
   "/api/agent-tools(.*)",
   "/api/cron(.*)",
   "/api/chat",
+  "/api/csp-report",
 ]);
 
 /**
