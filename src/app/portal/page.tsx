@@ -55,9 +55,9 @@ export const metadata: Metadata = { title: "Overview" };
 export default async function PortalOverviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ onboarded?: string }>;
+  searchParams: Promise<{ onboarded?: string; show?: string }>;
 }) {
-  const { onboarded } = await searchParams;
+  const { onboarded, show } = await searchParams;
   const { clientId, preview } = await resolvePortalClient();
   const [client, m, appts, callsList, followUps, roi, setup, recap, activity, learnings, team, health, failedTexts, trial, unreadMessages, editAccess, afterHoursWeek] =
     await Promise.all([
@@ -224,9 +224,11 @@ export default async function PortalOverviewPage({
           blocked={health.blockedNumbers}
           suggested={health.suggestedBlocks}
           autoRejected={health.autoRejected}
+          turnedAway={health.turnedAway}
           timeZone={tz}
         />
       }
+      showBlockListAlone={health.turnedAway.total > 0}
       timeZone={tz}
     />
   );
@@ -415,7 +417,11 @@ export default async function PortalOverviewPage({
 
           {/* The deeper numbers are still one click away, but no longer stack
               five panels between the owner and the bottom of the page. */}
-          <details className="group rounded-xl border bg-card">
+          {/* Opened for links that point inside it (the call log's "See them"). */}
+          <details
+            className="group rounded-xl border bg-card"
+            open={show === "blocked" || undefined}
+          >
             <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 text-sm [&::-webkit-details-marker]:hidden">
               <BarChart3 className="size-4 shrink-0 text-muted-foreground" />
               <span className="font-medium">Reports &amp; trends</span>

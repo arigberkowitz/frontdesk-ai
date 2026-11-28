@@ -4,10 +4,13 @@ import { db } from "@/db";
 import { calls, clients } from "@/db/schema";
 import {
   isBlocked,
+  MAX_TURNED_AWAY,
   normalizeForBlock,
   screenInboundCaller,
   SCREEN_WINDOW_DAYS,
   type InboundScreen,
+  type InboundScreenReason,
+  type TurnedAwayEntry,
 } from "@/lib/spam";
 
 export interface InboundCallInfo {
@@ -75,4 +78,52 @@ export async function screenInboundCall(
       client.setupFlags?.allowedNumbers ?? [],
     ),
   };
+}
+
+/**
+ * Note a call the screen turned away, so the owner can see it (rejected calls
+ * leave no row in `calls`). One atomic UPDATE: the new entry goes first, the
+ * list keeps the last SCREEN_WINDOW_DAYS and at most MAX_TURNED_AWAY entries,
+ * and a Retell retry with the same call_id is a no-op. It only touches the
+ * `turnedAway` key, so it can't undo a block or any other setting saved at
+ * the same moment.
+ */
+export async function recordTurnedAway(
+  clientId: string,
+  entry: { phone: string; reason: InboundScreenReason; callId?: string | null },
+  now = new Date(),
+): Promise<void> {
+  const item: TurnedAwayEntry = {
+    at: now.toISOString(),
+    phone: entry.phone,
+    reason: entry.reason,
+    ...(entry.callId ? { callId: entry.callId } : {}),
+  };
+  const since = new Date(now.getTime() - SCREEN_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const existing = sql`coalesce(${clients.setupFlags} -> 'turnedAway', '[]'::jsonb)`;
+  await db
+    .update(clients)
+    .set({
+      setupFlags: sql`jsonb_set(
+        coalesce(${clients.setupFlags}, '{}'::jsonb),
+        '{turnedAway}',
+        (select coalesce(jsonb_agg(e.value order by e.ord), '[]'::jsonb)
+           from (select value, ord
+                   from jsonb_array_elements(${JSON.stringify([item])}::jsonb || ${existing})
+                        with ordinality as t(value, ord)
+                  where (value ->> 'at') >= ${since}
+                  order by ord
+                  limit ${MAX_TURNED_AWAY}) e),
+        true)`,
+      // Bookkeeping, not an edit: keep updated_at as it was (retention.ts reads it).
+      updatedAt: sql`${clients.updatedAt}`,
+    })
+    .where(
+      and(
+        eq(clients.id, clientId),
+        item.callId
+          ? sql`not (${existing} @> ${JSON.stringify([{ callId: item.callId }])}::jsonb)`
+          : sql`true`,
+      ),
+    );
 }

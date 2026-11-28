@@ -8,7 +8,7 @@ import { getClientByRetellAgentId } from "@/lib/data/clients";
 import { upsertCallByRetellId } from "@/lib/data/calls";
 import { analyzeCall } from "@/lib/call-health";
 import { isBlocked, normalizeForBlock } from "@/lib/spam";
-import { screenInboundCall } from "@/lib/data/inbound-screen";
+import { recordTurnedAway, screenInboundCall } from "@/lib/data/inbound-screen";
 import { notifyOwnerCallProblem } from "@/lib/notify";
 import { recapKindFor, transferStatus, type RecapKind } from "@/lib/call-recap";
 import { sendCallRecap } from "@/lib/call-recap-send";
@@ -93,6 +93,28 @@ async function handleInbound(payload: RetellWebhook): Promise<Response> {
         reason: result.screen.reason,
         phone: normalizeForBlock(info.from_number),
       });
+      // Rejected calls leave no row in the call log, so note it where the
+      // owner can see it — after answering, so a slow write never delays the
+      // hang-up, and a failed one never turns into answering the call.
+      const phone = normalizeForBlock(info.from_number);
+      const { clientId } = result;
+      const reason = result.screen.reason;
+      if (clientId && phone) {
+        const logFailed = (err: unknown) =>
+          logger.warn("webhook.retell.turned_away_log_failed", {
+            clientId,
+            callId: info.call_id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        try {
+          after(() =>
+            recordTurnedAway(clientId, { phone, reason, callId: info.call_id }).catch(logFailed),
+          );
+        } catch (err) {
+          // Never let the bookkeeping turn a reject into an answer.
+          logFailed(err);
+        }
+      }
       // Only `reject`: Retell validates any other field, and a bad one would void the reject.
       return Response.json({ call_inbound: { reject: true } });
     }

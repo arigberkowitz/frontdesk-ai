@@ -272,6 +272,14 @@ export const clients = pgTable(
          */
         allowedNumbers?: string[];
         /**
+         * Calls the inbound screen hung up on before the AI answered (newest
+         * first, last 30 days, at most 100). Rejected calls leave no row in
+         * `calls` on purpose (so the automatic rule ages out), so this is the
+         * only place an owner can see them. Dedupe state like quietAlertAt:
+         * written atomically by recordTurnedAway, never by a settings save.
+         */
+        turnedAway?: { at: string; phone: string; reason: "blocked" | "repeat_spam"; callId?: string }[];
+        /**
          * Comped: someone we know, on the full product for free, indefinitely.
          * Set by redeeming the comp code. No trial clock, no plan, no card —
          * so nothing that chases a business for payment should chase this one.
