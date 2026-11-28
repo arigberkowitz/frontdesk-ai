@@ -91,7 +91,7 @@ export async function sendWelcomeEmail(clientId: string): Promise<void> {
         `When you're happy with how it sounds, forward your business line to it. ${fwd!.turnOnHtml} ${fwd!.turnOff} Then tap <strong>Test my forwarding</strong> under <a href="${appUrl("/portal/settings/phone#forwarding")}">Settings → Phone &amp; AI</a> to check it works. Your customers keep calling the number they already know.`,
         `Every booking and message it takes is emailed to <strong>${esc(to)}</strong> the moment it happens — change that, and add a phone for texts, under <a href="${appUrl("/portal/settings/alerts")}">Settings → Alerts</a>.`,
         `Its services, hours and answers are drafted for your industry. <a href="${appUrl("/portal/services")}">Check the prices</a> especially — they're examples until you say otherwise.`,
-        `Your free trial runs ${TRIAL_DAYS} days with everything switched on. No card, nothing to set up. We'll check in once near the end.`,
+        `Your free trial runs ${TRIAL_DAYS} days with everything switched on, and no card needed. We'll check in once near the end.`,
       ]
     : [
         `Your AI receptionist is built and ready to talk to in your browser — <a href="${appUrl("/portal/guidelines")}">try a test call</a>.`,
