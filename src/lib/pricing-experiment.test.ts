@@ -65,8 +65,8 @@ describe("pricing experiment assignment", () => {
 });
 
 describe("pricing experiment copy", () => {
-  it("keeps the current headline as control", () => {
-    expect(PRICING_HEADLINE_COPY.control.title).toBe("Simple, flat pricing");
+  it("both arms use the house headline; control keeps its subhead", () => {
+    expect(PRICING_HEADLINE_COPY.control.title).toBe("One flat monthly price");
     expect(PRICING_HEADLINE_COPY.control.sub).toContain("One price per location");
   });
 

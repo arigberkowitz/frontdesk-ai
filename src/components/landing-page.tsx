@@ -402,7 +402,7 @@ export function LandingPage({
                         lower — the thing that made the row look crooked. */}
                     {featured ? (
                       <span className="absolute -top-3 left-7 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-1 text-xs font-medium text-white shadow-md">
-                        Most popular
+                        Recommended
                       </span>
                     ) : null}
 
