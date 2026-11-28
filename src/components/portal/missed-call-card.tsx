@@ -116,10 +116,10 @@ export function MissedCallCard({
                 {stats.skipped ? `, ${stats.skipped} not sent` : ""}.
               </p>
               {skips.length ? (
-                <ul className="space-y-0.5 text-xs" data-testid="missed-call-skips">
+                <ul className="space-y-0.5 text-xs" data-testid="missed-call-skips" aria-label="Why the rest weren't texted">
                   {skips.map((s) => (
                     <li key={s.reason}>
-                      · {s.count} {s.count === 1 ? "caller" : "callers"} {s.label}
+                      · {s.label}: {s.count}
                     </li>
                   ))}
                 </ul>
