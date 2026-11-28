@@ -13,9 +13,9 @@ import { agentConversationSettings, agentSpeechSettings, buildAgentTools, getRet
 import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { planAccessFor } from "@/lib/plan-access";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { subscriptions } from "@/db/schema";
+import { clients, subscriptions } from "@/db/schema";
 import { onBillingHold } from "@/lib/billing-hold";
 
 /**
@@ -195,10 +195,54 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
 export type AgentSyncStatus = "synced" | "not_provisioned" | "failed";
 
 /**
+ * Remember whether the last push to the live receptionist succeeded, so the
+ * operator tab can show "up to date" or "Update failed — Retry" after a reload.
+ * Best-effort: a flag write must never hide or fail the save itself.
+ */
+async function recordAgentSync(clientId: string, status: AgentSyncStatus): Promise<void> {
+  if (status === "not_provisioned") return;
+  const failedAt = status === "failed" ? new Date().toISOString() : null;
+  try {
+    const nextFlag = failedAt
+      ? sql`jsonb_set(coalesce(${clients.setupFlags}, '{}'::jsonb), '{agentSyncFailedAt}', to_jsonb(${failedAt}::text))`
+      : sql`jsonb_set(coalesce(${clients.setupFlags}, '{}'::jsonb), '{agentSyncFailedAt}', 'null'::jsonb)`;
+    await db.update(clients).set({ setupFlags: nextFlag }).where(eq(clients.id, clientId));
+  } catch (err) {
+    logger.warn("agent.sync_status_write_failed", {
+      clientId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * Push the current prompt once, and if Retell errors, try a second time before
+ * telling the user it failed. `not_provisioned` is not an error — there's no
+ * live agent to update yet.
+ */
+async function pushPrompt(orgId: string, clientId: string): Promise<AgentSyncStatus> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      return (await syncAgentPrompt(orgId, clientId)) ? "synced" : "not_provisioned";
+    } catch (err) {
+      logger.warn("agent.autosync.failed", {
+        clientId,
+        attempt,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      if (attempt === 1) continue;
+      return "failed";
+    }
+  }
+  return "failed";
+}
+
+/**
  * Shared post-edit hook for self-serve fields (services / hours / knowledge /
- * greeting / guardrails): refresh both the operator and portal views and push the
- * rebuilt prompt to the live agent, so any edit takes effect immediately. The
- * operator's explicit "Publish" button additionally snapshots a versioned prompt.
+ * greeting / guardrails / operator config): refresh both views and push the
+ * rebuilt prompt to the live agent, so any edit takes effect immediately.
+ * Retries once on a Retell error, then records the failure so the operator
+ * tab can offer a manual Retry (which also snapshots a versioned prompt).
  *
  * Still best-effort — a Retell hiccup must never lose an edit that's already
  * safely in the database. But it now reports what happened, so callers can say
@@ -210,15 +254,9 @@ export async function applyClientEdit(
 ): Promise<AgentSyncStatus> {
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/portal", "layout");
-  try {
-    return (await syncAgentPrompt(user.orgId, clientId)) ? "synced" : "not_provisioned";
-  } catch (err) {
-    logger.warn("agent.autosync.failed", {
-      clientId,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return "failed";
-  }
+  const status = await pushPrompt(user.orgId, clientId);
+  await recordAgentSync(clientId, status);
+  return status;
 }
 
 /**
@@ -229,5 +267,5 @@ export async function applyClientEdit(
 export function withSyncNote(message: string, sync: AgentSyncStatus): string {
   if (sync === "synced") return message;
   if (sync === "not_provisioned") return `${message} It'll apply once your AI is activated.`;
-  return `${message} We couldn't reach your live AI just now, so callers still hear the previous version — save again in a minute.`;
+  return `${message} We couldn't update the live receptionist just now — click Retry, or save again in a minute.`;
 }

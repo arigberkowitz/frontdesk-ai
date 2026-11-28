@@ -68,11 +68,11 @@ export function SettingsTab({
   );
 
   useEffect(() => {
-    if (profile.ok) toast.success("Profile saved");
+    if (profile.ok) toast.success(profile.message ?? "Profile saved");
     else if (profile.error) toast.error(profile.error);
   }, [profile]);
   useEffect(() => {
-    if (status.ok) toast.success("Status updated");
+    if (status.ok) toast.success(status.message ?? "Status updated");
     else if (status.error) toast.error(status.error);
   }, [status]);
   useEffect(() => {
