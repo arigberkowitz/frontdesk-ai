@@ -73,14 +73,14 @@ describe("book tool × caller language", () => {
     expect(body.success).toBe(true);
     expect(rememberCustomerLanguage).toHaveBeenCalledWith({ clientId: CLIENT.id, phone: "+14155550100", language: "es" });
     expect(recordSmsConsent).toHaveBeenCalledWith(expect.objectContaining({ language: "es" }));
-    expect(sendBookingConfirmation).toHaveBeenCalledWith(CLIENT, expect.anything(), "Cleaning", "es");
+    expect(sendBookingConfirmation).toHaveBeenCalledWith(CLIENT, expect.anything(), "Cleaning", "es", { locationType: "in_person" });
   });
 
   it("no language (English-only agents) changes nothing", async () => {
     await book({ sms_consent: true });
     expect(rememberCustomerLanguage).not.toHaveBeenCalled();
     expect(recordSmsConsent).toHaveBeenCalledWith(expect.objectContaining({ language: null }));
-    expect(sendBookingConfirmation).toHaveBeenCalledWith(CLIENT, expect.anything(), "Cleaning", null);
+    expect(sendBookingConfirmation).toHaveBeenCalledWith(CLIENT, expect.anything(), "Cleaning", null, { locationType: "in_person" });
   });
 
   it("an unsupported language is ignored, not stored", async () => {

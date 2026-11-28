@@ -12,6 +12,7 @@ import { OutcomesChart } from "@/components/charts/outcomes-chart";
 import { CallsTable } from "@/components/clients/calls-table";
 import type { ClientMetrics } from "@/lib/data/metrics";
 import { ServicesTab } from "@/components/clients/services-tab";
+import type { VideoOptions } from "@/lib/service-location";
 import { HoursTab } from "@/components/clients/hours-tab";
 import { KnowledgeTab } from "@/components/clients/knowledge-tab";
 import { AgentConfigTab } from "@/components/clients/agent-config-tab";
@@ -58,6 +59,8 @@ interface Props {
   initialTab?: string;
   /** Operator-only controls (release number, delete agent, deactivate, delete). */
   operator?: OperatorControlsProps;
+  /** Video choices for the services form (Zoom ready / connected, calendar kind). */
+  videoOptions?: VideoOptions;
 }
 
 function sentimentLabel(score: number | null): string {
@@ -102,6 +105,7 @@ const TABS = [
 ] as const;
 
 export function ClientDetail(props: Props) {
+  const videoOptions = props.videoOptions ?? { zoomReady: false, zoomConnected: false, calendarProvider: null };
   const {
     client,
     services,
@@ -236,7 +240,7 @@ export function ClientDetail(props: Props) {
       </TabsContent>
 
       <TabsContent value="services">
-        <ServicesTab clientId={client.id} services={services} />
+        <ServicesTab clientId={client.id} services={services} video={videoOptions} />
       </TabsContent>
       <TabsContent value="hours">
         <HoursTab clientId={client.id} hours={hours} />

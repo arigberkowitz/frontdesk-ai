@@ -105,6 +105,58 @@ export async function notifyOwnerBooking(client: Client, appt: Appointment): Pro
     logger.info("notify.booking.no_owner_contact", { clientId: client.id });
 }
 
+/**
+ * Owner alert: a video appointment was booked but its video link couldn't be
+ * made (Zoom disconnected, Google refused Meet, …). The booking stands; the
+ * owner needs to send the link by hand, and may need to fix a connection.
+ */
+export async function notifyOwnerVideoLinkFailed(
+  client: Client,
+  appt: Pick<Appointment, "id" | "customerName" | "customerPhone" | "startAt">,
+  failure: { reason: string; detail: string },
+): Promise<void> {
+  if (isSuspended(client)) return;
+  const who = appt.customerName ?? "A caller";
+  const when = formatDateTime(appt.startAt, client.timezone);
+  const phone = formatPhone(appt.customerPhone);
+  const fix =
+    failure.reason === "zoom_not_connected" || failure.reason === "zoom_reconnect"
+      ? "Reconnect Zoom in Settings → Calendar so the next ones work."
+      : "Send them a video link yourself before the appointment.";
+  const settingsUrl = `${env.APP_URL.replace(/\/$/, "")}/portal/settings/calendar`;
+  const { emails, phones } = await getAlertRecipients(client);
+  const smsTargets = client.smsAlertsEnabled ? phones : [];
+  const headline = "Video link missing";
+
+  for (const sms of smsTargets) {
+    const body = `⚠️ ${client.name}: ${who} booked a video appointment for ${when} but the video link couldn't be made. They were not sent a link. Callback: ${phone}. ${fix}`;
+    const r = await notifier.sendSms({ to: sms, body });
+    await logNotification(client.id, "system", "sms", sms, { body, appointmentId: appt.id }, r);
+  }
+  for (const email of emails) {
+    const subject = `${headline} — ${who}, ${when}`;
+    const r = await notifier.sendEmail({
+      to: email,
+      subject,
+      html: ownerEmailHtml({
+        title: `⚠️ ${headline}`,
+        business: client.name,
+        lines: [
+          `<strong>${esc(who)}</strong> booked a video appointment for ${esc(when)}.`,
+          `The appointment is booked, but the video link couldn't be made, so they were <strong>not</strong> sent one.`,
+          `Callback: ${esc(phone)}`,
+          esc(failure.detail),
+          `<a href="${settingsUrl}">${esc(fix)}</a>`,
+        ],
+      }),
+      text: `${who} booked a video appointment for ${when} at ${client.name}, but the video link couldn't be made. Callback: ${phone}. ${failure.detail} ${fix} ${settingsUrl}`,
+    });
+    await logNotification(client.id, "system", "email", email, { subject, appointmentId: appt.id }, r);
+  }
+  if (!smsTargets.length && !emails.length)
+    logger.info("notify.video_link.no_owner_contact", { clientId: client.id });
+}
+
 /** Owner alert when an appointment is cancelled (by phone or from the portal). */
 export async function notifyOwnerCancellation(
   client: Client,

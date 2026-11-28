@@ -47,8 +47,24 @@ export interface CreateBookingInput {
   customerEmail?: string;
   notes?: string;
   timezone: string;
-  /** Video-friendly service: attach a Meet/Teams link when the provider can. */
+  /** Video on the calendar's own link: Google Meet (Google) or Teams (Outlook). */
   virtual?: boolean;
+  /**
+   * A join link made elsewhere (a Zoom meeting we created) — goes on the event
+   * as its location and in the description. Used instead of `virtual`.
+   */
+  meetingUrl?: string | null;
+  /** Cal.com only: which of the event type's video locations to use. */
+  videoProvider?: "meet" | "zoom";
+  /** Event location text (the business address for an in-person visit). */
+  locationText?: string | null;
+  /** Where the appointment happens; "phone" is written into the event. */
+  locationType?: "in_person" | "phone" | "video";
+  /**
+   * Put the customer on the event so their calendar provider emails them the
+   * invite (with the link). Only with a real `customerEmail`.
+   */
+  inviteCustomer?: boolean;
   /** Who made it — sets the event description. Default "ai". */
   source?: "ai" | "manual";
 }
@@ -90,9 +106,36 @@ export interface BookingProvider {
 }
 
 /** Event text: say who made it, so the owner can tell AI bookings from their own. */
-export function eventDescription(input: Pick<CreateBookingInput, "customerPhone" | "notes" | "source">): string {
+export function eventDescription(
+  input: Pick<CreateBookingInput, "customerPhone" | "notes" | "source" | "meetingUrl" | "locationType">,
+): string {
   const lead = input.source === "manual" ? "Added in FrontDesk AI." : "Booked by your AI receptionist.";
-  return `${lead}${input.customerPhone ? ` Phone: ${input.customerPhone}.` : ""}${input.notes ? `\n${input.notes}` : ""}`;
+  return (
+    `${lead}${input.customerPhone ? ` Phone: ${input.customerPhone}.` : ""}` +
+    (input.meetingUrl ? `\nJoin the video call: ${input.meetingUrl}` : "") +
+    (input.locationType === "phone"
+      ? `\nPhone appointment — call the customer${input.customerPhone ? ` at ${input.customerPhone}` : ""} at the start time.`
+      : "") +
+    (input.notes ? `\n${input.notes}` : "")
+  );
+}
+
+/** The event's location line: the Zoom link, "Phone call", or the business address; none for Meet (it sets its own). */
+export function eventLocation(
+  input: Pick<CreateBookingInput, "meetingUrl" | "locationType" | "locationText">,
+): string | undefined {
+  if (input.meetingUrl) return input.meetingUrl;
+  if (input.locationType === "phone") return "Phone call";
+  return input.locationText?.trim() || undefined;
+}
+
+/** Guest to put on the event: only with a real email and an explicit go-ahead. */
+export function eventGuest(
+  input: Pick<CreateBookingInput, "customerEmail" | "customerName" | "inviteCustomer">,
+): { email: string; name?: string } | undefined {
+  const email = input.customerEmail?.trim();
+  if (!input.inviteCustomer || !email) return undefined;
+  return { email, ...(input.customerName ? { name: input.customerName } : {}) };
 }
 
 /**
@@ -211,9 +254,9 @@ class CalcomBookingProvider implements BookingProvider {
 
   async createBooking(input: CreateBookingInput): Promise<BookingResult> {
     const eventTypeId = this.resolveEventTypeId(input.eventTypeId);
-    const data = await this.request<{ data: { uid: string; start: string; end: string } }>(
-      `/bookings`,
-      {
+    type CalBooking = { data: { uid: string; start: string; end: string; location?: string; meetingUrl?: string } };
+    const send = (location?: { type: "integration"; integration: "google-meet" | "zoom" }) =>
+      this.request<CalBooking>(`/bookings`, {
         method: "POST",
         body: JSON.stringify({
           eventTypeId,
@@ -226,15 +269,40 @@ class CalcomBookingProvider implements BookingProvider {
             language: "en",
           },
           bookingFieldsResponses: input.notes ? { notes: input.notes } : undefined,
+          ...(location ? { location } : {}),
         }),
-      },
-    );
+      });
+
+    // Video: ask Cal.com for the Meet / Zoom location. It only works when that
+    // location is enabled on the event type (and the Google Meet / Zoom app is
+    // installed in the owner's Cal.com account) — otherwise Cal.com answers
+    // 400. Never let that cost the booking: retry plain and report no link.
+    const wanted =
+      input.locationType === "video" && input.videoProvider
+        ? ({ type: "integration", integration: input.videoProvider === "zoom" ? "zoom" : "google-meet" } as const)
+        : undefined;
+    let data: CalBooking;
+    if (wanted) {
+      try {
+        data = await send(wanted);
+      } catch (err) {
+        logger.warn("booking.calcom.video_location_refused", {
+          integration: wanted.integration,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        data = await send();
+      }
+    } else {
+      data = await send();
+    }
+    const link = [data.data.location, data.data.meetingUrl].find((v) => typeof v === "string" && /^https?:\/\//.test(v));
     return {
       externalBookingId: data.data.uid,
       startAt: data.data.start,
       endAt:
         data.data.end ??
         new Date(new Date(input.startAt).getTime() + input.durationMin * 60_000).toISOString(),
+      ...(wanted ? { meetingUrl: link ?? null } : {}),
     };
   }
 
@@ -317,13 +385,15 @@ class GoogleCalendarBookingProvider implements BookingProvider {
       start: start.toISOString(),
       end: end.toISOString(),
       timeZone: input.timezone,
-      withMeet: Boolean(input.virtual),
+      withMeet: Boolean(input.virtual) && !input.meetingUrl,
+      location: eventLocation(input),
+      attendee: eventGuest(input),
     });
     return {
       externalBookingId: id,
       startAt: start.toISOString(),
       endAt: end.toISOString(),
-      meetingUrl,
+      meetingUrl: input.meetingUrl ?? meetingUrl,
     };
   }
 
@@ -426,13 +496,15 @@ class MicrosoftBookingProvider implements BookingProvider {
       start: start.toISOString(),
       end: end.toISOString(),
       timeZone: "UTC",
-      withOnlineMeeting: Boolean(input.virtual),
+      withOnlineMeeting: Boolean(input.virtual) && !input.meetingUrl,
+      location: eventLocation(input),
+      attendee: eventGuest(input),
     });
     return {
       externalBookingId: id,
       startAt: start.toISOString(),
       endAt: end.toISOString(),
-      meetingUrl,
+      meetingUrl: input.meetingUrl ?? meetingUrl,
     };
   }
 

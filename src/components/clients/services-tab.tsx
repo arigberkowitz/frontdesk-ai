@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Banknote, Clock, Pencil, Plus, RotateCcw, Users, Video } from "lucide-react";
+import { Banknote, Clock, MapPin, Pencil, Phone, Plus, RotateCcw, Users, Video } from "lucide-react";
 import { toast } from "sonner";
 import {
   createServiceAction,
@@ -15,6 +15,12 @@ import { Input } from "@/components/ui/input";
 import { AutofillTextarea } from "@/components/form/autofill-textarea";
 import { Switch } from "@/components/ui/switch";
 import { servicePriceText } from "@/lib/prompt";
+import { NativeSelect } from "@/components/form/native-select";
+import {
+  serviceLocation,
+  videoProviderLabel,
+  type VideoOptions,
+} from "@/lib/service-location";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -30,13 +36,65 @@ import { formatCurrencyCents } from "@/lib/format";
 import type { Service } from "@/db/schema";
 import { Wrench } from "lucide-react";
 
+const NO_VIDEO_OPTIONS: VideoOptions = { zoomReady: false, zoomConnected: false, calendarProvider: null };
+
+/**
+ * Where does it happen? In person / phone call / video call, and for video
+ * which link. Meet (or Teams on an Outlook calendar) comes with the calendar;
+ * Zoom needs the owner's Zoom connected (Settings → Calendar).
+ */
+function LocationFields({ service, video }: { service?: Service; video: VideoOptions }) {
+  const current = serviceLocation(service);
+  const [type, setType] = useState<string>(current.type);
+  const builtIn = videoProviderLabel("meet", video.calendarProvider);
+  return (
+    <div className="space-y-3 rounded-lg border p-3">
+      <Field label="Where does it happen?">
+        <NativeSelect name="locationType" value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="in_person">In person</option>
+          <option value="phone">Phone call (you call them)</option>
+          <option value="video">Video call</option>
+        </NativeSelect>
+      </Field>
+      {type === "in_person" ? (
+        <p className="text-xs text-muted-foreground">
+          Confirmation and reminder texts include your address and a map link. Set it, and how to find you, in Settings → Business.
+        </p>
+      ) : null}
+      {type === "phone" ? (
+        <p className="text-xs text-muted-foreground">
+          The confirmation says you&apos;ll call them at the number they gave, and the calendar event tells you to.
+        </p>
+      ) : null}
+      {type === "video" ? (
+        <div className="space-y-2">
+          <Field label="Video link from">
+            <NativeSelect name="videoProvider" defaultValue={current.videoProvider ?? "meet"}>
+              <option value="meet">{builtIn} (made by your calendar)</option>
+              {video.zoomReady ? <option value="zoom">Zoom</option> : null}
+            </NativeSelect>
+          </Field>
+          <p className="text-xs text-muted-foreground">
+            The link goes on the calendar event, in the confirmation text, and — when the caller gives an email — in an
+            invite to them. {video.zoomReady && !video.zoomConnected
+              ? "To use Zoom, connect your Zoom account in Settings → Calendar first."
+              : null}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ServiceForm({
   clientId,
   service,
+  video,
   onDone,
 }: {
   clientId: string;
   service?: Service;
+  video: VideoOptions;
   onDone: () => void;
 }) {
   const action = service ? updateServiceAction : createServiceAction;
@@ -144,10 +202,7 @@ function ServiceForm({
           buttonLabel="Suggest a description"
         />
       </Field>
-      <div className="flex items-center gap-2">
-        <Switch id="virtualOk" name="virtualOk" defaultChecked={service?.virtualOk ?? false} />
-        <Label htmlFor="virtualOk">Can be done by video (adds a Meet/Teams link when booked)</Label>
-      </div>
+      <LocationFields service={service} video={video} />
       <div className="flex items-center gap-2">
         <Switch id="isActive" name="isActive" defaultChecked={service?.isActive ?? true} />
         <Label htmlFor="isActive">Active (offered for booking)</Label>
@@ -159,7 +214,7 @@ function ServiceForm({
   );
 }
 
-function ServiceDialog({ clientId, service }: { clientId: string; service?: Service }) {
+function ServiceDialog({ clientId, service, video }: { clientId: string; service?: Service; video: VideoOptions }) {
   const [open, setOpen] = useState(false);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -182,7 +237,7 @@ function ServiceDialog({ clientId, service }: { clientId: string; service?: Serv
           <DialogTitle>{service ? "Edit service" : "Add service"}</DialogTitle>
         </DialogHeader>
         {open ? (
-          <ServiceForm clientId={clientId} service={service} onDone={() => setOpen(false)} />
+          <ServiceForm clientId={clientId} service={service} video={video} onDone={() => setOpen(false)} />
         ) : null}
       </DialogContent>
     </Dialog>
@@ -239,14 +294,22 @@ function servicesListHint(services: Service[]): string {
   return `${n} — your AI offers these and quotes these prices on every call.`;
 }
 
-export function ServicesTab({ clientId, services }: { clientId: string; services: Service[] }) {
+export function ServicesTab({
+  clientId,
+  services,
+  video = NO_VIDEO_OPTIONS,
+}: {
+  clientId: string;
+  services: Service[];
+  video?: VideoOptions;
+}) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {servicesListHint(services)}
         </p>
-        <ServiceDialog clientId={clientId} />
+        <ServiceDialog clientId={clientId} video={video} />
       </div>
       {services.length === 0 ? (
         <EmptyState
@@ -275,7 +338,7 @@ export function ServicesTab({ clientId, services }: { clientId: string; services
                 {/* Quiet until you look at the card — the page is for reading
                     your menu, not for staring at rows of pencils. */}
                 <div className="flex shrink-0 items-center gap-0.5 opacity-45 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                  <ServiceDialog clientId={clientId} service={s} />
+                  <ServiceDialog clientId={clientId} service={s} video={video} />
                   <ConfirmDelete
                     title={`Delete ${s.name}?`}
                     description="Your receptionist will stop offering this service and quoting its price. Existing appointments keep it."
@@ -304,12 +367,22 @@ export function ServicesTab({ clientId, services }: { clientId: string; services
                     <Clock className="size-3.5" />
                     {s.durationMin} min
                   </span>
-                  {s.virtualOk ? (
+                  {serviceLocation(s).type === "video" ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-600 dark:text-sky-400">
                       <Video className="size-3.5" />
-                      Video OK
+                      Video · {videoProviderLabel(serviceLocation(s).videoProvider, video.calendarProvider)}
                     </span>
-                  ) : null}
+                  ) : serviceLocation(s).type === "phone" ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-600 dark:text-sky-400">
+                      <Phone className="size-3.5" />
+                      Phone call
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                      <MapPin className="size-3.5" />
+                      In person
+                    </span>
+                  )}
                   {s.depositCents ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                       <Banknote className="size-3.5" />

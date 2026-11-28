@@ -41,6 +41,10 @@ export const env = {
   // Google Calendar OAuth app (per-business one-click calendar connect).
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "",
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? "",
+  // Zoom General (user-managed OAuth) app — "Connect Zoom" for video bookings.
+  // Unset = the Zoom option is hidden everywhere.
+  ZOOM_CLIENT_ID: process.env.ZOOM_CLIENT_ID ?? "",
+  ZOOM_CLIENT_SECRET: process.env.ZOOM_CLIENT_SECRET ?? "",
   // Microsoft (Azure AD) OAuth app — one-click Outlook / Microsoft 365 connect.
   // MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET are the documented names;
   // the older MS_* names still work so an existing deployment doesn't break.
@@ -148,6 +152,7 @@ export const integrations = {
   calcom: () => Boolean(env.CALCOM_API_KEY),
   google: () => Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
   microsoft: () => Boolean(env.MS_CLIENT_ID && env.MS_CLIENT_SECRET),
+  zoom: () => Boolean(env.ZOOM_CLIENT_ID && env.ZOOM_CLIENT_SECRET),
   webPush: () => Boolean(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY && env.VAPID_SUBJECT),
 } as const;
 

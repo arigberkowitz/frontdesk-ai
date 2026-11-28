@@ -114,6 +114,7 @@ export async function updateClientProfileAction(
     websiteUrl: formData.get("websiteUrl"),
     industry: formData.get("industry"),
     address: formData.get("address"),
+    howToFindUs: formData.get("howToFindUs") ?? undefined,
     timezone: formData.get("timezone"),
     escalationNumber: formData.get("escalationNumber"),
     forwardingNumber: formData.get("forwardingNumber"),
@@ -128,6 +129,7 @@ export async function updateClientProfileAction(
     websiteUrl: emptyToNull(d.websiteUrl),
     industry: emptyToNull(d.industry),
     address: emptyToNull(d.address),
+    howToFindUs: emptyToNull(d.howToFindUs),
     timezone: d.timezone,
     // Normalize here too: the operator form is the other door into this
     // field, and Retell rejects anything that isn't E.164.

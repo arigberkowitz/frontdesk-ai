@@ -214,6 +214,24 @@ export function featuresStep(flags: SetupFlags): SetupStep {
   };
 }
 
+/**
+ * Gentle nudge: no address on file. Customers booked in person get their
+ * confirmation and reminder texts with an address and a map link, and the AI
+ * can answer "where are you?" — all of which need it. Optional like
+ * `featuresStep`: it never counts toward "X of Y", never blocks "I'm done",
+ * and disappears once an address is saved.
+ */
+export function addressStep(address: string | null | undefined): SetupStep | null {
+  if (address?.trim()) return null;
+  return {
+    key: "address",
+    label: "Add your address",
+    href: "/portal/settings",
+    done: false,
+    hint: "Add your address so customers know where to go — it goes in their confirmation text with a map link, and your AI can tell callers where you are.",
+  };
+}
+
 export type ChecklistMode =
   /** Render nothing. */
   | "hidden"

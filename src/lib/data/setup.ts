@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { alertContacts, businessHours, calls, clients, knowledgeItems, services } from "@/db/schema";
 import { getBookingProviderForClient } from "@/lib/booking";
 import { formatPhone } from "@/lib/format";
-import { buildSetupSteps, featuresStep, type SetupStep } from "@/lib/setup-steps";
+import { addressStep, buildSetupSteps, featuresStep, type SetupStep } from "@/lib/setup-steps";
 
 export type { SetupStep } from "@/lib/setup-steps";
 
@@ -79,6 +79,6 @@ export async function getClientSetupStatus(clientId: string): Promise<SetupStatu
     finishedAt: client?.setupCompletedAt ?? null,
     reviewNotes: client?.setupFlags?.reviewNotes ?? [],
     hiddenAt: client?.setupFlags?.checklistHiddenAt ?? null,
-    optionalSteps: [featuresStep(flags)],
+    optionalSteps: [featuresStep(flags), addressStep(client?.address)].filter((x): x is SetupStep => x !== null),
   };
 }

@@ -7,7 +7,7 @@ import type { Client } from "@/db/schema";
  * owners: the encrypted calendar credential (Google/Microsoft refresh token or
  * Cal.com API key) and the edit-code hash went out with the page.
  */
-export const SERVER_ONLY_CLIENT_FIELDS = ["calendarSecret", "editCodeHash"] as const;
+export const SERVER_ONLY_CLIENT_FIELDS = ["calendarSecret", "zoomSecret", "editCodeHash"] as const;
 
 type ServerOnlyField = (typeof SERVER_ONLY_CLIENT_FIELDS)[number];
 
@@ -18,7 +18,8 @@ export type SafeClient = Omit<Client, ServerOnlyField> & {
 };
 
 export function toSafeClient(client: Client): SafeClient {
-  const { calendarSecret: _secret, editCodeHash, ...rest } = client;
+  const { calendarSecret: _secret, zoomSecret: _zoom, editCodeHash, ...rest } = client;
   void _secret;
+  void _zoom;
   return { ...rest, hasEditCode: Boolean(editCodeHash) };
 }

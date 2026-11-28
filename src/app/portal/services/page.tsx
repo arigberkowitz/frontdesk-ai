@@ -6,6 +6,7 @@ import { EditLockBanner } from "@/components/portal/edit-lock-banner";
 import { ServicesTab } from "@/components/clients/services-tab";
 import { TripFeeCard } from "@/components/portal/trades-cards";
 import { getClientByIdUnsafe } from "@/lib/data/clients";
+import { videoOptionsFor } from "@/lib/meeting-links";
 
 export const metadata: Metadata = { title: "Services" };
 
@@ -23,7 +24,7 @@ export default async function PortalServicesPage() {
       {!editAccess.canEdit ? (
         <EditLockBanner clientId={clientId} hasCode={editAccess.hasCode} />
       ) : null}
-      <ServicesTab clientId={clientId} services={services} />
+      <ServicesTab clientId={clientId} services={services} video={videoOptionsFor(client ?? {})} />
       <TripFeeCard clientId={clientId} tripFeeCents={client?.tripFeeCents ?? null} />
     </div>
   );

@@ -221,6 +221,8 @@ export const clients = pgTable(
     websiteUrl: text("website_url"),
     industry: text("industry"),
     address: text("address"),
+    // Parking, suite, which door — said to callers and added to in-person texts. ≤200 chars.
+    howToFindUs: text("how_to_find_us"),
     timezone: text("timezone").notNull().default("America/Los_Angeles"),
     status: clientStatus("status").notNull().default("draft"),
     trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
@@ -447,6 +449,12 @@ export const clients = pgTable(
     // by the owner, or Graph calendar ids picked from the Outlook list). Null /
     // empty = only the calendar we book into. Cleared on connect/disconnect.
     calendarBusyIds: jsonb("calendar_busy_ids").$type<string[]>(),
+    // Zoom, connected separately from the calendar (a business can keep Google
+    // Calendar and still send Zoom links). Encrypted JSON of the rotating
+    // refresh token + the current access token; see src/lib/zoom.ts.
+    zoomSecret: text("zoom_secret"),
+    zoomAccount: text("zoom_account"), // connected Zoom email, for display
+    zoomConnectedAt: timestamp("zoom_connected_at", { withTimezone: true }),
     // §12 recording/AI disclosure toggle (default-on) + optional custom line.
     recordingDisclosureEnabled: boolean("recording_disclosure_enabled").notNull().default(true),
     recordingDisclosureLine: text("recording_disclosure_line"),
@@ -617,6 +625,11 @@ export const services = pgTable(
     // "Can be done by video": bookings on a connected Google/Microsoft calendar
     // get a Meet/Teams link attached automatically.
     virtualOk: boolean("virtual_ok").notNull().default(false),
+    // Where it happens: 'in_person' | 'phone' | 'video'. Kept in step with
+    // virtual_ok on every save. Migration: drizzle/manual/0024_meeting_links.sql.
+    locationType: text("location_type").notNull().default("in_person"),
+    // For video: 'meet' (the calendar's own link — Meet / Teams) or 'zoom'.
+    videoProvider: text("video_provider"),
     // How long until this customer is due again. A dental cleaning is 6 months,
     // a fade is 4 weeks, a furnace service is 6 months. Null means "this isn't
     // a repeat service" — a consultation, a one-off repair — and those must
@@ -751,6 +764,9 @@ export const appointments = pgTable(
     externalBookingId: text("external_booking_id"),
     // Video-visit link (Google Meet / Teams) when the service allows video.
     meetingUrl: text("meeting_url"),
+    // The Zoom meeting behind meetingUrl, so a cancel or reschedule can update
+    // or delete it. Null for Meet / Teams links (those live on the event).
+    zoomMeetingId: text("zoom_meeting_id"),
     depositStatus: depositStatus("deposit_status").notNull().default("not_required"),
     // What we asked for, in cents, captured at booking time. Stored on the
     // appointment rather than read back off the service, because a business

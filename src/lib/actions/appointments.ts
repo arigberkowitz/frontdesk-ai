@@ -20,6 +20,7 @@ import {
 } from "@/lib/data/appointments";
 import { getBookingProviderForClient } from "@/lib/booking";
 import { pushAppointmentToCalendar } from "@/lib/calendar-events";
+import { discardZoomMeeting } from "@/lib/meeting-links";
 import { logger } from "@/lib/logger";
 import { isProviderFree, listProviders } from "@/lib/data/providers";
 import { parseInClientTimezone } from "@/lib/hours-util";
@@ -127,16 +128,19 @@ export async function createManualAppointmentAction(
   // Put it on the owner's Google / Outlook calendar too, so the calendar they
   // actually look at matches the portal (and a later cancel or reschedule can
   // find the event). Never blocks: the appointment above is already saved.
-  const pushed = await pushAppointmentToCalendar(client, created, {
-    virtual: Boolean(service?.virtualOk),
-  });
+  const pushed = await pushAppointmentToCalendar(client, created, { service });
 
   revalidatePath("/portal/appointments");
   revalidatePath("/portal");
   revalidatePath(`/clients/${clientId}`);
   const noun = `${v.appointment[0].toUpperCase()}${v.appointment.slice(1)}`;
   if (pushed.status === "pushed") {
-    return { ok: true, message: `${noun} added and put on your calendar.` };
+    const video = pushed.meetingUrl
+      ? " A video link is on the event."
+      : pushed.videoLinkMissing
+        ? " The video link couldn't be made, so add one to the event yourself."
+        : "";
+    return { ok: true, message: `${noun} added and put on your calendar.${video}` };
   }
   if (pushed.status === "failed") {
     return {
@@ -190,6 +194,7 @@ export async function cancelAppointmentAction(
       if (provider.isConfigured()) {
         await provider.cancelBooking(cancelled.externalBookingId, "Cancelled from FrontDesk AI");
       }
+      await discardZoomMeeting(client, cancelled.zoomMeetingId);
     } catch (err) {
       calendarStillHolds = true;
       logger.error("appointments.cancel.provider_failed", {

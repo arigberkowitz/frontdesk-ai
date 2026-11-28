@@ -212,6 +212,10 @@ export interface MsEventInput {
   timeZone: string;
   /** Attach a Teams meeting link (video-friendly services). */
   withOnlineMeeting?: boolean;
+  /** Event location text (a Zoom join link, or "Phone call"). */
+  location?: string;
+  /** Add this person as a guest; Outlook emails them the invite. */
+  attendee?: { email: string; name?: string };
 }
 
 /** Create an event; returns the event id and the Teams join link when requested. */
@@ -224,6 +228,17 @@ export async function msInsertEvent(
     body: { contentType: "text" as const, content: event.description ?? "" },
     start: { dateTime: event.start, timeZone: event.timeZone },
     end: { dateTime: event.end, timeZone: event.timeZone },
+    ...(event.location ? { location: { displayName: event.location } } : {}),
+    ...(event.attendee
+      ? {
+          attendees: [
+            {
+              type: "required" as const,
+              emailAddress: { address: event.attendee.email, ...(event.attendee.name ? { name: event.attendee.name } : {}) },
+            },
+          ],
+        }
+      : {}),
   };
   const attempt = async (withMeeting: boolean) => {
     const res = await fetch(`${GRAPH}/me/events`, {

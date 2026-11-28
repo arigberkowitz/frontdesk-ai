@@ -10,6 +10,13 @@ const MESSAGES: Record<string, { kind: "success" | "error"; text: string }> = {
     text: "Calendar connected — busy times block bookings, and new bookings land on your calendar.",
   },
   disconnected: { kind: "success", text: "Calendar disconnected." },
+  zoom_connected: {
+    kind: "success",
+    text: "Zoom connected — video appointments set to Zoom now get a Zoom link.",
+  },
+  zoom_error: { kind: "error", text: "Couldn't connect Zoom — please try again." },
+  zoom_noaccess: { kind: "error", text: "Zoom access wasn't granted — try again and approve it." },
+  zoom_unavailable: { kind: "error", text: "Zoom can't be connected just yet. Message us from Settings → Help." },
   error: { kind: "error", text: "Couldn't connect your calendar — please try again." },
   unavailable: { kind: "error", text: "That calendar can't be connected just yet. Message us from Settings → Help and we'll sort it out." },
   noaccess: {

@@ -40,13 +40,35 @@ export function BusinessDetailsForm({ client }: { client: Client }) {
     <Card>
       <CardHeader>
         <CardTitle>Business details</CardTitle>
-        <CardDescription>Your business name and timezone — used across your AI and bookings.</CardDescription>
+        <CardDescription>
+          Your business name, address and timezone — used across your AI, bookings and confirmation texts.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form action={profileAction} className="space-y-4">
           <input type="hidden" name="clientId" value={client.id} />
           <Field label="Business name" error={profile.fieldErrors?.name}>
             <Input name="name" defaultValue={client.name} required />
+          </Field>
+          <Field
+            label="Address"
+            hint="Where customers go for in-person visits. Added to their confirmation and reminder texts with a map link."
+            error={profile.fieldErrors?.address}
+          >
+            <Textarea name="address" rows={2} defaultValue={client.address ?? ""} placeholder="123 Main St, Springfield, IL" />
+          </Field>
+          <Field
+            label="How to find us — optional"
+            hint="Parking, suite number, which entrance. Your AI can say it when asked, and it goes in the text. Up to 200 characters."
+            error={profile.fieldErrors?.howToFindUs}
+          >
+            <Textarea
+              name="howToFindUs"
+              rows={2}
+              maxLength={200}
+              defaultValue={client.howToFindUs ?? ""}
+              placeholder="Suite 210, second floor. Free parking behind the building."
+            />
           </Field>
           <Field label="Timezone" hint="Used when your AI offers appointment times.">
             <NativeSelect name="timezone" defaultValue={client.timezone}>
