@@ -88,7 +88,7 @@ export async function sendWelcomeEmail(clientId: string): Promise<void> {
   const paragraphs = num
     ? [
         `Your AI receptionist is live. Its number is <strong>${formatPhone(num)}</strong> — <strong>call it right now</strong> from your cell and ask it something a customer would.`,
-        `When you're happy with how it sounds, forward your business line to it. ${fwd!.turnOnHtml} ${fwd!.turnOff} Your customers keep calling the number they already know.`,
+        `When you're happy with how it sounds, forward your business line to it. ${fwd!.turnOnHtml} ${fwd!.turnOff} Then tap <strong>Test my forwarding</strong> under <a href="${appUrl("/portal/settings/phone#forwarding")}">Settings → Phone &amp; AI</a> to check it works. Your customers keep calling the number they already know.`,
         `Every booking and message it takes is emailed to <strong>${esc(to)}</strong> the moment it happens — change that, and add a phone for texts, under <a href="${appUrl("/portal/settings/alerts")}">Settings → Alerts</a>.`,
         `Its services, hours and answers are drafted for your industry. <a href="${appUrl("/portal/services")}">Check the prices</a> especially — they're examples until you say otherwise.`,
         `Your free trial runs ${TRIAL_DAYS} days with everything switched on. No card, nothing to set up. We'll check in once near the end.`,

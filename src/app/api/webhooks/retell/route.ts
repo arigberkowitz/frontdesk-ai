@@ -9,6 +9,8 @@ import { upsertCallByRetellId } from "@/lib/data/calls";
 import { analyzeCall } from "@/lib/call-health";
 import { isBlocked, normalizeForBlock } from "@/lib/spam";
 import { recordTurnedAway, screenInboundCall } from "@/lib/data/inbound-screen";
+import { claimInboundForwardingTest, forwardingTestStore } from "@/lib/data/forwarding-test";
+import { claimInboundTestCall } from "@/lib/forwarding-test";
 import { notifyOwnerCallProblem } from "@/lib/notify";
 import { recapKindFor, transferStatus, type RecapKind } from "@/lib/call-recap";
 import { sendCallRecap } from "@/lib/call-recap-send";
@@ -75,16 +77,33 @@ async function handleInbound(payload: RetellWebhook): Promise<Response> {
       timer = setTimeout(() => resolve(null), INBOUND_SCREEN_TIMEOUT_MS);
     });
     const result = await Promise.race([
-      screenInboundCall({
-        agentId: info.agent_id,
-        toNumber: info.to_number,
-        fromNumber: info.from_number,
-      }),
+      (async () => {
+        // Our own "Test my forwarding" call? Turn it away before any agent or
+        // voice starts: it proves forwarding works and costs nothing, and it
+        // never reaches the call log (no lead, text, usage or billing).
+        const isTest = await claimInboundForwardingTest({
+          agentId: info.agent_id,
+          toNumber: info.to_number,
+          fromNumber: info.from_number,
+        });
+        if (isTest) {
+          return { clientId: null, screen: { reject: true, reason: "blocked" as const }, forwardingTest: true };
+        }
+        return screenInboundCall({
+          agentId: info.agent_id,
+          toNumber: info.to_number,
+          fromNumber: info.from_number,
+        });
+      })(),
       timeout,
     ]);
     if (!result) {
       logger.warn("webhook.retell.inbound_screen_timeout", { callId: info.call_id });
       return accept;
+    }
+    if ("forwardingTest" in result) {
+      logger.info("webhook.retell.forwarding_test_arrived", { callId: info.call_id });
+      return Response.json({ call_inbound: { reject: true } });
     }
     if (result.screen.reject) {
       logger.info("webhook.retell.inbound_rejected", {
@@ -186,6 +205,23 @@ export async function POST(req: Request): Promise<Response> {
     await markWebhookProcessed("retell", externalId, "ignored");
     logger.warn("webhook.retell.no_client", { agentId: call.agent_id, event });
     return Response.json({ ok: true, ignored: "unknown agent" });
+  }
+
+  // Our own forwarding-test call (it only gets here if the inbound screen was
+  // skipped or slow): record the pass and leave no trace. No call row, so no
+  // lead, follow-up, text, usage minutes or billing can come from it.
+  if (event === "call_started" || event === "call_ended" || event === "call_analyzed") {
+    try {
+      if (await claimInboundTestCall(forwardingTestStore, client, call.from_number, new Date())) {
+        await markWebhookProcessed("retell", externalId, "ignored");
+        return Response.json({ ok: true, ignored: "forwarding test" });
+      }
+    } catch (err) {
+      logger.warn("webhook.retell.forwarding_test_check_failed", {
+        callId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   if (event !== "call_started" && event !== "call_ended" && event !== "call_analyzed") {

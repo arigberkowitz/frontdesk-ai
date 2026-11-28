@@ -1,12 +1,15 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useOptimistic, useState } from "react";
 import Link from "next/link";
-import { Check, CheckCircle2, Circle, Copy, PhoneForwarded } from "lucide-react";
+import { Check, Copy, PhoneForwarded } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { SubmitButton } from "@/components/form/submit-button";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { ForwardingCallout } from "@/components/portal/forwarding-callout";
+import { ForwardingGuidePicker } from "@/components/portal/forwarding-guide-picker";
+import { ForwardingTestPanel } from "@/components/portal/forwarding-test-panel";
 import { setAnsweringModeAction } from "@/lib/actions/receptionist";
 import { setSetupFlagAction } from "@/lib/actions/setup";
 import { initialActionState, type ActionState } from "@/lib/actions/types";
@@ -17,9 +20,11 @@ export type AnsweringMode = "all_calls" | "missed_only";
 
 /**
  * The one place that answers "how do calls actually reach my AI?" — the
- * business's dedicated number, whether forwarding is set up (on/off), which
- * mode they want (every call vs. only missed calls), and the exact dial codes
- * for that mode. The setup checklist's forwarding step deep-links here.
+ * business's dedicated number, the exact codes to dial (big, at the top), a
+ * forwarding on/off switch, a "Test my forwarding" call that proves it works,
+ * which mode they want (every call vs. only missed calls), and step-by-step
+ * guides for their phone service. The setup checklist's forwarding step
+ * deep-links here.
  */
 export function AiNumberCard({
   clientId,
@@ -28,28 +33,30 @@ export function AiNumberCard({
   forwardingDone,
   isAdmin,
   canEdit,
+  businessLine = null,
+  verifiedLabel = null,
+  canTest = false,
+  testAvailable = false,
 }: {
   clientId: string;
   phoneNumber: string | null;
   mode: AnsweringMode;
-  /** Owner confirmed forwarding is set up (drives the on/off status). */
+  /** Forwarding is on (owner switched it on, or a test call proved it). */
   forwardingDone: boolean;
   isAdmin: boolean;
   canEdit: boolean;
+  /** E.164 of the line customers call (what "Test my forwarding" rings). */
+  businessLine?: string | null;
+  /** When a test last passed, formatted in the business's time zone. */
+  verifiedLabel?: string | null;
+  /** Owner or operator: may run the test and change the business line. */
+  canTest?: boolean;
+  /** Voice calling is set up on this deployment. */
+  testAvailable?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const pretty = phoneNumber ? formatPhone(phoneNumber) : null;
   const digits = phoneNumber ? phoneNumber.replace(/[^\d+]/g, "") : "";
-  /**
-   * What you actually key in after a star code. Landline/VoIP switches expect a
-   * plain 10-digit number — a leading "+1" makes the switch reject the code — so
-   * strip the country code for US numbers. GSM codes (**21*…#) are the opposite
-   * and want the full international form, so those keep `digits`.
-   */
-  const dialDigits = (() => {
-    const bare = digits.replace(/\D/g, "");
-    return bare.length === 11 && bare.startsWith("1") ? bare.slice(1) : bare;
-  })();
 
   const toastResult = (next: ActionState) => {
     if (next.ok && next.message) toast.success(next.message);
@@ -60,38 +67,29 @@ export function AiNumberCard({
     async (prev: ActionState, fd: FormData) => toastResult(await setAnsweringModeAction(prev, fd)),
     initialActionState,
   );
-  const [, flagAction, flagPending] = useActionState(
-    async (prev: ActionState, fd: FormData) => toastResult(await setSetupFlagAction(prev, fd)),
-    initialActionState,
-  );
 
-  const code = (s: string) => (
-    <code className="rounded bg-muted px-1.5 py-0.5 font-medium tabular-nums text-foreground">{s}</code>
-  );
-
-  /**
-   * Tap-to-dial. On a phone this opens the dialer pre-filled, so forwarding is
-   * one tap instead of a code retyped from memory. On a desktop browser a `tel:`
-   * link usually does nothing — hence the codes stay visible as text above, and
-   * the hint below tells people which device to be holding.
-   *
-   * `*` and `#` must be percent-encoded or some dialers silently drop the rest
-   * of the string.
-   */
-  const dialHref = (seq: string) => `tel:${seq.replace(/\*/g, "%2A").replace(/#/g, "%23")}`;
-  const DialButton = ({ seq, label }: { seq: string; label: string }) => (
-    <a
-      href={dialHref(seq)}
-      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "tabular-nums")}
-    >
-      <PhoneForwarded className="size-3.5" />
-      {label}
-    </a>
-  );
+  // The forwarding switch. It records whether forwarding is set up (the same
+  // flag the checklist and the quiet-line alert read); it can't dial anything
+  // for the owner, which the text under it says plainly.
+  const [on, setOn] = useOptimistic(forwardingDone);
+  const [flagPending, setFlagPending] = useState(false);
+  const toggleForwarding = (next: boolean) => {
+    const fd = new FormData();
+    fd.set("clientId", clientId);
+    fd.set("flag", "forwardingDone");
+    fd.set("value", next ? "true" : "false");
+    setFlagPending(true);
+    startTransition(async () => {
+      setOn(next);
+      const res = toastResult(await setSetupFlagAction(initialActionState, fd));
+      if (!res.ok) setOn(!next);
+      setFlagPending(false);
+    });
+  };
 
   return (
     <Card id="forwarding" className="scroll-mt-24">
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="flex items-center gap-2 font-heading text-lg font-semibold">
@@ -129,34 +127,38 @@ export function AiNumberCard({
           )}
         </div>
 
-        {/* On/off at a glance — driven by the same flag as the setup checklist.
-            Three genuinely different situations, so three different messages:
-            forwarding live, forwarding off but a number exists, no number yet. */}
+        {/* The codes come first: a business that doesn't know them can't use this. */}
+        {pretty && phoneNumber ? (
+          <ForwardingCallout mode={mode} phoneNumber={phoneNumber} />
+        ) : null}
+
+        {/* Forwarding on/off. Same flag as the setup checklist; a passed test
+            switches it on by itself. */}
         <div
+          data-testid="forwarding-switch-row"
           className={cn(
-            "flex items-start gap-2 rounded-lg border px-3 py-2 text-sm",
-            forwardingDone
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-              : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+            "flex items-start justify-between gap-4 rounded-xl border px-4 py-3",
+            on ? "border-emerald-300 bg-emerald-50" : "border-amber-300/70 bg-amber-50/60",
           )}
         >
-          {forwardingDone ? (
-            <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-          ) : (
-            <Circle className="mt-0.5 size-4 shrink-0" />
-          )}
-          <span>
-            {forwardingDone ? (
-              <>
-                <strong>Forwarding is on.</strong> Calls to your business number ring through to
-                your AI.
-              </>
-            ) : pretty ? (
-              <>
-                <strong>Forwarding is off.</strong> Your AI is live on {pretty} and ready to answer
-                — but calls to your own business number still ring your phone as usual. Switch it on
-                below: it&apos;s one quick call from your business phone.
-              </>
+          <div className="min-w-0 text-sm">
+            <p id="fwd-switch-label" className="text-base font-semibold">
+              Call forwarding is {on ? "on" : "off"}
+            </p>
+            {pretty ? (
+              on ? (
+                <p className="text-muted-foreground">
+                  {mode === "missed_only"
+                    ? "Calls you miss ring through to your AI."
+                    : "Calls to your business number ring through to your AI."}{" "}
+                  {verifiedLabel ? <>Last test passed {verifiedLabel}.</> : <>Run the test below to make sure.</>}
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  Your AI is live on {pretty}, but calls to your business number still ring your
+                  phone as usual. Dial the turn-on code above, then switch this on.
+                </p>
+              )
             ) : (
               <>
                 {/* Careful with this sentence. It briefly read "we're assigning
@@ -165,17 +167,49 @@ export function AiNumberCard({
                     is activated, and if that attempt failed there is nobody
                     queued to retry it. A business reading a promise sits and
                     waits instead of asking. */}
-                <strong>No AI phone number yet.</strong> On a free trial, make one test call to
-                your AI in the browser and its own number is set up when you hang up. The dial-in
-                steps appear here as soon as it is.{" "}
-                <Link href="/portal/guidelines#activate" className="underline underline-offset-2">
-                  Go to Your AI
-                </Link>
-                .
+                <p className="text-muted-foreground">
+                  <strong>No AI phone number yet.</strong> On a free trial, make one test call to
+                  your AI in the browser and its own number is set up when you hang up. The dial-in
+                  steps appear here as soon as it is.{" "}
+                  <Link href="/portal/guidelines#activate" className="underline underline-offset-2">
+                    Go to Your AI
+                  </Link>
+                  .
+                </p>
               </>
             )}
-          </span>
+            {pretty ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                This switch keeps track of whether you&apos;ve set forwarding up at your phone
+                company. It can&apos;t dial for you. To really turn forwarding on or off, dial the
+                codes above from your business phone.
+              </p>
+            ) : null}
+          </div>
+          {pretty ? (
+            <Switch
+              aria-labelledby="fwd-switch-label"
+              data-testid="forwarding-switch"
+              checked={on}
+              disabled={!canEdit || flagPending}
+              onCheckedChange={toggleForwarding}
+              className="mt-1 h-7 w-12 data-[size=default]:h-7 data-[size=default]:w-12 [&>span]:size-6"
+            />
+          ) : null}
         </div>
+
+        {/* Prove it works. */}
+        {pretty ? (
+          <ForwardingTestPanel
+            clientId={clientId}
+            mode={mode}
+            businessLine={businessLine}
+            verifiedLabel={verifiedLabel}
+            canTest={canTest}
+            available={testAvailable}
+            hasAiNumber={Boolean(phoneNumber)}
+          />
+        ) : null}
 
         {/* Mode choice: full receptionist vs. backup. Admin-only. */}
         <div className="space-y-2">
@@ -228,101 +262,20 @@ export function AiNumberCard({
           ) : null}
         </div>
 
-        {/* Exactly one instruction block — the steps for the chosen mode. */}
-        <div className="space-y-3 rounded-xl border bg-muted/30 p-4 text-sm">
-          <p className="font-medium">
-            {mode === "missed_only" ? "Set up missed-call forwarding" : "Set up call forwarding"}
+        {pretty && phoneNumber ? (
+          <ForwardingGuidePicker mode={mode} phoneNumber={phoneNumber} />
+        ) : (
+          <p className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
+            The exact dial codes appear here as soon as your AI has its own phone number — they
+            include that number, so there&apos;s nothing useful to show until then. Meanwhile your
+            AI is ready to talk: try a test call in the browser on the Your AI page.
           </p>
-          {pretty ? (
-            mode === "missed_only" ? (
-              <ol className="list-decimal space-y-2 pl-5 text-muted-foreground">
-                <li>
-                  From your business phone, dial {code(`*90 ${pretty}`)} (forwards when you&apos;re on
-                  the line), then {code(`*92 ${pretty}`)} (forwards when you don&apos;t pick up).
-                  AT&T/T-Mobile: {code(`**67*${digits}#`)} and {code(`**61*${digits}#`)}.
-                </li>
-                <li>
-                  Not working? Call your carrier and say: <em>&quot;Forward my busy and unanswered
-                  calls to {pretty}.&quot;</em> They&apos;ll switch it on from their side.
-                </li>
-                <li>
-                  Test it: call your business number and don&apos;t pick up — your AI should answer
-                  after a few rings.
-                </li>
-                <li>
-                  Turn it off anytime: dial {code("*91")} and {code("*93")} (AT&T/T-Mobile:{" "}
-                  {code("##67#")} and {code("##61#")}).
-                </li>
-              </ol>
-            ) : (
-              <ol className="list-decimal space-y-2 pl-5 text-muted-foreground">
-                <li>
-                  From your business phone, dial {code(`*72 ${pretty}`)} and wait for the
-                  confirmation tone, then hang up. AT&T/T-Mobile: {code(`**21*${digits}#`)}.
-                </li>
-                <li>
-                  Test it: call your business number from any other phone — your AI should answer
-                  right away.
-                </li>
-                <li>
-                  Change your mind anytime: dial {code("*73")} to turn forwarding off (AT&T/T-Mobile:{" "}
-                  {code("##21#")}).
-                </li>
-              </ol>
-            )
-          ) : (
-            <p className="text-muted-foreground">
-              The exact dial codes appear here as soon as your AI has its own phone number — they
-              include that number, so there&apos;s nothing useful to show until then. Meanwhile your
-              AI is ready to talk: try a test call in the browser on the Your AI page.
-            </p>
-          )}
+        )}
 
-          {/* One tap instead of a retyped code. Same sequences as the steps above. */}
-          {pretty ? (
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap gap-2">
-                {mode === "missed_only" ? (
-                  <>
-                    <DialButton seq={`*90${dialDigits}`} label={`Dial *90 ${pretty}`} />
-                    <DialButton seq={`*92${dialDigits}`} label={`Dial *92 ${pretty}`} />
-                    <DialButton seq="*91" label="Turn off (*91)" />
-                    <DialButton seq="*93" label="Turn off (*93)" />
-                  </>
-                ) : (
-                  <>
-                    <DialButton seq={`*72${dialDigits}`} label={`Dial *72 ${pretty}`} />
-                    <DialButton seq="*73" label="Turn forwarding off (*73)" />
-                  </>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Open this page on your business phone and tap a button — it fills the dialer for
-                you. The codes have to be dialed from that phone; dialing them from any other line
-                won&apos;t do anything.
-              </p>
-            </div>
-          ) : null}
-
-          <p className="text-muted-foreground">
-            Your website, Google listing, and business cards don&apos;t change — customers keep
-            calling the number they already know.
-          </p>
-          {canEdit && pretty ? (
-            <form action={flagAction}>
-              <input type="hidden" name="clientId" value={clientId} />
-              <input type="hidden" name="flag" value="forwardingDone" />
-              <input type="hidden" name="value" value={forwardingDone ? "false" : "true"} />
-              <SubmitButton
-                pending={flagPending}
-                variant={forwardingDone ? "outline" : "default"}
-                size="sm"
-              >
-                {forwardingDone ? "Mark as not set up" : "I've set this up"}
-              </SubmitButton>
-            </form>
-          ) : null}
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Your website, Google listing, and business cards don&apos;t change — customers keep
+          calling the number they already know.
+        </p>
       </CardContent>
     </Card>
   );
