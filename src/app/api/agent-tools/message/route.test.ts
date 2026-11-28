@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("@/lib/webhooks-emit", () => ({ emitWebhook: vi.fn() }));
+const consent = vi.hoisted(() => ({ record: vi.fn(async (..._a: unknown[]) => undefined), pro: true, flags: {} as Record<string, unknown> }));
+vi.mock("@/lib/data/sms-consents", () => ({ recordSmsConsent: (...a: unknown[]) => consent.record(...a) }));
+vi.mock("@/lib/plan-access", () => ({ planAccessFor: async () => ({ has: () => consent.pro }) }));
 const auth = {
   channel: "voice",
   retellCallId: "rc_1" as string | null,
@@ -12,7 +15,7 @@ const auth = {
 vi.mock("@/lib/agent-tools-auth", () => ({
   authorizeAgentTool: async () => ({
     ok: true,
-    client: { id: "client-1" },
+    client: { id: "client-1", setupFlags: consent.flags },
     channel: auth.channel,
     args: { name: "Pat", phone: "4155550100", reason: "Crown", ...auth.extra },
     retellCallId: auth.retellCallId,
@@ -35,6 +38,44 @@ beforeEach(() => {
   callRow.value = { id: "call-db-1", direction: "inbound" };
   notifyOwnerLead.mockClear();
   createLead.mockClear();
+  consent.record.mockClear();
+  consent.pro = true;
+  consent.flags = {};
+});
+
+describe("quote text consent (owner-controlled)", () => {
+  const askOn = { quoteFollowup: { enabled: true, askConsent: true } };
+
+  it("records a quote-v1 consent on a clear yes when the owner has the ask on", async () => {
+    consent.flags = askOn;
+    auth.extra = { text_consent: true, language: "es" };
+    await post();
+    expect(consent.record).toHaveBeenCalledWith(
+      expect.objectContaining({ clientId: "client-1", phone: "+14155550100", callId: "call-db-1", wording: "quote-v1-es" }),
+    );
+  });
+
+  it("records nothing when the ask is off, follow-up is off, or the plan isn't Pro", async () => {
+    auth.extra = { text_consent: true };
+    consent.flags = { quoteFollowup: { enabled: true } };
+    await post();
+    consent.flags = { quoteFollowup: { enabled: false, askConsent: true } };
+    await post();
+    consent.flags = askOn;
+    consent.pro = false;
+    await post();
+    expect(consent.record).not.toHaveBeenCalled();
+  });
+
+  it("records nothing without a yes, or off a phone call", async () => {
+    consent.flags = askOn;
+    auth.extra = { text_consent: false };
+    await post();
+    auth.extra = { text_consent: true };
+    auth.channel = "web_chat";
+    await post();
+    expect(consent.record).not.toHaveBeenCalled();
+  });
 });
 
 describe("message tool alert", () => {

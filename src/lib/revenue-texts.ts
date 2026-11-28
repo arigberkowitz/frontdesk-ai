@@ -38,6 +38,9 @@ export const CAPPED_TEXT_KINDS: readonly string[] = [
   "winback",
   "review_request",
   "quote_followup",
+  // Quote follow-up logs each step under its own kind.
+  "quote_followup_1",
+  "quote_followup_2",
   "recall",
   "recovery_lead",
   "recovery_no_show",
