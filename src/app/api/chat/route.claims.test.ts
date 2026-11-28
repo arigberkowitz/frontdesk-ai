@@ -45,12 +45,12 @@ async function send(messages: Array<{ role: string; content: string }>) {
 }
 
 const CODE_TURN = [
-  { role: "user", content: "I need to cancel my appointment, my number is 415-747-5690" },
+  { role: "user", content: "I need to cancel my appointment, my number is 415-555-0142" },
   { role: "assistant", content: "I've sent a 6-digit code to the phone number on file. Please type it here." },
   { role: "user", content: "364064" },
 ];
 const LIE = { content: [{ type: "text", text: "Got it. Your appointment has been cancelled." }] };
-const CANCEL_USE = { content: [{ type: "tool_use", id: "c1", name: "cancel_appointment", input: { phone: "4157475690", code: "364064" } }] };
+const CANCEL_USE = { content: [{ type: "tool_use", id: "c1", name: "cancel_appointment", input: { phone: "4155550142", code: "364064" } }] };
 
 beforeEach(() => {
   calls = [];
