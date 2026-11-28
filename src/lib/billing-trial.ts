@@ -1,25 +1,53 @@
 /**
- * Paying during the free trial must not cost the trial.
+ * When a Stripe Checkout session may attach a trial.
  *
- * Without this, a business that subscribes on day 3 of a 14-day trial is
- * charged that day and loses the 11 days it was promised — the people most
- * eager to pay get the worst deal. Stripe's `trial_end` carries the remaining
- * time onto the subscription: the card is saved now, first charge when the
- * trial would have ended.
+ * The 14-day trial is in-app and needs no card. "Start my plan now", "Buy
+ * now", and any checkout after the trial ends, on a messages-only hold, or
+ * after a cancel charges the first month today. A business that has already
+ * had a trial, a subscription, or a payment never gets a second Stripe
+ * trial — including a new checkout from the same business, customer, or
+ * email.
  *
- * Stripe rejects a `trial_end` less than 48 hours out, so in the last two days
- * we bill straight away (the trial is effectively over), and an expired or
- * missing trial adds nothing.
+ * This used to copy the remaining in-app days onto `subscription_data.trial_end`,
+ * so a mid-trial "Buy now" opened Stripe on "13 days free / $0 today /
+ * Start trial". That is gone: this function always returns undefined.
  */
-export const MIN_TRIAL_END_LEAD_MS = 48 * 60 * 60 * 1000;
+export type CheckoutTrialContext = {
+  /** In-app trial still running. */
+  active: boolean;
+  endsAt: Date | null;
+  expired?: boolean;
+  /** Messages-only hold after an unpaid trial or a failed payment. */
+  billingHold?: boolean;
+  /** Any prior subscription row (canceled, past_due, trialing, active, …). */
+  hadSubscription?: boolean;
+  firstPaidAt?: Date | null;
+  /** Same Stripe customer or owner email already used a trial or subscription. */
+  priorCustomerOrEmail?: boolean;
+};
 
 export function checkoutTrialEnd(
-  trial: { active: boolean; endsAt: Date | null },
-  now: Date = new Date(),
+  _trial: CheckoutTrialContext,
+  _now: Date = new Date(),
 ): number | undefined {
-  if (!trial.active || !trial.endsAt) return undefined;
-  // A little margin over Stripe's 48h minimum so a slow checkout page can't
-  // tip it under.
-  if (trial.endsAt.getTime() - now.getTime() < MIN_TRIAL_END_LEAD_MS + 60 * 60 * 1000) return undefined;
-  return Math.floor(trial.endsAt.getTime() / 1000);
+  return undefined;
+}
+
+/**
+ * Spread onto `subscription_data` when opening Checkout. Always empty of
+ * trial_end and trial_period_days so every checkout path charges today.
+ */
+export function checkoutSubscriptionTrialParams(
+  trial: CheckoutTrialContext,
+  now: Date = new Date(),
+): { trial_end?: number; trial_period_days?: number } {
+  const trialEnd = checkoutTrialEnd(trial, now);
+  return trialEnd ? { trial_end: trialEnd } : {};
+}
+
+/** True when these params would start a Stripe trial — always false. */
+export function attachesStripeTrial(
+  params: { trial_end?: number; trial_period_days?: number },
+): boolean {
+  return params.trial_end != null || params.trial_period_days != null;
 }

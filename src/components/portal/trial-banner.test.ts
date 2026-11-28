@@ -38,7 +38,7 @@ describe("TrialBanner", () => {
 
   it("the owner gets a real checkout button on their plan", () => {
     const html = render({ state: active, progress, upgrade: upgrade(true) });
-    expect(html).toContain("Upgrade to Starter · $300/mo");
+    expect(html).toContain("Upgrade to Starter — pay $300 today");
     expect(html).not.toContain("applicable tax");
     expect(html).toContain('name="plan" value="starter"');
     expect(html).toContain('name="interval" value="month"');
@@ -50,7 +50,7 @@ describe("TrialBanner", () => {
       progress,
       upgrade: { ...upgrade(true), plusTax: true },
     });
-    expect(html).toContain("Upgrade to Starter · $300/mo + applicable tax");
+    expect(html).toContain("Upgrade to Starter — pay $300 today + applicable tax");
   });
 
   it("staff (or no Stripe) get a link to the plans instead", () => {

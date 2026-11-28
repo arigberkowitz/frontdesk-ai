@@ -70,7 +70,7 @@ export function TrialBanner({
       <UpgradeButton
         clientId={upgrade.clientId}
         planKey={upgrade.plan.key}
-        label={`Upgrade to ${upgrade.plan.name} · ${formatCurrencyCents(upgrade.plan.monthlyPriceCents)}/mo${upgrade.plusTax ? " + applicable tax" : ""}`}
+        label={`Upgrade to ${upgrade.plan.name} — pay ${formatCurrencyCents(upgrade.plan.monthlyPriceCents)} today${upgrade.plusTax ? " + applicable tax" : ""}`}
       />
     ) : (
       <Link

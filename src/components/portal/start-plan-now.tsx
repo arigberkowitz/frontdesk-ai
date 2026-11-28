@@ -9,10 +9,10 @@ import { startPlanNowAction } from "@/lib/actions/billing";
 import { initialActionState } from "@/lib/actions/types";
 
 /**
- * "Start my plan now." A business that saved a card during its free trial
- * keeps the rest of its trial days, and its card is first charged when they
- * run out (billing-trial.ts). This lets the owner choose not to wait — Stripe
- * charges the saved card today and the trial ends now.
+ * "Start my plan now." For a business that already has a card on a leftover
+ * Stripe trial (from the earlier "keep your remaining days" checkout).
+ * New checkouts charge today and do not start a Stripe trial. This ends
+ * that leftover trial now and charges the saved card.
  */
 export function StartPlanNow({
   clientId,

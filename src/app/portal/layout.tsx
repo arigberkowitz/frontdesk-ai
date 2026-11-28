@@ -67,7 +67,7 @@ export default async function PortalLayout({ children }: { children: React.React
       urgent: trial.expired || trial.daysLeft <= 3,
       upgrade:
         !preview && access.isAdmin && integrations.stripe()
-          ? { clientId, planKey: plan.key, label: `Upgrade · ${formatCurrencyCents(plan.monthlyPriceCents)}/mo${env.STRIPE_AUTOMATIC_TAX ? " + applicable tax" : ""}` }
+          ? { clientId, planKey: plan.key, label: `Upgrade — pay ${formatCurrencyCents(plan.monthlyPriceCents)} today${env.STRIPE_AUTOMATIC_TAX ? " + applicable tax" : ""}` }
           : null,
     };
   }

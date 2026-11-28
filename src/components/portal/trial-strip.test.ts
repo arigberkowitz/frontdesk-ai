@@ -14,7 +14,7 @@ const props = {
   shortHeadline: "9 days left in trial",
   summary: "14 calls handled, 6 booked this trial",
   urgent: false,
-  upgrade: { clientId: "c1", planKey: "starter", label: "Upgrade · $300/mo" },
+  upgrade: { clientId: "c1", planKey: "starter", label: "Upgrade — pay $300 today" },
 };
 
 describe("TrialStrip", () => {
@@ -24,7 +24,7 @@ describe("TrialStrip", () => {
     expect(html).toContain("9 days left in your free trial");
     expect(html).toContain("9 days left in trial");
     expect(html).toContain("14 calls handled, 6 booked this trial");
-    expect(html).toContain("Upgrade · $300/mo");
+    expect(html).toContain("Upgrade — pay $300 today");
   });
 
   it("hides on the Overview", () => {
