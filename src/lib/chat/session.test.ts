@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MAX_MESSAGE_CHARS, MAX_TURNS, corsHeaders, sanitizeTurns } from "./session";
+import { MAX_MESSAGE_CHARS, MAX_TURNS, sameOriginHeaders, sanitizeTurns } from "./session";
 
 describe("sanitizeTurns", () => {
   it("accepts a normal transcript ending on the visitor", () => {
@@ -79,17 +79,10 @@ describe("sanitizeTurns", () => {
   });
 });
 
-describe("corsHeaders", () => {
-  it("echoes a real origin", () => {
-    expect(corsHeaders("https://brightsmile.example")["access-control-allow-origin"]).toBe(
-      "https://brightsmile.example",
-    );
-  });
-  it("falls back to * for a missing or opaque origin", () => {
-    expect(corsHeaders(null)["access-control-allow-origin"]).toBe("*");
-    expect(corsHeaders("null")["access-control-allow-origin"]).toBe("*");
-  });
-  it("varies on origin so caches don't cross the streams", () => {
-    expect(corsHeaders("https://a.example").vary).toBe("origin");
+describe("sameOriginHeaders", () => {
+  it("grants no cross-origin access", () => {
+    const h = sameOriginHeaders();
+    expect(Object.keys(h).some((k) => k.startsWith("access-control-"))).toBe(false);
+    expect(h["cache-control"]).toBe("no-store");
   });
 });

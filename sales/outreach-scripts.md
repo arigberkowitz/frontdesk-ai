@@ -102,9 +102,10 @@ you're happy with it. If it's not impressive, tell me why and I'll delete it.
 3. **Show the compounding part** (3 min): the portal's "Your AI learned"
    panel and prompt version history — it gets smarter from their real calls,
    with their approval on every change.
-4. **Price + close** (5 min): "One flat monthly price: $399/mo Starter, less
-   than one missed job. 14 days free, no card; you're only charged if you pick
-   a plan. Want me to point your number at it today?"
+4. **Price + close** (5 min): "One flat monthly price: Missed-Call Rescue
+   $199, Starter $399, or Pro $599. Starter is less than one missed job.
+   14 days free, no card; you're only charged if you pick a plan. Want me
+   to point your number at it today?"
 
 ## Objection cheat sheet
 

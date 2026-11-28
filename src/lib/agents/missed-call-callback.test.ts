@@ -96,6 +96,7 @@ beforeEach(() => {
     missedCallTextsEnabled: true,
     missedCallAiCallbacksEnabled: false,
     retellPhoneNumber: "+12125550199",
+    retellAgentId: "agent_sam",
     agentName: "Sam",
     recordingDisclosureEnabled: true,
     setupFlags: {},
@@ -256,11 +257,14 @@ describe("AI phone callback", () => {
     const arg = m.createPhoneCall.mock.calls[0][0] as {
       from_number: string;
       to_number: string;
+      override_agent_id: string;
       metadata: Record<string, unknown>;
       agent_override: { retell_llm: { begin_message: string } };
     };
     expect(arg.from_number).toBe("+12125550199");
     expect(arg.to_number).toBe("+14155550100");
+    // Numbers bound as inbound-only fail with "No outbound agent id set up".
+    expect(arg.override_agent_id).toBe("agent_sam");
     expect(arg.metadata.direction).toBe("outbound");
     expect(arg.agent_override.retell_llm.begin_message).toMatch(/AI assistant/);
   });

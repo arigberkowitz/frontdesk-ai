@@ -7,6 +7,7 @@ import { assertClientInOrg, getClientByIdUnsafe } from "@/lib/data/clients";
 import { getClientLead } from "@/lib/data/leads";
 import { createReminder } from "@/lib/data/reminders";
 import { getRetellClient } from "@/lib/retell";
+import { outboundAgent, placeCallErrorMessage } from "@/lib/retell-outbound";
 import { withRequiredDisclosure } from "@/lib/prompt";
 import { planAccessFor, UPGRADE_MESSAGES } from "@/lib/plan-access";
 import { withinTextingHours } from "@/lib/appointment-messages";
@@ -67,6 +68,10 @@ export async function callLeadWithAiAction(
     };
   }
 
+  if (!client.retellAgentId) {
+    return { ok: false, error: "Build your receptionist first — there's nothing to place the call yet." };
+  }
+
   // A robot ringing someone at 6am on the business's behalf is worse than not
   // ringing them at all. Same civilized window the texts use.
   if (!withinTextingHours(new Date(), client.timezone)) {
@@ -95,6 +100,7 @@ export async function callLeadWithAiAction(
     const call = await getRetellClient().call.createPhoneCall({
       from_number: from,
       to_number: to,
+      ...outboundAgent(client.retellAgentId),
       agent_override: { retell_llm: { begin_message: beginMessage, start_speaker: "agent" } },
       // Read back by the post-call pipeline; also how this call is told apart
       // from one the customer placed.
@@ -110,10 +116,7 @@ export async function callLeadWithAiAction(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error("outbound.lead_call.failed", { clientId, leadId, error: message });
-    return {
-      ok: false,
-      error: "Couldn't place the call. Your AI's number may not be able to dial out yet.",
-    };
+    return { ok: false, error: placeCallErrorMessage(err) };
   }
 
   // Logged as contact, because it is: their phone is ringing right now.

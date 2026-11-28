@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { resolveFeatures } from "@/lib/plan-access";
 
 describe("resolveFeatures", () => {
+  it("website chat is Pro only (plus trials and comps)", () => {
+    expect(resolveFeatures({ status: "live", comped: false, subscriptionPlan: "backup" }).has("website_chat")).toBe(false);
+    expect(resolveFeatures({ status: "live", comped: false, subscriptionPlan: "starter" }).has("website_chat")).toBe(false);
+    expect(resolveFeatures({ status: "live", comped: false, subscriptionPlan: "pro" }).has("website_chat")).toBe(true);
+    expect(resolveFeatures({ status: "live", comped: false, subscriptionPlan: "scale" }).has("website_chat")).toBe(true);
+    expect(resolveFeatures({ status: "trial", comped: false, subscriptionPlan: null }).has("website_chat")).toBe(true);
+  });
+
   it("gives the backup plan missed-calls-only, nothing else", () => {
     const f = resolveFeatures({ status: "live", comped: false, subscriptionPlan: "backup" });
     expect(f.has("all_calls")).toBe(false);

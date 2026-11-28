@@ -246,6 +246,29 @@ export const clients = pgTable(
       .$type<{
         calendarSkipped?: boolean;
         forwardingDone?: boolean;
+        /**
+         * ISO time a "Test my forwarding" call actually reached the AI number
+         * (forwarding-test.ts). Cleared when forwarding is switched off or the
+         * business line changes. Reusable by anything that wants "did forwarding
+         * ever work?" (the quiet-line alert reads it).
+         */
+        forwardingVerifiedAt?: string;
+        /** The latest "Test my forwarding" run: pending, passed or failed (forwarding-test.ts). */
+        forwardingTest?: {
+          id: string;
+          status: "pending" | "passed" | "failed";
+          startedAt: string;
+          finishedAt?: string;
+          mode: "all_calls" | "missed_only";
+          /** Number the test call came FROM (matched on arrival). */
+          callerNumber: string;
+          /** Business line the test dialed. */
+          dialed: string;
+          callSid?: string;
+          matchedBy?: "caller" | "business_line";
+          /** Why it failed, in a machine-readable word (forwarding-test.ts). */
+          reason?: string;
+        };
         /** Self-serve signup: pre-filled setup steps need the owner's OK (setup-steps.ts). */
         reviewRequired?: boolean;
         reviewed?: Partial<Record<"services" | "hours" | "faqs" | "greeting", boolean>>;
@@ -420,6 +443,12 @@ export const clients = pgTable(
          * history lives in sms_messages (kind "winback").
          */
         winback?: { enabled?: boolean; months?: number; template?: string | null; lastRunMonth?: string | null };
+        /**
+         * Hours after a visit ends before the review request goes out (Pro;
+         * lib/review-requests.ts REVIEW_DELAY_OPTIONS). Unset = 2. The switch
+         * and link stay in clients.review_requests_enabled / review_url.
+         */
+        reviewDelayHours?: number;
       }>()
       .notNull()
       .default({}),

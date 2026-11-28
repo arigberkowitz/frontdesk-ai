@@ -28,6 +28,44 @@ export function reachLine(total: number, textable: number, phrases: { all: strin
   return "None of them said yes to texts on a call yet, so Pro couldn't text them. Customers who say yes when they book can get these.";
 }
 
+export function quoteTeaser(input: { asked: number; textable: number; days: number }): TeaserCopy {
+  if (input.asked <= 0) {
+    return {
+      line: "When someone calls for a price and doesn't book, Pro texts them a day later and again a week later, so the quote doesn't go cold.",
+      detail: null,
+      fromData: false,
+    };
+  }
+  const who = input.asked === 1 ? "1 caller asked for a price and never booked" : `${n(input.asked)} callers asked for a price and never booked`;
+  return {
+    line: `In the last ${input.days} days, ${who}.`,
+    detail: reachLine(input.asked, input.textable, {
+      all: input.asked === 1 ? "Pro would have followed up with them." : "Pro would have followed up with each one.",
+      some: "Pro would have followed up with them",
+    }),
+    fromData: true,
+  };
+}
+
+export function reviewTeaser(input: { visits: number; textable: number; days: number }): TeaserCopy {
+  if (input.visits <= 0) {
+    return {
+      line: "A couple of hours after each visit, Pro texts the customer your Google review link. One ask per customer every 90 days.",
+      detail: null,
+      fromData: false,
+    };
+  }
+  const what = input.visits === 1 ? "1 booked visit" : `${n(input.visits)} booked visits`;
+  return {
+    line: `In the last ${input.days} days, ${what} could have gotten a review request.`,
+    detail: reachLine(input.visits, input.textable, {
+      all: "Pro would have texted each customer your review link.",
+      some: "Pro would have texted them your review link",
+    }),
+    fromData: true,
+  };
+}
+
 export function winbackTeaser(input: { due: number; textable: number; months: number }): TeaserCopy {
   if (input.due <= 0) {
     return {

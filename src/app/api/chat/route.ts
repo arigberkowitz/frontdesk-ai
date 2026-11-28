@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { getClientForChat } from "@/lib/data/clients";
+import { getClientForChatByKey } from "@/lib/data/clients";
 import { buildPromptForClient } from "@/lib/agent-publish";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { agentToolUrl } from "@/lib/retell";
@@ -9,13 +9,21 @@ import { CHAT_SIGNATURE_HEADER, agentToolHeaders, signChatToolRequest } from "@/
 import { CHAT_MODEL, getAnthropic } from "@/lib/agents/anthropic";
 import { consumeAttempt } from "@/lib/rate-limit";
 import { WAF_RATE_LIMIT_IDS, wafRateLimited } from "@/lib/waf-rate-limit";
-import { allowChatTurn } from "@/lib/data/chat-limits";
+import { recordChatTurnOutcome, startChatTurn } from "@/lib/data/chat-limits";
+import { planAccessFor } from "@/lib/plan-access";
 import { chatChannelPreamble, chatGreeting, nowLine } from "@/lib/chat/prompt";
 import { chatTools } from "@/lib/chat/tools";
 import {
+  isWidgetKey,
+  originAllowed,
+  safeConversationId,
+  widgetLang,
+  widgetSettings,
+} from "@/lib/chat/widget-access";
+import {
   MAX_TOOL_ROUNDS,
   confirmedBy,
-  corsHeaders,
+  sameOriginHeaders,
   sanitizeTurns,
   submittedCode,
   successClaim,
@@ -29,23 +37,31 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
- * The website chat receptionist.
+ * The website chat receptionist (Pro plan).
  *
- * Same knowledge, same booking tools, same personality as the phone agent —
- * on the business's own website. The market said this was the second-biggest
- * thing competitors ship that we didn't, and every ingredient was already
- * here: the prompt builder, the tool endpoints, an Anthropic client. This
- * route is the loop that connects them.
+ * Same knowledge, same booking tools, same guardrails as the phone agent, on
+ * the business's own website. The prompt builder, the tool endpoints and the
+ * Anthropic client already existed; this route is the loop that connects them.
  *
- * Public by necessity: it is called from other people's websites by visitors
- * with no account here. So it defends itself — the business must have turned
- * the widget on, the transcript is sanitized before the model sees it, tool
- * rounds are capped, and every IP is rate-limited. Tools are called over HTTP
+ * Who can reach it (src/lib/chat/widget-access.ts):
+ *  - Only our own widget frame (/widget/frame, served from this origin and
+ *    embedded in an iframe on the business's site). The request must carry our
+ *    own Origin; there are no CORS grants, so a script on someone else's page
+ *    can't call this directly.
+ *  - The business is found by its public widget key, must have the chat turned
+ *    on, be active, and be on a plan that includes website_chat.
+ *  - The page embedding the frame must be on the owner's allowed-domains list
+ *    (the frame's CSP frame-ancestors enforces that in the browser; this
+ *    re-checks the origin the frame reports).
+ *
+ * Then it defends its spend: the transcript is sanitized and length-capped
+ * before the model sees it, tool rounds are capped, every IP is rate-limited,
+ * and each business has a durable daily turn cap. Tools are called over HTTP
  * against our own agent-tool endpoints with the client's own tool token plus a
  * per-client chat signature (x-frontdesk-chat-signature), so a chat booking is
- * checked, written, texted and webhooked exactly like a phone booking — and
- * the endpoints know for certain it came from web chat, not a phone call.
- * Nothing here is a second copy of booking logic.
+ * checked, written, texted and webhooked exactly like a phone booking, and a
+ * chat lead lands in the same Leads list with the same owner alert. Nothing
+ * here is a second copy of booking logic.
  */
 
 /**
@@ -56,6 +72,8 @@ export const maxDuration = 60;
  */
 const RATE_LIMIT_PER_10_MIN = 20;
 const RATE_LIMIT_PER_IP_PER_CLIENT_PER_DAY = 80;
+/** Largest request body we'll parse. 30 turns × 2,000 chars fits with room. */
+const MAX_BODY_BYTES = 80_000;
 /** Tools that write something or notify someone: book, cancel, message, waitlist. */
 const SIDE_EFFECT_TOOLS = new Set(["book", "cancel", "message", "waitlist"]);
 const SIDE_EFFECTS_PER_IP_PER_HOUR = 6;
@@ -70,14 +88,22 @@ function ip(req: Request): string {
   );
 }
 
-export async function OPTIONS(req: Request): Promise<Response> {
-  return new Response(null, { status: 204, headers: corsHeaders(req.headers.get("origin")) });
+function appOrigin(): string {
+  try {
+    return new URL(env.APP_URL).origin;
+  } catch {
+    return "";
+  }
+}
+
+/** No CORS grant: only our own frame (same origin) may call this. */
+export async function OPTIONS(): Promise<Response> {
+  return new Response(null, { status: 204, headers: sameOriginHeaders() });
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const cors = corsHeaders(req.headers.get("origin"));
   const json = (body: unknown, status = 200) =>
-    Response.json(body, { status, headers: { ...cors, "cache-control": "no-store" } });
+    Response.json(body, { status, headers: sameOriginHeaders() });
 
   if (await wafRateLimited(WAF_RATE_LIMIT_IDS.chat, { request: req })) {
     return json({ error: "Too many messages — give it a minute." }, 429);
@@ -87,24 +113,55 @@ export async function POST(req: Request): Promise<Response> {
     return json({ error: "Too many messages — give it a minute." }, 429);
   }
 
-  let body: { clientId?: unknown; messages?: unknown };
+  // Our frame only. A browser always sends Origin on a cross-origin POST and
+  // on a same-origin fetch POST, so a third-party page can't pass as us.
+  const self = appOrigin();
+  if (!self || req.headers.get("origin") !== self) {
+    return json({ error: "Chat isn't available here." }, 403);
+  }
+
+  const declared = Number(req.headers.get("content-length") ?? "0");
+  if (declared > MAX_BODY_BYTES) return json({ error: "That message is too long." }, 413);
+  let raw: string;
   try {
-    body = (await req.json()) as typeof body;
+    raw = await req.text();
   } catch {
     return json({ error: "Chat isn't available right now." }, 400);
   }
-  const clientId = typeof body.clientId === "string" ? body.clientId : "";
-  if (!/^[0-9a-f-]{36}$/i.test(clientId)) return json({ error: "Chat isn't available right now." }, 400);
+  if (raw.length > MAX_BODY_BYTES) return json({ error: "That message is too long." }, 413);
+  let body: { key?: unknown; messages?: unknown; parent?: unknown; lang?: unknown; conversationId?: unknown };
+  try {
+    body = JSON.parse(raw) as typeof body;
+  } catch {
+    return json({ error: "Chat isn't available right now." }, 400);
+  }
+  if (!body || typeof body !== "object" || !isWidgetKey(body.key)) {
+    return json({ error: "Chat isn't available right now." }, 400);
+  }
 
-  const client = await getClientForChat(clientId);
+  const client = await getClientForChatByKey(body.key);
   if (!client || !CHAT_STATUSES.has(client.status)) {
     return json({ error: "Chat isn't available for this business." }, 404);
   }
+  const settings = widgetSettings(client.setupFlags);
+  const parent = typeof body.parent === "string" ? body.parent.slice(0, 300) : null;
+  if (!originAllowed(parent, settings.domains, self)) {
+    logger.warn("chat.origin_refused", { clientId: client.id, parent });
+    return json({ error: "Chat isn't set up for this website yet." }, 403);
+  }
+  // Pro only, checked on every request: a downgrade turns the chat off at once.
+  const access = await planAccessFor(client);
+  if (!access.has("website_chat")) {
+    return json({ error: "Chat isn't available for this business.", code: "plan" }, 403);
+  }
+
   const visitor = ip(req);
+  const lang = widgetLang(body.lang);
+  const conversationId = safeConversationId(body.conversationId);
 
   const anthropic = getAnthropic();
   if (!anthropic) {
-    logger.error("chat.no_model", { clientId });
+    logger.error("chat.no_model", { clientId: client.id });
     return json({ error: "Chat is temporarily unavailable." }, 503);
   }
 
@@ -113,9 +170,8 @@ export async function POST(req: Request): Promise<Response> {
   const agentName = client.agentName?.trim() || DEFAULT_AGENT_NAME;
   if (!turns) {
     return json({
-      reply: chatGreeting({ businessName: client.name, agentName }),
+      reply: chatGreeting({ businessName: client.name, agentName, lang }),
       messages: [],
-      // The widget titles itself from this so the embed needs nothing but an id.
       business: { name: client.name, agent: agentName },
     });
   }
@@ -124,12 +180,13 @@ export async function POST(req: Request): Promise<Response> {
   if (!consumeAttempt(`chat:${visitor}:${client.id}`, RATE_LIMIT_PER_IP_PER_CLIENT_PER_DAY, 24 * 3600_000).ok) {
     return json({ error: "Too many messages today — please call the business instead." }, 429);
   }
-  if (!(await allowChatTurn(client.id))) {
+  const turn = await startChatTurn(client.id, conversationId);
+  if (!turn.ok) {
     return json({ error: "Chat is busy right now — please call the business instead." }, 429);
   }
 
   const system =
-    chatChannelPreamble({ businessName: client.name, agentName }) +
+    chatChannelPreamble({ businessName: client.name, agentName, lang }) +
     nowLine(client.timezone) +
     "\n\n" +
     buildPromptForClient(client);
@@ -145,6 +202,7 @@ export async function POST(req: Request): Promise<Response> {
   const confirmed = new Set<ClaimKind>();
   const attempted = new Set<string>();
   let retried = false;
+  const outcome = { leads: 0, bookings: 0 };
   // A typed cancel code always reaches cancel_appointment (prod Oct 14: Riley
   // said "cancelled" on the code turn without calling anything).
   const codeTurn = submittedCode(turns) !== null && byName.has("cancel_appointment");
@@ -210,6 +268,10 @@ export async function POST(req: Request): Promise<Response> {
           attempted.add(use.name);
           output = await callTool(tool.path, client.id, use.input, visitor);
           for (const k of confirmedBy(use.name, output)) confirmed.add(k);
+          if (toolSucceeded(output)) {
+            if (use.name === "take_message") outcome.leads += 1;
+            if (use.name === "book_appointment") outcome.bookings += 1;
+          }
         }
         results.push({ type: "tool_result", tool_use_id: use.id, content: output });
       }
@@ -223,9 +285,19 @@ export async function POST(req: Request): Promise<Response> {
     return json({ error: "Something went wrong on our end. Try again in a moment." }, 500);
   }
 
-  logger.info("chat.turn", { clientId: client.id, turns: turns.length });
+  logger.info("chat.turn", { clientId: client.id, turns: turns.length, ...outcome });
+  await recordChatTurnOutcome(client.id, turn.runId, outcome);
   const out: ChatTurn[] = [...turns, { role: "assistant", content: reply }];
-  return json({ reply, messages: out });
+  return json({ reply, messages: out, events: { lead: outcome.leads > 0, booking: outcome.bookings > 0 } });
+}
+
+/** A tool result that explicitly says `success: true`. */
+function toolSucceeded(output: string): boolean {
+  try {
+    return (JSON.parse(output) as { success?: unknown })?.success === true;
+  } catch {
+    return false;
+  }
 }
 
 /**

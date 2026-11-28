@@ -93,6 +93,50 @@ export async function getClientForChat(clientId: string) {
   });
 }
 
+/**
+ * The website-chat lookup by the public widget key in the embed snippet
+ * (setup_flags.chatWidget.key). Same shape and same "turned on, not deleted"
+ * gate as getClientForChat. The key is validated by the caller first, and is
+ * passed as a bound parameter.
+ */
+export async function getClientForChatByKey(key: string) {
+  const row = await db
+    .select({ id: clients.id })
+    .from(clients)
+    .where(
+      and(
+        sql`${clients.setupFlags}->'chatWidget'->>'key' = ${key}`,
+        eq(clients.chatWidgetEnabled, true),
+        isNull(clients.deletedAt),
+      ),
+    )
+    .limit(1);
+  const id = row[0]?.id;
+  return id ? getClientForChat(id) : undefined;
+}
+
+/** Just enough to render the widget frame: name, agent name, plan inputs, allow-list. */
+export async function getWidgetFrameClient(key: string) {
+  const [row] = await db
+    .select({
+      id: clients.id,
+      name: clients.name,
+      agentName: clients.agentName,
+      status: clients.status,
+      setupFlags: clients.setupFlags,
+    })
+    .from(clients)
+    .where(
+      and(
+        sql`${clients.setupFlags}->'chatWidget'->>'key' = ${key}`,
+        eq(clients.chatWidgetEnabled, true),
+        isNull(clients.deletedAt),
+      ),
+    )
+    .limit(1);
+  return row;
+}
+
 /** Throw unless the client exists and belongs to the org. Returns the row. */
 export async function assertClientInOrg(orgId: string, clientId: string): Promise<Client> {
   const row = await db.query.clients.findFirst({

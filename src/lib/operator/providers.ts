@@ -2,6 +2,7 @@ import "server-only";
 import twilio from "twilio";
 import { env, integrations, webhookUrl } from "@/lib/env";
 import { getRetellClient } from "@/lib/retell";
+import { agentBindings } from "@/lib/retell-outbound";
 import { getStripe } from "@/lib/stripe";
 import { decryptSecret } from "@/lib/crypto";
 import { revokeGoogleToken } from "@/lib/google-calendar";
@@ -72,7 +73,7 @@ export function liveProviders(): OperatorProviders & OrphanProviders {
     retellRebindNumber: (phone, agentId) =>
       gone(() =>
         getRetellClient().phoneNumber.update(phone, {
-          inbound_agents: [{ agent_id: agentId, weight: 1 }],
+          ...agentBindings(agentId),
           inbound_webhook_url: webhookUrl("/api/webhooks/retell"),
         }),
       ),

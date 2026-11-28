@@ -6,6 +6,12 @@ import { notifyOwnerLead } from "@/lib/notify";
 import { leadAlertDeferredToRecap } from "@/lib/call-recap";
 import { emitWebhook } from "@/lib/webhooks-emit";
 import { after } from "next/server";
+import { recordSmsConsent } from "@/lib/data/sms-consents";
+import { normalizeCustomerLanguage } from "@/lib/languages";
+import { planAccessFor } from "@/lib/plan-access";
+import { quoteConsentAskOn, quoteConsentWordingFor } from "@/lib/revenue/quote-consent";
+import { parseSettings as parseQuoteSettings } from "@/lib/revenue/quote-followup";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -45,6 +51,29 @@ export async function POST(req: Request): Promise<Response> {
     serviceAddress: String(args.service_address ?? "").trim().slice(0, 300) || null,
     status: "new",
   });
+
+  // "Can we text you about your quote?" (quote-consent.ts). Only on a phone
+  // call, only when the AI says the caller clearly said yes, and only when the
+  // owner's switches allow the ask RIGHT NOW (Pro + quote follow-up + ask on).
+  // A stale prompt from before the owner switched it off records nothing.
+  const textConsent = args.text_consent === true || String(args.text_consent ?? "") === "true";
+  if (textConsent && phone && channel === "voice") {
+    const access = await planAccessFor(client).catch(() => null);
+    const askOn = quoteConsentAskOn({
+      planAllows: access ? access.has("quote_followup") : false,
+      settings: parseQuoteSettings(client.setupFlags),
+    });
+    if (askOn) {
+      await recordSmsConsent({
+        clientId: client.id,
+        phone,
+        callId: callRow?.id ?? null,
+        wording: quoteConsentWordingFor(normalizeCustomerLanguage(String(args.language ?? "")) ?? null),
+      });
+    } else {
+      logger.info("agent-tools.message.quote_consent_ignored", { clientId: client.id });
+    }
+  }
 
   // On a phone call, the alert waits for the call to end: the call recap
   // (lib/call-recap.ts) then sends ONE alert with who called, what they want,

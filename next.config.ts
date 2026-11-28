@@ -31,8 +31,15 @@ const nextConfig: NextConfig = {
         // Baseline hardening for every page: no framing (clickjacking on the
         // portal), no MIME sniffing, no full URLs leaked to other sites, and no
         // camera/location access. The mic stays allowed for the browser test call.
-        source: "/:path*",
+        // The website chat iframe is the one route other sites may frame, so
+        // it is excluded here and sets its own CSP frame-ancestors (the owner's
+        // allowed domains) in src/app/widget/frame/route.ts.
+        source: "/:path((?!widget/frame$).*)",
         headers: SECURITY_HEADERS,
+      },
+      {
+        source: "/widget/frame",
+        headers: SECURITY_HEADERS.filter((h) => h.key !== "X-Frame-Options"),
       },
       {
         // The push service worker: always revalidate so a fix reaches phones on

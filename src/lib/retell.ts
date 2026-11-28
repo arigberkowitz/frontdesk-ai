@@ -5,6 +5,7 @@ import { env, integrations } from "./env";
 import { toE164 } from "@/lib/format";
 import { logger } from "./logger";
 import { agentToolHeaders } from "./agent-tool-token";
+import { agentBindings } from "./retell-outbound";
 import { isElevenLabsVoice, isUsableVoice, isUsableVoiceId, voiceProviderOf } from "@/config/voice";
 import {
   MULTILINGUAL_VOICE_MODEL,
@@ -193,6 +194,8 @@ export function buildAgentTools(
   waitlistEnabled = false,
   /** On-call number emergencies go to at ANY hour (null: urgent message instead). */
   emergencyNumber?: string | null,
+  /** The owner turned on "ask price callers if we can text them" (and Pro + quote follow-up are on). */
+  quoteTextConsent = false,
 ) {
   const transferTo = toE164(escalationNumber);
   const emergencyTo = toE164(emergencyNumber);
@@ -312,6 +315,19 @@ export function buildAgentTools(
             description:
               "true ONLY for a genuine emergency (flooding, burst pipe, no heat, gas smell, no power, a safety problem). The owner is texted and emailed immediately.",
           },
+          ...(quoteTextConsent
+            ? {
+                text_consent: {
+                  type: "boolean",
+                  description:
+                    "Only for a caller who asked about a price or quote and didn't book: true ONLY if you asked the exact quote-text question and they clearly said yes. false if they said no, hesitated, or you didn't ask.",
+                },
+                language: {
+                  type: "string",
+                  description: "Code of the language you asked in, e.g. \"en\" or \"es\".",
+                },
+              }
+            : {}),
         },
         required: ["name", "phone"],
       },
@@ -429,6 +445,8 @@ export interface ProvisionAgentInput {
   waitlistEnabled?: boolean;
   /** On-call number for 24/7 emergency transfers (see emergencyTransferFor). */
   emergencyNumber?: string | null;
+  /** Attach text_consent to take_message (quote-consent.ts). Must match the prompt. */
+  quoteTextConsent?: boolean;
   /** Client languages setting (see lib/languages.ts). Decides the agent's speech model. */
   languages?: string | null;
   /** Business IANA timezone; sets the agent clock for {{current_time}}. */
@@ -532,6 +550,7 @@ export async function provisionAgentForClient(
     input.openHoursNote,
     input.waitlistEnabled ?? false,
     input.emergencyNumber,
+    input.quoteTextConsent ?? false,
   );
 
   // 1. LLM — create or update by stored id.
@@ -597,12 +616,12 @@ export async function provisionAgentForClient(
       // Reserved: nothing to buy yet, and nothing went wrong.
     } else if (phoneNumber) {
       await client.phoneNumber.update(phoneNumber, {
-        inbound_agents: [{ agent_id: agentId, weight: 1 }],
+        ...agentBindings(agentId),
         inbound_webhook_url: input.webhookUrl,
       });
     } else {
       const pn = await client.phoneNumber.create({
-        inbound_agents: [{ agent_id: agentId, weight: 1 }],
+        ...agentBindings(agentId),
         inbound_webhook_url: input.webhookUrl,
         area_code: input.areaCode,
         nickname: `${input.agentName} (${input.clientId.slice(0, 8)})`,

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   REVIEW_DELAY_HOURS,
   REVIEW_MAX_AGE_HOURS,
+  reviewDelayOf,
   reviewRequestBody,
   shouldAskForReview,
   visitHappened,
@@ -108,5 +109,31 @@ describe("reviewRequestBody", () => {
   it("caps hostile field lengths — these come off phone calls", () => {
     const body = reviewRequestBody({ ...base, customerName: "A".repeat(500) });
     expect(body.length).toBeLessThan(300);
+  });
+});
+
+describe("owner-set delay", () => {
+  it("defaults to 2 hours after the visit ends", () => {
+    expect(shouldAskForReview(candidate({ endAt: hoursAgo(2.5) }), NOW)).toBe(true);
+    expect(shouldAskForReview(candidate({ endAt: hoursAgo(1.5) }), NOW)).toBe(false);
+  });
+  it("waits as long as the owner asked", () => {
+    expect(shouldAskForReview(candidate({ endAt: hoursAgo(5) }), NOW, 6)).toBe(false);
+    expect(shouldAskForReview(candidate({ endAt: hoursAgo(7) }), NOW, 6)).toBe(true);
+  });
+  it("reads the saved delay and ignores anything off the menu", () => {
+    expect(reviewDelayOf({ reviewDelayHours: 6 })).toBe(6);
+    expect(reviewDelayOf({ reviewDelayHours: 5 })).toBe(2);
+    expect(reviewDelayOf(null)).toBe(2);
+  });
+});
+
+describe("no review gating", () => {
+  it("asks everyone the same way, with no 'were you happy' condition", () => {
+    for (const language of ["en", "es"]) {
+      const body = reviewRequestBody({ businessName: "Acme", customerName: "Sam", reviewUrl: "https://g.page/r/x", language });
+      expect(body).not.toMatch(/\bif\b|happy|satisf|did right|si le atendimos|contento/i);
+      expect(body).toContain("https://g.page/r/x");
+    }
   });
 });

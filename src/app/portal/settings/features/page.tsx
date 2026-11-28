@@ -60,6 +60,7 @@ export default async function PortalSettingsFeaturesPage({
     smartRebookingEnabled: client.smartRebookingEnabled,
     outboundRecoveryEnabled: client.outboundRecoveryEnabled,
     reviewRequestsEnabled: client.reviewRequestsEnabled,
+    reviewRequestsAllowed: access ? access.has("review_requests") : true,
     reviewUrl: client.reviewUrl ?? null,
     recallEnabled: client.recallEnabled,
     recallServiceCount: clientServices.filter((s) => s.recallIntervalDays).length,
@@ -72,6 +73,7 @@ export default async function PortalSettingsFeaturesPage({
     morningUnbookedTextEnabled: flags.morningUnbookedText === true,
     ownerEmail: client.ownerEmail?.trim() || null,
     chatWidgetEnabled: client.chatWidgetEnabled,
+    chatWidgetAllowed: access ? access.has("website_chat") : true,
   };
 
   return (

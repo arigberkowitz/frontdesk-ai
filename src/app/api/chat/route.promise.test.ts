@@ -15,11 +15,15 @@ vi.stubGlobal("fetch", fetchSpy);
 vi.mock("@/lib/env", () => ({ env: { APP_URL: "https://app.test", AGENT_TOOLS_SECRET: "s" } }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/data/clients", () => ({
-  getClientForChat: async () => ({ id: CLIENT_ID, name: "Acme", status: "live", agentName: "Riley", waitlistEnabled: false, timezone: "America/Los_Angeles" }),
+  getClientForChatByKey: async () => ({ setupFlags: { chatWidget: { key: "fdw_testkeytestkeytestkey1234", domains: ["acme.example"] } }, id: CLIENT_ID, name: "Acme", status: "live", agentName: "Riley", waitlistEnabled: false, timezone: "America/Los_Angeles" }),
 }));
 vi.mock("@/lib/agent-publish", () => ({ buildPromptForClient: () => "" }));
 vi.mock("@/lib/agents/anthropic", () => ({ CHAT_MODEL: "m", getAnthropic: () => ({ messages: { create } }) }));
-vi.mock("@/lib/data/chat-limits", () => ({ allowChatTurn: async () => true }));
+vi.mock("@/lib/data/chat-limits", () => ({
+  startChatTurn: async () => ({ ok: true, runId: null }),
+  recordChatTurnOutcome: async () => {},
+}));
+vi.mock("@/lib/plan-access", () => ({ planAccessFor: async () => ({ has: () => true }) }));
 
 const { POST } = await import("./route");
 
@@ -27,8 +31,8 @@ describe("chat never promises a code without sending it", () => {
   it("forces cancel_appointment when the model only announces the send", async () => {
     const res = await POST(new Request("https://app.test/api/chat", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-forwarded-for": "198.51.100.7" },
-      body: JSON.stringify({ clientId: CLIENT_ID, messages: [{ role: "user", content: "cancel my booking for 415-747-5690" }] }),
+      headers: { "content-type": "application/json", origin: "https://app.test", "x-forwarded-for": "198.51.100.7" },
+      body: JSON.stringify({ key: "fdw_testkeytestkeytestkey1234", parent: "https://acme.example", messages: [{ role: "user", content: "cancel my booking for 415-747-5690" }] }),
     }));
     const body = await res.json();
     expect(calls[1].tool_choice).toEqual({ type: "tool", name: "cancel_appointment" });

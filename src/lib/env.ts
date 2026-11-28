@@ -34,6 +34,9 @@ export const env = {
   TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID ?? "",
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN ?? "",
   TWILIO_FROM_NUMBER: process.env.TWILIO_FROM_NUMBER ?? "",
+  // Optional: the number "Test my forwarding" dials FROM. Falls back to
+  // TWILIO_FROM_NUMBER. Must be a voice-capable number in our Twilio account.
+  FORWARDING_TEST_FROM_NUMBER: process.env.FORWARDING_TEST_FROM_NUMBER ?? "",
   CALCOM_API_KEY: process.env.CALCOM_API_KEY ?? "",
   CALCOM_EVENT_TYPE_ID: process.env.CALCOM_EVENT_TYPE_ID ?? "",
   // Encryption key for per-client calendar credentials stored at rest.
@@ -149,6 +152,12 @@ export const integrations = {
   resend: () => Boolean(env.RESEND_API_KEY),
   twilio: () =>
     Boolean(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM_NUMBER),
+  forwardingTest: () =>
+    Boolean(
+      env.TWILIO_ACCOUNT_SID &&
+        env.TWILIO_AUTH_TOKEN &&
+        (env.FORWARDING_TEST_FROM_NUMBER || env.TWILIO_FROM_NUMBER),
+    ),
   calcom: () => Boolean(env.CALCOM_API_KEY),
   google: () => Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
   microsoft: () => Boolean(env.MS_CLIENT_ID && env.MS_CLIENT_SECRET),

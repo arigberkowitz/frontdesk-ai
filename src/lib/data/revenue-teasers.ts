@@ -1,13 +1,16 @@
 import "server-only";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { clientSmsOptOuts, smsOptOuts, type Client } from "@/db/schema";
+import { appointments, clientSmsOptOuts, smsOptOuts, type Client } from "@/db/schema";
 import { logger } from "@/lib/logger";
 import { getConsentedPhones, isConsented } from "@/lib/data/sms-consents";
 import { normalizePhone } from "@/lib/data/sms-optouts";
 import { pastCustomers, upcomingPhoneKeys } from "@/lib/agents/winback";
 import { phoneKey } from "@/lib/revenue-texts";
-import { winbackTeaser, type TeaserCopy } from "@/lib/revenue-teasers";
+import { quoteTeaser, reviewTeaser, winbackTeaser, type TeaserCopy } from "@/lib/revenue-teasers";
+import { reviewRequestBody } from "@/lib/review-requests";
+import { loadQuoteCandidates } from "@/lib/revenue/quote-followup-data";
+import { renderFollowup } from "@/lib/revenue/quote-followup";
 import { isDueForWinback, winbackBody, winbackSettingsOf } from "@/lib/winback";
 
 /**
@@ -35,7 +38,7 @@ export async function optedOutKeys(clientId: string, phones: string[]): Promise<
   return new Set([...global, ...scoped].map((r) => phoneKey(r.phone)).filter((k): k is string => Boolean(k)));
 }
 
-async function textableCount(clientId: string, phones: string[], purpose: "winback"): Promise<number> {
+async function textableCount(clientId: string, phones: string[], purpose: "winback" | "review_request" | "quote_followup"): Promise<number> {
   if (phones.length === 0) return 0;
   const [consented, stopped] = await Promise.all([
     getConsentedPhones(clientId, purpose),
@@ -70,5 +73,64 @@ export async function winbackTeaserFor(client: Client, now = new Date()): Promis
       error: err instanceof Error ? err.message : String(err),
     });
     return { ...winbackTeaser({ due: 0, textable: 0, months: settings.months }), preview };
+  }
+}
+
+const REVIEW_TEASER_DAYS = 30;
+
+/** Booked visits that ended in the last 30 days, one per customer: each could have been asked. */
+export async function reviewTeaserFor(client: Client, now = new Date()): Promise<Teaser> {
+  const preview = reviewRequestBody({
+    businessName: client.name,
+    customerName: null,
+    reviewUrl: client.reviewUrl?.trim() || "[your Google review link]",
+  });
+  try {
+    const rows = await db
+      .select({ phone: appointments.customerPhone })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.clientId, client.id),
+          inArray(appointments.status, ["booked", "confirmed"]),
+          gte(appointments.startAt, new Date(now.getTime() - REVIEW_TEASER_DAYS * 86_400_000)),
+          lte(appointments.startAt, now),
+          isNull(appointments.deletedAt),
+        ),
+      )
+      .limit(5_000);
+    const byPhone = new Map<string, string>();
+    for (const r of rows) {
+      const key = phoneKey(r.phone);
+      if (key && !byPhone.has(key)) byPhone.set(key, r.phone!);
+    }
+    const phones = [...byPhone.values()];
+    const textable = await textableCount(client.id, phones, "review_request");
+    return { ...reviewTeaser({ visits: phones.length, textable, days: REVIEW_TEASER_DAYS }), preview };
+  } catch (err) {
+    logger.warn("revenue_teaser.reviews_failed", {
+      clientId: client.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { ...reviewTeaser({ visits: 0, textable: 0, days: REVIEW_TEASER_DAYS }), preview };
+  }
+}
+
+const QUOTE_TEASER_DAYS = 30;
+
+/** Callers in the last 30 days who asked for a price and never booked. */
+export async function quoteTeaserFor(client: Client, now = new Date()): Promise<Teaser> {
+  const preview = renderFollowup({ step: 1, businessName: client.name, customerName: null, language: "en" });
+  try {
+    const cands = (await loadQuoteCandidates(client, now, QUOTE_TEASER_DAYS)) ?? [];
+    const neverBooked = cands.filter((c) => !c.facts.bookedSince && !c.facts.hasUpcoming);
+    const textable = await textableCount(client.id, neverBooked.map((c) => c.phone), "quote_followup");
+    return { ...quoteTeaser({ asked: neverBooked.length, textable, days: QUOTE_TEASER_DAYS }), preview };
+  } catch (err) {
+    logger.warn("revenue_teaser.quote_failed", {
+      clientId: client.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { ...quoteTeaser({ asked: 0, textable: 0, days: QUOTE_TEASER_DAYS }), preview };
   }
 }

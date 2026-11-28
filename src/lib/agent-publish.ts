@@ -13,6 +13,8 @@ import { agentConversationSettings, agentSpeechSettings, buildAgentTools, getRet
 import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { planAccessFor } from "@/lib/plan-access";
+import { quoteConsentAskOn } from "@/lib/revenue/quote-consent";
+import { parseSettings as parseQuoteSettings } from "@/lib/revenue/quote-followup";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, subscriptions } from "@/db/schema";
@@ -27,7 +29,11 @@ import { onBillingHold } from "@/lib/billing-hold";
  * live transfer tool attached — the setting was half-wired, and the half that
  * was wrong is the half that rings somebody's phone at eleven at night.
  */
-export function agentToolsFor(client: ClientWithRelations, clientId: string) {
+export function agentToolsFor(
+  client: ClientWithRelations,
+  clientId: string,
+  opts: { quoteConsentAsk?: boolean } = {},
+) {
   return buildAgentTools(
     env.APP_URL,
     clientId,
@@ -36,7 +42,30 @@ export function agentToolsFor(client: ClientWithRelations, clientId: string) {
     openHoursSummary(client.businessHours),
     client.waitlistEnabled,
     emergencyTransferFor(client),
+    opts.quoteConsentAsk ?? false,
   );
+}
+
+/**
+ * The plan-dependent parts of the live agent, resolved once per publish so the
+ * prompt and the tools always agree:
+ *  - staff mode is Pro only
+ *  - the "can we text you about your quote?" ask is on only with Pro + quote
+ *    follow-up on + the owner's separate switch on (default off)
+ * Unknown plan (lookup failed) fails open for staff (as before) but CLOSED for
+ * the quote ask: an AI asking callers to be texted needs a positive yes.
+ */
+export async function agentPlanOptions(
+  client: Pick<ClientWithRelations, "id" | "status" | "setupFlags">,
+): Promise<{ staffAllowed: boolean; quoteConsentAsk: boolean }> {
+  const access = await planAccessFor(client).catch(() => null);
+  return {
+    staffAllowed: access ? access.has("staff_mode") : true,
+    quoteConsentAsk: quoteConsentAskOn({
+      planAllows: access ? access.has("quote_followup") : false,
+      settings: parseQuoteSettings(client.setupFlags),
+    }),
+  };
 }
 
 /**
@@ -54,7 +83,7 @@ export function emergencyTransferFor(
 /** Rebuild the Retell general prompt from a client's current data (§B5). */
 export function buildPromptForClient(
   client: ClientWithRelations,
-  opts: { staffAllowed?: boolean } = {},
+  opts: { staffAllowed?: boolean; quoteConsentAsk?: boolean } = {},
 ): string {
   const staffAllowed = opts.staffAllowed ?? true;
   return buildGeneralPrompt({
@@ -81,6 +110,7 @@ export function buildPromptForClient(
       bookingEnabled: getBookingProviderForClient(client).isConfigured(),
       emergencyTransfer247: emergencyTransferFor(client) != null,
       tripFeeCents: client.tripFeeCents,
+      quoteTextConsentAsk: opts.quoteConsentAsk === true,
     },
     services: client.services,
     hours: client.businessHours,
@@ -169,19 +199,18 @@ export async function syncAgentPrompt(orgId: string, clientId: string): Promise<
     });
   }
 
+  const planOpts = await agentPlanOptions(client);
   await getRetellClient().llm.update(client.retellLlmId, {
     // Staff mode is a Pro feature: a cheaper plan never gets per-person booking
     // on the live line, whatever the flag says.
-    general_prompt: buildPromptForClient(client, {
-      staffAllowed: (await planAccessFor(client)).has("staff_mode"),
-    }),
+    general_prompt: buildPromptForClient(client, planOpts),
     // The greeting with the AI/recording disclosure enforced — a custom
     // greeting can add to it but can't drop it.
     begin_message: openingLine(client),
     // Rebuild tools too: an escalation-number change swaps between the native
     // transfer tool and the message-taking fallback — without this, the live
     // agent keeps the old transfer behavior until a full re-provision.
-    general_tools: agentToolsFor(client, clientId),
+    general_tools: agentToolsFor(client, clientId, planOpts),
   });
   return true;
 }

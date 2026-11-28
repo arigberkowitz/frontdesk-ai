@@ -113,13 +113,17 @@ export async function setSetupFlagAction(
     return { ok: false, error: "Unknown setting." };
   }
 
-  const client = await db.query.clients.findFirst({
-    where: eq(clients.id, clientId),
-    columns: { setupFlags: true },
-  });
+  // Merge just this key (not read-modify-write) so a forwarding test finishing
+  // at the same moment isn't clobbered. Switching forwarding OFF also forgets
+  // when it was last proven: that proof no longer describes the line.
   await db
     .update(clients)
-    .set({ setupFlags: { ...(client?.setupFlags ?? {}), [flag]: value } })
+    .set({
+      setupFlags:
+        flag === "forwardingDone" && !value
+          ? sql`(coalesce(${clients.setupFlags}, '{}'::jsonb) || jsonb_build_object('forwardingDone', false)) - 'forwardingVerifiedAt'`
+          : sql`coalesce(${clients.setupFlags}, '{}'::jsonb) || jsonb_build_object(${flag}::text, ${value}::boolean)`,
+    })
     .where(eq(clients.id, clientId));
   revalidatePath("/portal", "layout");
   return {
@@ -130,8 +134,8 @@ export async function setSetupFlagAction(
           ? "Skipped for now — your AI takes messages instead of booking. Connect a calendar anytime to unlock live booking."
           : "Calendar step reopened."
         : value
-          ? "Forwarding confirmed — calls to your business line now reach your AI."
-          : "Forwarding step reopened.",
+          ? "Forwarding is marked on. Tap Test my forwarding to make sure calls really reach your AI."
+          : "Forwarding is marked off here. To stop forwarding at your phone company too, dial the turn-off code shown on this page from your business phone.",
   };
 }
 

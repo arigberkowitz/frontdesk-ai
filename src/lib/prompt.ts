@@ -3,6 +3,7 @@ import { DAYS } from "@/config/options";
 import { formatCurrencyCents } from "./format";
 import { hasCustomVocab, isFieldService, vocabFor } from "./vocab";
 import { languagePromptRules, parseLanguages } from "./languages";
+import { quoteConsentPromptRule } from "./revenue/quote-consent";
 
 /**
  * Builds the Retell LLM `general_prompt` from a client's profile, services,
@@ -47,6 +48,12 @@ export interface PromptClient {
   emergencyTransfer247?: boolean;
   /** Flat trip / service-call fee in cents, quoted as an estimate. */
   tripFeeCents?: number | null;
+  /**
+   * Ask price/quote callers who don't book whether we may text them
+   * (lib/revenue/quote-consent.ts). Only true when the business is on Pro, quote
+   * follow-up is on, AND the owner turned this ask on. Default off.
+   */
+  quoteTextConsentAsk?: boolean;
 }
 
 export interface PromptService {
@@ -448,6 +455,12 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
       : null,
     canBook && services.some((s) => s.isActive && serviceLocation(s).type === "phone")
       ? "Some services are phone calls (marked in the services list): the team calls the customer. Confirm the number to call, and tell them we'll call that number at the appointment time."
+      : null,
+    // Owner-controlled (Settings → Follow-ups → Quote follow-up). Off unless
+    // the owner turned it on, so a business that didn't ask for it never has
+    // its AI asking callers to be texted.
+    client.quoteTextConsentAsk === true
+      ? quoteConsentPromptRule({ spanish: parseLanguages(client.languages).includes("es") })
       : null,
     "If the caller wants to cancel an appointment: use cancel_appointment (it finds the booking by the number they're calling from; for their security it can't cancel a booking made under a different number — if so, take a message so the team can call that number back). Read the appointment back and get a clear yes before cancelling, then confirm it's done and offer to rebook them for another time.",
     handoffMode === "never"
