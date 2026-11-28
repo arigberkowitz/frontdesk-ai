@@ -60,7 +60,7 @@ export async function saveAgentConfigAction(
     newVoiceId !== existing.voiceId
   ) {
     try {
-      await updateAgentVoice(existing.retellAgentId, newVoiceId || DEFAULT_VOICE_ID);
+      await updateAgentVoice(existing.retellAgentId, newVoiceId || DEFAULT_VOICE_ID, existing.languages);
     } catch (err) {
       revalidatePath(`/clients/${clientId}`);
       return {

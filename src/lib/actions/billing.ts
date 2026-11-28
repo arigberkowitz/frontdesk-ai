@@ -8,7 +8,7 @@ import { audit } from "@/lib/data/audit";
 import { requireClientOwner, requireOperator } from "@/lib/auth-guard";
 import { assertClientInOrg, getClient } from "@/lib/data/clients";
 import { getTrialState } from "@/lib/data/trial";
-import { checkoutTrialEnd } from "@/lib/billing-trial";
+import { checkoutSubscriptionTrialParams } from "@/lib/billing-trial";
 import { getStripe } from "@/lib/stripe";
 import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -117,6 +117,8 @@ export async function startCheckoutAction(
       metadata: { clientId, plan: planKey, interval },
       subscription_data: {
         metadata: { clientId, plan: planKey, interval },
+        // Operator checkout also charges today — never a Stripe trial.
+        ...checkoutSubscriptionTrialParams({ active: false, endsAt: null }),
         ...subscriptionAutomaticTaxParams(),
       },
       ...checkoutAutomaticTaxParams(),
@@ -183,7 +185,9 @@ export async function startSelfServeCheckoutAction(
   }
 
   const recurringAmount = intervalPriceCents(planKey, interval);
-  const trialEnd = checkoutTrialEnd(trialState);
+  // Mid-trial, expired, hold, or a re-subscribe: never a Stripe trial.
+  // "Buy now" / "Start my plan now" charges the first month today.
+  const trialParams = checkoutSubscriptionTrialParams(trialState);
 
   let url: string | null = null;
   try {
@@ -200,8 +204,7 @@ export async function startSelfServeCheckoutAction(
       metadata: { clientId, plan: planKey, interval, selfServe: "true" },
       subscription_data: {
         metadata: { clientId, plan: planKey, interval },
-        // Subscribing early keeps the days left on the free trial.
-        ...(trialEnd ? { trial_end: trialEnd } : {}),
+        ...trialParams,
         ...subscriptionAutomaticTaxParams(),
       },
       ...checkoutAutomaticTaxParams(),
@@ -268,8 +271,9 @@ export async function openBillingPortalAction(
 
 /**
  * Switch a paying business to another plan, in the product, with proration.
- * The Stripe webhook that follows (customer.subscription.updated) stores the
- * new plan, re-applies its limits and republishes the live agent.
+ * Does not attach or extend a Stripe trial. The webhook that follows
+ * (customer.subscription.updated) stores the new plan, re-applies its
+ * limits and republishes the live agent.
  */
 export async function changePlanAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
@@ -346,13 +350,14 @@ export async function changePlanAction(_prev: ActionState, formData: FormData): 
 }
 
 /**
- * End the Stripe free-trial period now and take the first payment today.
+ * End a leftover Stripe trial now and take the first payment today.
  *
- * A business that saves a card during its free trial keeps the trial days
- * (billing-trial.ts) and is first charged when they run out. This is the
- * owner choosing not to wait: Stripe charges the saved card now, and the
- * webhook that follows (subscription "active", then invoice.paid) records it. Only for the business's own owner, and
- * only from a Stripe trial — anything else has nothing to start.
+ * New checkouts no longer start a Stripe trial (billing-trial.ts). This
+ * remains for a business that already has a card on a Stripe trial from
+ * the earlier "keep your remaining days" checkout: Stripe charges the
+ * saved card now, and the webhook that follows (subscription "active",
+ * then invoice.paid) records first_paid_at. Owner-only, and only from a
+ * Stripe trial — anything else has nothing to start.
  */
 export async function startPlanNowAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");

@@ -9,6 +9,7 @@ import { initialActionState } from "@/lib/actions/types";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/form/submit-button";
 import { voicePickerSummary, type VoiceMeta } from "@/config/voice";
+import { displayNameFromVoiceId, voiceIdentityHint } from "@/lib/voice-identity";
 import { cn } from "@/lib/utils";
 
 /**
@@ -28,6 +29,7 @@ export function VoicePicker({
   women,
   men,
   unusableSavedName = null,
+  agentName = null,
 }: {
   clientId: string;
   current: string | null;
@@ -35,6 +37,8 @@ export function VoicePicker({
   men: VoiceMeta[];
   /** Name of a saved voice our agents can't speak with (e.g. an xAI voice). */
   unusableSavedName?: string | null;
+  /** The name callers currently hear in the greeting. */
+  agentName?: string | null;
 }) {
   const [state, action, pending] = useActionState(setVoiceByIdAction, initialActionState);
   // `saved` is what the live agent uses; `value` is the row the owner picked.
@@ -93,6 +97,13 @@ export function VoicePicker({
     selectedName: selected?.name ?? null,
     dirty: Boolean(value) && value !== saved,
     unusableSavedName,
+  });
+  const previousVoiceName = live?.name ?? displayNameFromVoiceId(saved);
+  const nameHint = voiceIdentityHint({
+    dirty: summary.dirty,
+    selectedName: selected?.name ?? null,
+    currentAgentName: agentName,
+    previousVoiceName,
   });
 
   // A plain render function, not a nested component: a component defined
@@ -164,6 +175,7 @@ export function VoicePicker({
     >
       <input type="hidden" name="clientId" value={clientId} />
       <input type="hidden" name="voiceId" value={value} />
+      <input type="hidden" name="voiceName" value={selected?.name ?? ""} />
       <audio
         ref={audioRef}
         preload="none"
@@ -227,6 +239,7 @@ export function VoicePicker({
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
         <p className="text-sm text-muted-foreground" aria-live="polite">
           {summary.hint}
+          {nameHint ? ` ${nameHint}` : null}
         </p>
         <div className="flex items-center gap-2">
           {summary.dirty ? (

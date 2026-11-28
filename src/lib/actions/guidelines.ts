@@ -5,10 +5,11 @@ import { revalidatePath } from "next/cache";
 import { requireClientEditor } from "@/lib/auth-guard";
 import { guidelinesSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg, getClient, updateClient } from "@/lib/data/clients";
-import { isUsableVoiceId, UNUSABLE_VOICE_ERROR } from "@/config/voice";
+import { isUsableVoiceId, isVoiceCompatibleWithLanguages, MULTILINGUAL_VOICE_ERROR, UNUSABLE_VOICE_ERROR, voiceProviderOf } from "@/config/voice";
 import { logger } from "@/lib/logger";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { updateAgentVoice } from "@/lib/retell";
+import { displayNameFromVoiceId, voiceIdentitySaveMessage, voiceIdentityUpdate } from "@/lib/voice-identity";
 import { integrations } from "@/lib/env";
 import { type ActionState, fieldErrorsOf } from "./types";
 import type { NewClient } from "@/db/schema";
@@ -79,14 +80,18 @@ export async function setVoiceByIdAction(
   // (and a rejected voice can't poison later re-provisions).
   const existing = await getClient(user.orgId, clientId);
   if (!existing) return { ok: false, error: "Business not found." };
+  if (!isVoiceCompatibleWithLanguages({ voiceId }, existing.languages)) {
+    return { ok: false, error: MULTILINGUAL_VOICE_ERROR };
+  }
   if (existing.voiceId === voiceId) return { ok: true, message: "That voice is already live." };
   if (existing.retellAgentId && integrations.retell()) {
     try {
-      await updateAgentVoice(existing.retellAgentId, voiceId);
+      await updateAgentVoice(existing.retellAgentId, voiceId, existing.languages);
     } catch (err) {
       logger.error("voice.update_failed", {
         clientId,
         voiceId,
+        provider: voiceProviderOf({ voiceId }),
         error: err instanceof Error ? err.message : String(err),
       });
       return {
@@ -95,9 +100,26 @@ export async function setVoiceByIdAction(
       };
     }
   }
-  await updateClient(user.orgId, clientId, { voiceId });
-
+  const voiceName =
+    String(formData.get("voiceName") ?? "").trim() ||
+    displayNameFromVoiceId(voiceId) ||
+    "the new voice";
+  const identity = voiceIdentityUpdate({
+    voiceName,
+    businessName: existing.name,
+    currentAgentName: existing.agentName,
+    currentGreeting: existing.greeting,
+    languages: existing.languages,
+    previousVoiceName: displayNameFromVoiceId(existing.voiceId),
+  });
+  const patch: Partial<NewClient> = { voiceId };
+  if (identity.kind === "adopted") {
+    patch.agentName = identity.agentName;
+    if (identity.greetingUpdated) patch.greeting = identity.greeting;
+  }
+  await updateClient(user.orgId, clientId, patch);
+  // Rebuild the prompt and begin_message so callers hear the new name.
+  const sync = await applyClientEdit(user, clientId);
   revalidatePath("/portal/guidelines");
-  revalidatePath(`/clients/${clientId}`);
-  return { ok: true, message: "Voice saved — your receptionist now uses it on calls." };
+  return { ok: true, message: withSyncNote(voiceIdentitySaveMessage(identity, voiceName), sync) };
 }

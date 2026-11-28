@@ -12,6 +12,7 @@ import { initialActionState } from "@/lib/actions/types";
 import { Input } from "@/components/ui/input";
 import { VoiceSelect } from "@/components/clients/voice-select";
 import { Textarea } from "@/components/ui/textarea";
+import { AutofillTextarea } from "@/components/form/autofill-textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -132,7 +133,9 @@ export function AgentConfigTab({
               </Field>
             </div>
             <Field label="Greeting">
-              <Textarea
+              <AutofillTextarea
+                clientId={client.id}
+                field="greeting"
                 name="greeting"
                 rows={2}
                 defaultValue={client.greeting ?? ""}
@@ -167,7 +170,9 @@ export function AgentConfigTab({
               label="What the AI may say"
               hint="Guardrails. Followed closely, but never over the built-in safety and disclosure rules. The client can also edit this in their portal."
             >
-              <Textarea
+              <AutofillTextarea
+                clientId={client.id}
+                field="agentGuidance"
                 name="agentGuidance"
                 rows={4}
                 defaultValue={client.agentGuidance ?? ""}
@@ -175,7 +180,9 @@ export function AgentConfigTab({
               />
             </Field>
             <Field label="How to handle booking" hint="Rules the AI follows when booking.">
-              <Textarea
+              <AutofillTextarea
+                clientId={client.id}
+                field="bookingInstructions"
                 name="bookingInstructions"
                 rows={4}
                 defaultValue={client.bookingInstructions ?? ""}

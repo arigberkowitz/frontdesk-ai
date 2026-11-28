@@ -32,11 +32,11 @@ export function ChoosePlan({
   cardsReady,
   preselect,
   preselectInterval,
-  firstChargeLabel,
+  onTrial = false,
   plusTax = false,
 }: {
-  /** Set while the trial has 2+ days left: subscribing keeps those days (Stripe trial_end). */
-  firstChargeLabel?: string | null;
+  /** Still on the in-app free trial: starting a plan ends it and charges today. */
+  onTrial?: boolean;
   clientId: string;
   /** The plan they picked on the pricing page, if they came that way. */
   preselect?: string | null;
@@ -73,9 +73,9 @@ export function ChoosePlan({
         <CardDescription>
           Everything you&apos;ve set up is saved and waiting. Pick a plan and it goes live on your
           own phone number — usually within a couple of minutes.
-          {firstChargeLabel
-            ? ` You keep the rest of your free trial — your card isn't charged until ${firstChargeLabel}.`
-            : null}
+          {onTrial
+            ? " Starting a plan ends your free trial and charges your card today."
+            : " Your card is charged today."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -175,7 +175,7 @@ export function ChoosePlan({
               ? "Card payments aren't switched on yet"
               : pending
                 ? "Opening payment…"
-                : `Continue — ${formatCurrencyCents(price(selected))}/${yearly ? "yr" : "mo"}${plusTax ? " + applicable tax" : ""}`}
+                : `Start my plan now — pay ${formatCurrencyCents(price(selected))} today${plusTax ? " + applicable tax" : ""}`}
           </Button>
           {!cardsReady ? (
             <p className="text-xs text-muted-foreground">

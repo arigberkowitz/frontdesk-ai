@@ -17,7 +17,7 @@ import { env, integrations } from "@/lib/env";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { clientTollfree, subscriptions } from "@/db/schema";
-import type { VoiceMeta } from "@/config/voice";
+import { isVoiceCompatibleWithLanguages, type VoiceMeta } from "@/config/voice";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,6 +58,9 @@ export default async function ClientPage({
       voices = [];
     }
   }
+  // Hide voices Retell will reject for this business's languages (e.g.
+  // Cartesia when the agent is pinned to eleven_flash_v2_5).
+  voices = voices.filter((v) => isVoiceCompatibleWithLanguages(v, client.languages));
 
   const intakeLocked = await ownerHasSignedIn(client.id);
   const [subRow] = await db

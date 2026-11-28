@@ -975,3 +975,55 @@ pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
   (`trial.blocked_identity`) and checked in `finishSignup`; public email domains are never blocked by domain.
 - **Orphans:** read-only until Ari presses Scan, then each row has its own confirm + delete, re-checked on the server.
 - No migration. No new env vars. Vendor delete/release/cancel calls live only in `src/lib/operator/providers.ts`.
+
+## 2026-11-27 — Content-Security-Policy, report-only first
+
+- **What:** `src/proxy.ts` mints a fresh nonce per page request and sends
+  `Content-Security-Policy-Report-Only` built by `src/lib/csp.ts`. Scripts are nonce +
+  `'strict-dynamic'` (no `'unsafe-inline'`); `object-src 'none'`, `base-uri 'self'`,
+  `frame-ancestors 'none'`, `form-action` limited to us plus Stripe Checkout/portal. Violations
+  post to `/api/csp-report`, which logs one PII-free line each (origin and path only, ids masked,
+  60 a minute, always 204). The existing `next.config.ts` headers are unchanged.
+- **Switch:** `CSP_ENFORCE` in `src/lib/csp.ts`. `false` = report-only, `true` = enforcing (and
+  adds `upgrade-insecure-requests`, which browsers ignore and warn about in report-only). A code
+  constant on purpose, not an env var.
+- **Cost:** the root layout reads the request headers (for the nonce), so the legal pages,
+  `/contact` and the SSO callback are now rendered per request instead of prerendered. Every other
+  page was already dynamic through Clerk. Nonce goes to Clerk (`nonce` prop) and next-themes.
+- **Styles keep `'unsafe-inline'`:** React style props, Tailwind, framer-motion, sonner, recharts
+  and Clerk's UI all write inline styles; a style nonce would break every `style=""` attribute.
+- **Origins:** Clerk frontend API (host read from the public publishable key), clerk-telemetry,
+  img.clerk.com, Cloudflare Turnstile frame (Clerk's bot check), `*.livekit.cloud` (Retell's web
+  call), Sentry ingest (host read from the public DSN, only if set). Stripe is redirect-only
+  (`form-action`); Cal.com and Google/Microsoft calendars are server-side calls and links only;
+  Vercel Analytics/Speed Insights are same-origin. No route needs framing: the website chat widget
+  is a script that runs in the customer's page, not an iframe of ours.
+
+## 2026-11-27 — Buying a plan charges today; no second Stripe trial
+
+- **Root cause.** Self-serve Checkout was passing the remaining in-app trial days as
+  Stripe `subscription_data.trial_end`. A mid-trial "Buy now" opened Stripe on
+  "13 days free / $0 due today / Start trial", which looked like another free
+  trial after the 14-day no-card trial.
+- **"Buy now" / "Start my plan now" during the in-app trial charges the first month
+  today.** No `trial_end` or `trial_period_days` on Checkout. Paying ends the
+  in-app trial (`planSyncPatch` clears `trialEndsAt` and sets the business live);
+  `invoice.paid` / `checkout.session.completed` still set `first_paid_at` when
+  `amount_paid` / `amount_total` > 0, so the number gate behaves as for any
+  paying customer.
+- **After the trial ends, on a messages-only hold, or on a re-subscribe after
+  cancel**, Checkout also charges immediately, with no trial days. The same
+  business, Stripe customer, or email never gets a second Stripe trial, because
+  Checkout never attaches one.
+- **The 14-day no-card in-app trial is unchanged.** If they want the remaining
+  free days, they simply don't check out yet. There is no separate "add a card,
+  keep your free days" button — that was the path that produced the $0 Stripe
+  trial page.
+- **"Start my plan now"** on Your AI stays for a leftover Stripe-trialing
+  subscription (a card already saved under the old behavior). It still ends that
+  trial with `trial_end: "now"` and charges today.
+- **Plan changes** still prorate (`create_prorations`) and do not attach or
+  extend a trial.
+- **Copy.** Plan cards and upgrade buttons say "Start my plan now — pay $X today"
+  / "Upgrade — pay $X today", not "you keep the rest of your free trial".
+- No migration, no new env vars, no Stripe Dashboard or vendor setting changes.

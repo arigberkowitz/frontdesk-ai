@@ -14,7 +14,6 @@ import { ProvisionCard } from "@/components/portal/provision-card";
 import { TrialCodeCard } from "@/components/portal/trial-code-card";
 import { ChoosePlan } from "@/components/portal/choose-plan";
 import { clientMayActivate, getTrialState } from "@/lib/data/trial";
-import { checkoutTrialEnd } from "@/lib/billing-trial";
 import { getNumberGate } from "@/lib/data/number-gate";
 import { TestCallButton } from "@/components/clients/test-call-button";
 import { StartPlanNow } from "@/components/portal/start-plan-now";
@@ -25,9 +24,8 @@ import { CallMeNow } from "@/components/portal/call-me-now";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { toSafeClient } from "@/lib/client-safe";
 import {
-  groupVoicesByGender,
   isUsableVoiceId,
-  RECOMMENDED_VOICES,
+  voicesForAgent,
   type VoiceMeta,
 } from "@/config/voice";
 
@@ -88,10 +86,13 @@ export default async function PortalGuidelinesPage({
   // Grouping keeps the saved voice when names collide, so it is always listed
   // exactly once and in one bucket.
   const cur = client.voiceId ?? DEFAULT_VOICE_ID;
-  let { women, men } = groupVoicesByGender(voices, cur);
-  if (women.length === 0 && men.length === 0) {
-    ({ women, men } = groupVoicesByGender(RECOMMENDED_VOICES, cur));
-  }
+  // voicesForAgent always merges Marissa/Adrian, hides voices the agent's
+  // language setup can't use (e.g. Cartesia on a multilingual agent), and
+  // pins the current voice at the top so it isn't lost in the A–Z list.
+  const { women, men } = voicesForAgent(voices, {
+    currentVoiceId: cur,
+    languages: client.languages,
+  });
   // A voice saved before we hid engine-incompatible voices (e.g. "xai-Ara"):
   // flag it and ask for a new pick instead of a plain "Speaking as Ara".
   const unusableSavedName =
@@ -131,8 +132,8 @@ export default async function PortalGuidelinesPage({
                 : client.retellAgentId
                   ? "Your phone number is being assigned now. Refresh in a minute, or press Get my phone number below."
                   : "Activate below and your AI takes its first call."}
-              {sub?.status === "trialing" || checkoutTrialEnd(trial) !== undefined
-                ? ` Your free trial carries on${firstChargeOn ? ` until ${firstChargeOn}` : ""}; your card is first charged then.`
+              {sub?.status === "trialing"
+                ? ` Your free trial carries on${firstChargeOn ? ` until ${firstChargeOn}` : ""}; your card is first charged then. Press “Start my plan now” below if you want to pay today instead.`
                 : ""}
             </span>
           </CardContent>
@@ -185,6 +186,7 @@ export default async function PortalGuidelinesPage({
               <div id="plans" className="scroll-mt-24 space-y-4">
                 <ChoosePlan
                   clientId={client.id}
+                  onTrial={trial.active}
                   cardsReady={integrations.stripe()}
                   plusTax={env.STRIPE_AUTOMATIC_TAX}
                   preselect={client.setupFlags?.intendedPlan ?? null}
@@ -219,15 +221,7 @@ export default async function PortalGuidelinesPage({
                 <div className="space-y-4 border-t p-4">
                   <ChoosePlan
                     clientId={client.id}
-                    firstChargeLabel={
-                      checkoutTrialEnd(trial) && trial.endsAt
-                        ? trial.endsAt.toLocaleDateString("en-US", {
-                            month: "long",
-                            day: "numeric",
-                            timeZone: client.timezone || "America/New_York",
-                          })
-                        : null
-                    }
+                    onTrial={trial.active}
                     cardsReady={integrations.stripe()}
                     plusTax={env.STRIPE_AUTOMATIC_TAX}
                     preselect={client.setupFlags?.intendedPlan ?? null}
@@ -273,7 +267,8 @@ export default async function PortalGuidelinesPage({
           <CardTitle>Voice</CardTitle>
           <CardDescription>
             Pick the voice your receptionist speaks in — grouped by women and men. Press ▶ to
-            hear one, then Save to use it on calls.
+            hear one, then Save to use it on calls. Only voices that work with this
+            receptionist&apos;s languages are listed.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -285,6 +280,7 @@ export default async function PortalGuidelinesPage({
             women={women}
             men={men}
             unusableSavedName={unusableSavedName}
+            agentName={client.agentName}
           />
         </CardContent>
       </Card>

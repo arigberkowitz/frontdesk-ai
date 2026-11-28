@@ -28,4 +28,18 @@ describe("VoicePicker", () => {
     expect(html).toContain("Ara (not available)");
     expect(html).toContain("isn&#x27;t available for phone calls");
   });
+
+  it("sends the selected voice's name and hints that callers will hear it", () => {
+    const html = renderToStaticMarkup(
+      createElement(VoicePicker, {
+        clientId: "c1",
+        current: "11labs-Allie",
+        women,
+        men,
+        agentName: "Riley",
+      }),
+    );
+    expect(html).toContain('name="voiceName"');
+    expect(html).toContain('value="Allie"');
+  });
 });
