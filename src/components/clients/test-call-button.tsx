@@ -47,7 +47,12 @@ export function TestCallButton({
       // Error bodies aren't always JSON (a 403 is plain text), and their
       // wording is written for us, not for the person clicking. Owners get one
       // plain sentence; the details stay in the server logs.
-      const data = (await res.json().catch(() => ({}))) as { accessToken?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        accessToken?: string;
+        callId?: string;
+        transport?: "gateway" | "livekit";
+        iceServers?: { urls: string | string[]; username?: string; credential?: string }[];
+      };
       if (!res.ok || !data.accessToken) throw new Error(FRIENDLY_START_ERROR);
 
       const { RetellWebClient } = await import("retell-client-js-sdk");
@@ -72,7 +77,15 @@ export function TestCallButton({
         setState("idle");
       });
 
-      await rc.startCall({ accessToken: data.accessToken });
+      // v3 create-web-call returns transport + iceServers; the browser SDK
+      // 3.x startCall needs them to connect. refreshAfterCall is unchanged:
+      // a trial's first completed test call still unlocks its phone number.
+      await rc.startCall({
+        accessToken: data.accessToken,
+        callId: data.callId,
+        transport: data.transport,
+        iceServers: data.iceServers,
+      });
     } catch (err) {
       if (err instanceof Error && err.message !== FRIENDLY_START_ERROR) console.warn("test-call start failed", err);
       toast.error(FRIENDLY_START_ERROR);

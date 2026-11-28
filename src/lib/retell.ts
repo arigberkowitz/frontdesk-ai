@@ -5,7 +5,7 @@ import { env, integrations } from "./env";
 import { toE164 } from "@/lib/format";
 import { logger } from "./logger";
 import { agentToolHeaders } from "./agent-tool-token";
-import { isUsableVoice, isUsableVoiceId } from "@/config/voice";
+import { isElevenLabsVoice, isUsableVoice, isUsableVoiceId, voiceProviderOf } from "@/config/voice";
 import {
   MULTILINGUAL_VOICE_MODEL,
   parseLanguages,
@@ -617,10 +617,46 @@ export async function provisionAgentForClient(
   return { llmId, agentId, phoneNumber, phoneError };
 }
 
-/** Update just the voice on a provisioned agent (the per-business voice picker). */
-export async function updateAgentVoice(agentId: string, voiceId: string): Promise<void> {
-  if (!isUsableVoiceId(voiceId)) throw new Error(`Voice ${voiceId} isn't supported on this agent engine`);
-  await getRetellClient().agent.update(agentId, { voice_id: voiceId });
+/**
+ * The agent.update payload for a voice change. Multilingual agents stay on
+ * eleven_flash_v2_5 (ElevenLabs only). English-only agents send voice_model:
+ * null so a leftover ElevenLabs model doesn't block Cartesia/OpenAI voices.
+ *
+ * Prod, 27 Nov 2026 4:54 PM PT: saving cartesia-Allie failed with
+ * "400 Selected voice model eleven_flash_v2_5 is not supported for this
+ * voice provider" because we only sent voice_id and left the existing model.
+ */
+export function agentVoiceUpdateBody(
+  voiceId: string,
+  languages?: string | null,
+): { voice_id: string; voice_model: typeof MULTILINGUAL_VOICE_MODEL | null } {
+  if (!isUsableVoiceId(voiceId)) {
+    throw new Error(`Voice ${voiceId} isn't supported on this agent engine`);
+  }
+  const model = voiceModelFor(parseLanguages(languages));
+  if (model) {
+    if (!isElevenLabsVoice({ voiceId })) {
+      throw new Error(`Voice ${voiceId} can't be used on a multilingual agent`);
+    }
+    return { voice_id: voiceId, voice_model: model };
+  }
+  return { voice_id: voiceId, voice_model: null };
+}
+
+/** Update the voice (and matching voice model) on a provisioned agent. */
+export async function updateAgentVoice(
+  agentId: string,
+  voiceId: string,
+  languages?: string | null,
+): Promise<void> {
+  const body = agentVoiceUpdateBody(voiceId, languages);
+  logger.info("voice.update", {
+    agentId,
+    voiceId,
+    provider: voiceProviderOf({ voiceId }),
+    voiceModel: body.voice_model,
+  });
+  await getRetellClient().agent.update(agentId, body);
 }
 
 export interface RetellVoice {
@@ -632,19 +668,103 @@ export interface RetellVoice {
   previewUrl?: string;
 }
 
-/** List available Retell voices for the voice picker (§B3). */
-export async function listRetellVoices(): Promise<RetellVoice[]> {
+const VOICES_CACHE_MS = 10 * 60_000;
+let voicesCache: { at: number; voices: RetellVoice[] } | null = null;
+
+/** List available Retell voices for the voice picker (§B3). Cached for 10 minutes. */
+export async function listRetellVoices(opts?: { fresh?: boolean }): Promise<RetellVoice[]> {
+  if (!opts?.fresh && voicesCache && Date.now() - voicesCache.at < VOICES_CACHE_MS) {
+    return voicesCache.voices;
+  }
   const client = getRetellClient();
   const voices = await client.voice.list();
-  // Hide voices our agents can't speak with (see isUsableVoice).
-  return voices
+  // Hide voices our agents can't speak with (see isUsableVoice). Language
+  // filtering happens in voicesForAgent, which also merges curated defaults.
+  const mapped = voices
     .filter((v) => isUsableVoice({ voiceId: v.voice_id, provider: v.provider }))
     .map((v) => ({
-    voiceId: v.voice_id,
-    name: v.voice_name,
-    provider: v.provider,
-    gender: v.gender ?? undefined,
-    accent: v.accent ?? undefined,
-    previewUrl: v.preview_audio_url ?? undefined,
-  }));
+      voiceId: v.voice_id,
+      name: v.voice_name,
+      provider: v.provider,
+      gender: v.gender ?? undefined,
+      accent: v.accent ?? undefined,
+      previewUrl: v.preview_audio_url ?? undefined,
+    }));
+  voicesCache = { at: Date.now(), voices: mapped };
+  return mapped;
+}
+
+/** @internal test hook */
+export function _clearRetellVoicesCache(): void {
+  voicesCache = null;
+}
+
+/**
+ * Connection details the browser SDK needs to join a test call.
+ * accessToken and iceServers are short-lived per-call credentials — return
+ * them to the signed-in owner, never log them.
+ */
+export type WebCallConnection = {
+  callId: string;
+  accessToken: string;
+  transport: "gateway" | "livekit";
+  iceServers: { urls: string | string[]; username?: string; credential?: string }[];
+};
+
+/**
+ * Create a browser test call via Retell's v3 API.
+ *
+ * Prod, 27 Nov 2026 4:55 PM PT: the SDK 5.36 helper still posted to
+ * /v2/create-web-call, which Retell now rejects:
+ * "400 Deprecated API usage is no longer supported: Create Web Call v2."
+ * We call /v3/create-web-call directly so we don't have to take a major
+ * retell-sdk bump (6.0 removed other endpoints) to fix sign-up test calls.
+ * Ref: https://docs.retellai.com/deprecation-notice/2026/09-30_create_web_call_v2
+ */
+export async function createWebCall(agentId: string): Promise<WebCallConnection> {
+  if (!integrations.retell()) {
+    throw new Error("RETELL_API_KEY is not set — Retell features are unavailable.");
+  }
+  const res = await fetch("https://api.retellai.com/v3/create-web-call", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RETELL_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ agent_id: agentId }),
+  });
+  if (!res.ok) {
+    let detail = `Retell create web call failed (${res.status})`;
+    try {
+      const body = (await res.json()) as { message?: unknown };
+      if (typeof body.message === "string" && body.message.trim()) {
+        detail = `${res.status} ${body.message}`;
+      }
+    } catch {
+      // Keep the status-only message. Don't read the raw body into logs later.
+    }
+    throw new Error(detail);
+  }
+  const data = (await res.json()) as {
+    call_id?: unknown;
+    access_token?: unknown;
+    transport?: unknown;
+    ice_servers?: unknown;
+  };
+  if (typeof data.call_id !== "string" || !data.call_id || typeof data.access_token !== "string" || !data.access_token) {
+    throw new Error("Retell create web call returned an incomplete response");
+  }
+  const iceServers = Array.isArray(data.ice_servers)
+    ? data.ice_servers.filter((s): s is WebCallConnection["iceServers"][number] => {
+        if (!s || typeof s !== "object") return false;
+        const urls = (s as { urls?: unknown }).urls;
+        return typeof urls === "string" || (Array.isArray(urls) && urls.every((u) => typeof u === "string"));
+      })
+    : [];
+  return {
+    callId: data.call_id,
+    accessToken: data.access_token,
+    transport: data.transport === "livekit" ? "livekit" : "gateway",
+    iceServers,
+  };
 }

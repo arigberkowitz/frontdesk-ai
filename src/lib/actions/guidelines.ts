@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireClientEditor } from "@/lib/auth-guard";
 import { guidelinesSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg, getClient, updateClient } from "@/lib/data/clients";
-import { isUsableVoiceId, UNUSABLE_VOICE_ERROR } from "@/config/voice";
+import { isUsableVoiceId, isVoiceCompatibleWithLanguages, MULTILINGUAL_VOICE_ERROR, UNUSABLE_VOICE_ERROR, voiceProviderOf } from "@/config/voice";
 import { logger } from "@/lib/logger";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { updateAgentVoice } from "@/lib/retell";
@@ -79,14 +79,18 @@ export async function setVoiceByIdAction(
   // (and a rejected voice can't poison later re-provisions).
   const existing = await getClient(user.orgId, clientId);
   if (!existing) return { ok: false, error: "Business not found." };
+  if (!isVoiceCompatibleWithLanguages({ voiceId }, existing.languages)) {
+    return { ok: false, error: MULTILINGUAL_VOICE_ERROR };
+  }
   if (existing.voiceId === voiceId) return { ok: true, message: "That voice is already live." };
   if (existing.retellAgentId && integrations.retell()) {
     try {
-      await updateAgentVoice(existing.retellAgentId, voiceId);
+      await updateAgentVoice(existing.retellAgentId, voiceId, existing.languages);
     } catch (err) {
       logger.error("voice.update_failed", {
         clientId,
         voiceId,
+        provider: voiceProviderOf({ voiceId }),
         error: err instanceof Error ? err.message : String(err),
       });
       return {

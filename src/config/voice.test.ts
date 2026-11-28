@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { cleanVoiceLabel, groupVoicesByGender, type VoiceMeta } from "./voice";
+import {
+  cleanVoiceLabel,
+  groupVoicesByGender,
+  isElevenLabsVoice,
+  isVoiceCompatibleWithLanguages,
+  pinCurrentVoice,
+  voicesForAgent,
+  type VoiceMeta,
+} from "./voice";
 
 describe("cleanVoiceLabel", () => {
   it("splits a parenthetical accent out of the name", () => {
@@ -71,5 +79,54 @@ describe("voicePickerSummary", () => {
     const s = voicePickerSummary({ savedName: null, selectedName: null, dirty: false, unusableSavedName: "Ara" });
     expect(s.speakingAs).toBe("Ara (not available)");
     expect(s.warning).toMatch(/Ara isn't available for phone calls/);
+  });
+});
+
+describe("language-compatible voices", () => {
+  it("treats 11labs- ids as ElevenLabs", () => {
+    expect(isElevenLabsVoice({ voiceId: "11labs-Marissa" })).toBe(true);
+    expect(isElevenLabsVoice({ voiceId: "cartesia-Allie", provider: "cartesia" })).toBe(false);
+    expect(isElevenLabsVoice({ voiceId: "Allie", provider: "elevenlabs" })).toBe(true);
+  });
+
+  it("hides Cartesia/OpenAI voices when the agent speaks more than English", () => {
+    const allie = { voiceId: "cartesia-Allie", name: "Allie", provider: "cartesia" };
+    const marissa = { voiceId: "11labs-Marissa", name: "Marissa", provider: "elevenlabs" };
+    expect(isVoiceCompatibleWithLanguages(allie, "en")).toBe(true);
+    expect(isVoiceCompatibleWithLanguages(allie, "en-es")).toBe(false);
+    expect(isVoiceCompatibleWithLanguages(allie, "en,es,fr")).toBe(false);
+    expect(isVoiceCompatibleWithLanguages(marissa, "en-es")).toBe(true);
+    expect(isVoiceCompatibleWithLanguages({ voiceId: "xai-Ara" }, "en")).toBe(false);
+  });
+
+  it("voicesForAgent drops Cartesia on a multilingual agent, keeps Marissa, and pins the current voice first", () => {
+    const live: VoiceMeta[] = [
+      { voiceId: "cartesia-Allie", name: "Allie", gender: "female", accent: "American", provider: "cartesia", previewUrl: "x" },
+      { voiceId: "11labs-Allie", name: "Allie", gender: "female", accent: "American", provider: "elevenlabs" },
+      { voiceId: "openai-Ballad", name: "Ballad", gender: "male", provider: "openai" },
+      { voiceId: "11labs-Amy", name: "Amy", gender: "female", accent: "British", provider: "elevenlabs" },
+    ];
+    const { women, men } = voicesForAgent(live, { currentVoiceId: "11labs-Marissa", languages: "en-es" });
+    expect(women.map((v) => v.voiceId)[0]).toBe("11labs-Marissa");
+    expect(women.map((v) => v.name)).toContain("Allie");
+    expect(women.find((v) => v.name === "Allie")?.voiceId).toBe("11labs-Allie");
+    expect(women.some((v) => v.voiceId.startsWith("cartesia-"))).toBe(false);
+    expect(men.map((v) => v.voiceId)).toEqual(["11labs-Adrian"]);
+  });
+
+  it("English-only agents can still pick a Cartesia voice", () => {
+    const { women } = voicesForAgent(
+      [{ voiceId: "cartesia-Allie", name: "Allie", gender: "female", provider: "cartesia" }],
+      { currentVoiceId: "11labs-Marissa", languages: "en" },
+    );
+    expect(women.find((v) => v.voiceId === "cartesia-Allie")).toBeTruthy();
+    expect(women[0]?.voiceId).toBe("11labs-Marissa");
+  });
+
+  it("pinCurrentVoice moves the saved voice to the top without losing it", () => {
+    const amy = { voiceId: "11labs-Amy", name: "Amy", gender: "female" };
+    const marissa = { voiceId: "11labs-Marissa", name: "Marissa", gender: "female" };
+    const { women } = pinCurrentVoice({ women: [amy, marissa], men: [] }, "11labs-Marissa");
+    expect(women.map((v) => v.name)).toEqual(["Marissa", "Amy"]);
   });
 });

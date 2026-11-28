@@ -1,3 +1,5 @@
+import { parseLanguages, voiceModelFor } from "@/lib/languages";
+
 /**
  * The two voice choices a business picks for its AI receptionist. A simple
  * "woman / man" choice maps to a concrete Retell voice id (both American).
@@ -68,9 +70,51 @@ export function isUsableVoice(v: { voiceId: string; provider?: string | null }):
   return isUsableVoiceId(v.voiceId);
 }
 
+/**
+ * Infer the speech vendor from a Retell voice id ("cartesia-Allie",
+ * "11labs-Marissa") or an explicit provider field. "11labs" is ElevenLabs'
+ * prefix in Retell's catalogue.
+ */
+export function voiceProviderOf(v: { voiceId: string; provider?: string | null }): string {
+  if (v.provider?.trim()) return v.provider.trim().toLowerCase();
+  const prefix = (v.voiceId ?? "").trim().toLowerCase().match(/^([a-z0-9]+)-/);
+  if (!prefix) return "";
+  return prefix[1] === "11labs" ? "elevenlabs" : prefix[1];
+}
+
+export function isElevenLabsVoice(v: { voiceId: string; provider?: string | null }): boolean {
+  const provider = voiceProviderOf(v);
+  return provider === "elevenlabs" || provider === "11labs";
+}
+
+/**
+ * A multilingual agent is pinned to ElevenLabs' eleven_flash_v2_5 model, which
+ * can pronounce the languages we offer. Cartesia, OpenAI and other vendors
+ * reject that model: prod, 27 Nov 2026, "400 Selected voice model
+ * eleven_flash_v2_5 is not supported for this voice provider" when saving
+ * cartesia-Allie. English-only agents can use any usable TTS voice.
+ */
+export function isVoiceCompatibleWithLanguages(
+  v: { voiceId: string; provider?: string | null },
+  languages?: string | null,
+): boolean {
+  if (!isUsableVoice(v)) return false;
+  return voiceNeedsElevenLabs(languages) ? isElevenLabsVoice(v) : true;
+}
+
+export function voiceNeedsElevenLabs(languages?: string | null): boolean {
+  // voiceModelFor uses parseLanguages, so "en-es", "es", and "en,es,fr"
+  // stay in sync with the model we actually pin on the agent.
+  return voiceModelFor(parseLanguages(languages)) != null;
+}
+
 /** Shown when someone tries to save a voice our agents can't use. */
 export const UNUSABLE_VOICE_ERROR =
   "That voice can't be used for phone calls yet — please pick a different one.";
+
+/** Shown when a non-ElevenLabs voice is picked on a multilingual agent. */
+export const MULTILINGUAL_VOICE_ERROR =
+  "That voice can't be used with the languages this receptionist speaks — please pick another.";
 
 /** Coarse gender bucket for the portal's "Women / Men" voice grouping. */
 export function normalizeGender(g?: string | null): "female" | "male" | "other" {
@@ -168,4 +212,43 @@ export function voicePickerSummary(input: {
     ? `${input.selectedName ?? "New voice"} selected — click Save to use it on calls.`
     : "Click a voice to select it, or ▶ to hear a sample. Nothing changes until you save.";
   return { speakingAs, hint, dirty: input.dirty, warning };
+}
+
+/**
+ * Build the Women / Men lists the portal (and operator picker) should show:
+ * drop engine-incompatible and language-incompatible voices, always include
+ * the curated Marissa/Adrian pair, keep the current voice visible, and pin
+ * it to the top of its column so it isn't lost in a long A–Z catalogue.
+ */
+export function voicesForAgent(
+  live: VoiceMeta[],
+  opts: { currentVoiceId?: string | null; languages?: string | null } = {},
+): { women: VoiceMeta[]; men: VoiceMeta[] } {
+  const current = (opts.currentVoiceId ?? "").trim();
+  const seen = new Set<string>();
+  const merged: VoiceMeta[] = [];
+  for (const v of [...live, ...RECOMMENDED_VOICES]) {
+    if (!v.voiceId || seen.has(v.voiceId) || !isVoiceCompatibleWithLanguages(v, opts.languages)) continue;
+    seen.add(v.voiceId);
+    merged.push(v);
+  }
+  if (current && !seen.has(current) && isVoiceCompatibleWithLanguages({ voiceId: current }, opts.languages)) {
+    const rec = RECOMMENDED_VOICES.find((v) => v.voiceId === current);
+    merged.push(rec ?? { voiceId: current, name: current.replace(/^[a-z0-9]+-/i, "") || current });
+  }
+  return pinCurrentVoice(groupVoicesByGender(merged, current || null), current || null);
+}
+
+export function pinCurrentVoice(
+  grouped: { women: VoiceMeta[]; men: VoiceMeta[] },
+  currentVoiceId?: string | null,
+): { women: VoiceMeta[]; men: VoiceMeta[] } {
+  const pin = (list: VoiceMeta[]) => {
+    const i = list.findIndex((v) => v.voiceId === currentVoiceId);
+    if (i <= 0) return list;
+    const copy = list.slice();
+    const [row] = copy.splice(i, 1);
+    return [row, ...copy];
+  };
+  return { women: pin(grouped.women), men: pin(grouped.men) };
 }

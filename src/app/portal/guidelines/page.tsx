@@ -25,9 +25,8 @@ import { CallMeNow } from "@/components/portal/call-me-now";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { toSafeClient } from "@/lib/client-safe";
 import {
-  groupVoicesByGender,
   isUsableVoiceId,
-  RECOMMENDED_VOICES,
+  voicesForAgent,
   type VoiceMeta,
 } from "@/config/voice";
 
@@ -88,10 +87,13 @@ export default async function PortalGuidelinesPage({
   // Grouping keeps the saved voice when names collide, so it is always listed
   // exactly once and in one bucket.
   const cur = client.voiceId ?? DEFAULT_VOICE_ID;
-  let { women, men } = groupVoicesByGender(voices, cur);
-  if (women.length === 0 && men.length === 0) {
-    ({ women, men } = groupVoicesByGender(RECOMMENDED_VOICES, cur));
-  }
+  // voicesForAgent always merges Marissa/Adrian, hides voices the agent's
+  // language setup can't use (e.g. Cartesia on a multilingual agent), and
+  // pins the current voice at the top so it isn't lost in the A–Z list.
+  const { women, men } = voicesForAgent(voices, {
+    currentVoiceId: cur,
+    languages: client.languages,
+  });
   // A voice saved before we hid engine-incompatible voices (e.g. "xai-Ara"):
   // flag it and ask for a new pick instead of a plain "Speaking as Ara".
   const unusableSavedName =
@@ -273,7 +275,8 @@ export default async function PortalGuidelinesPage({
           <CardTitle>Voice</CardTitle>
           <CardDescription>
             Pick the voice your receptionist speaks in — grouped by women and men. Press ▶ to
-            hear one, then Save to use it on calls.
+            hear one, then Save to use it on calls. Only voices that work with this
+            receptionist&apos;s languages are listed.
           </CardDescription>
         </CardHeader>
         <CardContent>
