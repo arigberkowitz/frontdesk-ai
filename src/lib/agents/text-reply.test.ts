@@ -53,6 +53,8 @@ vi.mock("@/lib/retell", () => ({
 vi.mock("@/lib/data/clients", () => ({ getClient: async () => FULL }));
 vi.mock("@/lib/booking", () => ({ getBookingProviderForClient: () => ({ isConfigured: () => true }) }));
 vi.mock("@/lib/data/sms-optouts", () => ({ isOptedOut: async () => optedOut }));
+let customerLanguage: string | null = null;
+vi.mock("@/lib/data/customer-languages", () => ({ getCustomerLanguage: async () => customerLanguage }));
 vi.mock("@/lib/data/sms-messages", () => ({
   customerKeyFor: (raw: string) => {
     const d = (raw ?? "").replace(/\D/g, "");
@@ -99,6 +101,7 @@ beforeEach(() => {
   sentToday = { client: 0, thread: 0 };
   inHours = true;
   claim = true;
+  customerLanguage = null;
   CLIENT.aiTextRepliesEnabled = true;
   for (const f of [create, sendSms, notifyOwnerTextReply, setThreadAiPaused, fetchMock]) f.mockClear();
   create.mockReset();
@@ -211,6 +214,20 @@ describe("handoffs", () => {
       CLIENT,
       expect.objectContaining({ customerPhone: PHONE, aiHandoff: expect.stringMatching(/emergency/) }),
     );
+  });
+
+  it("a Spanish emergency text is handed off before the model, with the holding text in Spanish", async () => {
+    thread = [{ id: "m1", direction: "inbound", body: "Es una emergencia, se inundó el sótano", kind: "reply" }];
+    expect(await run()).toEqual({ status: "handed_off", category: "emergency" });
+    expect(create).not.toHaveBeenCalled();
+    expect(sendSms.mock.calls[0][0].body).toMatch(/llame al 911/);
+  });
+
+  it("a customer we know speaks Spanish gets the Spanish holding text", async () => {
+    customerLanguage = "es";
+    thread = [{ id: "m1", direction: "inbound", body: "real person please", kind: "reply" }];
+    expect(await run()).toEqual({ status: "handed_off", category: "human_requested" });
+    expect(sendSms.mock.calls[0][0].body).toMatch(/una persona le responder/);
   });
 
   it("asking for a human hands off without the model", async () => {

@@ -10,6 +10,7 @@
  */
 import { stripPhoneNumbers, textLanguage } from "@/lib/appointment-messages";
 import { matchService } from "@/lib/service-match";
+import { ES_BOOKING_WORDS, foldEs } from "@/lib/spanish-signals";
 
 export type CallbackReason = "hung_up_early" | "dropped" | "abandoned_booking";
 
@@ -56,7 +57,9 @@ export type Classification = { ok: true; reason: CallbackReason } | { ok: false;
 function hadBookingIntent(f: CallFacts): boolean {
   if (f.intent && BOOKING_INTENTS.has(f.intent)) return true;
   if (f.intent && f.intent !== "other") return false; // a question/cancel/complaint, not a booking
-  return BOOKING_WORDS.test(callerLines(f.transcript ?? ""));
+  const said = callerLines(f.transcript ?? "");
+  // Spanish too: "quería hacer una cita" is the same caller as "I wanted to book".
+  return BOOKING_WORDS.test(said) || ES_BOOKING_WORDS.test(foldEs(said));
 }
 
 /** Only what the CALLER said — the agent offering "would you like to book?" isn't intent. */

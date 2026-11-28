@@ -9,6 +9,7 @@ import { env } from "./env";
 import { logger } from "./logger";
 import { pushToClient } from "./push";
 import { bookingPushPayload } from "./push-payloads";
+import { leadSoundsUrgent } from "./call-recap";
 
 /**
  * Owner alerts on booking / captured message (§E2), logged to `notifications` (§E4).
@@ -164,9 +165,7 @@ export async function notifyOwnerLead(
       : [];
   // The AI captures urgency on the call ("ASAP", "emergency", "today") — lead
   // with urgent language gets an unmissable prefix so it never sits till morning.
-  const urgent = opts.emergency === true || /asap|urgent|emergenc|right away|immediately|today|leak|flood|burst/i.test(
-    `${lead.urgency ?? ""} ${lead.reason ?? ""}`,
-  );
+  const urgent = opts.emergency === true || leadSoundsUrgent(lead.urgency, lead.reason);
 
   for (const sms of smsTargets) {
     const body = `${urgent ? "🚨 EMERGENCY — " : "📨 "}New message for ${client.name}: ${who} (${phone})${lead.reason ? ` — ${lead.reason}` : ""}${lead.serviceAddress ? ` · at ${lead.serviceAddress}` : ""}`;
