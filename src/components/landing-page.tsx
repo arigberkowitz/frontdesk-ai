@@ -63,7 +63,7 @@ const STEPS = [
 const FAQ = [
   {
     q: "Do I keep my phone number?",
-    a: "Yes. Your existing business number forwards to your AI — you dial *72 from your phone to turn it on. Dial *73 and forwarding is off, and calls ring your phone exactly like before. No new number, no new hardware.",
+    a: "Yes. You keep your number and forward its calls to your AI by dialing a short code from your business phone, like *72 (AT&T and T-Mobile use **21*). On Missed-Call Rescue, only the calls you don't pick up are forwarded. Setup shows the exact code for your carrier and plan, and the code that turns it off again. No new number, no new hardware.",
   },
   {
     q: "What happens when it can't answer something?",
@@ -382,7 +382,7 @@ export function LandingPage({
                 </label>
                 <label className="cursor-pointer rounded-full px-4 py-1.5 font-medium text-muted-foreground has-[:checked]:bg-foreground has-[:checked]:text-background has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-500">
                   <input type="radio" name="billing" id="billing-yearly" className="sr-only" />
-                  Yearly <span className="ml-1 text-xs text-emerald-600 group-has-[#billing-yearly:checked]/billing:text-emerald-300">2 months free</span>
+                  Yearly <span className="ml-1 text-xs text-emerald-700 group-has-[#billing-yearly:checked]/billing:text-emerald-300">2 months free</span>
                 </label>
               </div>
             </fieldset>
@@ -436,7 +436,7 @@ export function LandingPage({
                         priced near this one meters minutes and bills the
                         overage; this one doesn't, and a card that says only a
                         price loses that argument by never making it. */}
-                    <p className="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                    <p className="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
                       {minutesLabel(plan)}
                     </p>
 
