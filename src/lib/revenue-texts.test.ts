@@ -20,12 +20,12 @@ const ok: RecipientFacts = {
 };
 const NOW = new Date("2026-11-20T19:00:00Z"); // 11 AM Pacific
 
-describe("send window: 9 AM to 8 PM in the business's time zone", () => {
-  it("opens at 9 and closes at 8 PM local", () => {
+describe("send window: 9 AM to 7 PM in the business's time zone", () => {
+  it("opens at 9 and closes at 7 PM local", () => {
     expect(inSendWindow(new Date("2026-11-20T16:59:00Z"), "America/Los_Angeles")).toBe(false); // 8:59
     expect(inSendWindow(new Date("2026-11-20T17:00:00Z"), "America/Los_Angeles")).toBe(true); // 9:00
-    expect(inSendWindow(new Date("2026-11-21T03:59:00Z"), "America/Los_Angeles")).toBe(true); // 7:59 PM
-    expect(inSendWindow(new Date("2026-11-21T04:00:00Z"), "America/Los_Angeles")).toBe(false); // 8:00 PM
+    expect(inSendWindow(new Date("2026-11-21T02:59:00Z"), "America/Los_Angeles")).toBe(true); // 6:59 PM
+    expect(inSendWindow(new Date("2026-11-21T03:00:00Z"), "America/Los_Angeles")).toBe(false); // 7:00 PM
   });
   it("uses the business's zone, not the server's", () => {
     // 11 AM Pacific is 2 PM Eastern; 6 AM Pacific is 9 AM Eastern.

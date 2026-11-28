@@ -6,7 +6,7 @@ export const maxDuration = 300;
 
 /**
  * Win-back sweep (Pro). Scheduled a few times across the US day; each business
- * sends only between 9 AM and 8 PM its own time and does one full pass a month.
+ * sends only between 9 AM and 7 PM its own time and does one full pass a month.
  */
 export async function GET(req: Request): Promise<Response> {
   const denied = authorizeCron(req, "winback");

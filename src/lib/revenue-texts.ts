@@ -10,7 +10,8 @@
  *  - go only to someone who already contacted the business (a caller or a
  *    customer), never a list someone uploaded
  *  - name the business and end with the opt-out line
- *  - go out between 9 AM and 8 PM in the business's own time zone
+ *  - go out between 9 AM and 7 PM in the business's own time zone (the same
+ *    window as quote follow-up and the older recall/review/recovery jobs)
  *  - skip anyone who replied STOP, anyone the owner blocked, and anyone our
  *    call log marked as spam
  *  - respect one per-person cap across ALL of these features together, so a
@@ -19,8 +20,8 @@
 
 /** First local hour a revenue text may go out (9 AM). */
 export const SEND_START_HOUR = 9;
-/** Local hour revenue texts stop (8 PM: the last send is before 20:00). */
-export const SEND_END_HOUR = 20;
+/** Local hour revenue texts stop (7 PM: the last send is before 19:00). */
+export const SEND_END_HOUR = 19;
 
 /** At most one revenue text (any feature) to the same person in this many days. */
 export const MIN_DAYS_BETWEEN_REVENUE_TEXTS = 3;
@@ -56,7 +57,7 @@ export function localHourIn(now: Date, timeZone: string | null | undefined): num
   }
 }
 
-/** True between 9 AM and 8 PM in the business's time zone. */
+/** True between 9 AM and 7 PM in the business's time zone. */
 export function inSendWindow(now: Date, timeZone: string | null | undefined): boolean {
   const h = localHourIn(now, timeZone);
   return h >= SEND_START_HOUR && h < SEND_END_HOUR;
