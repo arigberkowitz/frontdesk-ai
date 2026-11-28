@@ -254,7 +254,7 @@ export async function openBillingPortalAction(
   try {
     const session = await getStripe().billingPortal.sessions.create({
       customer: sub.customerId,
-      return_url: `${env.APP_URL}/portal/settings`,
+      return_url: `${env.APP_URL}/portal/settings/billing`,
     });
     url = session.url;
     void audit({ clientId, actor: guard.user.id, action: "billing.portal_opened", detail: {} });

@@ -121,7 +121,7 @@ export function renderOwnerCapEmail(input: {
   const resets = input.periodEnd ? ` Your count starts over on ${day(input.periodEnd)}.` : "";
   const price = (cents: number) => `$${(cents / 100).toFixed(0)}`;
   const askText = fitPlan
-    ? `${fitPlan.name} covers ${fitPlan.fairUse ? "up to " : ""}${n(fitPlan.includedMinutes ?? 0)} minutes a month for ${price(fitPlan.monthlyPriceCents)}/mo. Switch under Settings → Manage billing: ${input.plansUrl}`
+    ? `${fitPlan.name} covers ${fitPlan.fairUse ? "up to " : ""}${n(fitPlan.includedMinutes ?? 0)} minutes a month for ${price(fitPlan.monthlyPriceCents)}/mo. Switch under Settings → Plan & billing: ${input.plansUrl}`
     : "No plan covers more than that, so get in touch and we'll work out what fits.";
   const askHtml = fitPlan
     ? `${escHtml(fitPlan.name)} covers ${fitPlan.fairUse ? "up to " : ""}${n(fitPlan.includedMinutes ?? 0)} minutes a month for ${price(fitPlan.monthlyPriceCents)}/mo. <a href="${escHtml(input.plansUrl)}">Switch plans</a>.`

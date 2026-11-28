@@ -94,7 +94,7 @@ export async function runMinuteCapAlerts(now = new Date()): Promise<{ ownersEmai
           usedMinutes: used,
           periodStart: start,
           periodEnd: c.currentPeriodEnd,
-          plansUrl: `${appUrl}/portal/settings`,
+          plansUrl: `${appUrl}/portal/settings/billing`,
           questionsText: questionsLine(help),
           questionsHtml: questionsLineHtml(help),
         });
