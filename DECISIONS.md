@@ -958,3 +958,20 @@ pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
   calendar"; no "text summary after every call" (alerts go out when it books or takes a
   message; every call's recording and summary are in the dashboard).
 - No migration (all new state is in `setup_flags` jsonb); no new env vars; no vendor settings.
+
+## Operator delete / deactivate controls (operator-only)
+
+- **Where:** "Operator controls" card on the Agent tab of an operator's client page, and an "Orphans" card on the
+  Platform page. Routes `/api/operator/clients/[id]` and `/api/operator/orphans` re-authorize on the server
+  (agency operator for their own org's business; Orphans is super-admin only). Client portals never import them.
+- **Four controls:** release phone number, delete agent, deactivate company (reversible), delete company.
+  Each step is idempotent; a vendor "already gone" is success; a failure names the step and offers Retry.
+  The DB pointer to a number/agent is cleared only after the vendor confirms, so a billing number is never orphaned.
+- **Deactivate** = `setup_flags.suspended` + `status=paused`: portal shows a suspended page, owner actions refused,
+  crons skip it (status), notifier/notify/alerts skip it, inbound calls rejected, Stripe webhook can't revive it,
+  number auto-buy held. Default Stripe action: cancel immediately, no refund, no proration (shown in the dialog).
+- **Delete** = lock, release numbers, delete agent + LLM, cancel Stripe, then soft-delete (the existing 90-day
+  purge applies; billing/legal rows and the audit log stay). Optional fraud flag is written to `audit_log`
+  (`trial.blocked_identity`) and checked in `finishSignup`; public email domains are never blocked by domain.
+- **Orphans:** read-only until Ari presses Scan, then each row has its own confirm + delete, re-checked on the server.
+- No migration. No new env vars. Vendor delete/release/cancel calls live only in `src/lib/operator/providers.ts`.
