@@ -44,6 +44,8 @@ export function Sparkline({
       className={className}
       aria-hidden={labels ? undefined : true}
       role={labels ? "img" : undefined}
+      // role="img" needs a name; the per-point tooltips aren't one.
+      aria-label={labels?.length ? `Trend from ${labels[0]} to ${labels[labels.length - 1]}` : undefined}
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">

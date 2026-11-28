@@ -189,7 +189,9 @@ export function WeekGrid({
                 onPointerMove={onMove}
                 onPointerUp={onUp}
                 onPointerCancel={onUp}
-                role={canEdit ? "button" : undefined}
+                // A group, not a button: the column holds the blocks' own
+                // buttons, and a button can't contain buttons.
+                role={canEdit ? "group" : undefined}
                 aria-label={canEdit ? `Drag to block time on ${d.label}` : undefined}
               >
                 {/* Open window: the light part of the column */}

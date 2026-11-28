@@ -1,6 +1,6 @@
 "use client";
 
-import { cloneElement, isValidElement, useId } from "react";
+import { Children, cloneElement, isValidElement, useId } from "react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
@@ -31,11 +31,29 @@ export function Field({
   const errorId = error?.length ? `${id}-error` : undefined;
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
 
+  type ControlProps = { id?: string; "aria-describedby"?: string; type?: string };
+  const wire = (el: React.ReactElement<ControlProps>) =>
+    cloneElement(el, {
+      id: el.props.id ?? id,
+      "aria-describedby": el.props["aria-describedby"] ?? describedBy,
+    });
   let control = children;
-  if (isValidElement<{ id?: string; "aria-describedby"?: string }>(children)) {
-    control = cloneElement(children, {
-      id: children.props.id ?? id,
-      "aria-describedby": children.props["aria-describedby"] ?? describedBy,
+  if (isValidElement<ControlProps>(children)) {
+    control = wire(children);
+  } else if (Array.isArray(children)) {
+    // A control plus a helper next to it (<NativeSelect/> <WhatsThis/>): the
+    // first real element is the control. Without this the label pointed at
+    // nothing and screen readers announced an unnamed select.
+    let wired = false;
+    control = Children.map(children, (child) => {
+      if (
+        wired ||
+        !isValidElement<ControlProps>(child) ||
+        (child.type === "input" && child.props.type === "hidden")
+      )
+        return child;
+      wired = true;
+      return wire(child);
     });
   }
 
