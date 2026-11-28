@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { deleteOrphan, listOrphans, type ActiveHoldings, type OrphanProviders, type OrphanStore } from "./orphans";
+import type { Outcome } from "./controls";
 import { actor } from "./test-helpers";
 
 const holdings = (over: Partial<ActiveHoldings> = {}): ActiveHoldings => ({
@@ -22,7 +23,7 @@ function world(hold = holdings()) {
     }),
   };
   const providers = {
-    configured: { retell: true, stripe: true, twilio: true },
+    configured: { retell: true as boolean, stripe: true as boolean, twilio: true as boolean },
     listRetellAgents: vi.fn(async () => [
       { id: "agent_live", name: "Live", modifiedAt: 1 },
       { id: "agent_june1", name: "Old June agent", modifiedAt: Date.UTC(2026, 5, 3) },
@@ -45,11 +46,11 @@ function world(hold = holdings()) {
       { id: "sub_fresh", clientId: "c_fresh", customer: "cus_2", summary: "just checked out" },
       { id: "sub_zombie", clientId: "c_deleted", customer: "cus_3", summary: "$399/mo · zombie@x.com · active" },
     ]),
-    deleteRetellAgent: vi.fn(async () => "done" as const),
-    deleteRetellLlm: vi.fn(async () => "done" as const),
-    releaseRetellNumber: vi.fn(async () => "done" as const),
-    releaseTwilioNumber: vi.fn(async () => "done" as const),
-    cancelStripeSubscription: vi.fn(async () => "done" as const),
+    deleteRetellAgent: vi.fn(async () => "done" as Outcome),
+    deleteRetellLlm: vi.fn(async () => "done" as Outcome),
+    releaseRetellNumber: vi.fn(async () => "done" as Outcome),
+    releaseTwilioNumber: vi.fn(async () => "done" as Outcome),
+    cancelStripeSubscription: vi.fn(async () => "done" as Outcome),
   } satisfies OrphanProviders;
   return { store, providers, audits };
 }

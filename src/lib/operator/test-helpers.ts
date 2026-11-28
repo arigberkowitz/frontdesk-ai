@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { ControlClient, ControlDeps, ControlStore, OperatorProviders } from "./controls";
+import type { ControlClient, ControlDeps, ControlStore, OperatorProviders, Outcome } from "./controls";
 import type { BlockedIdentity } from "./trial-block";
 
 /** In-memory ControlStore + mocked providers: the whole operator toolkit with zero network or database. */
@@ -59,16 +59,16 @@ export function makeWorld(over: Partial<ControlClient> = {}, opts: { sub?: boole
   };
 
   const providers = {
-    configured: { retell: true, stripe: true, twilio: true },
-    retellUnbindNumber: vi.fn(async () => "done" as const),
-    retellRebindNumber: vi.fn(async () => "done" as const),
-    retellReleaseNumber: vi.fn(async () => "done" as const),
-    retellDeleteAgent: vi.fn(async () => "done" as const),
-    retellDeleteLlm: vi.fn(async () => "done" as const),
-    twilioReleaseNumber: vi.fn(async () => "done" as const),
-    stripeCancel: vi.fn(async () => "done" as const),
+    configured: { retell: true as boolean, stripe: true as boolean, twilio: true as boolean },
+    retellUnbindNumber: vi.fn(async () => "done" as Outcome),
+    retellRebindNumber: vi.fn(async () => "done" as Outcome),
+    retellReleaseNumber: vi.fn(async () => "done" as Outcome),
+    retellDeleteAgent: vi.fn(async () => "done" as Outcome),
+    retellDeleteLlm: vi.fn(async () => "done" as Outcome),
+    twilioReleaseNumber: vi.fn(async () => "done" as Outcome),
+    stripeCancel: vi.fn(async () => "done" as Outcome),
     stripeOpenSubscriptionsFor: vi.fn(async () => ["sub_1"]),
-    stripePause: vi.fn(async () => "done" as const),
+    stripePause: vi.fn(async () => "done" as Outcome),
     stripeResume: vi.fn(async () => "resumed" as const),
     republishAgent: vi.fn(async () => undefined),
   } satisfies OperatorProviders;

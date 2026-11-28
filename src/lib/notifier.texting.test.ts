@@ -5,12 +5,14 @@ const create = vi.fn(async () => ({ sid: "SM1" }));
 const getTextingPrefs = vi.fn();
 const enqueueSms = vi.fn(async () => {});
 const flags = { OWNER_TEXTING_CONTROLS: true };
+const isClientSuspended = vi.fn(async (_id: string) => false);
 
 vi.mock("twilio", () => ({ default: () => ({ messages: { create } }) }));
 vi.mock("resend", () => ({ Resend: class {} }));
 vi.mock("./data/sms-numbers", () => ({ getClientSmsNumber: async () => null }));
 vi.mock("./data/sms-messages", () => ({ recordOutboundSms: async () => {} }));
 vi.mock("./data/texting-prefs", () => ({ getTextingPrefs, enqueueSms }));
+vi.mock("./operator/suspended-check", () => ({ isClientSuspended }));
 vi.mock("./logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock("./env", () => ({
   env: new Proxy({ TWILIO_ACCOUNT_SID: "AC", TWILIO_AUTH_TOKEN: "t", TWILIO_FROM_NUMBER: "+18885550000" } as Record<string, unknown>, {
@@ -31,6 +33,15 @@ beforeEach(() => {
   enqueueSms.mockClear();
   getTextingPrefs.mockReset();
   flags.OWNER_TEXTING_CONTROLS = true;
+});
+
+describe("operator suspension", () => {
+  it("a suspended company sends no customer texts, even a manual reply", async () => {
+    isClientSuspended.mockResolvedValueOnce(true);
+    const r = await notifier.sendSms({ ...auto, manual: true });
+    expect(r).toMatchObject({ ok: false, skipped: true, error: expect.stringMatching(/suspended/) });
+    expect(create).not.toHaveBeenCalled();
+  });
 });
 
 describe("texting switch", () => {
