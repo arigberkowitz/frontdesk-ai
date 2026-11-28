@@ -18,6 +18,7 @@ import { getBookingProviderForClient } from "@/lib/booking";
 import { MissedCallCard } from "@/components/portal/missed-call-card";
 import { callbackStats } from "@/lib/data/call-callbacks";
 import { SmartRebookingCard } from "@/components/portal/smart-rebooking-card";
+import { WinbackSection } from "@/components/portal/winback-section";
 
 export const metadata: Metadata = { title: "Follow-ups · Settings" };
 
@@ -75,6 +76,7 @@ export default async function PortalSettingsFollowUpsPage() {
         recallServiceCount={recallServiceCount}
         isAdmin={editAccess.isAdmin}
       />
+      <WinbackSection client={client} isAdmin={editAccess.isAdmin} />
       <SmartRebookingCard
         clientId={clientId}
         enabled={client.smartRebookingEnabled}

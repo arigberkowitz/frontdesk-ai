@@ -404,6 +404,14 @@ export const clients = pgTable(
         operatorNumberHoldAt?: string;
         /** The signup matched an operator fraud flag, so no free trial was started. */
         trialBlocked?: boolean;
+        /**
+         * Win-back texts (Pro; lib/winback.ts). Off unless the owner turns it
+         * on. `months` is how long a customer has to be away; `lastRunMonth`
+         * ("2026-11", business time zone) is dedupe state for "once a month".
+         * jsonb rather than columns so it ships without a migration; the send
+         * history lives in sms_messages (kind "winback").
+         */
+        winback?: { enabled?: boolean; months?: number; template?: string | null; lastRunMonth?: string | null };
       }>()
       .notNull()
       .default({}),
