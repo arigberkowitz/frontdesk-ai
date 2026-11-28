@@ -41,6 +41,14 @@ export async function screenInboundCall(
     .limit(1);
   if (!client) return { clientId: null, screen: pass };
 
+  // Operator suspended this line ("off"): turn every call away while it's still
+  // ringing, even if the number is still bound at Retell. clientId stays null so
+  // nothing is written to the (blocked) owner's turned-away log. Messages-only
+  // suspension still answers, so the caller reaches someone.
+  if (client.setupFlags?.suspended?.mode === "off") {
+    return { clientId: null, screen: { reject: true, reason: "blocked" } };
+  }
+
   const key = normalizeForBlock(info.fromNumber);
   if (!key) return { clientId: client.id, screen: pass };
   const blocked = client.setupFlags?.blockedNumbers ?? [];

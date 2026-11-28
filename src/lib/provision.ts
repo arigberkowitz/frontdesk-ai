@@ -17,6 +17,7 @@ import type { ActionState } from "@/lib/actions/types";
 import { claimFirstProvision, releaseFirstProvision } from "@/lib/provision-lock";
 import { getNumberGate } from "@/lib/data/number-gate";
 import { isUnpaidTrialUnlock, type NumberGateFacts } from "@/lib/number-gate";
+import { isSuspended } from "@/lib/operator/suspension";
 
 /**
  * The Retell phone error names Retell and "a payment method" — advice for the
@@ -53,6 +54,11 @@ export async function runProvision(
 ): Promise<ActionState> {
   const client = await getClient(user.orgId, clientId);
   if (!client) return { ok: false, error: "Client not found." };
+  // An operator suspended this business: nothing may build it an agent or buy
+  // it a number until they reactivate it.
+  if (isSuspended(client)) {
+    return { ok: false, error: "This company is suspended. Reactivate it first." };
+  }
   if (!integrations.retell()) {
     return { ok: false, error: "Connect Retell first — add RETELL_API_KEY to your environment." };
   }
@@ -122,6 +128,13 @@ export async function runProvision(
       });
     }
 
+    if (firstProvision && result.phoneNumber && user.role === "operator" && client.setupFlags?.operatorNumberHoldAt) {
+      // The operator released this business's number earlier and has now chosen to give it a new one.
+      await db
+        .update(clients)
+        .set({ setupFlags: sql`coalesce(${clients.setupFlags}, '{}'::jsonb) - 'operatorNumberHoldAt'` })
+        .where(eq(clients.id, clientId));
+    }
     await updateClient(user.orgId, clientId, {
       retellLlmId: result.llmId,
       retellAgentId: result.agentId,
@@ -192,6 +205,8 @@ export async function provisionNumberIfUnlocked(clientId: string): Promise<void>
   if (!integrations.retell()) return;
   const client = await getClientForPayment(clientId);
   if (!client || client.retellPhoneNumber || !client.retellAgentId) return;
+  // Suspended, or its number was released by the operator on purpose: don't quietly buy another.
+  if (isSuspended(client) || client.setupFlags?.operatorNumberHoldAt) return;
   const gate = await getNumberGate(clientId, "system");
   if (!gate.unlocked) return;
   const result = await runProvision({ id: null, orgId: client.orgId, role: "system" }, clientId);
@@ -240,6 +255,6 @@ export async function ensureTollfreeNumberSafely(clientId: string, source: "paym
 async function getClientForPayment(clientId: string) {
   return db.query.clients.findFirst({
     where: and(eq(clients.id, clientId), isNull(clients.deletedAt)),
-    columns: { id: true, orgId: true, retellPhoneNumber: true, retellAgentId: true },
+    columns: { id: true, orgId: true, retellPhoneNumber: true, retellAgentId: true, setupFlags: true },
   });
 }

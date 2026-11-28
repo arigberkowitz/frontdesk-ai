@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, type ReactNode } from "react";
 import { Phone, Rocket, Send } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -28,10 +28,13 @@ export function AgentConfigTab({
   client,
   retellReady,
   voices,
+  extraActions,
 }: {
   client: Client;
   retellReady: boolean;
   voices: VoiceMeta[];
+  /** Operator-only buttons shown after the others (e.g. Delete number). */
+  extraActions?: ReactNode;
 }) {
   const [cfg, saveAction, savePending] = useActionState(saveAgentConfigAction, initialActionState);
   const [prov, provAction, provPending] = useActionState(provisionAgentAction, initialActionState);
@@ -95,6 +98,7 @@ export function AgentConfigTab({
             </p>
           ) : null}
           <div className="flex flex-wrap gap-2">
+            {extraActions ? <div className="order-last">{extraActions}</div> : null}
             <form action={provAction}>
               <input type="hidden" name="clientId" value={client.id} />
               <SubmitButton pending={provPending} disabled={!retellReady}>

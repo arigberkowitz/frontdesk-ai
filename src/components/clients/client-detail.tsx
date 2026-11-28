@@ -15,6 +15,8 @@ import { ServicesTab } from "@/components/clients/services-tab";
 import { HoursTab } from "@/components/clients/hours-tab";
 import { KnowledgeTab } from "@/components/clients/knowledge-tab";
 import { AgentConfigTab } from "@/components/clients/agent-config-tab";
+import { ReleaseNumberButton } from "@/components/operator/release-number-button";
+import { OperatorControls, type OperatorControlsProps } from "@/components/operator/operator-controls";
 import { SettingsTab } from "@/components/clients/settings-tab";
 import type { BillingInfo } from "@/components/clients/billing-card";
 import { formatCurrencyCents, formatPercent, formatPhone } from "@/lib/format";
@@ -54,6 +56,8 @@ interface Props {
   intakeLocked?: boolean;
   /** `?tab=` deep link (e.g. the dashboard's Today inbox → leads). Unknown values open Overview. */
   initialTab?: string;
+  /** Operator-only controls (release number, delete agent, deactivate, delete). */
+  operator?: OperatorControlsProps;
 }
 
 function sentimentLabel(score: number | null): string {
@@ -114,6 +118,7 @@ export function ClientDetail(props: Props) {
     intakeUrl,
     intakeLocked = false,
     initialTab,
+    operator,
   } = props;
   const startTab = TABS.find((t) => t === initialTab) ?? "overview";
 
@@ -240,7 +245,15 @@ export function ClientDetail(props: Props) {
         <KnowledgeTab clientId={client.id} knowledge={knowledge} />
       </TabsContent>
       <TabsContent value="agent">
-        <AgentConfigTab client={client} retellReady={retellReady} voices={voices} />
+        <div className="space-y-6">
+          <AgentConfigTab
+            client={client}
+            retellReady={retellReady}
+            voices={voices}
+            extraActions={operator ? <ReleaseNumberButton clientId={client.id} phone={client.retellPhoneNumber} /> : null}
+          />
+          {operator ? <OperatorControls {...operator} /> : null}
+        </div>
       </TabsContent>
       <TabsContent value="settings">
         <SettingsTab client={client} billing={billing} intakeUrl={intakeUrl} intakeLocked={intakeLocked} />

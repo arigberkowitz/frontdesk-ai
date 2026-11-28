@@ -1,3 +1,4 @@
+import { isSuspended } from "@/lib/operator/suspension";
 import "server-only";
 import type Stripe from "stripe";
 import { eq, sql } from "drizzle-orm";
@@ -39,6 +40,8 @@ export async function notifyPaymentFailed(invoice: Stripe.Invoice): Promise<bool
   }
   const client = await getClientByIdUnsafe(clientId);
   const to = client?.ownerEmail;
+  // An operator suspended or deleted this business: no "fix your card" emails.
+  if (client && isSuspended(client)) return false;
   if (!client || !to) {
     logger.warn("stripe.payment_failed.no_owner_email", { clientId });
     return false;
@@ -123,7 +126,7 @@ export async function notifyBillingHold(
   holdKey: string,
 ): Promise<void> {
   const client = await getClientByIdUnsafe(clientId);
-  if (!client) return;
+  if (!client || isSuspended(client)) return;
   await notifyAdminOnce(clientId, client, "holdNotifiedAt", holdKey, {
     subject: `${client.name}'s plan ended (${reason})`,
     text:

@@ -1,3 +1,4 @@
+import { isSuspended } from "@/lib/operator/suspension";
 import "server-only";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -159,6 +160,7 @@ export async function notifyOwnerTextReply(
     aiHandoff?: string | null;
   },
 ): Promise<ReplyAlertResult> {
+  if (isSuspended(client)) return { status: "no_recipient" };
   const { emails } = await getAlertRecipients(client);
   if (emails.length === 0) {
     logger.info("notify.sms_reply.no_owner_email", { clientId: client.id });

@@ -2,7 +2,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { after } from "next/server";
 import { db } from "@/db";
-import { clients } from "@/db/schema";
+import { clients, users } from "@/db/schema";
 import { TRIAL_DAYS } from "@/config/plans";
 import { seedClientFromPack } from "@/lib/starter-seed";
 import { runProvision, type ProvisionActor } from "@/lib/provision";
@@ -10,6 +10,7 @@ import { sendWelcomeEmail } from "@/lib/lifecycle";
 import { integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { signupDefaults } from "@/lib/signup-defaults";
+import { isTrialBlocked } from "@/lib/operator/store";
 
 /**
  * Everything that makes a freshly created business *usable*, in one place.
@@ -35,6 +36,23 @@ export async function finishSignup(
   clientId: string,
   opts: { industry: string | null; seedFromPack: boolean; intendedPlan?: string; intendedInterval?: "month" | "year"; companySize: string; ownerCell?: string | null },
 ): Promise<void> {
+  // An operator deleted a company for fraud and flagged this email / phone /
+  // company domain: no free trial (and so no number or agent) for it. They can
+  // still pay for a plan, or write to support. Fails open — see isTrialBlocked.
+  const [member] = await db.select({ email: users.email }).from(users).where(eq(users.id, user.id)).limit(1);
+  const [owned] = await db.select({ ownerEmail: clients.ownerEmail }).from(clients).where(eq(clients.id, clientId)).limit(1);
+  if (await isTrialBlocked({ emails: [member?.email, owned?.ownerEmail], phones: [opts.ownerCell] })) {
+    logger.warn("signup.trial_blocked", { clientId });
+    await db
+      .update(clients)
+      .set({
+        companySize: opts.companySize,
+        industry: opts.industry,
+        setupFlags: { trialBlocked: true },
+      })
+      .where(eq(clients.id, clientId));
+    return;
+  }
   await db
     .update(clients)
     .set({

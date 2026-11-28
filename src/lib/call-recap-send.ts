@@ -1,3 +1,4 @@
+import { isSuspended } from "@/lib/operator/suspension";
 import "server-only";
 import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -198,6 +199,7 @@ export async function sendCallRecap(
   callId: string,
   input: { kind: RecapKind; problems: string[] },
 ): Promise<CallRecapResult> {
+  if (isSuspended(client)) return { status: "no_recipient" };
   try {
     const loaded = await loadFacts(client, callId, input.kind, input.problems);
     if (!loaded) return { status: "not_found" };

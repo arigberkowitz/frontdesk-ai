@@ -18,6 +18,7 @@ import { provisionNumberAfterPayment } from "@/lib/provision";
 import { clientIdForInvoice, notifyBillingHold, notifyPaymentFailed } from "@/lib/payment-failed";
 import { onPaymentHold } from "@/lib/billing-hold";
 import { recordFirstPayment } from "@/lib/data/subscription-payment";
+import { isSuspended } from "@/lib/operator/suspension";
 
 export const runtime = "nodejs";
 
@@ -135,6 +136,13 @@ async function applyPlanToClient(
 ): Promise<void> {
   const client = await db.query.clients.findFirst({ where: eq(clients.id, clientId) });
   if (!client) return;
+  // An operator suspended or deleted this business. The subscription mirror above
+  // still records what Stripe says, but a Stripe event must never switch the AI
+  // back on, flip the status, or buy a number for it.
+  if (client.deletedAt || isSuspended(client)) {
+    logger.info("stripe.webhook.skipped_suspended", { clientId, status: billing.stripeStatus });
+    return;
+  }
 
   // Stripe "unpaid" (every retry failed, subscription kept) is a billing hold;
   // the enum stores it as past_due, so remember it in a flag. Paying clears it.

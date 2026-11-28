@@ -6,6 +6,7 @@ import { logger } from "./logger";
 import { recordOutboundSms, type OutboundLogContext } from "./data/sms-messages";
 import { getClientSmsNumber } from "./data/sms-numbers";
 import { decideText } from "./texting-policy";
+import { isClientSuspended } from "./operator/suspended-check";
 import { samePhone, toE164, type TwilioNumberCheck } from "./sms-number-format";
 
 export type { TwilioNumberCheck };
@@ -139,6 +140,13 @@ async function sendSms(msg: SmsMessage): Promise<SendResult> {
   if (!integrations.twilio()) {
     logger.warn("notifier.sms.skipped", { reason: "Twilio env unset", to: msg.to });
     return { ok: false, skipped: true };
+  }
+  // A business an operator suspended sends nothing: no customer confirmations,
+  // reminders, AI replies or queued texts, whatever job asked.
+  const onBehalfOf = msg.log?.clientId ?? msg.fromClientId;
+  if (onBehalfOf && (await isClientSuspended(onBehalfOf))) {
+    logger.info("notifier.sms.suspended", { clientId: onBehalfOf });
+    return { ok: false, skipped: true, error: "This company is suspended" };
   }
   if (env.OWNER_TEXTING_CONTROLS && msg.log && !msg.fromQueue) {
     const held = await applyTextingControls(msg);
