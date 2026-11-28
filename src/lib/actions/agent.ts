@@ -1,12 +1,11 @@
 "use server";
 
-import { planAccessFor } from "@/lib/plan-access";
 import { revalidatePath } from "next/cache";
 import { requireClientEditor, requireOperator } from "@/lib/auth-guard";
 import { agentConfigSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg, getClient, updateClient } from "@/lib/data/clients";
 import { createAgentVersion } from "@/lib/data/agent-versions";
-import { applyClientEdit, buildPromptForClient, withSyncNote } from "@/lib/agent-publish";
+import { agentPlanOptions, applyClientEdit, buildPromptForClient, withSyncNote } from "@/lib/agent-publish";
 import { DEFAULT_VOICE_ID, updateAgentVoice } from "@/lib/retell";
 import { integrations } from "@/lib/env";
 import { clientMayActivate } from "@/lib/data/trial";
@@ -179,9 +178,7 @@ export async function publishAgentAction(
     };
   }
 
-  const prompt = buildPromptForClient(client, {
-    staffAllowed: (await planAccessFor(client)).has("staff_mode"),
-  });
+  const prompt = buildPromptForClient(client, await agentPlanOptions(client));
   await createAgentVersion(clientId, {
     promptSnapshot: prompt,
     knowledgeSnapshot: client.knowledgeItems,

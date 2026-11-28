@@ -1,5 +1,4 @@
 import "server-only";
-import { planAccessFor } from "@/lib/plan-access";
 import { revalidatePath } from "next/cache";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -7,7 +6,7 @@ import { clients } from "@/db/schema";
 import { getClient, updateClient } from "@/lib/data/clients";
 import { createAgentVersion } from "@/lib/data/agent-versions";
 import { DEFAULT_AGENT_NAME, openHoursSummary, openingLine } from "@/lib/prompt";
-import { buildPromptForClient, emergencyTransferFor } from "@/lib/agent-publish";
+import { agentPlanOptions, buildPromptForClient, emergencyTransferFor } from "@/lib/agent-publish";
 import { provisionAgentForClient } from "@/lib/retell";
 import { env, integrations, webhookUrl } from "@/lib/env";
 import { ensureTollfreeNumber } from "@/lib/tollfree/service";
@@ -80,9 +79,8 @@ export async function runProvision(
 
   try {
     const agentName = client.agentName?.trim() || DEFAULT_AGENT_NAME;
-    const prompt = buildPromptForClient(client, {
-      staffAllowed: (await planAccessFor(client)).has("staff_mode"),
-    });
+    const planOpts = await agentPlanOptions(client);
+    const prompt = buildPromptForClient(client, planOpts);
     // Greeting + enforced AI/recording disclosure (see openingLine).
     const greeting = openingLine({ ...client, agentName });
     const boosted = [client.name, ...client.services.filter((s) => s.isActive).map((s) => s.name)]
@@ -108,6 +106,7 @@ export async function runProvision(
       openHoursNote: openHoursSummary(client.businessHours),
       waitlistEnabled: client.waitlistEnabled,
       emergencyNumber: emergencyTransferFor(client),
+      quoteTextConsent: planOpts.quoteConsentAsk,
       languages: client.languages,
       timezone: client.timezone,
       voiceId: client.voiceId,

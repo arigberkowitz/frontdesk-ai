@@ -100,6 +100,7 @@ export const PLANS: Record<PlanKey, Plan> = {
       "One tap: your AI calls a lead back for you",
       "Staff mode — team members with their own calendars",
       "Every night we review your calls and suggest better answers for you to approve",
+      "Quote follow-up: callers who asked for a price and didn't book get a text a day later and a week later",
       "Win-back texts: once a month, past customers who haven't been back get a text inviting them to book",
       "Review requests: a text with your Google review link a couple of hours after each visit",
     ],
@@ -128,6 +129,7 @@ export const PRO_EXTRAS: readonly string[] = [
   "AI callbacks to leads",
   "staff calendars",
   "nightly call reviews",
+  "quote follow-up texts",
   "win-back texts",
   "review requests",
 ];

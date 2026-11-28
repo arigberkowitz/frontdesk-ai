@@ -193,6 +193,8 @@ export function buildAgentTools(
   waitlistEnabled = false,
   /** On-call number emergencies go to at ANY hour (null: urgent message instead). */
   emergencyNumber?: string | null,
+  /** The owner turned on "ask price callers if we can text them" (and Pro + quote follow-up are on). */
+  quoteTextConsent = false,
 ) {
   const transferTo = toE164(escalationNumber);
   const emergencyTo = toE164(emergencyNumber);
@@ -307,6 +309,19 @@ export function buildAgentTools(
             description:
               "true ONLY for a genuine emergency (flooding, burst pipe, no heat, gas smell, no power, a safety problem). The owner is texted and emailed immediately.",
           },
+          ...(quoteTextConsent
+            ? {
+                text_consent: {
+                  type: "boolean",
+                  description:
+                    "Only for a caller who asked about a price or quote and didn't book: true ONLY if you asked the exact quote-text question and they clearly said yes. false if they said no, hesitated, or you didn't ask.",
+                },
+                language: {
+                  type: "string",
+                  description: "Code of the language you asked in, e.g. \"en\" or \"es\".",
+                },
+              }
+            : {}),
         },
         required: ["name", "phone"],
       },
@@ -424,6 +439,8 @@ export interface ProvisionAgentInput {
   waitlistEnabled?: boolean;
   /** On-call number for 24/7 emergency transfers (see emergencyTransferFor). */
   emergencyNumber?: string | null;
+  /** Attach text_consent to take_message (quote-consent.ts). Must match the prompt. */
+  quoteTextConsent?: boolean;
   /** Client languages setting (see lib/languages.ts). Decides the agent's speech model. */
   languages?: string | null;
   /** Business IANA timezone; sets the agent clock for {{current_time}}. */
@@ -527,6 +544,7 @@ export async function provisionAgentForClient(
     input.openHoursNote,
     input.waitlistEnabled ?? false,
     input.emergencyNumber,
+    input.quoteTextConsent ?? false,
   );
 
   // 1. LLM — create or update by stored id.

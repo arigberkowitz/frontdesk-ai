@@ -83,3 +83,22 @@ describe("price ranges, starts-at and trip fee", () => {
     expect(priceFields({ priceDollars: 99, priceFrom: true })).toMatchObject({ priceFrom: true });
   });
 });
+
+describe("owner-controlled quote text consent ask", () => {
+  it("is not in the prompt or the tools unless switched on", () => {
+    expect(base()).not.toMatch(/follow up on your quote/);
+    const off = buildAgentTools("https://x.test", "c1", null).find((x) => x.name === "take_message") as { parameters: { properties: Record<string, unknown> } };
+    expect(off.parameters.properties.text_consent).toBeUndefined();
+  });
+  it("asks the exact question and adds text_consent when on", () => {
+    const p = base({ quoteTextConsentAsk: true });
+    expect(p).toContain("Is it okay if we text you at this number to follow up on your quote?");
+    expect(p).toMatch(/Only a clear yes counts/);
+    const on = buildAgentTools("https://x.test", "c1", null, "always", null, false, null, true).find((x) => x.name === "take_message") as { parameters: { properties: Record<string, unknown> } };
+    expect(on.parameters.properties.text_consent).toBeTruthy();
+  });
+  it("speaks the Spanish question to a Spanish-speaking line", () => {
+    expect(base({ quoteTextConsentAsk: true, languages: "en,es" })).toContain("dar seguimiento a su cotización");
+  });
+});
+

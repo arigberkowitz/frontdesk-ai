@@ -7,8 +7,10 @@ import { getConsentedPhones, isConsented } from "@/lib/data/sms-consents";
 import { normalizePhone } from "@/lib/data/sms-optouts";
 import { pastCustomers, upcomingPhoneKeys } from "@/lib/agents/winback";
 import { phoneKey } from "@/lib/revenue-texts";
-import { reviewTeaser, winbackTeaser, type TeaserCopy } from "@/lib/revenue-teasers";
+import { quoteTeaser, reviewTeaser, winbackTeaser, type TeaserCopy } from "@/lib/revenue-teasers";
 import { reviewRequestBody } from "@/lib/review-requests";
+import { loadQuoteCandidates } from "@/lib/revenue/quote-followup-data";
+import { renderFollowup } from "@/lib/revenue/quote-followup";
 import { isDueForWinback, winbackBody, winbackSettingsOf } from "@/lib/winback";
 
 /**
@@ -36,7 +38,7 @@ export async function optedOutKeys(clientId: string, phones: string[]): Promise<
   return new Set([...global, ...scoped].map((r) => phoneKey(r.phone)).filter((k): k is string => Boolean(k)));
 }
 
-async function textableCount(clientId: string, phones: string[], purpose: "winback" | "review_request"): Promise<number> {
+async function textableCount(clientId: string, phones: string[], purpose: "winback" | "review_request" | "quote_followup"): Promise<number> {
   if (phones.length === 0) return 0;
   const [consented, stopped] = await Promise.all([
     getConsentedPhones(clientId, purpose),
@@ -111,5 +113,24 @@ export async function reviewTeaserFor(client: Client, now = new Date()): Promise
       error: err instanceof Error ? err.message : String(err),
     });
     return { ...reviewTeaser({ visits: 0, textable: 0, days: REVIEW_TEASER_DAYS }), preview };
+  }
+}
+
+const QUOTE_TEASER_DAYS = 30;
+
+/** Callers in the last 30 days who asked for a price and never booked. */
+export async function quoteTeaserFor(client: Client, now = new Date()): Promise<Teaser> {
+  const preview = renderFollowup({ step: 1, businessName: client.name, customerName: null, language: "en" });
+  try {
+    const cands = (await loadQuoteCandidates(client, now, QUOTE_TEASER_DAYS)) ?? [];
+    const neverBooked = cands.filter((c) => !c.facts.bookedSince && !c.facts.hasUpcoming);
+    const textable = await textableCount(client.id, neverBooked.map((c) => c.phone), "quote_followup");
+    return { ...quoteTeaser({ asked: neverBooked.length, textable, days: QUOTE_TEASER_DAYS }), preview };
+  } catch (err) {
+    logger.warn("revenue_teaser.quote_failed", {
+      clientId: client.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { ...quoteTeaser({ asked: 0, textable: 0, days: QUOTE_TEASER_DAYS }), preview };
   }
 }
