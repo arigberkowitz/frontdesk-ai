@@ -1,4 +1,5 @@
 import "server-only";
+import { filterByFeature } from "@/lib/plan-access";
 import { and, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, type Client } from "@/db/schema";
@@ -31,6 +32,8 @@ import {
 
 export interface QuoteFollowupRunResult {
   clients: number;
+  /** Switched on, but the plan doesn't include it (Pro only). */
+  notOnPlan: number;
   /** Switched on, but a business-level gate said no (no texting number, not approved, suspended…). */
   gated: number;
   /** Switched on, but outside 9am–7pm there (or the owner's quiet hours). */
@@ -71,14 +74,17 @@ export async function sendQuoteFollowups(
   opts: { budgetMs?: number } = {},
 ): Promise<QuoteFollowupRunResult> {
   const deadline = Date.now() + (opts.budgetMs ?? 240_000);
-  const active = await db.query.clients.findMany({
+  const switchedOn = await db.query.clients.findMany({
     where: and(
       inArray(clients.status, ["live", "trial"]),
       isNull(clients.deletedAt),
       sql`${clients.setupFlags}->'quoteFollowup'->>'enabled' = 'true'`,
     ),
   });
-  const r: QuoteFollowupRunResult = { clients: active.length, gated: 0, notDue: 0, sent: 0, failed: 0, stopped: {}, skipped: 0 };
+  // Pro only, enforced here and not just in the UI: a business that had it on
+  // and moved to Missed-Call Rescue or Starter sends nothing.
+  const active = await filterByFeature(switchedOn, "quote_followup");
+  const r: QuoteFollowupRunResult = { clients: active.length, notOnPlan: switchedOn.length - active.length, gated: 0, notDue: 0, sent: 0, failed: 0, stopped: {}, skipped: 0 };
   const stop = (why: StopReason) => {
     r.stopped[why] = (r.stopped[why] ?? 0) + 1;
   };
@@ -119,7 +125,7 @@ export async function sendQuoteFollowups(
       let budget = Math.min(MAX_PER_RUN, MAX_PER_DAY - (await sentInLastDay(client.id, now)));
       if (budget <= 0) return;
 
-      const consented = await getConsentedPhones(client.id, "lead_followup");
+      const consented = await getConsentedPhones(client.id, "quote_followup");
       const blocked = client.setupFlags?.blockedNumbers ?? [];
 
       for (const c of candidates) {

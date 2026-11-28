@@ -13,6 +13,7 @@ import { saveQuoteFollowupAction } from "@/lib/actions/quote-followup";
 import { initialActionState } from "@/lib/actions/types";
 import { formatCurrencyCents } from "@/lib/format";
 import { DEFAULT_TEMPLATES, MAX_TEMPLATE_CHARS, renderFollowup } from "@/lib/revenue/quote-followup";
+import { QUOTE_CONSENT_QUESTION } from "@/lib/revenue/quote-consent";
 
 export interface QuoteFollowupStatsView {
   days: number;
@@ -36,6 +37,7 @@ export function QuoteFollowupCard({
   enabled,
   step1Template,
   step2Template,
+  askConsent = false,
   blockedReason,
   stats,
   isAdmin,
@@ -45,6 +47,8 @@ export function QuoteFollowupCard({
   enabled: boolean;
   step1Template?: string | null;
   step2Template?: string | null;
+  /** "Have the AI ask price callers if it can text them". Separate switch, default off. */
+  askConsent?: boolean;
   /** Plain-words reason nothing can send yet (no texting number, not approved…), or null. */
   blockedReason?: string | null;
   stats: QuoteFollowupStatsView | null;
@@ -52,6 +56,7 @@ export function QuoteFollowupCard({
 }) {
   const [state, action, pending] = useActionState(saveQuoteFollowupAction, initialActionState);
   const [on, setOn] = useState(enabled);
+  const [ask, setAsk] = useState(askConsent);
   const [t1, setT1] = useState(step1Template ?? "");
   const [t2, setT2] = useState(step2Template ?? "");
 
@@ -101,6 +106,33 @@ export function QuoteFollowupCard({
               onCheckedChange={setOn}
               disabled={pending}
             />
+          </div>
+
+          <div className={`rounded-lg border p-3 ${on ? "" : "opacity-60"}`} data-testid="quote-ask-consent">
+            <div className="flex items-center justify-between gap-4">
+              <label htmlFor={`quote-ask-consent-${clientId}`} className="text-sm font-medium">
+                Have the AI ask price callers if it can text them
+              </label>
+              <Switch
+                id={`quote-ask-consent-${clientId}`}
+                name="askConsent"
+                checked={on && ask}
+                onCheckedChange={setAsk}
+                disabled={pending || !on}
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {on
+                ? "We only text callers who said yes to texts. With this on, when someone asks for a price and doesn't book, your AI asks before the call ends:"
+                : "Turn on the follow-up texts first. With this on, when someone asks for a price and doesn't book, your AI asks before the call ends:"}
+            </p>
+            <blockquote className="mt-2 rounded-lg bg-muted/60 px-3 py-2 text-sm italic">
+              &ldquo;{QUOTE_CONSENT_QUESTION}&rdquo;
+            </blockquote>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Only a clear yes counts, and it asks once. Spanish callers hear the same question in Spanish.
+              Saving a change here updates your live receptionist right away.
+            </p>
           </div>
 
           {on && blockedReason ? (

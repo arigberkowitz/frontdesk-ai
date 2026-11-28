@@ -2,6 +2,7 @@ import { DAYS } from "@/config/options";
 import { formatCurrencyCents } from "./format";
 import { hasCustomVocab, isFieldService, vocabFor } from "./vocab";
 import { languagePromptRules, parseLanguages } from "./languages";
+import { quoteConsentPromptRule } from "./revenue/quote-consent";
 
 /**
  * Builds the Retell LLM `general_prompt` from a client's profile, services,
@@ -42,6 +43,12 @@ export interface PromptClient {
   emergencyTransfer247?: boolean;
   /** Flat trip / service-call fee in cents, quoted as an estimate. */
   tripFeeCents?: number | null;
+  /**
+   * Ask price/quote callers who don't book whether we may text them
+   * (lib/revenue/quote-consent.ts). Only true when the business is on Pro, quote
+   * follow-up is on, AND the owner turned this ask on. Default off.
+   */
+  quoteTextConsentAsk?: boolean;
 }
 
 export interface PromptService {
@@ -417,6 +424,12 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     // it's quoted verbatim on /sms-consent — if the agent stops performing it,
     // the whole messaging program is misrepresented. Keep all three in step.
     "Before any confirmation or reminder text can be sent, you must get explicit permission, as its own question. First ask for the best mobile number. Then ask: \"Would you like me to text you the confirmation, a reminder, and a quick follow-up about this visit? Message and data rates may apply, and you can reply STOP at any time to opt out.\" Only a clear yes counts. If they decline or hesitate, keep the number for a callback only and tell them you won't text. Never treat someone giving you their number as agreement to be texted. When you book, pass sms_consent as true only if they clearly said yes, and false otherwise — this is what decides whether they actually get the text you promised them.",
+    // Owner-controlled (Settings → Follow-ups → Quote follow-up). Off unless
+    // the owner turned it on, so a business that didn't ask for it never has
+    // its AI asking callers to be texted.
+    client.quoteTextConsentAsk === true
+      ? quoteConsentPromptRule({ spanish: parseLanguages(client.languages).includes("es") })
+      : null,
     "If the caller wants to cancel an appointment: use cancel_appointment (it finds the booking by the number they're calling from; for their security it can't cancel a booking made under a different number — if so, take a message so the team can call that number back). Read the appointment back and get a clear yes before cancelling, then confirm it's done and offer to rebook them for another time.",
     handoffMode === "never"
       ? // Nobody is reachable, so the agent must never imply otherwise. This is

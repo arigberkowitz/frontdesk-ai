@@ -92,6 +92,28 @@ beforeEach(async () => {
 const sentTo = () => sendSms.mock.calls.map((c) => c[0].to);
 
 describe("who gets texted", () => {
+  it("is Pro only: a Starter business with the switch on sends nothing", async () => {
+    const starter = await mkClient();
+    await db.insert(s.subscriptions).values({ clientId: starter.id, plan: "starter", status: "active" });
+    await quoteCall(starter.id, 40);
+    await consent(starter.id, 40);
+    const pro = await mkClient();
+    await db.insert(s.subscriptions).values({ clientId: pro.id, plan: "pro", status: "active" });
+    await quoteCall(pro.id, 41);
+    await consent(pro.id, 41);
+    const r = await sendQuoteFollowups(NOW);
+    expect(r.notOnPlan).toBe(1);
+    expect(sentTo()).toEqual([phone(41)]);
+  });
+
+  it("a yes to the AI's quote question (quote-v1) is enough to be texted", async () => {
+    const c = await mkClient();
+    await quoteCall(c.id, 42);
+    await db.insert(s.smsConsents).values({ clientId: c.id, phone: phone(42), wording: "quote-v1" });
+    const r = await sendQuoteFollowups(NOW);
+    expect(r.sent).toBe(1);
+  });
+
   it("texts a caller who asked for a quote and never booked, a day later, once", async () => {
     const c = await mkClient();
     await quoteCall(c.id, 1);

@@ -109,9 +109,11 @@ async function ledgerRows(clientId: string, now: Date): Promise<LedgerRow[]> {
 export async function loadQuoteCandidates(
   client: { id: string },
   now: Date = new Date(),
+  /** How far back to look. The sender uses LOOKBACK_DAYS; the Pro teaser looks back 30. */
+  lookbackDays: number = LOOKBACK_DAYS,
 ): Promise<QuoteCandidate[] | null> {
   try {
-    const since = new Date(now.getTime() - LOOKBACK_DAYS * DAY);
+    const since = new Date(now.getTime() - lookbackDays * DAY);
     const rows = await db
       .select({
         callId: calls.id,
@@ -415,6 +417,7 @@ export async function saveSettings(clientId: string, next: QuoteFollowupSettings
   if (next.enabledAt) value.enabledAt = next.enabledAt;
   if (next.step1Template) value.step1Template = next.step1Template;
   if (next.step2Template) value.step2Template = next.step2Template;
+  value.askConsent = next.askConsent === true;
   await db
     .update(clients)
     .set({
@@ -535,7 +538,7 @@ export async function getQuoteFollowupStats(
     let agreed = 0;
     if (cands && cands.length) {
       const { getConsentedPhones, isConsented } = await import("@/lib/data/sms-consents");
-      const consented = await getConsentedPhones(clientId, "lead_followup");
+      const consented = await getConsentedPhones(clientId, "quote_followup");
       agreed = cands.filter((c) => isConsented(consented, c.phone)).length;
     }
 

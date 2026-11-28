@@ -66,6 +66,11 @@ export interface QuoteFollowupSettings {
   /** Custom English wording. Empty/absent = the default below. */
   step1Template?: string;
   step2Template?: string;
+  /**
+   * Have the AI ask price callers if it can text them (quote-consent.ts).
+   * Separate switch, default OFF; changing it republishes the agent.
+   */
+  askConsent?: boolean;
 }
 
 /** Off unless someone turned it on. Anything malformed reads as off. */
@@ -79,6 +84,7 @@ export function parseSettings(flags: unknown): QuoteFollowupSettings {
     enabledAt: str(r.enabledAt),
     step1Template: str(r.step1Template),
     step2Template: str(r.step2Template),
+    askConsent: r.askConsent === true,
   };
 }
 

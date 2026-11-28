@@ -5,6 +5,7 @@ import { smsConsents } from "@/db/schema";
 import { logger } from "./../logger";
 import { normalizePhone } from "./sms-optouts";
 import { LANGUAGE_OPTIONS, normalizeCustomerLanguage } from "@/lib/languages";
+import { QUOTE_CONSENT_WORDING } from "@/lib/revenue/quote-consent";
 
 /**
  * The exact consent script version currently in force. This string is the
@@ -39,6 +40,12 @@ const BOOKING_V1_WORDINGS: readonly string[] = [CONSENT_WORDING_VERSION, ...PREV
   ...LANGUAGE_OPTIONS.filter((l) => l.code !== "en").map((l) => `${v}-${l.code}`),
 ]);
 
+/** quote-v1 and its translations (quote-consent.ts). */
+const QUOTE_V1_WORDINGS: readonly string[] = [
+  QUOTE_CONSENT_WORDING,
+  ...LANGUAGE_OPTIONS.filter((l) => l.code !== "en").map((l) => `${QUOTE_CONSENT_WORDING}-${l.code}`),
+];
+
 /**
  * Write the receipt for a "yes, text me".
  *
@@ -53,13 +60,15 @@ export async function recordSmsConsent(input: {
   callId?: string | null;
   /** The language the ask was made in, when not English. */
   language?: string | null;
+  /** A different script than the booking ask (e.g. quote-consent.ts), already versioned. */
+  wording?: string;
 }): Promise<void> {
   try {
     await db.insert(smsConsents).values({
       clientId: input.clientId,
       phone: input.phone,
       callId: input.callId ?? null,
-      wording: consentWordingFor(input.language),
+      wording: input.wording ?? consentWordingFor(input.language),
     });
   } catch (err) {
     logger.error("sms_consent.record_failed", {
@@ -80,6 +89,13 @@ export type ConsentPurpose =
   | "recovery_lead"
   | "recovery_no_show"
   | "lead_followup"
+  /**
+   * Quote follow-up (Pro): the day-1 and day-7 texts to a caller who asked for
+   * a price and didn't book. Covered by the booking ask, and by the separate
+   * "can we text you about your quote?" ask (quote-v1) when the owner turns
+   * that on. quote-v1 covers ONLY this purpose.
+   */
+  | "quote_followup"
   /**
    * An owner's typed text from portal → Messages to a customer who has NOT
    * texted the business yet (the thread is only automated texts). A reply to
@@ -123,6 +139,7 @@ export const CONSENT_COVERAGE: Record<ConsentPurpose, readonly string[]> = {
   recovery_lead: BOOKING_V1_WORDINGS,
   recovery_no_show: BOOKING_V1_WORDINGS,
   lead_followup: BOOKING_V1_WORDINGS,
+  quote_followup: [...BOOKING_V1_WORDINGS, ...QUOTE_V1_WORDINGS],
   portal_reply: BOOKING_V1_WORDINGS,
   // TODO(Ari): same policy call as above. booking-v1 covers it so a returning
   // customer who agreed to texts can be texted back after a dropped call. A
