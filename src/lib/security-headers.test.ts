@@ -6,8 +6,13 @@ import { metadata as signInMeta } from "@/app/sign-in/[[...sign-in]]/page";
 describe("site hardening", () => {
   it("sends baseline security headers on every path", async () => {
     const rules = await nextConfig.headers!();
-    const all = rules.find((r) => r.source === "/:path*");
+    const all = rules.find((r) => r.source === "/:path((?!widget/frame$).*)");
     expect(all?.headers).toEqual(SECURITY_HEADERS);
+    // The website chat iframe is the one framable route: same headers minus
+    // X-Frame-Options (its own CSP frame-ancestors lists the owner's domains).
+    const frame = rules.find((r) => r.source === "/widget/frame");
+    expect(frame?.headers.map((h) => h.key)).not.toContain("X-Frame-Options");
+    expect(frame?.headers.map((h) => h.key)).toContain("X-Content-Type-Options");
     const keys = SECURITY_HEADERS.map((h) => h.key);
     expect(keys).toEqual(expect.arrayContaining(["X-Frame-Options", "X-Content-Type-Options", "Referrer-Policy", "Permissions-Policy"]));
     // The browser test call needs the mic.

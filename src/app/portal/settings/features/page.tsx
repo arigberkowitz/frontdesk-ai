@@ -73,6 +73,7 @@ export default async function PortalSettingsFeaturesPage({
     morningUnbookedTextEnabled: flags.morningUnbookedText === true,
     ownerEmail: client.ownerEmail?.trim() || null,
     chatWidgetEnabled: client.chatWidgetEnabled,
+    chatWidgetAllowed: access ? access.has("website_chat") : true,
   };
 
   return (

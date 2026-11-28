@@ -40,6 +40,8 @@ export const PUBLIC_TOP_LEVEL_SEGMENTS = [
   "privacy",
   "sms-consent",
   "terms",
+  // The website chat iframe (/widget/frame), embedded on businesses' own sites.
+  "widget",
   // Flags Explorer discovery for the Vercel Toolbar. Not a product page.
   ".well-known",
 ] as const;

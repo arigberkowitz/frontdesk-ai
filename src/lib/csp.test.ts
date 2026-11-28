@@ -84,7 +84,7 @@ describe("buildCsp (production)", () => {
       "wss://*.livekit.cloud",
     ]);
     expect(directive(csp, "img-src")).toContain("https://img.clerk.com");
-    expect(directive(csp, "frame-src")).toEqual(["https://challenges.cloudflare.com"]);
+    expect(directive(csp, "frame-src")).toEqual(["'self'", "https://challenges.cloudflare.com"]);
   });
 
   it("never allows a wildcard or bare scheme for scripts, frames or forms", () => {

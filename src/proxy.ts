@@ -58,9 +58,11 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)",
   "/api/agent-tools(.*)",
   "/api/cron(.*)",
-  // The website chat endpoint. Public on purpose: it is called from other
-  // people's websites, by visitors who have no account here. It gates itself
-  // on the business having turned the widget on, and rate-limits by IP.
+  // The website chat (Pro). Public on purpose: visitors on the business's own
+  // site have no account here. The frame is embedded on their pages and the
+  // endpoint is called by that frame; both gate on the widget key, the chat
+  // being on, the plan, and the owner's allowed domains, and rate-limit by IP.
+  "/widget/frame",
   "/api/chat",
   "/api/csp-report",
 ]);
@@ -116,6 +118,12 @@ export default clerkMiddleware(async (auth, req) => {
   // Machine callers sign the exact URL they post to. A Set-Cookie on those
   // responses is unused and not worth adding to a signed request path.
   if (isMachineRoute(req) || req.nextUrl.pathname.startsWith("/api/")) {
+    return;
+  }
+  // The website chat frame sets its own, stricter CSP (with the owner's
+  // domains in frame-ancestors) and must not get a visitor cookie: it runs
+  // on other people's sites. See src/lib/chat/widget-frame.ts.
+  if (req.nextUrl.pathname === "/widget/frame") {
     return;
   }
   return nextWithVisitorId(req);

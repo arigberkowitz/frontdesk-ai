@@ -18,6 +18,12 @@ import { getBookingProviderForClient } from "@/lib/booking";
 import { MissedCallCard } from "@/components/portal/missed-call-card";
 import { callbackStats } from "@/lib/data/call-callbacks";
 import { SmartRebookingCard } from "@/components/portal/smart-rebooking-card";
+import { planAccessFor } from "@/lib/plan-access";
+import { widgetSettings } from "@/lib/chat/widget-access";
+import { websiteChatTeaser } from "@/lib/chat/teaser";
+import { countAfterHoursCalls } from "@/lib/data/chat-widget";
+import { getWebChatStats } from "@/lib/data/chat-limits";
+import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { QuoteFollowupSection } from "@/components/portal/quote-followup-section";
 import { WinbackSection } from "@/components/portal/winback-section";
 
@@ -40,9 +46,37 @@ export default async function PortalSettingsFollowUpsPage() {
     ? await callbackStats(clientId).catch(() => null)
     : null;
 
+  // Website chat is Pro. Unknown plan (lookup failed) fails open like
+  // resolveFeatures; the save action and the chat endpoint both re-check.
+  const access = await planAccessFor(client).catch(() => null);
+  const chatAllowed = access ? access.has("website_chat") : true;
+  const chat = widgetSettings(client.setupFlags);
+  const [afterHoursCalls, chatStats] = await Promise.all([
+    chatAllowed ? Promise.resolve(null) : countAfterHoursCalls(clientId),
+    chatAllowed && client.chatWidgetEnabled ? getWebChatStats(clientId) : Promise.resolve(null),
+  ]);
+  const chatCard = (
+    <div id="website-chat" className="scroll-mt-24">
+      <ChatWidgetCard
+        clientId={clientId}
+        isAdmin={editAccess.isAdmin}
+        appUrl={env.APP_URL.replace(/\/$/, "")}
+        enabled={client.chatWidgetEnabled}
+        allowed={chatAllowed}
+        widgetKey={chat.key}
+        domains={chat.domains}
+        teaser={websiteChatTeaser(afterHoursCalls)}
+        businessName={client.name}
+        agentName={client.agentName?.trim() || DEFAULT_AGENT_NAME}
+        stats={chatStats}
+      />
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <RecoveryTextsForm client={toSafeClient(client)} />
+      {editAccess.isAdmin ? chatCard : null}
       <AiTextRepliesCard
         clientId={clientId}
         enabled={client.aiTextRepliesEnabled}
@@ -100,8 +134,8 @@ export default async function PortalSettingsFollowUpsPage() {
           <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 text-sm [&::-webkit-details-marker]:hidden">
             <span className="font-medium">For your website &amp; other tools</span>
             <span className="text-muted-foreground">
-              Chat bubble for your site, and sending leads to a CRM or Zapier. Optional — hand this
-              to whoever runs your website.
+              Sending leads to a CRM or Zapier. Optional. Hand this to whoever runs your
+              website.
             </span>
             <span className="ml-auto shrink-0 text-xs font-medium underline underline-offset-2 group-open:hidden">
               Show
@@ -111,12 +145,6 @@ export default async function PortalSettingsFollowUpsPage() {
             </span>
           </summary>
           <div className="space-y-6 border-t p-4">
-            <ChatWidgetCard
-              clientId={clientId}
-              enabled={client.chatWidgetEnabled}
-              appUrl={env.APP_URL.replace(/\/$/, "")}
-              isAdmin={editAccess.isAdmin}
-            />
             <WebhookCard
               clientId={clientId}
               url={(client.setupFlags as { webhookUrl?: string }).webhookUrl ?? null}

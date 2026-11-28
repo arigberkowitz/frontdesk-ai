@@ -66,6 +66,16 @@ describe("featureRows", () => {
     expect(row({ ...defaults, aiCallbacksAvailable: true }, "aiCallbacks")?.parent).toBe("missedCallTexts");
   });
 
+  it("shows website chat as Pro-locked on cheaper plans, but lets an owner who has it on switch it off", () => {
+    const locked = row({ ...defaults, chatWidgetAllowed: false }, "chatWidget");
+    expect(locked?.locked?.label).toBe("Upgrade to Pro");
+    expect(locked?.locked?.href).toContain("#website-chat");
+    const paused = row({ ...defaults, chatWidgetAllowed: false, chatWidgetEnabled: true }, "chatWidget");
+    expect(paused?.locked).toBeUndefined();
+    expect(paused?.warning?.note).toMatch(/Paused on your website until you're on Pro/);
+    expect(row({ ...defaults, chatWidgetAllowed: true }, "chatWidget")?.locked).toBeUndefined();
+  });
+
   it("shows staff mode as locked (not hidden) when the plan lacks it", () => {
     const r = row({ ...defaults, staffModeAllowed: false }, "staffMode");
     expect(r).toBeDefined();

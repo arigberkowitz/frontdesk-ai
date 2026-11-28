@@ -14,9 +14,9 @@ import { type PlanKey } from "@/config/plans";
  *   backup   → the AI answers missed calls only
  *   starter  → full 24/7 receptionist
  *   pro      → + outbound AI callbacks, staff mode, nightly AI improvement/QA,
- *              and the revenue texts (quote follow-up, win-back, review requests). Pro only, by
- *              Ari's call (Nov 2026): the extras live on the top plan, and
- *              the lower plans show them locked with what they would have done.
+ *              website chat, and the revenue texts (quote follow-up, win-back, review requests).
+ *              Those are Pro only, by Ari's call (Nov 2026): the extras live on the top plan,
+ *              and the lower plans show them locked with what they would have done.
  *
  * Two deliberate softnesses:
  *  - Trials and comped businesses get EVERYTHING. A trial is a demo of the
@@ -36,6 +36,8 @@ export type PlanFeature =
   | "staff_mode"
   /** Nightly self-improvement + call-QA agent runs. */
   | "ai_improvement"
+  /** The chat widget on the business's own website (/api/chat, /widget/frame). */
+  | "website_chat"
   /** Monthly "it's been a while" texts to past customers. */
   | "winback"
   /** A Google-review text after a visit. */
@@ -48,6 +50,7 @@ const EVERYTHING: readonly PlanFeature[] = [
   "outbound_ai_calls",
   "staff_mode",
   "ai_improvement",
+  "website_chat",
   "winback",
   "review_requests",
   "quote_followup",
@@ -78,6 +81,8 @@ export const UPGRADE_MESSAGES: Record<PlanFeature, string> = {
     "Team members with their own calendars is a Pro feature. Upgrade to Pro to turn on staff mode.",
   ai_improvement:
     "Nightly AI tuning is a Pro feature. Upgrade to Pro and we review your calls every night to sharpen its answers.",
+  website_chat:
+    "Website chat is a Pro feature. Upgrade to Pro and the same AI answers visitors on your website.",
   quote_followup:
     "Quote follow-up texts are a Pro feature. Upgrade to Pro and callers who asked for a price but didn't book get a text a day later and a week later.",
   winback:

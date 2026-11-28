@@ -10,6 +10,12 @@ import { assertClientInOrg } from "@/lib/data/clients";
 import { isDeliverableUrl } from "@/lib/webhooks-out";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { planAccessFor, UPGRADE_MESSAGES } from "@/lib/plan-access";
+import {
+  MAX_WIDGET_DOMAINS,
+  generateWidgetKey,
+  parseDomainList,
+  widgetSettings,
+} from "@/lib/chat/widget-access";
 import { REVIEW_DELAY_OPTIONS } from "@/lib/review-requests";
 import { type ActionState } from "./types";
 
@@ -247,12 +253,14 @@ export async function saveDepositSettingsAction(
 }
 
 /**
- * Website chat on or off.
+ * Website chat (Pro): on/off, the allowed domains, and the embed key.
  *
- * On means a public endpoint starts answering for this business from any
- * website that embeds the snippet. That is the whole point and also why it
- * defaults to off: a public endpoint that spends model tokens should exist
- * only for a business that asked for one.
+ * On means a public endpoint starts answering for this business, from the
+ * domains listed here. That is the point and also why it defaults to off: a
+ * public endpoint that spends model tokens should exist only for a business
+ * that asked for one. Turning it on needs a plan with website_chat; turning
+ * it off never does. The domain list is only touched when the form sends it
+ * (the Features page switch posts just `enabled`).
  */
 export async function saveChatWidgetSettingsAction(
   _prev: ActionState,
@@ -260,20 +268,79 @@ export async function saveChatWidgetSettingsAction(
 ): Promise<ActionState> {
   const clientId = String(formData.get("clientId") ?? "");
   const enabled = String(formData.get("enabled") ?? "") === "on";
+  const domainsField = formData.get("domains");
 
   const user = await assertClientAccess(clientId);
   if (user.role !== "operator" && user.role !== "client_admin") {
     return { ok: false, error: "Only your account admin can change this." };
   }
-  await assertClientInOrg(user.orgId, clientId);
+  const client = await assertClientInOrg(user.orgId, clientId);
 
-  await db.update(clients).set({ chatWidgetEnabled: enabled }).where(eq(clients.id, clientId));
-  void audit({ clientId, actor: user.id, action: "settings.chat_widget", detail: { enabled } });
+  if (enabled) {
+    const access = await planAccessFor(client);
+    if (!access.has("website_chat")) return { ok: false, error: UPGRADE_MESSAGES.website_chat };
+  }
+
+  const current = widgetSettings(client.setupFlags);
+  let domains = current.domains;
+  if (typeof domainsField === "string") {
+    const parsed = parseDomainList(domainsField);
+    if (parsed.rejected.length) {
+      return {
+        ok: false,
+        fieldErrors: {
+          domains: [
+            `These don't look like website addresses: ${parsed.rejected.join(", ")}. Use the address people type, like example.com.`,
+          ],
+        },
+      };
+    }
+    if (parsed.domains.length > MAX_WIDGET_DOMAINS) {
+      return { ok: false, fieldErrors: { domains: [`Up to ${MAX_WIDGET_DOMAINS} websites.`] } };
+    }
+    domains = parsed.domains;
+  }
+  const chatWidget = { key: current.key ?? generateWidgetKey(), domains };
+
+  await db
+    .update(clients)
+    .set({
+      chatWidgetEnabled: enabled,
+      // Merge into setup_flags in SQL so a concurrent write to another flag isn't lost.
+      setupFlags: sql`coalesce(${clients.setupFlags}, '{}'::jsonb) || ${JSON.stringify({ chatWidget })}::jsonb`,
+    })
+    .where(eq(clients.id, clientId));
+  void audit({ clientId, actor: user.id, action: "settings.chat_widget", detail: { enabled, domains } });
   revalidatePath("/portal/settings", "layout");
+  if (!enabled) {
+    return { ok: true, message: "Off. The chat is gone from your website. You can remove the snippet when you get a chance." };
+  }
   return {
     ok: true,
-    message: enabled
-      ? "On. The chat bubble is in the corner now — and on your website once the snippet is in."
-      : "Off. The chat bubble is gone; remove the snippet from your website when you get a chance.",
+    message: domains.length
+      ? `On. The chat answers on ${domains.join(", ")} once the snippet is on your site.`
+      : "On. Add your website address below so the chat can show up there.",
   };
+}
+
+/** New embed key: the old snippet stops working at once. For a key copied somewhere it shouldn't be. */
+export async function rotateChatWidgetKeyAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const clientId = String(formData.get("clientId") ?? "");
+  const user = await assertClientAccess(clientId);
+  if (user.role !== "operator" && user.role !== "client_admin") {
+    return { ok: false, error: "Only your account admin can change this." };
+  }
+  const client = await assertClientInOrg(user.orgId, clientId);
+  const current = widgetSettings(client.setupFlags);
+  const patch = JSON.stringify({ chatWidget: { key: generateWidgetKey(), domains: current.domains } });
+  await db
+    .update(clients)
+    .set({ setupFlags: sql`coalesce(${clients.setupFlags}, '{}'::jsonb) || ${patch}::jsonb` })
+    .where(eq(clients.id, clientId));
+  void audit({ clientId, actor: user.id, action: "settings.chat_widget_key_rotated", detail: {} });
+  revalidatePath("/portal/settings", "layout");
+  return { ok: true, message: "New snippet made. Replace the old one on your website; it has stopped working." };
 }

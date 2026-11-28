@@ -55,21 +55,17 @@ export function sanitizeTurns(input: unknown): ChatTurn[] | null {
 }
 
 /**
- * Which origins may call the chat endpoint.
+ * Response headers for the chat endpoint.
  *
- * The widget lives on other people's websites, so the browser sends a
- * cross-origin request and we have to say yes to it. We echo the caller's
- * origin rather than `*` because `*` is not allowed alongside credentials and
- * because an explicit echo is easier to tighten to a per-client allowlist later
- * without changing the widget.
+ * The widget used to run in the customer's page and call us cross-origin, so
+ * this echoed any Origin back. It now runs in an iframe served from our own
+ * domain (/widget/frame), so the call is same-origin and the endpoint grants
+ * no CORS at all: a script on a third-party page gets nothing back.
  */
-export function corsHeaders(origin: string | null): Record<string, string> {
+export function sameOriginHeaders(): Record<string, string> {
   return {
-    "access-control-allow-origin": origin && origin !== "null" ? origin : "*",
-    "access-control-allow-methods": "POST, OPTIONS",
-    "access-control-allow-headers": "content-type",
-    "access-control-max-age": "86400",
-    vary: "origin",
+    "cache-control": "no-store",
+    "x-content-type-options": "nosniff",
   };
 }
 
