@@ -18,6 +18,7 @@ import { getBookingProviderForClient } from "@/lib/booking";
 import { MissedCallCard } from "@/components/portal/missed-call-card";
 import { callbackStats } from "@/lib/data/call-callbacks";
 import { SmartRebookingCard } from "@/components/portal/smart-rebooking-card";
+import { QuoteFollowupSection } from "@/components/portal/quote-followup-section";
 
 export const metadata: Metadata = { title: "Follow-ups · Settings" };
 
@@ -63,6 +64,7 @@ export default async function PortalSettingsFollowUpsPage() {
         stats={missedCallStats ?? { sent: 0, skipped: 0, pending: 0, failed: 0 }}
         isAdmin={editAccess.isAdmin}
       />
+      <QuoteFollowupSection clientId={clientId} isAdmin={editAccess.isAdmin} />
       <ReviewRequestsCard
         clientId={clientId}
         enabled={client.reviewRequestsEnabled}
