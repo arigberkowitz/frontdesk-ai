@@ -12,7 +12,7 @@ import { initialActionState } from "@/lib/actions/types";
 import { Button } from "@/components/ui/button";
 import { ConfirmDelete, ConfirmDeleteAction } from "@/components/confirm-delete";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { AutofillTextarea } from "@/components/form/autofill-textarea";
 import { Switch } from "@/components/ui/switch";
 import { servicePriceText } from "@/lib/prompt";
 import { Label } from "@/components/ui/label";
@@ -134,7 +134,15 @@ function ServiceForm({
         />
       </Field>
       <Field label="Description">
-        <Textarea name="description" rows={2} defaultValue={service?.description ?? ""} />
+        <AutofillTextarea
+          clientId={clientId}
+          field="serviceDescription"
+          serviceNameField="name"
+          name="description"
+          rows={2}
+          defaultValue={service?.description ?? ""}
+          buttonLabel="Suggest a description"
+        />
       </Field>
       <div className="flex items-center gap-2">
         <Switch id="virtualOk" name="virtualOk" defaultChecked={service?.virtualOk ?? false} />
