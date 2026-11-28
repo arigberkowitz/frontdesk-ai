@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/clients/status-badge";
 import { AdoptWorkspace } from "@/components/platform/adopt-workspace";
 import { IntegrationHealth } from "@/components/platform/integration-health";
+import { OrphansCard } from "@/components/operator/orphans-card";
 import { LocalDateTime } from "@/components/local-datetime";
 import type { ClientStatus } from "@/db/schema";
 
@@ -28,6 +29,8 @@ export default async function PlatformPage() {
       />
 
       <IntegrationHealth {...health} />
+
+      <OrphansCard />
 
       <div className="space-y-3">
         {workspaces.map((w) => (

@@ -16,12 +16,13 @@ import { ownerHasSignedIn } from "@/lib/data/intake";
 import { env, integrations } from "@/lib/env";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { subscriptions } from "@/db/schema";
+import { clientTollfree, subscriptions } from "@/db/schema";
 import type { VoiceMeta } from "@/config/voice";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/clients/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { ClientDetail } from "@/components/clients/client-detail";
 import { PromptChangelog } from "@/components/clients/prompt-changelog";
 
@@ -64,6 +65,11 @@ export default async function ClientPage({
     .from(subscriptions)
     .where(and(eq(subscriptions.clientId, id), isNull(subscriptions.deletedAt)))
     .limit(1);
+  const [tollfreeRow] = await db
+    .select({ phoneNumber: clientTollfree.phoneNumber, phoneNumberSid: clientTollfree.phoneNumberSid })
+    .from(clientTollfree)
+    .where(eq(clientTollfree.clientId, id))
+    .limit(1);
   const billing = {
     stripeReady: integrations.stripe(),
     testMode: isStripeTestMode(),
@@ -101,6 +107,7 @@ export default async function ClientPage({
             <Eye className="size-4" />
             Preview portal
           </Button>
+          {client.setupFlags?.suspended ? <Badge variant="destructive">Suspended</Badge> : null}
           <StatusBadge status={client.status} />
         </div>
       </PageHeader>
@@ -152,6 +159,26 @@ export default async function ClientPage({
         intakeUrl={`${env.APP_URL}/intake/${signIntakeToken(client.id)}`}
         intakeLocked={intakeLocked}
         initialTab={tab}
+        operator={{
+          clientId: client.id,
+          name: client.name,
+          phone: client.retellPhoneNumber,
+          textingNumber: tollfreeRow?.phoneNumberSid ? (tollfreeRow.phoneNumber ?? null) : null,
+          agentId: client.retellAgentId,
+          llmId: client.retellLlmId,
+          subscription: subRow
+            ? { status: subRow.status ?? "", plan: subRow.plan, stripeId: subRow.stripeSubscriptionId }
+            : null,
+          suspended: client.setupFlags?.suspended
+            ? {
+                at: client.setupFlags.suspended.at,
+                mode: client.setupFlags.suspended.mode,
+                reason: client.setupFlags.suspended.reason,
+                stripe: { action: client.setupFlags.suspended.stripe.action },
+                deleting: client.setupFlags.suspended.deleting,
+              }
+            : null,
+        }}
       />
       <PromptChangelog versions={versions} />
     </div>

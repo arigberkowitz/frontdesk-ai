@@ -15,6 +15,8 @@ import { getTrialProgress } from "@/lib/data/trial-progress";
 import { daysLeftLabel, trialStripSummary, upgradePlan } from "@/lib/trial-progress";
 import { formatCurrencyCents } from "@/lib/format";
 import { TrialStrip } from "@/components/portal/trial-strip";
+import { SuspendedPage } from "@/components/portal/suspended-page";
+import { isSuspended } from "@/lib/operator/suspension";
 
 /**
  * "Add to Home Screen" for owners: the portal installs as its own app
@@ -41,6 +43,11 @@ export default async function PortalLayout({ children }: { children: React.React
     // Never throws (0 until the sms_messages migration has run).
     countUnreadMessages(clientId),
   ]);
+  // An operator suspended or deleted this business: owners and staff see only
+  // a suspended page (an operator previewing still sees the portal, with a banner).
+  if (!preview && (!client || isSuspended(client))) {
+    return <SuspendedPage closed={!client} businessName={client?.name} />;
+  }
   const showTeam = Boolean(client && (client.staffModeEnabled || client.companySize !== "solo"));
 
   // Trial countdown on every page (the Overview has the full card instead).
@@ -87,6 +94,11 @@ export default async function PortalLayout({ children }: { children: React.React
           >
             Exit preview
           </Link>
+        </div>
+      ) : null}
+      {preview && isSuspended(client) ? (
+        <div role="status" className="border-b border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-800 sm:px-6">
+          This company is suspended — its owners see only a suspended page.
         </div>
       ) : null}
       <header className="fd-header sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur sm:px-6">

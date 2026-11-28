@@ -6,6 +6,7 @@ import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { alertContacts, clients, organizations, users, type User } from "@/db/schema";
 import { logger } from "./logger";
+import { isClientSuspended, SUSPENDED_MESSAGE } from "./operator/suspended-check";
 
 /**
  * Auth + tenant-isolation helpers (§12, §17). Every server entry point into
@@ -461,6 +462,12 @@ export async function assertClientAccess(clientId: string): Promise<User> {
   if (!userMayAccessClient(user, clientId)) {
     throw new Error("Forbidden: cross-tenant access denied.");
   }
+  // An operator suspended (or deleted) this business: its owners and staff can't
+  // act on it through any server action. Operators still can — that's how they
+  // reactivate it or look at what happened.
+  if (user.role !== "operator" && (await isClientSuspended(clientId, { strict: true }))) {
+    throw new Error(SUSPENDED_MESSAGE);
+  }
   return user;
 }
 
@@ -509,6 +516,9 @@ export async function requireClientOwner(
     return { ok: false, error: "Forbidden: cross-tenant access denied." };
   }
   if (!userIsClientOwner(user, clientId)) return { ok: false, error: OWNER_ONLY_ERROR };
+  if (user.role !== "operator" && (await isClientSuspended(clientId, { strict: true }))) {
+    return { ok: false, error: SUSPENDED_MESSAGE };
+  }
   return { ok: true, user };
 }
 
@@ -569,6 +579,7 @@ export async function assertClientEditor(clientId: string): Promise<User> {
 const FRIENDLY_EDIT_ERRORS = new Set([
   "Editing is locked — enter your business's edit code to unlock.",
   "Editing is limited to your admin.",
+  SUSPENDED_MESSAGE,
 ]);
 
 export async function requireClientEditor(

@@ -76,6 +76,8 @@ export const tollfreeStore: TollfreeStore = {
           isNull(clients.deletedAt),
           sql`${clients.setupCompletedAt} is not null`,
           isNull(clients.smsNumber),
+          // An operator suspended this business, or released its numbers on purpose.
+          sql`(${clients.setupFlags}->'suspended') is null and (${clients.setupFlags}->>'operatorNumberHoldAt') is null`,
           sql`exists (select 1 from subscriptions s where s.client_id = ${clients.id} and s.status = 'active' and s.first_paid_at is not null and s.deleted_at is null)`,
           sql`not exists (select 1 from client_tollfree t where t.client_id = ${clients.id} and t.phone_number_sid is not null)`,
           sql`(${clients.setupFlags}->>'tollfreeBuyingAt' is null or (${clients.setupFlags}->>'tollfreeBuyingAt')::timestamptz < now() - make_interval(mins => ${TOLLFREE_BUY_LOCK_MINUTES}))`,

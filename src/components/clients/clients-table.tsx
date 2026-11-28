@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "./status-badge";
+import { Badge } from "@/components/ui/badge";
 import { formatDateTime, formatPhone } from "@/lib/format";
 import type { Client } from "@/db/schema";
 
@@ -35,7 +36,10 @@ export function ClientsTable({ clients }: { clients: Client[] }) {
                 </Link>
               </TableCell>
               <TableCell>
-                <StatusBadge status={c.status} />
+                <div className="flex items-center gap-1.5">
+                  {c.setupFlags?.suspended ? <Badge variant="destructive">Suspended</Badge> : null}
+                  <StatusBadge status={c.status} />
+                </div>
               </TableCell>
               <TableCell className="hidden text-muted-foreground sm:table-cell">
                 {formatPhone(c.retellPhoneNumber)}

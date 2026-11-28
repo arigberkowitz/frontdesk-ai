@@ -1,3 +1,4 @@
+import { isSuspended } from "@/lib/operator/suspension";
 import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
 import { getClient } from "@/lib/data/clients";
 import { getRetellClient } from "@/lib/retell";
@@ -28,6 +29,10 @@ export async function POST(
 
   const client = await getClient(user.orgId, id);
   if (!client) return new Response("Not found", { status: 404 });
+  // Suspended by an operator: no test calls (they spend Retell minutes) for the owner.
+  if (user.role !== "operator" && isSuspended(client)) {
+    return Response.json({ error: "This account is suspended." }, { status: 403 });
+  }
   if (!client.retellAgentId) {
     return Response.json({ error: "Your receptionist isn't set up yet." }, { status: 400 });
   }

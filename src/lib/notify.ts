@@ -1,3 +1,4 @@
+import { isSuspended } from "@/lib/operator/suspension";
 import "server-only";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -51,6 +52,7 @@ async function logNotification(
 }
 
 export async function notifyOwnerBooking(client: Client, appt: Appointment): Promise<void> {
+  if (isSuspended(client)) return;
   // Phone notification to every device the owner opted in. No-op without
   // VAPID keys or devices; never throws; 4s cap per device.
   const push = pushToClient(
@@ -110,7 +112,7 @@ export async function notifyOwnerCancellation(
   source: "phone" | "chat" | "text" | "portal",
 ): Promise<void> {
   // Portal cancellations are the owner's own doing — no alert needed.
-  if (source === "portal") return;
+  if (source === "portal" || isSuspended(client)) return;
   const via =
     source === "chat" ? "via your website chat" : source === "text" ? "by text (AI reply)" : "by phone";
   const who = appt.customerName ?? "A caller";
@@ -151,6 +153,7 @@ export async function notifyOwnerLead(
   lead: Lead,
   opts: { emergency?: boolean } = {},
 ): Promise<void> {
+  if (isSuspended(client)) return;
   const who = lead.name ?? "a caller";
   const phone = formatPhone(lead.phone);
   const { emails, phones } = await getAlertRecipients(client);
@@ -201,7 +204,7 @@ export async function notifyOwnerLearnings(
   items: string[],
 ): Promise<void> {
   const email = client.ownerEmail?.trim();
-  if (!email || items.length === 0) return;
+  if (!email || items.length === 0 || isSuspended(client)) return;
 
   const base = env.APP_URL.replace(/\/$/, "");
   const subject = `Your AI learned ${items.length} thing${items.length === 1 ? "" : "s"} from this week's calls`;
@@ -345,6 +348,7 @@ export async function notifyOwnerCallProblem(
   health: { problems: string[]; notes: string[] },
   now: Date = new Date(),
 ): Promise<CallProblemResult> {
+  if (isSuspended(client)) return { status: "no_recipient" };
   const urgent = health.problems.includes("possible_emergency");
   // "Didn't get a person" has three shapes and they're all the same phone call
   // from the caller's side: nobody picked up, a voicemail box picked up, or the
