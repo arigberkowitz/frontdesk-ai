@@ -53,7 +53,7 @@ function week(openTime: string, closeTime: string, closedDays: number[]): Starte
   }));
 }
 
-const BASE_GUARDRAILS =
+export const BASE_GUARDRAILS =
   "Always be warm, polite, and professional. Only answer using the information in this profile — if " +
   "you're not sure about a price, availability, or a policy, offer to take a message and have someone " +
   "follow up. Never make up details.";
