@@ -223,6 +223,7 @@ export default async function PortalOverviewPage({
           clientId={clientId}
           blocked={health.blockedNumbers}
           suggested={health.suggestedBlocks}
+          autoRejected={health.autoRejected}
           timeZone={tz}
         />
       }

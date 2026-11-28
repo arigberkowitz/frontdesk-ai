@@ -8,6 +8,7 @@ import { getClientByRetellAgentId } from "@/lib/data/clients";
 import { upsertCallByRetellId } from "@/lib/data/calls";
 import { analyzeCall } from "@/lib/call-health";
 import { isBlocked, normalizeForBlock } from "@/lib/spam";
+import { screenInboundCall } from "@/lib/data/inbound-screen";
 import { notifyOwnerCallProblem } from "@/lib/notify";
 import { recapKindFor, transferStatus, type RecapKind } from "@/lib/call-recap";
 import { sendCallRecap } from "@/lib/call-recap-send";
@@ -46,6 +47,65 @@ interface RetellCall {
 interface RetellWebhook {
   event?: string;
   call?: RetellCall;
+  /** Only on "call_inbound": sent while the phone is still ringing, before any agent starts. */
+  call_inbound?: { call_id?: string; agent_id?: string; from_number?: string; to_number?: string };
+}
+
+/** Retell waits up to 10s for the inbound answer; we answer well before that, or let the call through. */
+export const INBOUND_SCREEN_TIMEOUT_MS = 3_000;
+
+/**
+ * "call_inbound": decide, while the line is still ringing, whether the AI
+ * should pick up at all. Owner-blocked numbers and repeat spam (spam.ts) get
+ * `reject: true`, so Retell hangs up before any agent or voice starts — no
+ * minutes, no vendor cost, nothing for the owner to wade through.
+ *
+ * Fail-open on purpose: an error, a slow database or an unknown number answers
+ * `{}` and the call goes to the business's agent as it always has. Missing a
+ * robocall costs a minute; dropping a customer costs the customer. Not
+ * ledgered: there is no call yet, and Retell retries reuse the same call_id,
+ * so recomputing the same answer is the idempotent thing.
+ */
+async function handleInbound(payload: RetellWebhook): Promise<Response> {
+  const info = payload.call_inbound ?? {};
+  const accept = Response.json({ call_inbound: {} });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), INBOUND_SCREEN_TIMEOUT_MS);
+    });
+    const result = await Promise.race([
+      screenInboundCall({
+        agentId: info.agent_id,
+        toNumber: info.to_number,
+        fromNumber: info.from_number,
+      }),
+      timeout,
+    ]);
+    if (!result) {
+      logger.warn("webhook.retell.inbound_screen_timeout", { callId: info.call_id });
+      return accept;
+    }
+    if (result.screen.reject) {
+      logger.info("webhook.retell.inbound_rejected", {
+        clientId: result.clientId,
+        callId: info.call_id,
+        reason: result.screen.reason,
+        phone: normalizeForBlock(info.from_number),
+      });
+      // Only `reject`: Retell validates any other field, and a bad one would void the reject.
+      return Response.json({ call_inbound: { reject: true } });
+    }
+    return accept;
+  } catch (err) {
+    logger.warn("webhook.retell.inbound_screen_failed", {
+      callId: info.call_id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return accept;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function mapSentiment(s?: string): NewCall["sentiment"] {
@@ -57,7 +117,10 @@ function mapSentiment(s?: string): NewCall["sentiment"] {
   return "unknown";
 }
 
-async function classifyOutcome(callId: string, custom: Record<string, unknown>): Promise<CallOutcome> {
+async function classifyOutcome(
+  callId: string,
+  custom: Record<string, unknown>,
+): Promise<CallOutcome> {
   const appt = await db.query.appointments.findFirst({ where: eq(appointments.callId, callId) });
   if (appt) return "booked";
   const lead = await db.query.leads.findFirst({ where: eq(leads.callId, callId) });
@@ -81,6 +144,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const event = payload.event ?? "unknown";
+  if (event === "call_inbound") return handleInbound(payload);
   const call = payload.call ?? {};
   const callId = call.call_id;
   if (!callId) return Response.json({ ok: true, ignored: "no call_id" });
@@ -134,11 +198,10 @@ export async function POST(req: Request): Promise<Response> {
       rawPayload: payload,
     };
 
-    // A number the owner blocked is noise from here on. It still rings the
-    // line — we don't control the carrier — but it stops costing anyone
-    // attention: no lead, no alert, no place in the numbers we ask this
-    // business to trust. Counting robocalls and then doing nothing about them
-    // is the vendor behaviour that ends contracts.
+    // A number the owner blocked is normally turned away before the AI answers
+    // (handleInbound). If one gets through anyway — the screen fails open — it
+    // still costs nobody attention: no lead, no alert, no place in the numbers
+    // we ask this business to trust.
     const blockedNumbers = client.setupFlags?.blockedNumbers ?? [];
     const callerBlocked = isBlocked(values.fromNumber, blockedNumbers);
     if (callerBlocked) values.outcome = "spam";
@@ -241,7 +304,11 @@ export async function POST(req: Request): Promise<Response> {
           if (textBack) {
             const { considerMissedCall } = await import("@/lib/agents/missed-call-callback");
             const result = await considerMissedCall(callDbId);
-            logger.info("webhook.retell.missed_call", { clientId: client.id, callId: callDbId, result });
+            logger.info("webhook.retell.missed_call", {
+              clientId: client.id,
+              callId: callDbId,
+              result,
+            });
           }
         });
       }

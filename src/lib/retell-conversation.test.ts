@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentConversationSettings, CONVERSATION_SETTINGS } from "./retell";
+import { agentConversationSettings, CONVERSATION_SETTINGS, END_CALL_AFTER_SILENCE_MS, SILENCE_REMINDER_MS } from "./retell";
 
 describe("agentConversationSettings", () => {
   it("sets low-latency, natural turn-taking defaults", () => {
@@ -16,5 +16,16 @@ describe("agentConversationSettings", () => {
     expect(agentConversationSettings("Not/AZone")).toEqual(CONVERSATION_SETTINGS);
     expect(agentConversationSettings("")).toEqual(CONVERSATION_SETTINGS);
     expect(agentConversationSettings(null)).toEqual(CONVERSATION_SETTINGS);
+  });
+});
+
+describe("dead-air settings", () => {
+  it("end a silent call after 20s, with one reminder at 10s, on every sync", () => {
+    const s = agentConversationSettings("America/New_York");
+    expect(s.end_call_after_silence_ms).toBe(20_000);
+    expect(s.reminder_trigger_ms).toBe(10_000);
+    expect(s.reminder_max_count).toBe(1);
+    expect(END_CALL_AFTER_SILENCE_MS).toBeGreaterThanOrEqual(10_000); // Retell's floor
+    expect(SILENCE_REMINDER_MS).toBeLessThan(END_CALL_AFTER_SILENCE_MS);
   });
 });
