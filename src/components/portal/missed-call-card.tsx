@@ -1,5 +1,6 @@
 "use client";
 
+import { skipBreakdown } from "@/lib/missed-call-skips";
 import { useActionState, useEffect, useState } from "react";
 import { PhoneMissed } from "lucide-react";
 import { toast } from "sonner";
@@ -31,12 +32,14 @@ export function MissedCallCard({
   enabled: boolean;
   aiCallbacksEnabled: boolean;
   aiCallbacksAvailable: boolean;
-  stats: { sent: number; skipped: number; pending: number; failed: number };
+  stats: { sent: number; skipped: number; pending: number; failed: number; skippedBy?: Record<string, number> };
   isAdmin: boolean;
 }) {
   const [state, action, pending] = useActionState(saveMissedCallSettingsAction, initialActionState);
   const [on, setOn] = useState(enabled);
   const [aiOn, setAiOn] = useState(aiCallbacksEnabled);
+  const skips = skipBreakdown(stats.skippedBy ?? {});
+  const noConsent = stats.skippedBy?.no_consent ?? 0;
 
   useEffect(() => {
     if (state.ok && state.message) toast.success(state.message);
@@ -105,11 +108,33 @@ export function MissedCallCard({
           </ul>
 
           {enabled ? (
-            <p className="text-sm text-muted-foreground">
-              Last 7 days: {stats.sent} sent
-              {stats.pending ? `, ${stats.pending} waiting for daytime` : ""}
-              {stats.failed ? `, ${stats.failed} failed` : ""}, {stats.skipped} calls didn&rsquo;t need one.
-            </p>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>
+                Last 7 days: {stats.sent} sent
+                {stats.pending ? `, ${stats.pending} waiting for daytime` : ""}
+                {stats.failed ? `, ${stats.failed} failed` : ""}
+                {stats.skipped ? `, ${stats.skipped} not sent` : ""}.
+              </p>
+              {skips.length ? (
+                <ul className="space-y-0.5 text-xs" data-testid="missed-call-skips">
+                  {skips.map((s) => (
+                    <li key={s.reason}>
+                      · {s.count} {s.count === 1 ? "caller" : "callers"} {s.label}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {noConsent ? (
+                <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-900">
+                  We only text callers who agreed to texts from you, so {noConsent}{" "}
+                  {noConsent === 1 ? "caller" : "callers"} didn&apos;t get one. To reach more people, turn on{" "}
+                  <a href="#text-consent" className="font-medium underline underline-offset-2">
+                    Ask callers who leave a message if you can text them
+                  </a>
+                  .
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           <div className="flex justify-end">

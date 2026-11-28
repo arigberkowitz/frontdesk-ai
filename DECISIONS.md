@@ -1151,3 +1151,34 @@ pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
   `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` (optional).
 - **Side fix.** The operator client page no longer serializes `calendarSecret` /
   `zoomSecret` to the browser.
+
+## 2026-11-27 — Scoped text consent, close cancels billing, honest texting copy (Ari's calls)
+
+- **Consent is scoped** (`src/lib/data/sms-consents.ts` `CONSENT_COVERAGE`, replaces the
+  TODO(Ari)). Booking consent (booking-v1/v2) covers texts about that booking and the caller's own
+  enquiry. **Win-back, review-request and recall texts need a separate follow-up yes
+  (`followup-v1`)**; a booking-only consent is not enough, so with the ask off they send to
+  nobody. Existing booking-only rows are deliberately NOT migrated into the new scope.
+- **How the new consents are collected** (`src/lib/text-consent-asks.ts`): two owner switches in
+  Settings → Follow-ups → "Ask callers about texts", both default OFF, stored in
+  `setup_flags.textConsentAsks` (no migration). `followup-v1` is a separate optional question after
+  the booking-texts yes (`followup_text_consent` on book_appointment). `message-v1` is asked when
+  taking a message from a caller who didn't book (`message_text_consent` on take_message) and covers
+  texts about that message, an owner's reply and a later missed-call text-back. The tool endpoints
+  re-check the switch before recording, like the quote ask (#108). No keyword opt-in: a texted
+  keyword can't prove who is holding the phone for marketing consent, and the call recording can.
+- **Missed-call text-back still requires consent.** The portal now shows why callers were skipped
+  (`skippedBy` in `callbackStats`), with a nudge to turn on the message ask when "no consent" is the
+  reason. **Whether a missed caller who agreed to nothing may be texted once ("sorry we missed you")
+  is a legal call for Ari and counsel**, not a code one; the single gate is
+  `hasSmsConsent(..., "missed_call")` in `src/lib/agents/missed-call-callback.ts`.
+- **Closing an account cancels Stripe immediately** (`src/lib/account-close-billing.ts`): every
+  open subscription for the business (the one on file, others on the customer, ones stamped with
+  the client id), no proration, no refund, no final invoice, via the same `cancelNow` helper as the
+  operator full delete. Idempotent; "already canceled" and "no subscription" are success. If Stripe
+  fails the account is NOT marked closed and the owner is told to retry (the line is already quiet).
+- **Texting copy follows `SMS_ENABLED`** (`src/lib/texting-copy.ts`): until A2P approval, the
+  landing page, FAQ, pricing bullets, hero demo and plan picker say texts turn on once carriers
+  approve the number. It flips by itself when SMS_ENABLED is on. The static one-pager PDF carries
+  the same footnote and must be re-rendered (`sales/render-onepager.sh`) without it when texting
+  goes live.
