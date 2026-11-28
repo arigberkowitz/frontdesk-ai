@@ -5,6 +5,7 @@ import { env, integrations } from "./env";
 import { toE164 } from "@/lib/format";
 import { logger } from "./logger";
 import { agentToolHeaders } from "./agent-tool-token";
+import { agentBindings } from "./retell-outbound";
 import { isElevenLabsVoice, isUsableVoice, isUsableVoiceId, voiceProviderOf } from "@/config/voice";
 import {
   MULTILINGUAL_VOICE_MODEL,
@@ -610,12 +611,12 @@ export async function provisionAgentForClient(
       // Reserved: nothing to buy yet, and nothing went wrong.
     } else if (phoneNumber) {
       await client.phoneNumber.update(phoneNumber, {
-        inbound_agents: [{ agent_id: agentId, weight: 1 }],
+        ...agentBindings(agentId),
         inbound_webhook_url: input.webhookUrl,
       });
     } else {
       const pn = await client.phoneNumber.create({
-        inbound_agents: [{ agent_id: agentId, weight: 1 }],
+        ...agentBindings(agentId),
         inbound_webhook_url: input.webhookUrl,
         area_code: input.areaCode,
         nickname: `${input.agentName} (${input.clientId.slice(0, 8)})`,

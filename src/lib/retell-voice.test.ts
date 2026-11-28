@@ -165,3 +165,16 @@ describe("createWebCall (v3)", () => {
     expect(url).not.toContain("/v2/");
   });
 });
+
+describe("phone number binding", () => {
+  it("binds the agent as inbound AND outbound, so 'Call my phone' can dial out (prod 27 Nov 2026: 400 No outbound agent id set up for phone number)", async () => {
+    m.phoneUpdate.mockClear();
+    await provisionAgentForClient({ ...base, existingAgentId: "ag_1" } as never);
+    const body = m.phoneUpdate.mock.calls[0][1] as {
+      inbound_agents: unknown;
+      outbound_agents: unknown;
+    };
+    expect(body.inbound_agents).toEqual([{ agent_id: "ag_1", weight: 1 }]);
+    expect(body.outbound_agents).toEqual([{ agent_id: "ag_1", weight: 1 }]);
+  });
+});
