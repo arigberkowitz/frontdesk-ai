@@ -70,7 +70,7 @@ describe("Spanish-first opening line", () => {
   it("default greeting is Spanish and carries both disclosures", () => {
     const line = openingLine({ ...base, languages: "es" });
     expect(line).toBe(
-      "Le informo que esta llamada puede ser grabada. ¡Hola, gracias por llamar a Bayside Plumbing! Soy Riley, el asistente de inteligencia artificial. ¿En qué le puedo ayudar?",
+      "¡Hola, gracias por llamar a Bayside Plumbing! Soy Riley, el asistente de inteligencia artificial. Le informo que esta llamada puede ser grabada. ¿En qué le puedo ayudar?",
     );
     expect(hasAiDisclosureEs(line)).toBe(true);
     // The AI part is in the greeting; only the recording notice is added, in Spanish.
@@ -92,7 +92,9 @@ describe("Spanish-first opening line", () => {
 
   it("English-first bilingual businesses keep the English opening", () => {
     const line = openingLine({ ...base, languages: "en-es" });
-    expect(line).toMatch(/^Just so you know, this call may be recorded\. Hi, thanks for calling Bayside Plumbing/);
+    expect(line).toBe(
+      "Hi, thanks for calling Bayside Plumbing! This is Riley, the AI assistant. Just so you know, this call may be recorded. How can I help you today?",
+    );
     expect(hasAiDisclosure(line)).toBe(true);
   });
 });

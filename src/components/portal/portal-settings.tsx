@@ -183,7 +183,7 @@ export function AlertsForm({ client, isAdmin = true }: { client: Client; isAdmin
           <div id="daily-briefing" className="scroll-mt-24">
             <Field
               label="Morning briefing email"
-              hint="Each morning (between 7 and 8am your time): yesterday's calls, bookings and cancellations, who needs a call back, today's schedule, and anything urgent — written by your AI from your call log. Sent to the alerts email above."
+              hint="Each morning (between 7 and 10am your time): yesterday's calls, bookings and cancellations, who needs a call back, today's schedule, and anything urgent — written by your AI from your call log. Sent to the alerts email above."
             >
               <NativeSelect
                 name="dailyBriefingEnabled"
@@ -251,7 +251,7 @@ export function HumanTouchForm({ client }: { client: Client }) {
           <input type="hidden" name="clientId" value={client.id} />
           <Field
             label="Offer to connect callers to a real person"
-            hint="When on, your AI proactively offers a human for upset, sensitive, or complex calls — not only when asked. Transfers go to your alert phone above."
+            hint="When on, your AI proactively offers a human for upset, sensitive, or complex calls — not only when asked. Transfers ring the phone number set under Settings → Alerts."
           >
             <NativeSelect
               name="humanHandoffEnabled"

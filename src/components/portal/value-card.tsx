@@ -7,7 +7,7 @@ import { vocabFor } from "@/lib/vocab";
 import { cn } from "@/lib/utils";
 
 /**
- * Overview hero: "Frontdesk booked you $X this month", plus after-hours calls
+ * Overview hero: "FrontDesk booked you $X this month", plus after-hours calls
  * answered, missed calls won back by text-back, and texts the AI handled —
  * all for the business's own calendar month. Loads its own numbers so it can
  * stream in behind <Suspense> without holding up the rest of the page.

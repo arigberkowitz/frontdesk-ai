@@ -391,7 +391,7 @@ export function analyzeCall(input: CallHealthInput): CallHealth {
     input.outcome !== "faq_answered"
   ) {
     problems.push("no_contact_captured");
-    notes.push("This call ended with no name or number — there's no way to follow up.");
+    notes.push("Your AI didn't get a name or message on this call, so you only have the caller ID to follow up.");
   }
 
   return { problems, clean: problems.length === 0, readable, notes };

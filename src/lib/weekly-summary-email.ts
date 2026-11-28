@@ -99,7 +99,7 @@ function healthBlock(health?: CallHealthSummary | null): string {
   if (health.earlyHangup > 0)
     rows.push(`${health.earlyHangup} hung up within the first 15 seconds`);
   if (health.noContactCaptured > 0)
-    rows.push(`${health.noContactCaptured} ended with no name or number to follow up on`);
+    rows.push(`${health.noContactCaptured} ended without a name or message (caller ID only)`);
   if (health.possibleEmergency > 0)
     rows.push(
       `<strong>${health.possibleEmergency} mentioned something that may have been urgent</strong>`,

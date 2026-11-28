@@ -3,7 +3,12 @@
 Rules that make these work: reference something real from THEIR business
 (hours, a service, a review), one clear ask, no AI hype words. Say "one flat
 monthly price". Never put a demo or test phone number in outreach, and don't
-pitch medical or health businesses.
+pitch medical or health businesses (dentists, med spas, chiropractors, vets,
+clinics). Only say "I called and got voicemail" if you actually did.
+
+Every cold email must end with your real mailing address and a one-line way
+to opt out (CAN-SPAM). The sign-offs below include both; honor opt-outs
+within 10 business days.
 
 What a self-serve trial really gets (keep claims to this):
 - 14 days free, no card. The AI is drafted from their website and works in
@@ -29,14 +34,14 @@ Hi {{FirstName}},
 
 Called {{Business}} yesterday around {{time they're busy/closed}} — voicemail.
 That's normal for {{industry}}: whoever's on the tools can't also be on the
-phone. But about a third of callers who hit voicemail just call the next
+phone. But a lot of callers who hit voicemail just call the next
 {{plumber/electrician/salon}} on the list.
 
 I run FrontDesk AI, a phone receptionist that answers every call on the first
-ring, books appointments into your calendar once you connect it, and texts or
-emails you when someone leaves a message. It answers in English, Spanish,
-French, Portuguese and 6 more; you pick up to 4. One flat monthly price, less
-than one missed job.
+ring, books appointments into your calendar once you connect it, and emails
+you when someone leaves a message (texts too, once you turn text alerts on).
+It answers in English, Spanish, French, Portuguese and 6 more; you pick up
+to 4. One flat monthly price, less than one missed job.
 
 14 days free, no card. Try it from your browser right away, and after one
 test call it gets its own phone number you can call and forward to. Or reply
@@ -44,6 +49,8 @@ and I'll set it up from your website for you. Worth a look?
 
 {{YourName}}
 {{Phone}} · frontdeskai.company
+{{Your mailing address}}
+Not interested? Reply "no thanks" and I won't email again.
 
 ---
 
@@ -60,14 +67,17 @@ voicemail or a competitor.
 FrontDesk AI answers 24/7. With your calendar connected, it books the
 appointment while the caller is still on the line; without it, it takes a
 message and sends it to you. Every call's recording and summary are in your
-dashboard. One of the numbers I track for owners is "after-hours saves":
-calls you'd have lost, caught.
+dashboard, along with a count of "after-hours saves": calls you'd have lost,
+caught. One flat monthly price, no overage charges.
 
 14 days free, no card. I can set it up from your website for you, or you can
 sign up and try it in your browser today. After one test call it gets its own
 number, so you can call it and try to stump it.
 
 {{YourName}}
+{{Phone}} · frontdeskai.company
+{{Your mailing address}}
+Not interested? Reply "no thanks" and I won't email again.
 
 ---
 
@@ -75,8 +85,8 @@ number, so you can call it and try to stump it.
 
 Hi {{FirstName}}, I build AI phone receptionists for {{city}} {{industry}}
 businesses. It answers 24/7, books jobs once you connect your calendar, and
-texts or emails you every message. 14 days free, no card. Want me to set
-yours up from your website?
+sends you every message. One flat monthly price, 14 days free, no card. Want
+me to set yours up from your website? (Reply STOP and I won't text again.)
 
 ---
 
@@ -110,11 +120,13 @@ you're happy with it. If it's not impressive, tell me why and I'll delete it.
 ## Objection cheat sheet
 
 - **"My customers hate robots."** — It answers naturally, in 10 languages,
-  and offers a human handoff for anything sensitive. Play them a real call.
-- **"I already have voicemail."** — Voicemail doesn't book appointments.
-  ~⅓ of voicemail callers never call back.
-- **"What if it says something wrong?"** — It only answers from the
-  knowledge you approve; every call is recorded and QA-graded; and it never
-  invents prices or hours. Anything it wants to learn, you approve first.
+  and can offer to put callers through to you (you choose when). Play them
+  a test call.
+- **"I already have voicemail."** — Voicemail doesn't book appointments,
+  and plenty of callers hang up rather than leave a message.
+- **"What if it says something wrong?"** — It answers from your services,
+  hours and FAQ; if something isn't there, it takes a message instead of
+  guessing. Every call has a recording and a summary you can check, and
+  anything it suggests learning waits for your OK.
 - **"Too expensive."** — What's your average job worth? One saved
   after-hours call a month covers it.

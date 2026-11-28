@@ -11,21 +11,21 @@ export const TIMEZONES = [
 ] as const;
 
 export const INDUSTRIES = [
-  "Dental",
-  "Med spa",
   "HVAC",
   "Plumbing",
   "Electrician",
-  "Locksmith",
-  "Law",
-  "Salon & beauty",
-  "Auto repair",
   "Home services",
   "House cleaning",
   "Pest control",
-  "Veterinary",
-  "Chiropractic",
+  "Locksmith",
+  "Auto repair",
+  "Salon & beauty",
   "Fitness",
+  "Law",
+  "Veterinary",
+  "Dental",
+  "Med spa",
+  "Chiropractic",
   "Other",
 ] as const;
 

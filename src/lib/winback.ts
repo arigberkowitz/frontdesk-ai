@@ -21,7 +21,7 @@ export interface WinbackPreset {
 /** The presets on the settings card. Any whole number of months 1–24 also works. */
 export const WINBACK_PRESETS: readonly WinbackPreset[] = [
   { months: 3, label: "3 months (salons, pet grooming)" },
-  { months: 6, label: "6 months (dental cleaning)" },
+  { months: 6, label: "6 months (auto service, cleaning)" },
   { months: 12, label: "12 months (HVAC tune-up, yearly service)" },
 ];
 
@@ -94,7 +94,7 @@ export function isDueForWinback(c: WinbackCandidate, months: number, now: Date):
 }
 
 export const DEFAULT_WINBACK_TEMPLATE =
-  "Hi {first_name}, it's {business}. It's been a while since {service}. Want to get your next visit on the calendar? Reply to this text and we'll find a time.";
+  "Hi {first_name}, it's {business}. It's been a while since {service}. Want to get back on the calendar? Reply to this text and we'll find a time.";
 
 /** Spanish-speaking customers get this one. Owner edits apply to the English text. */
 export const SPANISH_WINBACK_TEMPLATE =

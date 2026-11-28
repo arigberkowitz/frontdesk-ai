@@ -173,7 +173,7 @@ export function GuidelinesForm({ client }: { client: Client }) {
         value={values.agentGuidance}
         onValueChange={set("agentGuidance")}
         placeholder={
-          "e.g.\n• Always mention we're accepting new patients.\n• Never quote exact prices — say it depends on their insurance.\n• Don't give medical advice; offer to book a visit instead."
+          "e.g.\n• Always mention we offer free estimates.\n• Never quote an exact price for big jobs — say we confirm it after seeing the job.\n• Don't troubleshoot over the phone; offer to book a visit instead."
         }
       />
       <GuidelineCard
@@ -186,7 +186,7 @@ export function GuidelinesForm({ client }: { client: Client }) {
         value={values.bookingInstructions}
         onValueChange={set("bookingInstructions")}
         placeholder={
-          "e.g.\n• Only book cleanings and new-patient exams. For anything else, take a message.\n• Always confirm the date, time, and spelling of their name.\n• Mention a $50 deposit for cosmetic consults."
+          "e.g.\n• Only book repairs and estimates. For anything else, take a message.\n• Always confirm the address, date, time, and spelling of their name.\n• Mention the $95 trip fee for after-hours visits."
         }
       />
     </div>

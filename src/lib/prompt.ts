@@ -316,6 +316,17 @@ export function withRequiredDisclosure(
         : needRec
           ? "Just so you know, this call may be recorded."
           : "";
+  // Only the recording notice is missing (the greeting already says it's an
+  // AI): put it just before the greeting's closing question instead of in
+  // front of "Hi". Opening a call with "this call may be recorded" before
+  // hello sounded like a robocall; this way it's still in the very first
+  // thing the caller hears, before they say a word.
+  if (fixed && !needAi && !prefix) {
+    const m = es
+      ? /^([\s\S]*[.!?])\s+(¿[^¿]*\?)\s*$/.exec(base)
+      : /^([\s\S]*[.!])\s+([^.!?]*\?)\s*$/.exec(base);
+    if (m) return `${m[1]} ${fixed} ${m[2]}`;
+  }
   return [fixed, prefix, base].filter(Boolean).join(" ");
 }
 

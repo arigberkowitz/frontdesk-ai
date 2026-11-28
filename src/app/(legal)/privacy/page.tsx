@@ -128,7 +128,7 @@ export default function PrivacyPage() {
             We rely on a small set of providers to run the Service, and share only what each needs:
             voice and telephony (Retell AI), AI language processing (Anthropic), text messaging
             (Twilio), email (Resend), payments (Stripe), authentication (Clerk), database and
-            hosting (Neon, Vercel), and calendar scheduling (Google Calendar or Cal.com, when the
+            hosting (Neon, Vercel), and calendar scheduling (Google Calendar, Microsoft Outlook or Cal.com, when the
             business connects them). Each acts as our subcontractor in support of delivering the
             Service, is bound by its own data protection commitments, and may not use the data for
             its own marketing.

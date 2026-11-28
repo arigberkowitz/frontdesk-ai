@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Owner copilot, available on every portal page: a bottom-right chat bubble
- * that opens a "Frontdesk Assistant" panel. CopilotChat stays mounted while
+ * that opens a "FrontDesk Assistant" panel. CopilotChat stays mounted while
  * the panel is closed so the conversation survives the session.
  *
  * On phones the bubble and panel sit above the PortalTabBar and honor safe-
@@ -56,7 +56,7 @@ export function CopilotBubble({
       <button
         ref={buttonRef}
         type="button"
-        aria-label="Open Frontdesk Assistant"
+        aria-label="Open FrontDesk Assistant"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={panelId}
@@ -106,13 +106,13 @@ export function CopilotBubble({
         <div className="flex shrink-0 items-center gap-2 border-b px-4 py-3">
           <MessageCircle className="size-4 shrink-0 text-brand" aria-hidden />
           <h2 id={titleId} className="min-w-0 flex-1 font-heading text-sm font-semibold leading-tight">
-            Frontdesk Assistant
+            FrontDesk Assistant
           </h2>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label="Close Frontdesk Assistant"
+            aria-label="Close FrontDesk Assistant"
             onClick={() => setOpen(false)}
           >
             <X className="size-4" aria-hidden />
