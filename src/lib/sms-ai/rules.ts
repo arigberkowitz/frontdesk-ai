@@ -16,6 +16,12 @@
  */
 
 import { ownerLine, ownerText, openHoursSummary, servicePriceText } from "../prompt";
+import {
+  ES_SMS_EMERGENCY,
+  ES_SMS_HUMAN_REQUEST,
+  ES_SMS_SENSITIVE,
+  foldEs,
+} from "../spanish-signals";
 
 /* --------------------------------- limits -------------------------------- */
 
@@ -158,9 +164,12 @@ const SENSITIVE = [
 /** A handoff that must happen without asking the model, or null. */
 export function forcedHandoff(text: string): HandoffCategory | null {
   const t = text.normalize("NFKC");
-  if (EMERGENCY.some((r) => r.test(t))) return "emergency";
-  if (HUMAN_REQUEST.some((r) => r.test(t))) return "human_requested";
-  if (SENSITIVE.some((r) => r.test(t))) return "sensitive";
+  // Spanish lists run on accent-folded text (spanish-signals.ts).
+  const es = foldEs(t);
+  if (EMERGENCY.some((r) => r.test(t)) || ES_SMS_EMERGENCY.some((r) => r.test(es))) return "emergency";
+  if (HUMAN_REQUEST.some((r) => r.test(t)) || ES_SMS_HUMAN_REQUEST.some((r) => r.test(es)))
+    return "human_requested";
+  if (SENSITIVE.some((r) => r.test(t)) || ES_SMS_SENSITIVE.some((r) => r.test(es))) return "sensitive";
   return null;
 }
 
@@ -169,7 +178,18 @@ export function forcedHandoff(text: string): HandoffCategory | null {
  * model-written: it's the one message that goes out precisely when we've
  * decided the model shouldn't be trusted with this conversation.
  */
-export function handoffText(businessName: string, category: HandoffCategory): string {
+export function handoffText(
+  businessName: string,
+  category: HandoffCategory,
+  language: "en" | "es" = "en",
+): string {
+  if (language === "es") {
+    const nombre = ownerLine(businessName) || "El equipo";
+    if (category === "emergency") {
+      return `${nombre}: Si es una emergencia, llame al 911 ahora. También avisé al equipo para que una persona le dé seguimiento.`;
+    }
+    return `${nombre}: Gracias. Le pasé su mensaje al equipo y una persona le responderá lo antes posible.`;
+  }
   const name = ownerLine(businessName) || "the team";
   if (category === "emergency") {
     return `${name}: If this is an emergency, please call 911 now. I've also alerted the team so a person can follow up.`;

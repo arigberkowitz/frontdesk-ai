@@ -27,6 +27,7 @@
 
 import { transferDroppedImmediately, transferLines, transferReachedVoicemail } from "./call-health";
 import { formatDateTime, formatPhone } from "./format";
+import { ES_LEAD_URGENT, foldEs } from "./spanish-signals";
 
 export const CALL_RECAP_KIND = "call_recap";
 
@@ -34,6 +35,12 @@ export type RecapKind = "message" | "transfer" | "transfer_failed";
 
 /** Same words the existing lead alert treats as urgent, so behaviour carries over. */
 export const LEAD_URGENT = /asap|urgent|emergenc|right away|immediately|today|leak|flood|burst/i;
+
+/** A message's urgency or reason reads as urgent, in English or Spanish ("es urgente, hay una fuga"). */
+export function leadSoundsUrgent(urgency?: string | null, reason?: string | null): boolean {
+  const text = `${urgency ?? ""} ${reason ?? ""}`;
+  return LEAD_URGENT.test(text) || ES_LEAD_URGENT.test(foldEs(text));
+}
 
 export interface TransferStatus {
   attempted: boolean;
@@ -162,7 +169,7 @@ function esc(s: string): string {
 
 export function recapUrgent(f: Pick<RecapFacts, "lead" | "health">): boolean {
   if (f.health.problems.includes("possible_emergency")) return true;
-  return f.lead ? LEAD_URGENT.test(`${f.lead.urgency ?? ""} ${f.lead.reason ?? ""}`) : false;
+  return f.lead ? leadSoundsUrgent(f.lead.urgency, f.lead.reason) : false;
 }
 
 /** The few call-health findings worth a line in the recap — not the full QA list. */

@@ -15,6 +15,7 @@
  */
 import { tzDayKey, tzTime } from "./tz";
 import { formatPhone } from "./format";
+import { ES_URGENT, foldEs } from "./spanish-signals";
 
 /* --------------------------------- time ---------------------------------- */
 
@@ -162,7 +163,9 @@ export const URGENT_RE =
   /\b(asap|urgent|emergenc\w*|right away|immediately|today|tonight|leak\w*|flood\w*|burst|no heat|no water|gas|smoke|fire|pain|bleeding|swelling|locked out|broken|not working)\b/i;
 
 export function isUrgentText(...texts: (string | null | undefined)[]): boolean {
-  return URGENT_RE.test(texts.filter(Boolean).join(" "));
+  const text = texts.filter(Boolean).join(" ");
+  // Spanish messages ("hay una fuga, es urgente") are just as urgent.
+  return URGENT_RE.test(text) || ES_URGENT.test(foldEs(text));
 }
 
 /** Nothing happened and nothing is waiting. The email says so in two lines. */

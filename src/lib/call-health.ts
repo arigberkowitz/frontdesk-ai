@@ -20,6 +20,8 @@
  * Pure and client-safe so the rules are testable without a database.
  */
 
+import { ES_EMERGENCY, ES_HUMAN_REQUEST, ES_PROFANITY, foldEs } from "./spanish-signals";
+
 export type CallProblem =
   /** Caller asked for a person. Whether they got one is `escaped` vs `strandedAskingForHuman`. */
   | "asked_for_human"
@@ -104,6 +106,25 @@ export const PROFANITY = /\b(fuck\w*|shit\w*|bullshit|goddamn|damn it|dammit|ass
  */
 export const EMERGENCY =
   /\b(emergency|urgent|right now|gas (leak|smell)|smell(s|ing)? gas|no heat|no water|flood(ing|ed)?|burst|leak(ing)? everywhere|fire|smoke|chest pain|can'?t breathe|bleeding|unconscious|ambulance|911|locked out|break[- ]?in|brok(e|en) ?in(to)?|accident|hit by|injur(y|ed)|in pain|swelling|knocked out)\b/i;
+
+/** Something with `.test()`: a RegExp, or one of the English-or-Spanish matchers below. */
+export interface TextMatcher {
+  test(text: string): boolean;
+}
+
+/** English patterns as written; Spanish ones on accent-folded text (spanish-signals.ts). */
+function eitherLanguage(en: RegExp, es: RegExp): TextMatcher {
+  return { test: (text) => en.test(text) || es.test(foldEs(text)) };
+}
+
+/**
+ * What the owner alerts actually run on. The English lists alone meant a
+ * Spanish caller who said "es una emergencia" or "quiero hablar con una
+ * persona" got a clean report and no alert.
+ */
+export const ASKED_FOR_HUMAN: TextMatcher = eitherLanguage(HUMAN_REQUEST, ES_HUMAN_REQUEST);
+export const SWORE: TextMatcher = eitherLanguage(PROFANITY, ES_PROFANITY);
+export const SAID_EMERGENCY: TextMatcher = eitherLanguage(EMERGENCY, ES_EMERGENCY);
 
 /**
  * Did the agent actually say it was an AI, and that the call may be recorded?
@@ -221,6 +242,8 @@ function callerLines(transcript: string): string[] {
  */
 export function questionTopic(line: string): string | null {
   if (!line.includes("?")) return null;
+  const es = questionTopicEs(foldEs(line));
+  if (es) return es;
   if (/\b(name)\b/.test(line)) return "name";
   if (/\b(address|street|where.*(located|live)|zip|postcode)\b/.test(line)) return "address";
   if (/\b(phone|number|reach you|call you back|mobile|cell)\b/.test(line)) return "phone";
@@ -228,6 +251,18 @@ export function questionTopic(line: string): string | null {
   if (/\b(spell|spelling)\b/.test(line)) return "spelling";
   if (/\b(date|day|time|when)\b/.test(line)) return "when";
   if (/\b(service|what.*(need|looking for)|how can i help)\b/.test(line)) return "service";
+  return null;
+}
+
+/** The same fields, asked in Spanish (accent-folded). */
+function questionTopicEs(line: string): string | null {
+  if (/\b(su nombre|tu nombre|como se llama|como te llamas|a nombre de quien)\b/.test(line)) return "name";
+  if (/\b(direccion|domicilio|calle|codigo postal|donde (vive|esta ubicad[oa]))\b/.test(line)) return "address";
+  if (/\b(telefono|numero (de|para)|celular|devolverle la llamada|comunicarnos con usted)\b/.test(line)) return "phone";
+  if (/\b(correo|email|e-mail)\b/.test(line)) return "email";
+  if (/\b(deletrear\w*|como se escribe)\b/.test(line)) return "spelling";
+  if (/\b(fecha|que dia|que hora|a que hora|cuando)\b/.test(line)) return "when";
+  if (/\b(que servicio|que necesita|en que (le )?puedo ayudar|que esta buscando)\b/.test(line)) return "service";
   return null;
 }
 
@@ -271,7 +306,7 @@ export function analyzeCall(input: CallHealthInput): CallHealth {
   }
 
   const caller = callerTurns.join(" ");
-  const askedForHuman = HUMAN_REQUEST.test(caller);
+  const askedForHuman = ASKED_FOR_HUMAN.test(caller);
   // A transfer landing in voicemail is not reaching a human, whatever the
   // outcome says. `outcome === "escalated"` only means we tried.
   const hitVoicemail = transferReachedVoicemail(transcript);
@@ -321,12 +356,12 @@ export function analyzeCall(input: CallHealthInput): CallHealth {
     notes.push(`The caller hung up after ${duration} seconds.`);
   }
 
-  if (PROFANITY.test(caller)) {
+  if (SWORE.test(caller)) {
     problems.push("caller_frustrated");
     notes.push("The caller swore during this call.");
   }
 
-  if (EMERGENCY.test(caller)) {
+  if (SAID_EMERGENCY.test(caller)) {
     problems.push("possible_emergency");
     notes.push("The caller used words that may signal an emergency — worth listening to.");
   }

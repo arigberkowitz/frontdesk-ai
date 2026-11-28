@@ -11,12 +11,13 @@
  */
 
 import {
-  EMERGENCY,
-  HUMAN_REQUEST,
-  PROFANITY,
+  ASKED_FOR_HUMAN,
   questionTopic,
+  SAID_EMERGENCY,
+  SWORE,
   TOPIC_LABEL,
   type CallProblem,
+  type TextMatcher,
 } from "@/lib/call-health";
 
 export type TurnRole = "agent" | "user" | "other";
@@ -125,7 +126,7 @@ export function clock(sec: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-function firstUser(turns: Turn[], re: RegExp): number {
+function firstUser(turns: Turn[], re: TextMatcher): number {
   return turns.findIndex((t) => t.role === "user" && re.test(t.text));
 }
 function lastIndex(turns: Turn[], pred: (t: Turn) => boolean): number {
@@ -149,11 +150,11 @@ export function findMoments(problems: CallProblem[], turns: Turn[]): Moment[] {
   for (const p of problems) {
     switch (p) {
       case "possible_emergency":
-        add(firstUser(turns, EMERGENCY), p, "Where the caller said something that may be an emergency");
+        add(firstUser(turns, SAID_EMERGENCY), p, "Where the caller said something that may be an emergency");
         break;
       case "stranded_asking_for_human":
       case "asked_for_human": {
-        const i = firstUser(turns, HUMAN_REQUEST);
+        const i = firstUser(turns, ASKED_FOR_HUMAN);
         // The interesting line is what the AI said *back*.
         const reply = i >= 0 ? turns.findIndex((t, j) => j > i && t.role === "agent") : -1;
         add(
@@ -166,7 +167,7 @@ export function findMoments(problems: CallProblem[], turns: Turn[]): Moment[] {
         break;
       }
       case "caller_frustrated":
-        add(firstUser(turns, PROFANITY), p, "Where the caller got frustrated");
+        add(firstUser(turns, SWORE), p, "Where the caller got frustrated");
         break;
       case "repeated_question": {
         // The third time the AI asked for the same thing.

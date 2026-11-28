@@ -10,6 +10,8 @@ import { SMS_SIGNATURE_HEADER, agentToolHeaders, signSmsToolRequest } from "@/li
 import { getClient } from "@/lib/data/clients";
 import { getBookingProviderForClient } from "@/lib/booking";
 import { isOptedOut } from "@/lib/data/sms-optouts";
+import { getCustomerLanguage } from "@/lib/data/customer-languages";
+import { looksSpanish } from "@/lib/spanish-signals";
 import { customerKeyFor, getThread } from "@/lib/data/sms-messages";
 import {
   claimThreadForAi,
@@ -118,9 +120,13 @@ export async function handOff(
   if (!key) return;
   await setThreadAiPaused(client.id, key, true, `handoff:${category}`);
   if (opts.sendHoldingText && !(await isOptedOut(key, client.id))) {
+    // In the customer's language: a Spanish texter who wrote "emergencia" must
+    // not get "call 911" in English. Known language first, else the text itself.
+    const known = await getCustomerLanguage(client.id, `+${key}`).catch(() => null);
+    const language = known === "es" || (!known && looksSpanish(lastCustomerText)) ? "es" : "en";
     await notifier.sendSms({
       to: `+${key}`,
-      body: handoffText(client.name, category),
+      body: handoffText(client.name, category, language),
       log: { clientId: client.id, kind: AI_HANDOFF_KIND },
     });
   }
