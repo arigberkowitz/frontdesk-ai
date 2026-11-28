@@ -68,7 +68,7 @@ export const FEATURE_EXPLAINERS: Record<FeatureToggleKey, FeatureExplainer> = {
   },
   transferOpenHoursOnly: {
     what: "Transfers only happen during your business hours. After hours your AI takes a message instead, so your phone doesn't ring at night.",
-    example: "Someone asks for you at 11pm. Your AI takes their name, number and reason, and you see it in the morning.",
+    example: "Someone asks for you at 11 PM. Your AI takes their name, number and reason, and you see it in the morning.",
   },
   offerHuman: {
     what: "Your AI offers to connect a caller to a person when they sound upset or the question is complicated, not only when they ask.",
@@ -223,7 +223,7 @@ export function confirmNotesFor(
     case "aiTextReplies":
       return [
         "Only replies to people who texted you first, and never to anyone who texted STOP.",
-        `Replies only between 9am and 8pm your time, at most ${limits.repliesPerThreadPerDay} AI texts per conversation a day.`,
+        `Replies only between 9 AM and 8 PM your time, at most ${limits.repliesPerThreadPerDay} AI texts per conversation a day.`,
         "Hands the conversation to you when someone asks for a person, it sounds urgent, or it isn't sure.",
         ...(opts.bookingEnabled === false
           ? ["No calendar is connected, so it answers questions but passes booking requests to you."]
@@ -233,17 +233,17 @@ export function confirmNotesFor(
       return [
         "Only to callers who've agreed to texts from you, and never after STOP.",
         `One text per caller every ${limits.callbackDedupeDays} days, at most ${limits.callbacksPerDay} a day.`,
-        "Sent 9am–8pm their time; a late-night call gets its text the next morning.",
+        "Sent 9 AM–8 PM their time; a late-night call gets its text the next morning.",
       ];
     case "aiCallbacks":
       return [
-        "Same rules as the texts: only callers who agreed to hear from you, 9am–8pm their time, never after STOP.",
+        "Same rules as the texts: only callers who agreed to hear from you, 9 AM–8 PM their time, never after STOP.",
         "The AI says it's an AI at the start of the call.",
       ];
     case "smartRebooking":
       return [
         "Nothing is sent until you press “Ask customers to rebook” on Hours and confirm.",
-        "Only to customers who agreed to texts about their booking, never after STOP, 9am–8pm.",
+        "Only to customers who agreed to texts about their booking, never after STOP, 9 AM–8 PM.",
         `Offers stay open ${limits.rebookOfferHours} hours; anything other than 1, 2, 3 or NO comes to you.`,
       ];
   }

@@ -84,7 +84,7 @@ const FAQ = [
   },
   {
     q: "Will callers know they're talking to an AI?",
-    a: "It introduces itself by name as your AI assistant and never pretends to be a person. What callers remember is that someone answered on the first ring at 9pm — not who.",
+    a: "It introduces itself by name as your AI assistant and never pretends to be a person. What callers remember is that someone answered on the first ring at 9 PM — not who.",
   },
   {
     q: "What about Spanish-speaking customers?",
@@ -554,8 +554,8 @@ export function LandingPage({
                 nativeButton={false}
                 render={<Link href="/sign-up" />}
               >
-                <ArrowRight className="size-4" />
                 Start your free trial
+                <ArrowRight className="size-4" />
               </Button>
             </div>
           </div>

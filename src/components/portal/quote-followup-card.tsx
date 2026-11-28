@@ -228,7 +228,7 @@ export function QuoteFollowupCard({
               · Never to anyone who booked, texted back or called back. Text 2 only goes to people who
               got text 1.
             </li>
-            <li>· Sent 9am to 7pm in your time zone, from your business&rsquo;s texting number.</li>
+            <li>· Sent 9 AM to 7 PM in your time zone, from your business&rsquo;s texting number.</li>
             <li>· Text 1 goes out about a day after the call, text 2 about a week after it.</li>
           </ul>
 

@@ -129,8 +129,8 @@ export function AiFeaturesCard(p: AiFeaturesCardProps) {
             explainer={FEATURE_EXPLAINERS.dailyBriefing}
             description={
               p.dailyBriefing.ownerEmail
-                ? `A short email each morning (7–10am your time) with yesterday's calls and today's schedule, to ${p.dailyBriefing.ownerEmail}.`
-                : "A short email each morning (7–10am your time) with yesterday's calls and today's schedule."
+                ? `A short email each morning (7–10 AM your time) with yesterday's calls and today's schedule, to ${p.dailyBriefing.ownerEmail}.`
+                : "A short email each morning (7–10 AM your time) with yesterday's calls and today's schedule."
             }
             status={p.dailyBriefing.status}
             statusLink={
@@ -149,7 +149,7 @@ export function AiFeaturesCard(p: AiFeaturesCardProps) {
             icon={MoonStar}
             title="Morning text: who didn't book"
             explainer={FEATURE_EXPLAINERS.morningUnbookedText}
-            description="A text each morning (8–11am your time) listing last night's after-hours callers who didn't book, with what they wanted and a link to each. No text when there's nobody."
+            description="A text each morning (8–11 AM your time) listing last night's after-hours callers who didn't book, with what they wanted and a link to each. No text when there's nobody."
             status={p.morningUnbookedText.status}
             statusLink={
               p.morningUnbookedText.status.tone === "warn" && p.morningUnbookedText.status.text.includes("text alerts")

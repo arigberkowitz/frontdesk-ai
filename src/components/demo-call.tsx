@@ -91,7 +91,7 @@ const SCENARIOS: Scenario[] = [
   },
   {
     key: "emergency",
-    tab: "2am emergency",
+    tab: "2 AM emergency",
     duration: "0:19",
     turns: [
       { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant. How can I help?" },

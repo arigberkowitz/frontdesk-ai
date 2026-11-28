@@ -103,7 +103,7 @@ export function MissedCallCard({
             <li>· Only to callers who&rsquo;ve agreed to texts from you, and never after STOP.</li>
             <li>· Never to spam or blocked numbers, or anyone already booked or who called back.</li>
             <li>· One text per caller every {DEDUPE_DAYS} days, at most {MAX_CALLBACKS_PER_CLIENT_PER_DAY} a day.</li>
-            <li>· 9am–8pm their time; a late-night call gets its text the next day.</li>
+            <li>· 9 AM–8 PM their time; a late-night call gets its text the next day.</li>
             <li>· Replies land in Messages (and AI text replies answers them, if that&rsquo;s on).</li>
           </ul>
 

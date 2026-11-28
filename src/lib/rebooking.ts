@@ -180,7 +180,7 @@ export async function sendRebookOffers(
     return { error: "Turn on rebooking texts in Settings → Follow-ups first." };
   }
   if (!withinTextingHours(now, client.timezone)) {
-    return { error: "It's outside texting hours where you are (9am–8pm). Try again in the morning." };
+    return { error: "It's outside texting hours where you are (9 AM–8 PM). Try again in the morning." };
   }
 
   const blocks = await listActiveBlocks(clientId);

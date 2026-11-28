@@ -104,7 +104,7 @@ you're happy with it. If it's not impressive, tell me why and I'll delete it.
 ## The pitch meeting (15 minutes)
 
 1. **Open with their pain, not the product** (2 min): "How many calls do you
-   miss a day? What happens when someone calls at 8pm?"
+   miss a day? What happens when someone calls at 8 PM?"
 2. **Live demo on THEIR business** (5 min): onboard their website in front of
    them, make the browser test call (that gives the trial its own number),
    then call that number on speaker. Booking needs their calendar connected

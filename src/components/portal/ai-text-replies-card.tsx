@@ -73,7 +73,7 @@ export function AiTextRepliesCard({
           <ul className="space-y-1 text-xs text-muted-foreground">
             <li>· Only replies to people who texted you first, and never to anyone who texted STOP.</li>
             <li>· Hands the conversation to you (and emails you) when someone asks for a person, it sounds urgent or sensitive, or it isn&rsquo;t sure.</li>
-            <li>· Replies only between 9am and 8pm your time; at most {AI_REPLIES_PER_THREAD_PER_DAY} AI texts per conversation a day.</li>
+            <li>· Replies only between 9 AM and 8 PM your time; at most {AI_REPLIES_PER_THREAD_PER_DAY} AI texts per conversation a day.</li>
             <li>· Every AI text is marked &ldquo;AI&rdquo; in Messages, and you can pause it in any conversation.</li>
             <li>· It never changes your AI&rsquo;s settings, services or answers.</li>
             {bookingEnabled ? null : (

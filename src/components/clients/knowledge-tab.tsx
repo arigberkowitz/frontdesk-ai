@@ -102,7 +102,7 @@ function KnowledgeForm({
         error={state.fieldErrors?.answer}
         hint="Answer the way you'd want a great receptionist to — clear and specific."
       >
-        <Textarea name="answer" rows={4} required placeholder="Yes — walk-ins are welcome before 4pm." />
+        <Textarea name="answer" rows={4} required placeholder="Yes — walk-ins are welcome before 4 PM." />
       </Field>
       <div className="flex justify-end">
         <SubmitButton pending={pending}>Add answer</SubmitButton>
