@@ -8,8 +8,18 @@ import { textLanguage } from "@/lib/appointment-messages";
  * customer it just served well.
  */
 
-/** Hours after the visit ends before we ask. Long enough that they've left. */
-export const REVIEW_DELAY_HOURS = 3;
+/** Default hours after the visit ends before we ask. Long enough that they've left. */
+export const DEFAULT_REVIEW_DELAY_HOURS = 2;
+/** Kept for older imports: the default delay. */
+export const REVIEW_DELAY_HOURS = DEFAULT_REVIEW_DELAY_HOURS;
+/** The delays an owner can pick on the settings card. */
+export const REVIEW_DELAY_OPTIONS = [1, 2, 3, 4, 6, 12, 24] as const;
+
+/** The owner's delay from setup_flags.reviewDelayHours, or the default. */
+export function reviewDelayOf(flags: { reviewDelayHours?: number } | null | undefined): number {
+  const h = Number(flags?.reviewDelayHours);
+  return (REVIEW_DELAY_OPTIONS as readonly number[]).includes(h) ? h : DEFAULT_REVIEW_DELAY_HOURS;
+}
 /**
  * Past this, don't bother. Asking about a haircut from three weeks ago reads as
  * a mailing list, not a thank-you, and the answer is worse than no answer.
@@ -46,14 +56,18 @@ export function visitHappened(c: ReviewCandidate, now: Date): boolean {
   return ended.getTime() <= now.getTime();
 }
 
-export function shouldAskForReview(c: ReviewCandidate, now: Date): boolean {
+export function shouldAskForReview(
+  c: ReviewCandidate,
+  now: Date,
+  delayHours: number = DEFAULT_REVIEW_DELAY_HOURS,
+): boolean {
   if (!c.customerPhone?.trim()) return false;
   if (!visitHappened(c, now)) return false;
   if (c.askedAt) return false;
 
   const ended = (c.endAt ?? c.startAt).getTime();
   const hoursSince = (now.getTime() - ended) / 3_600_000;
-  if (hoursSince < REVIEW_DELAY_HOURS) return false;
+  if (hoursSince < delayHours) return false;
   if (hoursSince > REVIEW_MAX_AGE_HOURS) return false;
 
   if (c.lastAskedThisPhoneAt) {
@@ -70,6 +84,12 @@ export function shouldAskForReview(c: ReviewCandidate, now: Date): boolean {
  * It thanks them before it asks, names the business so the text isn't from a
  * stranger, and carries the opt-out line every unattended message this product
  * sends is required to carry.
+ *
+ * No review gating: every customer gets the same direct ask for a public
+ * review. We never ask "were you happy?" first and only send the happy ones
+ * to Google, and the wording doesn't make the ask conditional ("if we did
+ * right by you…"). Google's policy forbids selectively soliciting positive
+ * reviews, and a business can lose its reviews over it.
  */
 export function reviewRequestBody(input: {
   businessName: string;
@@ -83,13 +103,13 @@ export function reviewRequestBody(input: {
   if (textLanguage(input.language) === "es") {
     return (
       `Hola${name ? ` ${name}` : ""}, ¡gracias por elegir a ${business}! ` +
-      `Si le atendimos bien, una breve reseña nos ayuda mucho: ${input.reviewUrl}` +
+      `¿Nos deja una breve reseña? Nos ayuda mucho: ${input.reviewUrl}` +
       ` Responda STOP para no recibir más mensajes.`
     );
   }
   return (
     `Hi${name ? ` ${name}` : ""}, thanks for choosing ${business}! ` +
-    `If we did right by you, a quick review really helps: ${input.reviewUrl}` +
+    `Would you leave us a quick review? It really helps: ${input.reviewUrl}` +
     ` Reply STOP to opt out.`
   );
 }

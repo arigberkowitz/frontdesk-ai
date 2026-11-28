@@ -2,7 +2,7 @@ import "server-only";
 import type { Client } from "@/db/schema";
 import { planAccessFor, type RevenueFeature } from "@/lib/plan-access";
 import { revenueTextStats } from "@/lib/data/revenue-texts";
-import { winbackTeaserFor, type Teaser } from "@/lib/data/revenue-teasers";
+import { reviewTeaserFor, winbackTeaserFor, type Teaser } from "@/lib/data/revenue-teasers";
 import { statsLine } from "@/lib/revenue-texts";
 import { winbackSettingsOf } from "@/lib/winback";
 
@@ -27,6 +27,13 @@ const ENTRIES: FeatureEntry[] = [
     kind: "winback",
     enabled: (c) => winbackSettingsOf(c.setupFlags).enabled,
     teaser: (c) => winbackTeaserFor(c),
+  },
+  {
+    feature: "review_requests",
+    title: "Review requests",
+    kind: "review_request",
+    enabled: (c) => c.reviewRequestsEnabled,
+    teaser: (c) => reviewTeaserFor(c),
   },
 ];
 

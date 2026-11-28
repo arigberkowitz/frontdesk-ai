@@ -412,6 +412,12 @@ export const clients = pgTable(
          * history lives in sms_messages (kind "winback").
          */
         winback?: { enabled?: boolean; months?: number; template?: string | null; lastRunMonth?: string | null };
+        /**
+         * Hours after a visit ends before the review request goes out (Pro;
+         * lib/review-requests.ts REVIEW_DELAY_OPTIONS). Unset = 2. The switch
+         * and link stay in clients.review_requests_enabled / review_url.
+         */
+        reviewDelayHours?: number;
       }>()
       .notNull()
       .default({}),

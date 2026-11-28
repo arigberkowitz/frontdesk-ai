@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, services } from "@/db/schema";
 import { audit } from "@/lib/data/audit";
@@ -9,6 +9,8 @@ import { assertClientAccess } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { isDeliverableUrl } from "@/lib/webhooks-out";
 import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
+import { planAccessFor, UPGRADE_MESSAGES } from "@/lib/plan-access";
+import { REVIEW_DELAY_OPTIONS } from "@/lib/review-requests";
 import { type ActionState } from "./types";
 
 /**
@@ -26,12 +28,20 @@ export async function saveReviewRequestSettingsAction(
   const clientId = String(formData.get("clientId") ?? "");
   const enabled = String(formData.get("enabled") ?? "") === "on";
   const reviewUrl = String(formData.get("reviewUrl") ?? "").trim();
+  const delayRaw = formData.has("delayHours") ? Number(formData.get("delayHours")) : null;
 
   const user = await assertClientAccess(clientId);
   if (user.role !== "operator" && user.role !== "client_admin") {
     return { ok: false, error: "Only your account admin can change this." };
   }
-  await assertClientInOrg(user.orgId, clientId);
+  const client = await assertClientInOrg(user.orgId, clientId);
+  // Pro only, checked on the server. Switching it off always works.
+  if (enabled && !(await planAccessFor(client)).has("review_requests")) {
+    return { ok: false, error: UPGRADE_MESSAGES.review_requests };
+  }
+  if (delayRaw !== null && !(REVIEW_DELAY_OPTIONS as readonly number[]).includes(delayRaw)) {
+    return { ok: false, fieldErrors: { delayHours: ["Pick one of the listed delays."] } };
+  }
 
   if (reviewUrl && !isDeliverableUrl(reviewUrl)) {
     return {
@@ -52,7 +62,13 @@ export async function saveReviewRequestSettingsAction(
 
   await db
     .update(clients)
-    .set({ reviewRequestsEnabled: enabled, reviewUrl: reviewUrl || null })
+    .set({
+      reviewRequestsEnabled: enabled,
+      reviewUrl: reviewUrl || null,
+      ...(delayRaw !== null
+        ? { setupFlags: sql`coalesce(${clients.setupFlags}, '{}'::jsonb) || jsonb_build_object('reviewDelayHours', ${delayRaw}::int)` }
+        : {}),
+    })
     .where(eq(clients.id, clientId));
 
   void audit({
@@ -65,7 +81,7 @@ export async function saveReviewRequestSettingsAction(
   return {
     ok: true,
     message: enabled
-      ? "On. We'll ask customers for a review a few hours after their visit."
+      ? "On. Customers get your review link a couple of hours after their visit."
       : "Off. No review requests will be sent.",
   };
 }

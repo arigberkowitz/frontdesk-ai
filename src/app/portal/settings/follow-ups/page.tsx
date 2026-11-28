@@ -6,7 +6,7 @@ import { listServices } from "@/lib/data/services";
 import { listWaiting } from "@/lib/data/waitlist";
 import { env } from "@/lib/env";
 import { RecoveryTextsForm } from "@/components/portal/portal-settings";
-import { ReviewRequestsCard } from "@/components/portal/review-requests-card";
+import { ReviewRequestsSection } from "@/components/portal/review-requests-section";
 import { RecallCard } from "@/components/portal/recall-card";
 import { WaitlistCard } from "@/components/portal/waitlist-card";
 import { DepositsCard } from "@/components/portal/deposits-card";
@@ -64,12 +64,7 @@ export default async function PortalSettingsFollowUpsPage() {
         stats={missedCallStats ?? { sent: 0, skipped: 0, pending: 0, failed: 0 }}
         isAdmin={editAccess.isAdmin}
       />
-      <ReviewRequestsCard
-        clientId={clientId}
-        enabled={client.reviewRequestsEnabled}
-        reviewUrl={client.reviewUrl}
-        isAdmin={editAccess.isAdmin}
-      />
+      <ReviewRequestsSection client={client} isAdmin={editAccess.isAdmin} />
       <RecallCard
         clientId={clientId}
         enabled={client.recallEnabled}

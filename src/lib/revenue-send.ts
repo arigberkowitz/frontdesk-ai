@@ -63,6 +63,8 @@ export interface RevenueRecipient {
   body: (language: "en" | "es") => string;
   appointmentId?: string | null;
   leadId?: string | null;
+  /** Called after each attempt that reached Twilio (sent, queued or failed). */
+  onAttempt?: (res: { ok: boolean; queued?: boolean; error?: string; id?: string }) => Promise<void>;
 }
 
 export interface RevenueSendResult {
@@ -145,6 +147,7 @@ export async function sendRevenueTexts(
     }
     if (key) opts.history.lastCapped.set(key, now);
     opts.history.sentLast24h += 1;
+    await r.onAttempt?.(res);
     if (!res.ok) {
       out.failed += 1;
       logger.warn("revenue_texts.send_failed", { clientId: client.id, kind: opts.kind, error: res.error, code: res.code });

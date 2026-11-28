@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { winbackTeaser } from "./revenue-teasers";
+import { reviewTeaser, winbackTeaser } from "./revenue-teasers";
 
 describe("win-back teaser", () => {
   it("uses the business's real count", () => {
@@ -20,5 +20,20 @@ describe("win-back teaser", () => {
   });
   it("reads right for one person", () => {
     expect(winbackTeaser({ due: 1, textable: 1, months: 1 }).line).toBe("1 past customer hasn't been back in 1 month or more.");
+  });
+});
+
+describe("review request teaser", () => {
+  it("counts real visits and who could be texted", () => {
+    const t = reviewTeaser({ visits: 12, textable: 12, days: 30 });
+    expect(t.line).toBe("In the last 30 days, 12 booked visits could have gotten a review request.");
+    expect(t.detail).toMatch(/each customer/);
+    expect(reviewTeaser({ visits: 12, textable: 5, days: 30 }).detail).toMatch(/^5 of them/);
+  });
+  it("uses a plain line, no number, with no visits", () => {
+    const t = reviewTeaser({ visits: 0, textable: 0, days: 30 });
+    expect(t.fromData).toBe(false);
+    expect(t.line).not.toMatch(/last \d+ days|could have/);
+    expect(t.detail).toBeNull();
   });
 });
