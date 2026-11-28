@@ -240,6 +240,18 @@
     {
       "path": "/api/cron/morning-unbooked",
       "schedule": "15 18 * * *"
+    },
+    {
+      "path": "/api/cron/winback",
+      "schedule": "10 17 * * *"
+    },
+    {
+      "path": "/api/cron/winback",
+      "schedule": "10 20 * * *"
+    },
+    {
+      "path": "/api/cron/winback",
+      "schedule": "10 23 * * *"
     }
   ]
 }

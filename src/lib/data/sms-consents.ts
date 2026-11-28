@@ -99,7 +99,12 @@ export type ConsentPurpose =
    * customer already received this appointment's confirmation text (the same
    * inheritance the day-before reminder uses) — see src/lib/rebooking.ts.
    */
-  | "rebook";
+  | "rebook"
+  /**
+   * Pro win-back: "it's been a while — want to book?" to a past customer.
+   * Same policy call as recall; see src/lib/agents/winback.ts.
+   */
+  | "winback";
 
 /**
  * Which recorded consent wordings cover which kind of text.
@@ -129,6 +134,11 @@ export const CONSENT_COVERAGE: Record<ConsentPurpose, readonly string[]> = {
   // A text about an appointment they booked and agreed to texts about —
   // squarely what booking-v1 ("confirmation and a reminder") describes.
   rebook: BOOKING_V1_WORDINGS,
+  // TODO(Ari): the same policy call as recall above — a past customer who
+  // said yes to texts when they booked. If win-back is judged promotional,
+  // remove booking-v1/v2 here and it sends to nobody until a marketing
+  // consent script exists.
+  winback: BOOKING_V1_WORDINGS,
 };
 
 /** Pure: the set of numbers (normalized digits) whose consent rows cover `purpose`. */

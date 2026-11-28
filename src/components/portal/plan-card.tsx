@@ -7,7 +7,7 @@ import { changePlanAction } from "@/lib/actions/billing";
 import { initialActionState, type ActionState } from "@/lib/actions/types";
 import { SubmitButton } from "@/components/form/submit-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PLANS, planList, type PlanKey } from "@/config/plans";
+import { PLANS, PRO_EXTRAS, planList, type PlanKey } from "@/config/plans";
 import type { MinutesUsage } from "@/lib/minutes";
 
 const fmt = (cents: number) => `$${Math.round(cents / 100)}`;
@@ -50,8 +50,10 @@ export function PlanCard({
   const bar =
     usage.tone === "over" ? "bg-red-500" : usage.tone === "near" ? "bg-amber-500" : "bg-emerald-500";
 
+  const onPro = plan === "pro" || plan === "scale";
+
   return (
-    <Card>
+    <Card id="plan" className="scroll-mt-20">
       <CardHeader>
         <CardTitle>Your plan: {current?.name ?? plan}</CardTitle>
         <CardDescription>{current
@@ -69,6 +71,12 @@ export function PlanCard({
             {usage.text}
           </p>
         </div>
+        {onPro ? null : (
+          <p className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 px-3 py-2 text-sm" data-testid="pro-compare">
+            <span className="font-medium">Pro is {price(PLANS.pro.monthlyPriceCents)}, one flat monthly price.</span>{" "}
+            It adds {PRO_EXTRAS.slice(0, -1).join(", ")} and {PRO_EXTRAS.at(-1)}.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           {others.map((p) => {
             const up = p.monthlyPriceCents > (current?.monthlyPriceCents ?? 0);
