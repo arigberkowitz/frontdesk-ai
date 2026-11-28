@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, type ReactNode } from "react";
-import { Phone, Rocket, Send } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Phone, Rocket } from "lucide-react";
 import { toast } from "sonner";
 import {
   provisionAgentAction,
@@ -18,9 +18,22 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field } from "@/components/form/field";
 import { SubmitButton } from "@/components/form/submit-button";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { TestCallButton } from "@/components/clients/test-call-button";
 import { formatPhone } from "@/lib/format";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
+import { agentSyncUiState } from "@/lib/agent-sync-status";
 import type { Client } from "@/db/schema";
 import type { VoiceMeta } from "@/config/voice";
 
@@ -41,8 +54,11 @@ export function AgentConfigTab({
   const [pub, pubAction, pubPending] = useActionState(publishAgentAction, initialActionState);
 
   useEffect(() => {
-    if (cfg.ok) toast.success("Agent config saved");
-    else if (cfg.error) toast.error(cfg.error);
+    if (cfg.ok) {
+      const sync = (cfg.data as { sync?: string } | undefined)?.sync;
+      if (sync === "failed") toast.warning(cfg.message ?? "Saved, but the live receptionist didn't update.");
+      else toast.success(cfg.message ?? "Agent config saved");
+    } else if (cfg.error) toast.error(cfg.error);
   }, [cfg]);
   useEffect(() => {
     if (prov.ok) {
@@ -58,19 +74,27 @@ export function AgentConfigTab({
     }
   }, [prov]);
   useEffect(() => {
-    if (pub.ok) toast.success("Published a new version");
+    if (pub.ok) toast.success(pub.message ?? "Live receptionist is up to date");
     else if (pub.error) toast.error(pub.error);
   }, [pub]);
 
   const provisioned = Boolean(client.retellAgentId && client.retellPhoneNumber);
   const hasAgent = Boolean(client.retellAgentId);
+  // Buying happens only when this business has no number yet. Re-sync of an
+  // existing number never purchases a new one.
+  const wouldBuyNumber = !client.retellPhoneNumber;
+  const syncState =
+    pub.error && !pub.ok ? "failed" : agentSyncUiState(client);
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>AI agent</CardTitle>
-          <CardDescription>Provision the Retell agent + phone number, then publish prompt changes.</CardDescription>
+          <CardDescription>
+            Saves update the live receptionist automatically. Getting a phone number
+            is a monthly charge from Retell — only use that button when you want one.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {provisioned ? (
@@ -97,22 +121,64 @@ export function AgentConfigTab({
               Add <code>RETELL_API_KEY</code> to your environment to enable provisioning.
             </p>
           ) : null}
+          {syncState === "up_to_date" ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="size-4 text-emerald-600" aria-hidden />
+              Live receptionist is up to date
+            </div>
+          ) : syncState === "failed" ? (
+            <div className="flex flex-wrap items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="size-4 shrink-0" aria-hidden />
+              <span>Update failed —</span>
+              <form action={pubAction}>
+                <input type="hidden" name="clientId" value={client.id} />
+                <SubmitButton pending={pubPending} variant="outline" size="sm">
+                  Retry
+                </SubmitButton>
+              </form>
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             {extraActions ? <div className="order-last">{extraActions}</div> : null}
-            <form action={provAction}>
-              <input type="hidden" name="clientId" value={client.id} />
-              <SubmitButton pending={provPending} disabled={!retellReady}>
-                <Rocket className="size-4" />
-                {provisioned ? "Re-provision / sync" : "Provision agent"}
-              </SubmitButton>
-            </form>
-            <form action={pubAction}>
-              <input type="hidden" name="clientId" value={client.id} />
-              <SubmitButton pending={pubPending} variant="outline" disabled={!hasAgent}>
-                <Send className="size-4" />
-                Publish prompt
-              </SubmitButton>
-            </form>
+            {wouldBuyNumber ? (
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button disabled={!retellReady || provPending}>
+                      <Rocket className="size-4" />
+                      {hasAgent ? "Get a phone number" : "Provision agent and phone number"}
+                    </Button>
+                  }
+                />
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Buy a phone number?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This sets up the AI and buys a phone number (about $2 a month from Retell)
+                      so callers can ring it. Cancel if you only wanted to update the greeting —
+                      saves already go live on their own.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <form action={provAction}>
+                      <input type="hidden" name="clientId" value={client.id} />
+                      <AlertDialogAction type="submit" disabled={provPending}>
+                        {hasAgent ? "Get a phone number" : "Provision agent and phone number"}
+                      </AlertDialogAction>
+                    </form>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : (
+              <form action={provAction}>
+                <input type="hidden" name="clientId" value={client.id} />
+                <SubmitButton pending={provPending} disabled={!retellReady} variant="outline">
+                  <Rocket className="size-4" />
+                  Re-sync agent
+                </SubmitButton>
+              </form>
+            )}
           </div>
         </CardContent>
       </Card>

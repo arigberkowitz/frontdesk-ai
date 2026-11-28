@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { deleteAgent, deleteCompany, reactivateCompany, releaseNumber, releaseVoiceNumber, suspendCompany } from "./controls";
+import { describe, expect, it, vi } from "vitest";
+import { deleteAgent, reactivateCompany, releaseNumber, releaseVoiceNumber, suspendCompany } from "./controls";
+import { deleteCompany } from "./full-delete";
 import { actor, makeWorld } from "./test-helpers";
 
 const step = (res: { steps: { step: string; status: string }[] }, id: string) =>
@@ -96,7 +97,7 @@ describe("release phone number", () => {
 
   it("404 for an unknown business", async () => {
     const w = makeWorld();
-    w.store.getClient = async () => null;
+    w.store.getClient = vi.fn(async () => null);
     expect((await releaseNumber(w.deps, actor, "nope")).httpStatus).toBe(404);
   });
 });
@@ -334,7 +335,7 @@ describe("delete company", () => {
     expect(w.state.client.retellPhoneNumber).toBeNull();
     expect(w.state.client.retellAgentId).toBeNull();
     expect(w.state.client.setupFlags?.suspended?.deleting).toBe(true);
-    expect(w.state.queued).toBe(0);
+    expect(w.state.work.queuedTexts).toBe(0);
     // subscription row is kept (billing/legal), only its status changes
     expect(w.state.sub).toBeTruthy();
     const audit = w.state.audits.at(-1)!;
@@ -366,9 +367,12 @@ describe("delete company", () => {
     await deleteCompany(w.deps, actor, "c1", opts);
     w.providers.stripeCancel.mockClear();
     const again = await deleteCompany(w.deps, actor, "c1", opts);
+    // A second press re-checks the vendors (a business closed by its owner can still hold a number)
+    // but has nothing left to cancel, release or delete.
     expect(again.ok).toBe(true);
-    expect(again.message).toMatch(/already deleted/);
     expect(w.providers.stripeCancel).not.toHaveBeenCalled();
+    expect(w.providers.retellReleaseNumber).toHaveBeenCalledTimes(1);
+    expect(again.checklist?.every((l) => l.zero)).toBe(true);
   });
 
   it("a deleting company cannot be reactivated", async () => {
@@ -393,16 +397,16 @@ describe("delete company", () => {
 
   it("fraud flag skips a free-mail domain", async () => {
     const w = makeWorld({ ownerEmail: "scammer@gmail.com" });
-    w.store.identitiesFor = async () => ({ emails: [], phones: [] });
+    w.store.identitiesFor = vi.fn(async () => ({ emails: [] as string[], phones: [] as string[] }));
     await deleteCompany(w.deps, actor, "c1", { ...opts, blockFraud: true });
     expect(w.state.blocks[0]).toEqual({ emails: ["scammer@gmail.com"], phones: [], domain: null });
   });
 
   it("a fraud flag that fails to save fails the delete (it must not silently not-save)", async () => {
     const w = makeWorld();
-    w.store.writeTrialBlock = async () => {
+    w.store.writeTrialBlock = vi.fn(async () => {
       throw new Error("db down");
-    };
+    });
     const res = await deleteCompany(w.deps, actor, "c1", { ...opts, blockFraud: true });
     expect(res.ok).toBe(false);
     expect(res.failedSteps).toContain("fraud_flag");

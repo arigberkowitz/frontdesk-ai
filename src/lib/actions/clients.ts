@@ -16,6 +16,7 @@ import { safeIndustry } from "@/config/starter-packs";
 import { env } from "@/lib/env";
 import { DEFAULT_TIMEZONE } from "@/config/app";
 import type { ClientStatus } from "@/db/schema";
+import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { type ActionState, fieldErrorsOf } from "./types";
 
 export async function createClientAction(
@@ -134,8 +135,10 @@ export async function updateClientProfileAction(
     forwardingNumber: emptyToNull(d.forwardingNumber),
     ownerEmail: emptyToNull(d.ownerEmail),
   });
-  revalidatePath(`/clients/${clientId}`);
-  return { ok: true };
+  // Name, industry, address, timezone and the transfer number all live in the
+  // published prompt (and tools). Never call runProvision from a save.
+  const sync = await applyClientEdit(user, clientId);
+  return { ok: true, message: withSyncNote("Saved.", sync), data: { sync } };
 }
 
 const STATUS_VALUES: ClientStatus[] = ["draft", "trial", "live", "paused", "churned"];
@@ -173,9 +176,10 @@ export async function setClientStatusAction(
   }
 
   await clientsData.setClientStatus(user.orgId, clientId, status);
-  revalidatePath(`/clients/${clientId}`);
+  // Paused uses the messages-only prompt; live/trial restores the full one.
+  const sync = await applyClientEdit(user, clientId);
   revalidatePath("/clients");
-  return { ok: true };
+  return { ok: true, message: withSyncNote("Status updated.", sync), data: { sync } };
 }
 
 const inviteSchema = z.object({ email: z.string().trim().email("Enter a valid email") });

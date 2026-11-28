@@ -1,7 +1,7 @@
 import "server-only";
-import { desc } from "drizzle-orm";
+import { desc, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
-import { organizations } from "@/db/schema";
+import { clients, organizations, subscriptions } from "@/db/schema";
 
 /**
  * Platform-owner oversight queries. These deliberately span ALL workspaces (not
@@ -40,4 +40,44 @@ export async function listAllWorkspaces(): Promise<PlatformWorkspace[]> {
       members: o.users.length,
       businesses: o.clients.map((c) => ({ id: c.id, name: c.name, status: c.status })),
     }));
+}
+
+export interface DeletedBusiness {
+  id: string;
+  name: string;
+  deletedAt: Date;
+  /** Vendor things our database still points at (a deleted business should hold none). */
+  holds: string[];
+}
+
+/** Businesses hidden from every list but not yet purged (closed by the owner, or deleted by an operator). Super-admin only. */
+export async function listDeletedBusinesses(): Promise<DeletedBusiness[]> {
+  const rows = await db
+    .select({
+      id: clients.id,
+      name: clients.name,
+      deletedAt: clients.deletedAt,
+      agent: clients.retellAgentId,
+      llm: clients.retellLlmId,
+      phone: clients.retellPhoneNumber,
+      calendar: clients.calendarProvider,
+      subId: subscriptions.stripeSubscriptionId,
+      subStatus: subscriptions.status,
+    })
+    .from(clients)
+    .leftJoin(subscriptions, eq(subscriptions.clientId, clients.id))
+    .where(isNotNull(clients.deletedAt))
+    .orderBy(desc(clients.deletedAt));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    deletedAt: r.deletedAt as Date,
+    holds: [
+      r.phone && "phone number",
+      r.agent && "AI agent",
+      r.llm && "LLM",
+      r.calendar && "calendar token",
+      r.subId && r.subStatus !== "canceled" && "subscription not canceled",
+    ].filter((x): x is string => Boolean(x)),
+  }));
 }
