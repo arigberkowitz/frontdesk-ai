@@ -228,6 +228,7 @@ export default async function PortalOverviewPage({
           timeZone={tz}
         />
       }
+      showBlockListAlone={health.turnedAway.total > 0}
       timeZone={tz}
     />
   );

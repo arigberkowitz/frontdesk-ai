@@ -69,6 +69,7 @@ export function CallHealthPanel({
   medianReplyMs,
   latencySampleSize,
   blockList,
+  showBlockListAlone = false,
   timeZone,
 }: {
   summary: CallHealthSummary;
@@ -79,9 +80,25 @@ export function CallHealthPanel({
   latencySampleSize?: number;
   /** Rendered under the spam line — blocking is the point of counting. */
   blockList?: ReactNode;
+  /**
+   * Show the block list even with no answered calls in the window: a quiet
+   * month where the only calls were turned away still has something to show.
+   */
+  showBlockListAlone?: boolean;
   timeZone?: string;
 }) {
-  if (summary.total === 0) return null;
+  if (summary.total === 0) {
+    if (!showBlockListAlone || !blockList) return null;
+    return (
+      <Card>
+        <CardHeader className="gap-1">
+          <CardTitle>Calls turned away — last 30 days</CardTitle>
+          <CardDescription>No calls reached your AI in the last 30 days.</CardDescription>
+        </CardHeader>
+        <CardContent>{blockList}</CardContent>
+      </Card>
+    );
+  }
 
   const problemCalls = summary.total - summary.clean;
 
