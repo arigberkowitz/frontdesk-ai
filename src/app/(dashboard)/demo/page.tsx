@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { leadAlertPhrase } from "@/lib/texting-copy";
 import { CalendarCheck, Clock, MessageSquare, Phone, Sparkles } from "lucide-react";
 import { requireOperator } from "@/lib/auth-guard";
 import { env } from "@/lib/env";
@@ -17,15 +18,20 @@ const SAMPLE: { who: "caller" | "ai"; text: string }[] = [
   { who: "caller", text: "Thursday morning." },
   { who: "ai", text: "Got it. What name and number should I put it under?" },
   { who: "caller", text: "Jordan Lee, 415-555-0148." },
-  { who: "ai", text: "Would you like me to text you the confirmation and a reminder? You can reply STOP any time." },
+  { who: "ai", text: "Would you like me to text you the confirmation, a reminder, and a quick follow-up about this visit? You can reply STOP any time." },
   { who: "caller", text: "Yes please." },
-  { who: "ai", text: "You're all set, Jordan — Thursday between 8 and 10 for the leak. That text is on its way." },
+  {
+    who: "ai",
+    text: env.SMS_ENABLED
+      ? "You're all set, Jordan — Thursday between 8 and 10 for the leak. That text is on its way."
+      : "You're all set, Jordan — Thursday between 8 and 10 for the leak. See you then.",
+  },
 ];
 
 const TALKING_POINTS = [
   { icon: Clock, title: "Answers 24/7", body: "Every call picked up on the first ring — nights, weekends, lunch rushes." },
   { icon: CalendarCheck, title: "Books in the moment", body: "Checks the calendar and schedules the appointment live, on the call." },
-  { icon: MessageSquare, title: "Never loses a lead", body: "Captures name, number, and reason — and texts you instantly." },
+  { icon: MessageSquare, title: "Never loses a lead", body: `Captures name, number, and reason — and ${leadAlertPhrase(env.SMS_ENABLED)} instantly.` },
 ];
 
 export default async function DemoPage() {

@@ -24,6 +24,7 @@ import {
   type HighlightVariant,
 } from "@/lib/pricing-experiment";
 import { LANGUAGE_OPTIONS, MAX_LANGUAGES, languageNames } from "@/lib/languages";
+import { leadAlertPhrase, mentionsTexts, TEXTING_PENDING_NOTE } from "@/lib/texting-copy";
 
 const LANGUAGE_COUNT = LANGUAGE_OPTIONS.length;
 const LANGUAGE_LEAD = LANGUAGE_OPTIONS.slice(0, 4).map((l) => l.label).join(", ");
@@ -33,7 +34,7 @@ const ALL_LANGUAGE_NAMES = languageNames(LANGUAGE_OPTIONS.map((l) => l.code));
 const VALUE = [
   { icon: Clock, chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400", title: "Answers 24/7", body: "Every call picked up on the first ring — nights, weekends, lunch rushes." },
   { icon: CalendarCheck, chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", title: "Books on the call", body: "Connect your calendar and it books the appointment while the caller is on the line. Until then, it takes a message." },
-  { icon: MessageSquare, chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400", title: "Never loses a lead", body: "Captures name, number, and reason — and texts or emails you the moment it happens." },
+  { icon: MessageSquare, chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400", title: "Never loses a lead", body: `Captures name, number, and reason — and ${leadAlertPhrase(env.SMS_ENABLED)} the moment it happens.` },
   { icon: Languages, chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400", title: `${LANGUAGE_COUNT} languages`, body: `Answers in ${LANGUAGE_LEAD}, and ${LANGUAGE_REST} more. Pick up to ${MAX_LANGUAGES}, and it switches the moment a caller speaks one.` },
 ];
 
@@ -67,7 +68,7 @@ const FAQ = [
   },
   {
     q: "What happens when it can't answer something?",
-    a: "It never guesses. It takes the caller's name, number, and what they needed, and texts or emails you right away so you can follow up. Once you add your cell, anything urgent — or anyone who asks for a person — gets transferred live to you.",
+    a: `It never guesses. It takes the caller's name, number, and what they needed, and ${leadAlertPhrase(env.SMS_ENABLED)} right away so you can follow up. Once you add your cell, anything urgent — or anyone who asks for a person — gets transferred live to you.`,
   },
   {
     q: "Does it book appointments into my calendar?",
@@ -275,7 +276,7 @@ export function LandingPage({
                     className="absolute -inset-3 -z-10 rounded-[1.75rem] bg-gradient-to-br from-indigo-200/60 via-white/0 to-emerald-200/60 blur-xl"
                   />
                   <div className="rounded-2xl shadow-[0_30px_80px_-20px_rgb(79_70_229/0.35)] ring-1 ring-indigo-900/5">
-                    <DemoCall />
+                    <DemoCall textingLive={env.SMS_ENABLED} />
                   </div>
                 </div>
               </div>
@@ -448,7 +449,12 @@ export function LandingPage({
                       {plan.highlights.map((h) => (
                         <li key={h} className="flex items-start gap-2.5 text-sm leading-snug">
                           <Check className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                          {h}
+                          <span>
+                            {h}
+                            {!env.SMS_ENABLED && mentionsTexts(h) ? (
+                              <sup className="ml-0.5 text-muted-foreground" aria-label="see note on texting">*</sup>
+                            ) : null}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -479,6 +485,11 @@ export function LandingPage({
                 );
               })}
             </div>
+            {!env.SMS_ENABLED ? (
+              <p className="mx-auto mt-6 max-w-2xl text-center text-xs text-muted-foreground">
+                * {TEXTING_PENDING_NOTE}
+              </p>
+            ) : null}
 
             <p className="mt-8 text-center text-sm text-muted-foreground">
               Every plan is one flat monthly price and starts with two weeks free. No card until you decide.

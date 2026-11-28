@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { formatCurrencyCents } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { mentionsTexts, TEXTING_PENDING_NOTE } from "@/lib/texting-copy";
 
 // Whatever is actually on sale, in the order the pricing page shows it.
 const ORDER: PlanKey[] = planList().map((p) => p.key);
@@ -34,7 +35,10 @@ export function ChoosePlan({
   preselectInterval,
   onTrial = false,
   plusTax = false,
+  textingLive = true,
 }: {
+  /** SMS_ENABLED: false marks texting bullets and says when texts turn on. */
+  textingLive?: boolean;
   /** Still on the in-app free trial: starting a plan ends it and charges today. */
   onTrial?: boolean;
   clientId: string;
@@ -140,7 +144,10 @@ export function ChoosePlan({
                     {plan.highlights.map((h) => (
                       <span key={h} className="flex items-start gap-1.5 text-xs text-muted-foreground">
                         <Check className="mt-0.5 size-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                        {h}
+                        <span>
+                          {h}
+                          {!textingLive && mentionsTexts(h) ? <sup className="ml-0.5">*</sup> : null}
+                        </span>
                       </span>
                     ))}
                   </span>
@@ -149,6 +156,7 @@ export function ChoosePlan({
             );
           })}
         </div>
+        {!textingLive ? <p className="text-xs text-muted-foreground">* {TEXTING_PENDING_NOTE}</p> : null}
 
         <form
           onSubmit={(e) => {

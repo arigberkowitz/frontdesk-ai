@@ -189,6 +189,7 @@ export default async function PortalGuidelinesPage({
                   onTrial={trial.active}
                   cardsReady={integrations.stripe()}
                   plusTax={env.STRIPE_AUTOMATIC_TAX}
+                  textingLive={env.SMS_ENABLED}
                   preselect={client.setupFlags?.intendedPlan ?? null}
                   preselectInterval={client.setupFlags?.intendedInterval ?? null}
                 />
@@ -208,8 +209,8 @@ export default async function PortalGuidelinesPage({
                 <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 text-sm [&::-webkit-details-marker]:hidden">
                   <span className="font-medium">Free trial</span>
                   <span className="text-muted-foreground">
-                    {`${trial.daysLeft} day${trial.daysLeft === 1 ? "" : "s"} left`} — everything&apos;s on,
-                    nothing to set up. Plans start at the end.
+                    {`${trial.daysLeft} day${trial.daysLeft === 1 ? "" : "s"} left`} — everything&apos;s on.
+                    Pick a plan whenever you&apos;re ready.
                   </span>
                   <span className="ml-auto text-xs font-medium underline underline-offset-2 group-open:hidden">
                     See plans
@@ -224,6 +225,7 @@ export default async function PortalGuidelinesPage({
                     onTrial={trial.active}
                     cardsReady={integrations.stripe()}
                     plusTax={env.STRIPE_AUTOMATIC_TAX}
+                    textingLive={env.SMS_ENABLED}
                     preselect={client.setupFlags?.intendedPlan ?? null}
                     preselectInterval={client.setupFlags?.intendedInterval ?? null}
                   />

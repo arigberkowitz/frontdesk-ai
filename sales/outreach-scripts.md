@@ -18,7 +18,8 @@ What a self-serve trial really gets (keep claims to this):
 - Booking only after they connect a calendar (Google directly; Outlook, Apple
   and others through a free Cal.com account). Before that, it takes a
   message instead.
-- Owner alerts by email (and text, with text alerts on) when it books someone
+- Owner alerts by email (and text, once carriers approve texting and text
+  alerts are on) when it books someone
   or takes a message. There is no text after every call; every call's
   recording and summary are in the dashboard. The `/growth`
 page drafts a personalized version of the cold email for any prospect site —
@@ -39,7 +40,7 @@ phone. But a lot of callers who hit voicemail just call the next
 
 I run FrontDesk AI, a phone receptionist that answers every call on the first
 ring, books appointments into your calendar once you connect it, and emails
-you when someone leaves a message (texts too, once you turn text alerts on).
+you when someone leaves a message (texts too, once carriers approve texting).
 It answers in English, Spanish, French, Portuguese and 6 more; you pick up
 to 4. One flat monthly price, less than one missed job.
 
