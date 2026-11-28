@@ -73,7 +73,12 @@ describe("buildSetupSteps", () => {
     expect(rescue.hint).toMatch(/no-answer forwarding/);
     expect(rescue.hint).not.toMatch(/\*72/);
     const full = byKey({ ...fresh, aiNumber: "(415) 555-0100", answeringMode: "all_calls" }).forwarding;
-    expect(full.hint).toMatch(/\*72/);
+    expect(full.hint).toMatch(/codes for your phone/);
+    // The codes themselves ride on the step, for every phone type.
+    expect(full.codes?.map((v) => v.id)).toEqual(["star", "att", "tmobile"]);
+    expect(full.codes?.[0].on[0].show).toBe("*72 (415) 555-0100");
+    expect(rescue.codes?.some((v) => v.on.some((o) => o.seq.startsWith("*72")))).toBe(false);
+    expect(rescue.codes?.find((v) => v.id === "att")?.on[1].seq).toBe("**61*4155550100#");
   });
 
   it("hours only count when at least one day is open", () => {
@@ -95,7 +100,10 @@ describe("buildSetupSteps", () => {
     expect(before.manual).toBe(false);
     const after = byKey({ ...fresh, aiNumber: "(415) 555-0100" }).forwarding;
     expect(after.manual).toBe(true);
-    expect(after.hint).toContain("*72 (415) 555-0100");
+    expect(after.codes?.[0].on[0].show).toBe("*72 (415) 555-0100");
+    expect(after.codes?.find((v) => v.id === "att")?.on[0].seq).toBe("**21*4155550100#");
+    expect(after.codes?.find((v) => v.id === "tmobile")?.off[0].seq).toBe("##21#");
+    expect(before.codes).toBeUndefined();
     expect(after.done).toBe(false);
     expect(byKey({ ...fresh, flags: { forwardingDone: true } }).forwarding.done).toBe(true);
   });

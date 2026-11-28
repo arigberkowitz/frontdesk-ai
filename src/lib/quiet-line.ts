@@ -1,6 +1,6 @@
 import "server-only";
 import { forwardingCodes } from "@/lib/forwarding-codes";
-import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { calls, clients, notifications, type Client } from "@/db/schema";
 import { notifier } from "./notifier";
@@ -192,13 +192,21 @@ async function sendQuietAlert(
   const line2 = `You normally take around ${perWeek} calls a week, so this might mean call forwarding got switched off. That happens after a phone reset, a carrier change, or someone dialling the turn-off code.`;
   const fwd = forwardingCodes(client.answeringMode, client.retellPhoneNumber ?? "");
   const line3 = `To turn it back on: ${fwd.turnOn}`;
+  // Reuses the forwarding test (forwarding-test.ts): one button that rings the
+  // business line and says whether the call reaches the AI, instead of the owner
+  // guessing. We say when it last passed so "it worked before" is on the page.
+  const verifiedAt = client.setupFlags?.forwardingVerifiedAt;
+  const passedOn = verifiedAt
+    ? new Intl.DateTimeFormat("en-US", { timeZone: tz, month: "long", day: "numeric" }).format(new Date(verifiedAt))
+    : null;
+  const lineTest = `Then check it: open Settings → Phone & AI and tap Test my forwarding. It rings your business number and tells you if the call reaches your AI.${passedOn ? ` Your last passing test was ${passedOn}.` : ""}`;
   const line4 = `If you're just having a quiet week, ignore this — we can't see your carrier's settings, only that the calls stopped.`;
-  const text = [line1, line2, line3, line4].join("\n\n");
+  const text = [line1, line2, line3, lineTest, line4].join("\n\n");
 
   const subject = `${client.name}: your AI hasn't taken a call in ${quietDays} days`;
 
   if (client.ownerEmail?.trim()) {
-    const html = `<p>${line1}</p><p>${line2}</p><p>To turn it back on: ${fwd.turnOnHtml}</p><p style="color:#666">${line4}</p>`;
+    const html = `<p>${line1}</p><p>${line2}</p><p>To turn it back on: ${fwd.turnOnHtml}</p><p>${lineTest}</p><p style="color:#666">${line4}</p>`;
     const result = await notifier.sendEmail({
       to: client.ownerEmail.trim(),
       subject,
@@ -234,6 +242,9 @@ async function sendQuietAlert(
 
   await db
     .update(clients)
-    .set({ setupFlags: { ...client.setupFlags, quietAlertAt: new Date().toISOString() } })
+    .set({
+      // Merge just this key: a forwarding test finishing right now isn't overwritten.
+      setupFlags: sql`coalesce(${clients.setupFlags}, '{}'::jsonb) || jsonb_build_object('quietAlertAt', ${new Date().toISOString()}::text)`,
+    })
     .where(eq(clients.id, client.id));
 }

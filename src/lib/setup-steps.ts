@@ -1,4 +1,4 @@
-import { forwardingCodes } from "@/lib/forwarding-codes";
+import { forwardingVariants, type CodeVariant } from "@/lib/forwarding-codes";
 /**
  * The first-run setup checklist: which steps exist, what "done" means for each,
  * and when the card shows. Pure — the facts come from real data in
@@ -19,6 +19,8 @@ export interface SetupStep {
   skippable?: boolean;
   /** Resolved by the owner confirming they did it outside the app (forwarding). */
   manual?: boolean;
+  /** The exact codes to dial, per phone type, with the AI number filled in (forwarding step). */
+  codes?: CodeVariant[];
 }
 
 /** Manual checklist state kept in `clients.setup_flags`. */
@@ -183,12 +185,13 @@ export function buildSetupSteps(f: SetupFacts): SetupStep[] {
       manual: Boolean(aiNumber),
       // Every business gets its own dedicated AI number at activation — show
       // the real one here the moment it exists instead of "your AI number".
+      codes: aiNumber ? forwardingVariants(f.answeringMode, aiNumber) : undefined,
       hint: aiNumber
         ? f.answeringMode === "missed_only"
           ? // Missed-Call Rescue needs NO-ANSWER forwarding. *72 forwards every
             // call, which silently turns a backup into a full receptionist.
-            `Turn on no-answer forwarding to ${aiNumber} so the AI only picks up calls you miss. The code depends on your carrier — Settings → Phone & AI shows yours.`
-          : `${forwardingCodes(f.answeringMode, aiNumber).turnOn} ~2 minutes. ${forwardingCodes(f.answeringMode, aiNumber).turnOff}`
+            `Turn on no-answer forwarding to ${aiNumber} so the AI only picks up calls you miss. Dial the codes for your phone from your business phone, then use Test my forwarding in Settings → Phone & AI.`
+          : `Dial the codes for your phone from your business phone (~2 minutes), then use Test my forwarding in Settings → Phone & AI to check it works.`
         : "The dial code contains your AI's own phone number, so it appears here once that number is assigned. Until then, try your AI with a test call in your browser (Your AI page).",
     },
   ];

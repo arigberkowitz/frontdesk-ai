@@ -157,7 +157,7 @@ export function trialSummaryEmail(input: TrialSummaryEmailInput): {
       );
       p(`<strong>1.</strong> Call <strong>${num}</strong> from your cell and ask it something a customer would.`);
       p(`<strong>2.</strong> Forward your business line to it. ${fwd.turnOnHtml}`);
-      p(`Your customers keep calling the number they already know. ${fwd.turnOff}`, "margin:0 0 14px;font-size:13px;color:#666");
+      p(`Then tap <strong>Test my forwarding</strong> under <a href="${base}/portal/settings/phone#forwarding" style="color:#4f46e5">Settings → Phone &amp; AI</a> to check it works. Your customers keep calling the number they already know. ${fwd.turnOff}`, "margin:0 0 14px;font-size:13px;color:#666");
     }
   } else {
     p(

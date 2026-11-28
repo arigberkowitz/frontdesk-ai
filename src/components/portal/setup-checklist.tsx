@@ -16,6 +16,8 @@ import {
 import { initialActionState } from "@/lib/actions/types";
 import { formatDateTime } from "@/lib/format";
 import { checklistMode } from "@/lib/setup-steps";
+import type { CodeVariant } from "@/lib/forwarding-codes";
+import { ForwardingCodesCompact } from "@/components/portal/forwarding-callout";
 
 interface SetupStepView {
   key: string;
@@ -27,6 +29,7 @@ interface SetupStepView {
   skippable?: boolean;
   manual?: boolean;
   confirmable?: boolean;
+  codes?: CodeVariant[];
 }
 
 /** "Skip for now" (calendar) / "I've done this" (forwarding) inline resolver. */
@@ -278,6 +281,11 @@ export function SetupChecklist({
                   ) : null}
                 </div>
               )}
+              {!step.done && step.codes ? (
+                <div className="pb-3 sm:pl-[34px]">
+                  <ForwardingCodesCompact variants={step.codes} />
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

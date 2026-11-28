@@ -15,7 +15,7 @@ import { DEFAULT_QUIET_END, DEFAULT_QUIET_START } from "@/lib/texting-policy";
 import { TollfreeTextingCard } from "@/components/portal/tollfree-texting-card";
 import { getCurrentDbUser, userIsClientOwner } from "@/lib/auth-guard";
 import { tollfreeStore } from "@/lib/data/tollfree";
-import { env } from "@/lib/env";
+import { env, integrations } from "@/lib/env";
 import { formatUsPhone } from "@/lib/sms-number-format";
 import { tollfreeView } from "@/lib/tollfree/status";
 
@@ -32,6 +32,19 @@ export default async function PortalSettingsPhonePage() {
   const isOwner = needsOwner ? userIsClientOwner(await getCurrentDbUser(), clientId) : false;
   const textingPrefs = env.OWNER_TEXTING_CONTROLS ? await getTextingPrefs(clientId) : null;
   const { ein, ...shownDetails } = tollfree?.details ?? {};
+  // "Test my forwarding" rings the business's real line: owner or operator only.
+  const user = await getCurrentDbUser();
+  const canTestForwarding = userIsClientOwner(user, clientId);
+  const verifiedAt = client.setupFlags?.forwardingVerifiedAt;
+  const verifiedLabel = verifiedAt
+    ? new Intl.DateTimeFormat("en-US", {
+        timeZone: client.timezone ?? "America/Los_Angeles",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(new Date(verifiedAt))
+    : null;
 
   return (
     <div className="space-y-6">
@@ -48,6 +61,10 @@ export default async function PortalSettingsPhonePage() {
         forwardingDone={Boolean(client.setupFlags?.forwardingDone)}
         isAdmin={editAccess.isAdmin}
         canEdit={editAccess.canEdit}
+        businessLine={client.forwardingNumber}
+        verifiedLabel={verifiedLabel}
+        canTest={canTestForwarding}
+        testAvailable={integrations.forwardingTest()}
       />
       {/* The wrong value here is the worst call this product can make, so it
           sits right under the number, not further down. */}
