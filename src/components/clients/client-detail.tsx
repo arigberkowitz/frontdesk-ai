@@ -15,6 +15,7 @@ import { ServicesTab } from "@/components/clients/services-tab";
 import { HoursTab } from "@/components/clients/hours-tab";
 import { KnowledgeTab } from "@/components/clients/knowledge-tab";
 import { AgentConfigTab } from "@/components/clients/agent-config-tab";
+import { ReleaseNumberButton } from "@/components/operator/release-number-button";
 import { OperatorControls, type OperatorControlsProps } from "@/components/operator/operator-controls";
 import { SettingsTab } from "@/components/clients/settings-tab";
 import type { BillingInfo } from "@/components/clients/billing-card";
@@ -245,7 +246,12 @@ export function ClientDetail(props: Props) {
       </TabsContent>
       <TabsContent value="agent">
         <div className="space-y-6">
-          <AgentConfigTab client={client} retellReady={retellReady} voices={voices} />
+          <AgentConfigTab
+            client={client}
+            retellReady={retellReady}
+            voices={voices}
+            extraActions={operator ? <ReleaseNumberButton clientId={client.id} phone={client.retellPhoneNumber} /> : null}
+          />
           {operator ? <OperatorControls {...operator} /> : null}
         </div>
       </TabsContent>

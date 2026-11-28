@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deleteAgent, deleteCompany, reactivateCompany, releaseNumber, suspendCompany } from "./controls";
+import { deleteAgent, deleteCompany, reactivateCompany, releaseNumber, releaseVoiceNumber, suspendCompany } from "./controls";
 import { actor, makeWorld } from "./test-helpers";
 
 const step = (res: { steps: { step: string; status: string }[] }, id: string) =>
@@ -98,6 +98,46 @@ describe("release phone number", () => {
     const w = makeWorld();
     w.store.getClient = async () => null;
     expect((await releaseNumber(w.deps, actor, "nope")).httpStatus).toBe(404);
+  });
+});
+
+describe("Delete number (voice number only, on the AI agent card)", () => {
+  it("releases only the Retell number: agent, LLM and texting number stay; auto-buy held; audited", async () => {
+    const w = makeWorld({}, { tollfree: true });
+    const res = await releaseVoiceNumber(w.deps, actor, "c1");
+    expect(res.ok).toBe(true);
+    expect(w.providers.retellReleaseNumber).toHaveBeenCalledWith("+12272382281");
+    expect(w.state.client.retellPhoneNumber).toBeNull();
+    expect(w.state.client.retellAgentId).toBeTruthy(); // browser test calls need only the agent
+    expect(w.state.client.retellLlmId).toBeTruthy();
+    expect(w.providers.retellDeleteAgent).not.toHaveBeenCalled();
+    expect(w.providers.retellDeleteLlm).not.toHaveBeenCalled();
+    expect(w.providers.twilioReleaseNumber).not.toHaveBeenCalled();
+    expect(w.state.tf).not.toBeNull();
+    expect(w.providers.stripeCancel).not.toHaveBeenCalled();
+    expect(w.state.client.setupFlags?.operatorNumberHoldAt).toBeTruthy();
+    expect(w.state.audits.at(-1)).toMatchObject({ action: "operator.release_voice_number", clientId: "c1" });
+  });
+
+  it("is idempotent: a second press (or a number already gone at Retell) is success", async () => {
+    const w = makeWorld();
+    await releaseVoiceNumber(w.deps, actor, "c1");
+    const again = await releaseVoiceNumber(w.deps, actor, "c1");
+    expect(again.ok).toBe(true);
+    expect(step(again, "retell_number")).toEqual(["skipped"]);
+    expect(w.providers.retellReleaseNumber).toHaveBeenCalledTimes(1);
+  });
+
+  it("a Retell failure keeps the DB pointer (still billing, still listed) and the hold; Retry finishes it", async () => {
+    const w = makeWorld();
+    w.providers.retellReleaseNumber.mockRejectedValueOnce(new Error("Retell down"));
+    const bad = await releaseVoiceNumber(w.deps, actor, "c1");
+    expect(bad.ok).toBe(false);
+    expect(w.state.client.retellPhoneNumber).toBe("+12272382281");
+    expect(w.state.client.setupFlags?.operatorNumberHoldAt).toBeTruthy();
+    const good = await releaseVoiceNumber(w.deps, actor, "c1");
+    expect(good.ok).toBe(true);
+    expect(w.state.client.retellPhoneNumber).toBeNull();
   });
 });
 

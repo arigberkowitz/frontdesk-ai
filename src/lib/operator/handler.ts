@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Actor, ControlDeps, ControlResult } from "./controls";
-import { deleteAgent, deleteCompany, reactivateCompany, releaseNumber, suspendCompany } from "./controls";
+import { deleteAgent, deleteCompany, reactivateCompany, releaseNumber, releaseVoiceNumber, suspendCompany } from "./controls";
 import { deleteOrphan, listOrphans, type OrphanProviders, type OrphanReport, type OrphanStore } from "./orphans";
 import type { AccessDecision } from "./access";
 
@@ -17,6 +17,7 @@ export type Authorize = (
 
 const body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("release_number") }),
+  z.object({ action: z.literal("release_voice_number") }),
   z.object({ action: z.literal("delete_agent") }),
   z.object({
     action: z.literal("suspend"),
@@ -65,6 +66,9 @@ export async function handleClientControl(
   switch (b.action) {
     case "release_number":
       result = await releaseNumber(deps, actor, clientId);
+      break;
+    case "release_voice_number":
+      result = await releaseVoiceNumber(deps, actor, clientId);
       break;
     case "delete_agent":
       result = await deleteAgent(deps, actor, clientId);

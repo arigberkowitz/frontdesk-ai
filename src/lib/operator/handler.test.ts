@@ -35,13 +35,21 @@ describe("decideOperatorAccess", () => {
 describe("client control route handler", () => {
   it("a non-operator gets 403 and NOTHING is called at any vendor or the database", async () => {
     const w = makeWorld();
-    for (const action of ["release_number", "delete_agent", "suspend", "reactivate", "delete_company"]) {
+    for (const action of ["release_number", "release_voice_number", "delete_agent", "suspend", "reactivate", "delete_company"]) {
       const res = await handleClientControl(json({ action, confirm: "Bright Smile Dental" }), "c1", { authorize: forbid, deps: () => w.deps });
       expect(res.status).toBe(403);
     }
     for (const fn of Object.values(w.providers)) if (typeof fn === "function") expect(fn).not.toHaveBeenCalled();
     expect(w.store.getClient).not.toHaveBeenCalled();
     expect(w.store.patchClient).not.toHaveBeenCalled();
+  });
+
+  it("release_voice_number runs for an operator and leaves the agent alone", async () => {
+    const w = makeWorld();
+    const res = await handleClientControl(json({ action: "release_voice_number" }), "c1", { authorize: allow, deps: () => w.deps });
+    expect(res.status).toBe(200);
+    expect(w.providers.retellReleaseNumber).toHaveBeenCalled();
+    expect(w.providers.retellDeleteAgent).not.toHaveBeenCalled();
   });
 
   it("signed out → 401", async () => {

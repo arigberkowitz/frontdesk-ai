@@ -135,7 +135,7 @@ export interface StepResult {
   error?: string;
 }
 
-export type ControlAction = "release_number" | "delete_agent" | "suspend" | "reactivate" | "delete_company";
+export type ControlAction = "release_number" | "release_voice_number" | "delete_agent" | "suspend" | "reactivate" | "delete_company";
 
 export interface ControlResult {
   ok: boolean;
@@ -199,7 +199,12 @@ const nowOf = (deps: ControlDeps) => (deps.now?.() ?? new Date()).toISOString();
 /* ------------------------------ step groups ------------------------------ */
 
 /** Release the Retell number (after detaching it) and the Twilio texting number we bought. */
-async function releaseNumberSteps(deps: ControlDeps, clientId: string, steps: StepResult[]): Promise<void> {
+async function releaseNumberSteps(
+  deps: ControlDeps,
+  clientId: string,
+  steps: StepResult[],
+  opts: { voiceOnly?: boolean } = {},
+): Promise<void> {
   const { providers: p, store } = deps;
   const client = (await store.getClient(clientId))!;
 
@@ -226,6 +231,8 @@ async function releaseNumberSteps(deps: ControlDeps, clientId: string, steps: St
       return { status: out === "already_gone" ? "already_gone" : "done", detail: phone };
     });
   }
+
+  if (opts.voiceOnly) return; // the texting number and the agent are left alone
 
   const tf = await store.getTollfree(clientId);
   if (!tf?.phoneNumberSid) {
@@ -345,6 +352,31 @@ export async function releaseNumber(deps: ControlDeps, actor: Actor, clientId: s
     actor: actor.id,
     action: "operator.release_number",
     detail: { by: actor.email, ok: res.ok, steps, phone: client.retellPhoneNumber },
+  });
+  return res;
+}
+
+/**
+ * Release ONLY the Retell voice number (the $2/mo line). The agent, its LLM and
+ * the texting number stay, so browser test calls keep working. Automatic
+ * number-buying is held so the call_ended webhook doesn't buy a replacement;
+ * an operator who re-provisions a first number clears the hold.
+ */
+export async function releaseVoiceNumber(deps: ControlDeps, actor: Actor, clientId: string): Promise<ControlResult> {
+  const client = await deps.store.getClient(clientId);
+  if (!client) return notFound("release_voice_number");
+  const steps: StepResult[] = [];
+  await releaseNumberSteps(deps, clientId, steps, { voiceOnly: true });
+  const res = finish(
+    "release_voice_number",
+    steps,
+    "Number released. It stops billing, nothing will buy a new one on its own, and the agent is untouched for browser test calls.",
+  );
+  await deps.store.audit({
+    clientId,
+    actor: actor.id,
+    action: "operator.release_voice_number",
+    detail: { by: actor.email, ok: res.ok, steps, phone: client.retellPhoneNumber, agentId: client.retellAgentId },
   });
   return res;
 }
