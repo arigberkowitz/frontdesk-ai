@@ -958,3 +958,26 @@ pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
   calendar"; no "text summary after every call" (alerts go out when it books or takes a
   message; every call's recording and summary are in the dashboard).
 - No migration (all new state is in `setup_flags` jsonb); no new env vars; no vendor settings.
+
+## 2026-11-27 — Content-Security-Policy, report-only first
+
+- **What:** `src/proxy.ts` mints a fresh nonce per page request and sends
+  `Content-Security-Policy-Report-Only` built by `src/lib/csp.ts`. Scripts are nonce +
+  `'strict-dynamic'` (no `'unsafe-inline'`); `object-src 'none'`, `base-uri 'self'`,
+  `frame-ancestors 'none'`, `form-action` limited to us plus Stripe Checkout/portal. Violations
+  post to `/api/csp-report`, which logs one PII-free line each (origin and path only, ids masked,
+  60 a minute, always 204). The existing `next.config.ts` headers are unchanged.
+- **Switch:** `CSP_ENFORCE` in `src/lib/csp.ts`. `false` = report-only, `true` = enforcing (and
+  adds `upgrade-insecure-requests`, which browsers ignore and warn about in report-only). A code
+  constant on purpose, not an env var.
+- **Cost:** the root layout reads the request headers (for the nonce), so the legal pages,
+  `/contact` and the SSO callback are now rendered per request instead of prerendered. Every other
+  page was already dynamic through Clerk. Nonce goes to Clerk (`nonce` prop) and next-themes.
+- **Styles keep `'unsafe-inline'`:** React style props, Tailwind, framer-motion, sonner, recharts
+  and Clerk's UI all write inline styles; a style nonce would break every `style=""` attribute.
+- **Origins:** Clerk frontend API (host read from the public publishable key), clerk-telemetry,
+  img.clerk.com, Cloudflare Turnstile frame (Clerk's bot check), `*.livekit.cloud` (Retell's web
+  call), Sentry ingest (host read from the public DSN, only if set). Stripe is redirect-only
+  (`form-action`); Cal.com and Google/Microsoft calendars are server-side calls and links only;
+  Vercel Analytics/Speed Insights are same-origin. No route needs framing: the website chat widget
+  is a script that runs in the customer's page, not an iframe of ours.
