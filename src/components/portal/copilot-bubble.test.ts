@@ -9,10 +9,10 @@ const { CopilotBubble } = await import("./copilot-bubble");
 describe("CopilotBubble", () => {
   it("starts as a chat bubble with the assistant panel hidden", () => {
     const html = renderToStaticMarkup(createElement(CopilotBubble));
-    expect(html).toContain('aria-label="Open Frontdesk Assistant"');
+    expect(html).toContain('aria-label="Open FrontDesk Assistant"');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('aria-haspopup="dialog"');
-    expect(html).toContain("Frontdesk Assistant");
+    expect(html).toContain("FrontDesk Assistant");
     expect(html).toContain("hidden");
     // Sits above the phone tab bar and honors the safe-area inset.
     expect(html).toContain("bottom-[calc(5.75rem+max(0.75rem,env(safe-area-inset-bottom)))]");
@@ -24,8 +24,8 @@ describe("CopilotBubble", () => {
   it("opens a labelled dialog with the existing copilot inside", () => {
     const html = renderToStaticMarkup(createElement(CopilotBubble, { defaultOpen: true }));
     expect(html).toContain('role="dialog"');
-    expect(html).toContain("Frontdesk Assistant");
-    expect(html).toContain('aria-label="Close Frontdesk Assistant"');
+    expect(html).toContain("FrontDesk Assistant");
+    expect(html).toContain('aria-label="Close FrontDesk Assistant"');
     expect(html).toContain("After-hours calls last month?");
     expect(html).toContain("Ask about your calls, leads, and bookings, or teach your AI a new answer.");
     expect(html).not.toContain("\u2014");
