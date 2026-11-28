@@ -41,7 +41,7 @@
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
     "resend": "^6.12.4",
-    "retell-client-js-sdk": "^2.0.8",
+    "retell-client-js-sdk": "^3.0.4",
     "retell-sdk": "^5.36.0",
     "server-only": "^0.0.1",
     "sonner": "^2.0.7",

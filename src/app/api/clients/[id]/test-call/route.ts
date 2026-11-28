@@ -1,6 +1,6 @@
 import { getCurrentDbUserSafe, userMayAccessClient } from "@/lib/auth-guard";
 import { getClient } from "@/lib/data/clients";
-import { getRetellClient } from "@/lib/retell";
+import { createWebCall } from "@/lib/retell";
 import { logger } from "@/lib/logger";
 import { WAF_RATE_LIMIT_IDS, wafRateLimited } from "@/lib/waf-rate-limit";
 
@@ -45,10 +45,15 @@ export async function POST(
   }
 
   try {
-    const webCall = await getRetellClient().call.createWebCall({
-      agent_id: client.retellAgentId,
+    const webCall = await createWebCall(client.retellAgentId);
+    // Forward v3 connection details to the browser SDK. Do not log them —
+    // accessToken and iceServers are short-lived call credentials.
+    return Response.json({
+      accessToken: webCall.accessToken,
+      callId: webCall.callId,
+      transport: webCall.transport,
+      iceServers: webCall.iceServers,
     });
-    return Response.json({ accessToken: webCall.access_token, callId: webCall.call_id });
   } catch (err) {
     // The vendor's message can name the account and the agent, so it stays in
     // the log rather than going back to a browser.

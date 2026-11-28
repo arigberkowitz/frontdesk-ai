@@ -31,7 +31,15 @@ vi.mock("./env", () => ({
 }));
 vi.mock("./agent-tool-token", () => ({ agentToolHeaders: () => ({}) }));
 
-const { provisionAgentForClient, updateAgentVoice, listRetellVoices, DEFAULT_VOICE_ID } = await import("./retell");
+const {
+  provisionAgentForClient,
+  updateAgentVoice,
+  listRetellVoices,
+  createWebCall,
+  agentVoiceUpdateBody,
+  _clearRetellVoicesCache,
+  DEFAULT_VOICE_ID,
+} = await import("./retell");
 
 const base = {
   clientId: "c1",
@@ -46,6 +54,8 @@ const base = {
 beforeEach(() => {
   m.agentUpdate.mockClear();
   m.agentCreate.mockClear();
+  m.voiceList.mockClear();
+  _clearRetellVoicesCache();
 });
 
 describe("provisionAgentForClient voice guard", () => {
@@ -74,5 +84,84 @@ describe("updateAgentVoice / listRetellVoices", () => {
   });
   it("hides xAI voices from the picker list", async () => {
     expect((await listRetellVoices()).map((v) => v.voiceId)).toEqual(["11labs-Marissa"]);
+  });
+});
+
+describe("agentVoiceUpdateBody", () => {
+  it("pins eleven_flash_v2_5 when a multilingual agent switches to an ElevenLabs voice", () => {
+    expect(agentVoiceUpdateBody("11labs-Allie", "en-es")).toEqual({
+      voice_id: "11labs-Allie",
+      voice_model: "eleven_flash_v2_5",
+    });
+  });
+
+  it("clears voice_model on English-only agents so Cartesia/OpenAI can save", () => {
+    expect(agentVoiceUpdateBody("cartesia-Allie", "en")).toEqual({
+      voice_id: "cartesia-Allie",
+      voice_model: null,
+    });
+  });
+
+  it("refuses a Cartesia voice on a multilingual agent before calling Retell", async () => {
+    await expect(updateAgentVoice("ag_1", "cartesia-Allie", "en-es")).rejects.toThrow(/multilingual/);
+    expect(m.agentUpdate).not.toHaveBeenCalled();
+  });
+
+  it("sends the model alongside the voice id", async () => {
+    await updateAgentVoice("ag_1", "11labs-Allie", "en,es,fr");
+    expect(m.agentUpdate).toHaveBeenCalledWith("ag_1", {
+      voice_id: "11labs-Allie",
+      voice_model: "eleven_flash_v2_5",
+    });
+  });
+});
+
+describe("createWebCall (v3)", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  it("posts to /v3/create-web-call and returns connection details", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          call_id: "call_test_1",
+          access_token: "tok_test",
+          transport: "gateway",
+          ice_servers: [{ urls: "stun:stun.example.test" }],
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    const conn = await createWebCall("ag_1");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.retellai.com/v3/create-web-call");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(String(init.body))).toEqual({ agent_id: "ag_1" });
+    expect(conn).toEqual({
+      callId: "call_test_1",
+      accessToken: "tok_test",
+      transport: "gateway",
+      iceServers: [{ urls: "stun:stun.example.test" }],
+    });
+  });
+
+  it("surfaces Retell's error message without calling the deprecated v2 path", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          message: "Deprecated API usage is no longer supported: Create Web Call v2.",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    await expect(createWebCall("ag_1")).rejects.toThrow(/400 Deprecated API usage/);
+    const url = (fetchMock.mock.calls[0] as [string])[0];
+    expect(url).toContain("/v3/create-web-call");
+    expect(url).not.toContain("/v2/");
   });
 });
