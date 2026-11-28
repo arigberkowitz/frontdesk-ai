@@ -10,6 +10,7 @@ import { consumeAttempt, formatRetryAfter } from "@/lib/rate-limit";
 import { WAF_RATE_LIMIT_IDS, wafRateLimited } from "@/lib/waf-rate-limit";
 import { logger } from "@/lib/logger";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
+import { outboundAgent, placeCallErrorMessage } from "@/lib/retell-outbound";
 import { type ActionState } from "./types";
 
 /** Three rings per business per ten minutes. Enough to try two voices and a
@@ -96,6 +97,7 @@ export async function callMeNowAction(
     const call = await getRetellClient().call.createPhoneCall({
       from_number: from,
       to_number: to,
+      ...outboundAgent(client.retellAgentId),
       agent_override: { retell_llm: { begin_message: beginMessage, start_speaker: "agent" } },
       metadata: { clientId, direction: "outbound", kind: "owner_test", placedBy: guard.user.id },
     });
@@ -109,10 +111,7 @@ export async function callMeNowAction(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error("call-me.failed", { clientId, error: message });
-    return {
-      ok: false,
-      error: "Couldn't place the call. Your AI's number may not be able to dial out yet.",
-    };
+    return { ok: false, error: placeCallErrorMessage(err) };
   }
 
   return {

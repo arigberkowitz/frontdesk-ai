@@ -234,7 +234,8 @@ async function placeAiCallback(
     ]);
     if (!(await planAccessFor(client)).has("outbound_ai_calls")) return null;
     const from = toE164(client.retellPhoneNumber ?? "");
-    if (!from) return null;
+    if (!from || !client.retellAgentId) return null;
+    const { outboundAgent } = await import("@/lib/retell-outbound");
     const beginMessage = withRequiredDisclosure(
       callbackOpener({ agentName: client.agentName, businessName: client.name, reason }),
       { businessName: client.name, recording: client.recordingDisclosureEnabled },
@@ -242,6 +243,7 @@ async function placeAiCallback(
     const call = await getRetellClient().call.createPhoneCall({
       from_number: from,
       to_number: to,
+      ...outboundAgent(client.retellAgentId),
       agent_override: { retell_llm: { begin_message: beginMessage, start_speaker: "agent" } },
       // direction=outbound: the webhook files it as ours, and classifyCall
       // never treats it as a missed call to call back (no loops).
