@@ -377,6 +377,33 @@ export const clients = pgTable(
          * `period` is the ISO period start; a new period starts clean.
          */
         minuteCap?: { period?: string; ownerWarnedAt?: string; adminFlaggedAt?: string };
+        /**
+         * Operator kill switch (lib/operator/controls.ts). Present = the
+         * business is suspended: status is forced to "paused", the portal shows
+         * a suspended page, crons / texts / owner emails skip it, and the voice
+         * line is either detached ("off") or messages-only. Reactivate restores
+         * `previousStatus`. jsonb rather than a column so it needs no migration.
+         */
+        suspended?: {
+          at: string;
+          by: string;
+          mode: "off" | "messages_only";
+          previousStatus: "draft" | "trial" | "live" | "paused" | "churned";
+          reason?: string;
+          /** What was done to the Stripe subscription when suspending. */
+          stripe: { action: "cancel" | "pause" | "none"; prorate: boolean };
+          /** True while / after a "Delete company" — never reactivated. */
+          deleting?: boolean;
+        };
+        /**
+         * An operator released this business's number on purpose (ISO). The
+         * automatic number-buying paths (Stripe webhook, first test call) skip
+         * it so a paying business isn't quietly given a new billing number;
+         * the operator's own Re-provision clears it.
+         */
+        operatorNumberHoldAt?: string;
+        /** The signup matched an operator fraud flag, so no free trial was started. */
+        trialBlocked?: boolean;
       }>()
       .notNull()
       .default({}),

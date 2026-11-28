@@ -19,7 +19,7 @@ import { logger } from "./logger";
  * isolated workspace. A custom company domain (e.g. acme.com) IS grouped, so
  * teammates share one workspace.
  */
-const FREE_EMAIL_DOMAINS = new Set(
+export const FREE_EMAIL_DOMAINS = new Set(
   (
     "gmail.com googlemail.com icloud.com me.com mac.com outlook.com hotmail.com " +
     "live.com msn.com windowslive.com outlook.fr outlook.de outlook.es outlook.com.br " +
