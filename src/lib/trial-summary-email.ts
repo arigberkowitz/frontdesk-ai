@@ -11,7 +11,7 @@
  *  - calls > 0: the counts, then the plan link.
  *  - calls = 0: zeros prove nothing and read like a failure, so it skips the
  *    table and says the one thing that usually fixes it — forward the line,
- *    or pick a plan so the AI gets its number (it comes with the first payment).
+ *    or make the test call that gets the AI its number (number-gate.ts).
  */
 import { formatPhone } from "./format";
 import { forwardingCodes, type ForwardMode } from "./forwarding-codes";
@@ -164,7 +164,7 @@ export function trialSummaryEmail(input: TrialSummaryEmailInput): {
       `${agent} is built and ready for ${name}, but it doesn't have its own phone number yet, so no customer calls have reached it.`,
     );
     p(
-      `It gets one with your first payment: <a href="${plansUrl}" style="color:#4f46e5">pick a plan</a> when you're ready for real calls. Your <a href="${base}/portal" style="color:#4f46e5">Overview</a> shows what's left to set up before then.`,
+      `It gets one, free for the rest of your trial, as soon as you make one test call in your browser. Your <a href="${base}/portal" style="color:#4f46e5">Overview</a> shows what's left to set up.`,
     );
     p(`Haven't heard it yet? <a href="${base}/portal/guidelines" style="color:#4f46e5">Try a test call in your browser</a>.`);
   }

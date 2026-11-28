@@ -11,6 +11,11 @@ const upsertedValues: Record<string, unknown>[] = [];
 let failUpsert = false;
 let storedClient: Record<string, unknown> | null = null;
 let previousPlan: string | null = null;
+let previousStatus: string | null = null;
+/** What our subscriptions table says for a subscription/customer lookup. */
+let lookupClientId: string | null = null;
+const notifyPaymentFailed = vi.fn(async (_inv: unknown) => true);
+const notifyBillingHold = vi.fn(async (_id: string, _reason: string, _key: string) => {});
 const clientUpdates: Record<string, unknown>[] = [];
 const syncAgentPrompt = vi.fn(async (_o: string, _c: string) => true);
 
@@ -27,6 +32,12 @@ vi.mock("@/lib/data/subscription-payment", () => ({
   isRealPayment: (amount: number | null | undefined) => (amount ?? 0) > 0,
 }));
 vi.mock("@/lib/env", () => ({ env: { STRIPE_WEBHOOK_SECRET: "whsec_test" } }));
+vi.mock("@/lib/payment-failed", () => ({
+  clientIdForInvoice: async (inv: { parent?: { subscription_details?: { metadata?: { clientId?: string } } } }) =>
+    inv.parent?.subscription_details?.metadata?.clientId ?? null,
+  notifyPaymentFailed: (inv: unknown) => notifyPaymentFailed(inv),
+  notifyBillingHold: (id: string, reason: string, key: string) => notifyBillingHold(id, reason, key),
+}));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock("@/db", () => ({
   db: {
@@ -40,7 +51,14 @@ vi.mock("@/db", () => ({
       }),
     }),
     select: () => ({
-      from: () => ({ where: () => ({ limit: async () => (previousPlan ? [{ plan: previousPlan }] : []) }) }),
+      from: () => ({
+        where: () => ({
+          limit: async () =>
+            previousPlan || previousStatus || lookupClientId
+              ? [{ plan: previousPlan, status: previousStatus, clientId: lookupClientId }]
+              : [],
+        }),
+      }),
     }),
     update: () => ({
       set: (v: Record<string, unknown>) => ({
@@ -89,19 +107,20 @@ function stripeEvent(
   status = "active",
   plan?: string,
   price?: { unit_amount: number; recurring: { interval: string } },
+  opts: { noMetadata?: boolean; type?: string } = {},
 ) {
   return new Request("https://example.test/api/webhooks/stripe", {
     method: "POST",
     headers: { "stripe-signature": "t=1,v1=sig" },
     body: JSON.stringify({
       id,
-      type: "customer.subscription.updated",
+      type: opts.type ?? "customer.subscription.updated",
       data: {
         object: {
           id: "sub_1",
           customer: "cus_1",
           status,
-          metadata: { clientId: "client-1", ...(plan ? { plan } : {}) },
+          metadata: opts.noMetadata ? {} : { clientId: "client-1", ...(plan ? { plan } : {}) },
           ...(price ? { items: { data: [{ price: { id: "price_x", ...price } }] } } : {}),
         },
       },
@@ -161,6 +180,10 @@ describe("stripe webhook retries", () => {
     retrieveSubscription.mockClear();
     storedClient = null;
     previousPlan = null;
+    previousStatus = null;
+    lookupClientId = null;
+    notifyPaymentFailed.mockClear();
+    notifyBillingHold.mockClear();
     clientUpdates.length = 0;
     syncAgentPrompt.mockClear();
   });
@@ -229,19 +252,18 @@ describe("stripe webhook retries", () => {
     expect(provisionNumberAfterPayment).not.toHaveBeenCalled();
   });
 
-  it("a Stripe trial (card saved, nothing charged yet) doesn't buy a number", async () => {
+  it("a Stripe trial (card saved) hands over the number too — the gate and lock decide the rest", async () => {
     await POST(stripeEvent("evt_trialing", "trialing"));
-    expect(afterTasks).toHaveLength(0);
-    expect(provisionNumberAfterPayment).not.toHaveBeenCalled();
+    expect(afterTasks).toHaveLength(1);
+    await afterTasks[0]!();
+    expect(provisionNumberAfterPayment).toHaveBeenCalledWith("client-1");
   });
 
-  it("no invoice event at all: the subscription turning active still buys the number", async () => {
+  it("no invoice event at all: the subscription turning active still asks for the number", async () => {
     // Trial converts; Stripe only tells us via customer.subscription.updated.
     await POST(stripeEvent("evt_trial_start", "trialing"));
     await POST(stripeEvent("evt_trial_converted", "active"));
-    expect(afterTasks).toHaveLength(1);
-    await afterTasks[0]!();
-    expect(provisionNumberAfterPayment).toHaveBeenCalledTimes(1);
+    for (const t of afterTasks) await t();
     expect(provisionNumberAfterPayment).toHaveBeenCalledWith("client-1");
   });
 
@@ -375,5 +397,128 @@ describe("stripe webhook retries", () => {
     recordFirstPayment.mockClear();
     await POST(checkoutEvent("evt_cs_free", 0));
     expect(recordFirstPayment).toHaveBeenCalledWith("client-1", 0);
+  });
+});
+
+describe("customer.subscription.updated / invoice.paid / invoice.payment_failed", () => {
+  const live = () => ({
+    id: "client-1",
+    orgId: "org-1",
+    status: "live",
+    setupFlags: {} as Record<string, unknown>,
+    answeringMode: "all_calls",
+    staffModeEnabled: true,
+    languages: "en-es",
+  });
+
+  beforeEach(() => {
+    ledger.clear();
+    upserted.length = 0;
+    upsertedValues.length = 0;
+    afterTasks.length = 0;
+    provisionNumberAfterPayment.mockClear();
+    recordFirstPayment.mockClear();
+    syncAgentPrompt.mockClear();
+    notifyPaymentFailed.mockClear();
+    notifyBillingHold.mockClear();
+    clientUpdates.length = 0;
+    storedClient = null;
+    previousPlan = null;
+    previousStatus = null;
+    lookupClientId = null;
+  });
+
+  it("a plan change made in Stripe's own portal (no metadata) still finds the business and switches the plan", async () => {
+    lookupClientId = "client-1";
+    previousPlan = "starter";
+    previousStatus = "active";
+    storedClient = live();
+    await POST(stripeEvent("evt_portal_change", "active", undefined, { unit_amount: 59_900, recurring: { interval: "month" } }, { noMetadata: true }));
+    expect(upsertedValues[0]).toMatchObject({ clientId: "client-1", plan: "pro", status: "active" });
+    for (const t of afterTasks) await t();
+    expect(syncAgentPrompt).toHaveBeenCalledWith("org-1", "client-1"); // new plan published
+  });
+
+  it("an unknown subscription is logged and acknowledged, not retried forever", async () => {
+    const res = await POST(stripeEvent("evt_unknown_sub", "active", undefined, undefined, { noMetadata: true }));
+    expect(res.status).toBe(200);
+    expect(upserted).toHaveLength(0);
+  });
+
+  it("canceled (retries ran out, or the owner cancelled): messages-only hold, owner + Ari told", async () => {
+    previousPlan = "starter";
+    previousStatus = "past_due";
+    storedClient = live();
+    await POST(stripeEvent("evt_canceled", "canceled", "starter", undefined, { type: "customer.subscription.deleted" }));
+    for (const t of afterTasks) await t();
+    expect(notifyBillingHold).toHaveBeenCalledWith("client-1", "canceled", "canceled:sub_1");
+    // Republished: the agent works out the hold from the subscription.
+    expect(syncAgentPrompt).toHaveBeenCalledWith("org-1", "client-1");
+    expect(provisionNumberAfterPayment).not.toHaveBeenCalled();
+  });
+
+  it("Stripe 'unpaid' is remembered (stored as past_due) and puts it on hold", async () => {
+    previousPlan = "starter";
+    previousStatus = "past_due";
+    storedClient = live();
+    await POST(stripeEvent("evt_unpaid", "unpaid", "starter"));
+    expect(upsertedValues[0]).toMatchObject({ status: "past_due" });
+    expect(clientUpdates.some((u) => "setupFlags" in u)).toBe(true); // stripeUnpaidAt set (SQL)
+    for (const t of afterTasks) await t();
+    expect(notifyBillingHold).toHaveBeenCalledWith("client-1", "unpaid", "unpaid:sub_1");
+    expect(syncAgentPrompt).toHaveBeenCalled();
+  });
+
+  it("plain past_due (Stripe still retrying) is not a hold", async () => {
+    previousPlan = "starter";
+    previousStatus = "active";
+    storedClient = live();
+    await POST(stripeEvent("evt_past_due", "past_due", "starter"));
+    for (const t of afterTasks) await t();
+    expect(notifyBillingHold).not.toHaveBeenCalled();
+  });
+
+  it("paying again after an unpaid hold clears the flag and republishes the full agent", async () => {
+    previousPlan = "starter";
+    previousStatus = "past_due";
+    storedClient = { ...live(), setupFlags: { stripeUnpaidAt: "2026-11-20T00:00:00.000Z" } };
+    await POST(stripeEvent("evt_back", "active", "starter"));
+    expect(clientUpdates.some((u) => "setupFlags" in u)).toBe(true); // stripeUnpaidAt removed (SQL)
+    for (const t of afterTasks) await t();
+    expect(notifyBillingHold).not.toHaveBeenCalled();
+    expect(syncAgentPrompt).toHaveBeenCalledWith("org-1", "client-1");
+  });
+
+  it("a comped business is never put on hold", async () => {
+    previousStatus = "active";
+    storedClient = { ...live(), setupFlags: { comped: true } };
+    await POST(stripeEvent("evt_comped_cancel", "canceled"));
+    for (const t of afterTasks) await t();
+    expect(notifyBillingHold).not.toHaveBeenCalled();
+  });
+
+  it("invoice.paid records the first payment and asks for the number", async () => {
+    await POST(invoicePaidEvent("evt_inv_paid_x", 39_900));
+    expect(recordFirstPayment).toHaveBeenCalledWith("client-1", 39_900);
+    for (const t of afterTasks) await t();
+    expect(provisionNumberAfterPayment).toHaveBeenCalledWith("client-1");
+  });
+
+  it("invoice.payment_failed tells the owner and Ari, and switches nothing off", async () => {
+    const res = await POST(
+      new Request("https://example.test/api/webhooks/stripe", {
+        method: "POST",
+        headers: { "stripe-signature": "t=1,v1=sig" },
+        body: JSON.stringify({
+          id: "evt_pf",
+          type: "invoice.payment_failed",
+          data: { object: { id: "in_9", amount_due: 39_900, customer: "cus_1" } },
+        }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(notifyPaymentFailed).toHaveBeenCalledTimes(1);
+    expect(upserted).toHaveLength(0);
+    expect(clientUpdates).toHaveLength(0);
   });
 });

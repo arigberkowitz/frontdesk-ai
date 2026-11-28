@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Mic, Phone, PhoneOff } from "lucide-react";
 import type { RetellWebClient } from "retell-client-js-sdk";
 import { toast } from "sonner";
@@ -19,10 +20,18 @@ const FRIENDLY_START_ERROR = "We couldn't start a test call just now. Give it an
 export function TestCallButton({
   clientId,
   agentName = DEFAULT_AGENT_NAME,
+  refreshAfterCall = false,
 }: {
   clientId: string;
   agentName?: string;
+  /**
+   * Re-read the page a few seconds after the call ends. A free trial's first
+   * test call unlocks its phone number (number-gate.ts) and ticks the setup
+   * step, both server-side; this shows them without a manual refresh.
+   */
+  refreshAfterCall?: boolean;
 }) {
+  const router = useRouter();
   const [state, setState] = useState<CallState>("idle");
   const [agentTalking, setAgentTalking] = useState(false);
   const clientRef = useRef<RetellWebClient | null>(null);
@@ -48,6 +57,11 @@ export function TestCallButton({
       rc.on("call_ended", () => {
         setState("idle");
         setAgentTalking(false);
+        if (refreshAfterCall) {
+          // Twice: the call webhook lands in a few seconds, the number a few after.
+          setTimeout(() => router.refresh(), 6_000);
+          setTimeout(() => router.refresh(), 20_000);
+        }
       });
       rc.on("agent_start_talking", () => setAgentTalking(true));
       rc.on("agent_stop_talking", () => setAgentTalking(false));

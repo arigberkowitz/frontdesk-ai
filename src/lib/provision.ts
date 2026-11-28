@@ -1,7 +1,7 @@
 import "server-only";
 import { planAccessFor } from "@/lib/plan-access";
 import { revalidatePath } from "next/cache";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
 import { getClient, updateClient } from "@/lib/data/clients";
@@ -16,7 +16,7 @@ import { logger } from "@/lib/logger";
 import type { ActionState } from "@/lib/actions/types";
 import { claimFirstProvision, releaseFirstProvision } from "@/lib/provision-lock";
 import { getNumberGate } from "@/lib/data/number-gate";
-import type { NumberGateFacts } from "@/lib/number-gate";
+import { isUnpaidTrialUnlock, type NumberGateFacts } from "@/lib/number-gate";
 
 /**
  * The Retell phone error names Retell and "a payment method" — advice for the
@@ -38,9 +38,10 @@ export interface ProvisionActor {
  * phone number.
  *
  * The agent is always built — it's free until called and it's what the browser
- * test call talks to. The NUMBER is a monthly vendor charge, so a business only
- * gets one after its first real payment (or when an operator does it, or it's
- * comped); until then this returns `numberReserved: true`. See number-gate.ts.
+ * test call talks to. The NUMBER is a monthly vendor charge: a free trial gets
+ * one after its first test call (under a daily cap), a paying or carded
+ * business straight away, and an operator always. Until then this returns
+ * `numberReserved: true` with the reason. See number-gate.ts.
  *
  * Lives outside the "use server" action modules on purpose: exporting it from
  * one would expose it as a callable server action that takes an arbitrary
@@ -60,6 +61,10 @@ export async function runProvision(
   // Only matters when there's no number yet: an existing one is just re-bound.
   const gate = firstProvision ? await getNumberGate(clientId, user.role) : null;
   const numberReserved = Boolean(gate && !gate.unlocked);
+  if (gate?.reason === "daily_cap") {
+    // Worth a look: either a good day or a burst of fake signups.
+    logger.warn("agent.provision.trial_number_cap_reached", { clientId });
+  }
   if (firstProvision && !(await claimFirstProvision(clientId))) {
     return {
       ok: false,
@@ -123,6 +128,16 @@ export async function runProvision(
       retellPhoneNumber: result.phoneNumber,
       greeting,
     });
+    if (firstProvision && result.phoneNumber && isUnpaidTrialUnlock(gate?.via ?? null)) {
+      // Counts toward the platform-wide daily cap on trial numbers. In SQL so
+      // a flag written meanwhile isn't lost.
+      await db
+        .update(clients)
+        .set({
+          setupFlags: sql`jsonb_set(coalesce(${clients.setupFlags}, '{}'::jsonb), '{trialNumberAt}', to_jsonb(${new Date().toISOString()}::text))`,
+        })
+        .where(eq(clients.id, clientId));
+    }
     await createAgentVersion(clientId, {
       promptSnapshot: prompt,
       knowledgeSnapshot: client.knowledgeItems,
@@ -134,7 +149,12 @@ export async function runProvision(
     revalidatePath("/portal", "layout");
     return {
       ok: true,
-      data: { phoneNumber: result.phoneNumber, phoneError: result.phoneError, numberReserved },
+      data: {
+        phoneNumber: result.phoneNumber,
+        phoneError: result.phoneError,
+        numberReserved,
+        reservedReason: numberReserved ? (gate?.reason ?? null) : null,
+      },
     };
   } catch (err) {
     // Log the real cause server-side; never surface raw vendor/DB errors to users.
@@ -160,27 +180,40 @@ export async function runProvision(
 }
 
 /**
- * A card just went on file (Stripe checkout / subscription webhook): give a
- * business that already built its receptionist the number it was waiting for.
- * Best-effort — if it fails, the "Get my phone number" button on Your AI is
- * the same thing, by hand. Never buys for a business that has one, or one that
- * never built an agent (its own Activate covers that, number included).
+ * Give a business that already built its receptionist the number it's now
+ * allowed (number-gate.ts) — after a payment or saved card (Stripe webhook),
+ * or after a free trial's first test call (Retell webhook). Best-effort: if it
+ * fails, "Get my phone number" on Your AI is the same thing by hand. Never buys
+ * for a business that has one, or one that never built an agent (its own
+ * Activate covers that), and the gate + first-provision lock decide the rest,
+ * so calling it twice buys at most one.
+ */
+export async function provisionNumberIfUnlocked(clientId: string): Promise<void> {
+  if (!integrations.retell()) return;
+  const client = await getClientForPayment(clientId);
+  if (!client || client.retellPhoneNumber || !client.retellAgentId) return;
+  const gate = await getNumberGate(clientId, "system");
+  if (!gate.unlocked) return;
+  const result = await runProvision({ id: null, orgId: client.orgId, role: "system" }, clientId);
+  const data = result.data as { phoneNumber?: string | null } | undefined;
+  logger.info("provision.number_when_unlocked", {
+    clientId,
+    via: gate.via,
+    ok: result.ok,
+    gotNumber: Boolean(data?.phoneNumber),
+  });
+}
+
+/**
+ * A payment or a saved card just landed (Stripe webhook): the toll-free
+ * texting number (its own, stricter gate) and then the voice number.
  */
 export async function provisionNumberAfterPayment(clientId: string): Promise<void> {
   // Toll-free texting number (no-op unless TOLLFREE_SMS_ENABLED=on). Gated:
   // only buys once setup is finished too — paying alone isn't enough. Its own
   // try: a texting hiccup must never block the voice number below.
   await ensureTollfreeNumberSafely(clientId, "payment");
-  if (!integrations.retell()) return;
-  const client = await getClientForPayment(clientId);
-  if (!client || client.retellPhoneNumber || !client.retellAgentId) return;
-  const result = await runProvision({ id: null, orgId: client.orgId, role: "system" }, clientId);
-  const data = result.data as { phoneNumber?: string | null } | undefined;
-  logger.info("billing.number_after_payment", {
-    clientId,
-    ok: result.ok,
-    gotNumber: Boolean(data?.phoneNumber),
-  });
+  await provisionNumberIfUnlocked(clientId);
 }
 
 /**
@@ -190,8 +223,8 @@ export async function provisionNumberAfterPayment(clientId: string): Promise<voi
  * texting number — and never twice (atomic claim in data/tollfree.ts). Called
  * from both the Stripe webhook (including when a trial or promo later pays)
  * and "I'm done" on setup: whichever comes second, once they've actually
- * paid, buys. Separate from the Retell voice number entirely — voice numbers
- * can still be reserved on a trial.
+ * paid, buys. Separate from the Retell voice number entirely: a trial's voice
+ * number never buys a texting number.
  */
 export async function ensureTollfreeNumberSafely(clientId: string, source: "payment" | "setup"): Promise<void> {
   try {

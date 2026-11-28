@@ -34,3 +34,38 @@ export function onTrialHold(f: BillingHoldFacts, now: Date = new Date()): boolea
   if (!f.trialEndsAt) return false;
   return f.trialEndsAt.getTime() <= now.getTime();
 }
+
+/**
+ * "A paying business stopped paying": the same messages-only hold, for a live
+ * business whose Stripe subscription has ended. That's `canceled` — Stripe's
+ * default once every retry of a failed payment has run out, and also where an
+ * owner's own cancellation lands at the end of the period they paid for — or
+ * Stripe's `unpaid` (retries exhausted, subscription kept), which we store as
+ * past_due plus the `stripeUnpaid` flag.
+ *
+ * Plain past_due is NOT a hold: Stripe is still retrying, the owner has been
+ * emailed to fix the card, and cutting the service mid-retry would punish an
+ * expired card. The number is kept (an operator decides whether to release
+ * it); paying again republishes the full agent.
+ */
+export interface PaymentHoldFacts {
+  status: string;
+  comped: boolean;
+  subscriptionStatus: string | null;
+  stripeUnpaid: boolean;
+}
+
+export function onPaymentHold(f: PaymentHoldFacts): boolean {
+  if (f.comped) return false;
+  if (f.status !== "live") return false; // trial: onTrialHold; paused: already messages-only
+  if (f.subscriptionStatus === "canceled") return true;
+  return f.subscriptionStatus === "past_due" && f.stripeUnpaid;
+}
+
+/** Either hold: the receptionist only takes messages. */
+export function onBillingHold(
+  f: BillingHoldFacts & { stripeUnpaid: boolean },
+  now: Date = new Date(),
+): boolean {
+  return onTrialHold(f, now) || onPaymentHold(f);
+}

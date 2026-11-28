@@ -95,9 +95,9 @@ export async function sendWelcomeEmail(clientId: string): Promise<void> {
       ]
     : [
         `Your AI receptionist is built and ready to talk to in your browser — <a href="${appUrl("/portal/guidelines")}">try a test call</a>.`,
-        `Its own phone number comes with your first payment. When you're ready for real calls, <a href="${appUrl("/portal/guidelines?plans=open#plans")}">pick a plan</a> and the number is assigned as soon as the payment goes through.`,
+        `To get its own phone number, make one test call in your browser. When you hang up, the number is set up for you (it's included in your free trial) and shows on <a href="${appUrl("/portal/guidelines")}">Your AI</a> within a minute.`,
         `Its services, hours and answers are drafted for your industry. <a href="${appUrl("/portal/services")}">Check the prices</a> especially — they're examples until you say otherwise.`,
-        `Your free trial runs ${TRIAL_DAYS} days. Try everything in your browser, no card needed.`,
+        `Your free trial runs ${TRIAL_DAYS} days with everything switched on, phone number included. No card needed.`,
       ];
 
   const text = paragraphs.map((p) => p.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&")).join("\n\n");

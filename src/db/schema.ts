@@ -279,10 +279,16 @@ export const clients = pgTable(
         comped?: boolean;
         /**
          * When an operator approved this business's free trial (trial-code
-         * flow). Record only: like every trial, its phone number waits for the
-         * first payment (number-gate.ts); an operator can still provision one.
+         * flow). An operator vouched for it, so it gets its phone number
+         * without the first-test-call step (number-gate.ts).
          */
         trialApprovedAt?: string;
+        /**
+         * When a phone number was bought for this business while it was an
+         * unpaid trial (ISO). Feeds the platform-wide daily cap on trial
+         * numbers (TRIAL_NUMBERS_PER_DAY in number-gate.ts).
+         */
+        trialNumberAt?: string;
         /** The pricing card they clicked before signing up. Preselects checkout. */
         intendedPlan?: string;
         /** Billing interval picked on the pricing page ("month" | "year"). */
@@ -344,6 +350,20 @@ export const clients = pgTable(
          * pause is never undone by a payment.
          */
         trialLapsedAt?: string;
+        /**
+         * Stripe marked the subscription "unpaid" (every retry failed and the
+         * account is set to keep it rather than cancel). We store "unpaid" as
+         * past_due in the enum, so this is what tells the two apart: it puts
+         * the AI on the messages-only billing hold (billing-hold.ts). Cleared
+         * the moment the subscription is active again.
+         */
+        stripeUnpaidAt?: string;
+        /**
+         * When the owner and Ari were told about a failed payment / an ended
+         * plan (ISO), so a replayed or repeated Stripe event doesn't email
+         * twice for the same invoice or cancellation.
+         */
+        billingAlerts?: { paymentFailedInvoice?: string; holdNotifiedAt?: string };
         /**
          * Minute-cap emails sent this billing period (lib/minute-cap.ts).
          * `period` is the ISO period start; a new period starts clean.

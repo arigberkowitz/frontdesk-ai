@@ -39,6 +39,8 @@ const sendCallRecap = vi.fn(async () => {
 vi.mock("@/lib/call-recap-send", () => ({ sendCallRecap }));
 vi.mock("@/lib/hours-util", () => ({ isAfterHours: () => false }));
 vi.mock("@/lib/webhooks-emit", () => ({ emitWebhook: async () => {} }));
+const provisionNumberIfUnlocked = vi.fn(async (_id: string) => {});
+vi.mock("@/lib/provision", () => ({ provisionNumberIfUnlocked: (id: string) => provisionNumberIfUnlocked(id) }));
 
 const { POST } = await import("./route");
 
@@ -128,5 +130,38 @@ describe("retell webhook alerts", () => {
     state.lead = { id: "lead-1" };
     await run("call_analyzed", { transcript: "Agent: Hi, calling back", metadata: { direction: "outbound" } });
     expect(sendCallRecap).not.toHaveBeenCalled();
+  });
+});
+
+describe("a free trial's first test call hands over its phone number", () => {
+  const original = { ...CLIENT };
+  beforeEach(() => provisionNumberIfUnlocked.mockClear());
+  const restore = () => {
+    for (const k of Object.keys(CLIENT)) delete (CLIENT as Record<string, unknown>)[k];
+    Object.assign(CLIENT, original);
+  };
+
+  it("call_ended on a trial with no number asks for one (the gate decides), after the response", async () => {
+    Object.assign(CLIENT, { status: "trial", retellPhoneNumber: null });
+    try {
+      await run("call_ended", { from_number: null, duration_ms: 30000, transcript: "Agent: Hi" });
+      expect(provisionNumberIfUnlocked).toHaveBeenCalledWith("client-1");
+    } finally {
+      restore();
+    }
+  });
+
+  it("not for a business that already has a number, a non-trial, or a non-terminal event", async () => {
+    try {
+      Object.assign(CLIENT, { status: "trial", retellPhoneNumber: "+14155550199" });
+      await run("call_ended", { duration_ms: 30000 });
+      Object.assign(CLIENT, { status: "live", retellPhoneNumber: null });
+      await run("call_ended", { duration_ms: 30000 });
+      Object.assign(CLIENT, { status: "trial", retellPhoneNumber: null });
+      await run("call_started", {});
+      expect(provisionNumberIfUnlocked).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
   });
 });

@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import { after } from "next/server";
 import { db } from "@/db";
 import { clients, subscriptions } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { planSyncPatch, resolvePlanKey } from "@/lib/plan-sync";
 import { getStripe, subscriptionPeriodEnd } from "@/lib/stripe";
 import {
@@ -15,7 +15,8 @@ import { logger } from "@/lib/logger";
 import { PLANS, type PlanKey } from "@/config/plans";
 import { planFromPriceId } from "@/lib/stripe-prices";
 import { provisionNumberAfterPayment } from "@/lib/provision";
-import { clientIdForInvoice, notifyPaymentFailed } from "@/lib/payment-failed";
+import { clientIdForInvoice, notifyBillingHold, notifyPaymentFailed } from "@/lib/payment-failed";
+import { onPaymentHold } from "@/lib/billing-hold";
 import { recordFirstPayment } from "@/lib/data/subscription-payment";
 
 export const runtime = "nodejs";
@@ -61,7 +62,7 @@ async function upsert(clientId: string, sub: Stripe.Subscription): Promise<SubSt
     undefined;
   const plan = planKey ? PLANS[planKey] : undefined;
   const [previous] = await db
-    .select({ plan: subscriptions.plan })
+    .select({ plan: subscriptions.plan, status: subscriptions.status })
     .from(subscriptions)
     .where(eq(subscriptions.clientId, clientId))
     .limit(1);
@@ -85,8 +86,34 @@ async function upsert(clientId: string, sub: Stripe.Subscription): Promise<SubSt
     .insert(subscriptions)
     .values(values)
     .onConflictDoUpdate({ target: subscriptions.clientId, set: values });
-  await applyPlanToClient(clientId, planKey ?? null, values.status ?? "incomplete", previous?.plan ?? null);
+  await applyPlanToClient(clientId, planKey ?? null, values.status ?? "incomplete", previous?.plan ?? null, {
+    previousStatus: previous?.status ?? null,
+    stripeStatus: sub.status,
+    subscriptionId: sub.id,
+  });
   return values.status;
+}
+
+/**
+ * The business a subscription event is for. Our checkouts stamp
+ * metadata.clientId; a subscription changed in Stripe's own dashboard or
+ * customer portal may not carry it, so fall back to the row we already hold
+ * for that subscription or customer. Unknown → null (logged, ignored).
+ */
+async function clientIdForSubscription(sub: Stripe.Subscription): Promise<string | null> {
+  const fromMeta = sub.metadata?.clientId;
+  if (fromMeta) return fromMeta;
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+  const [row] = await db
+    .select({ clientId: subscriptions.clientId })
+    .from(subscriptions)
+    .where(
+      customerId
+        ? or(eq(subscriptions.stripeSubscriptionId, sub.id), eq(subscriptions.stripeCustomerId, customerId))
+        : eq(subscriptions.stripeSubscriptionId, sub.id),
+    )
+    .limit(1);
+  return row?.clientId ?? null;
 }
 
 /**
@@ -99,9 +126,50 @@ async function applyPlanToClient(
   plan: PlanKey | null,
   subStatus: string,
   previousPlan: string | null,
+  billing: {
+    previousStatus: string | null;
+    /** Stripe's own status — "unpaid" is stored as past_due, so it's only visible here. */
+    stripeStatus: Stripe.Subscription.Status;
+    subscriptionId: string;
+  } = { previousStatus: null, stripeStatus: "active", subscriptionId: "" },
 ): Promise<void> {
   const client = await db.query.clients.findFirst({ where: eq(clients.id, clientId) });
   if (!client) return;
+
+  // Stripe "unpaid" (every retry failed, subscription kept) is a billing hold;
+  // the enum stores it as past_due, so remember it in a flag. Paying clears it.
+  const wasUnpaid = Boolean(client.setupFlags?.stripeUnpaidAt);
+  const isUnpaid = billing.stripeStatus === "unpaid";
+  if (isUnpaid !== wasUnpaid && (isUnpaid || subStatus === "active" || subStatus === "trialing")) {
+    await db
+      .update(clients)
+      .set({
+        setupFlags: isUnpaid
+          ? sql`jsonb_set(coalesce(${clients.setupFlags}, '{}'::jsonb), '{stripeUnpaidAt}', to_jsonb(${new Date().toISOString()}::text))`
+          : sql`coalesce(${clients.setupFlags}, '{}'::jsonb) - 'stripeUnpaidAt'`,
+      })
+      .where(eq(clients.id, clientId));
+  }
+  const holdFacts = {
+    status: client.status,
+    comped: Boolean(client.setupFlags?.comped),
+    subscriptionStatus: subStatus,
+    stripeUnpaid: isUnpaid || (wasUnpaid && subStatus === "past_due"),
+  };
+  const onHold = onPaymentHold(holdFacts);
+  const statusChanged = billing.previousStatus !== subStatus || isUnpaid !== wasUnpaid;
+  if (onHold && statusChanged) {
+    logger.info("stripe.webhook.billing_hold", { clientId, status: billing.stripeStatus });
+    const reason = isUnpaid ? "unpaid" : "canceled";
+    after(() =>
+      notifyBillingHold(clientId, reason, `${reason}:${billing.subscriptionId}`).catch((err) =>
+        logger.warn("stripe.webhook.billing_hold_notify_failed", {
+          clientId,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      ),
+    );
+  }
   const patch = planSyncPatch(
     {
       status: client.status,
@@ -135,7 +203,10 @@ async function applyPlanToClient(
       .where(eq(clients.id, clientId));
     logger.info("stripe.webhook.plan_applied", { clientId, plan, patch });
   }
-  if (changed || previousPlan !== plan) {
+  // A status change can put the AI on (or take it off) the messages-only
+  // billing hold, so it republishes too — the prompt is worked out from the
+  // subscription every time (agent-publish.ts).
+  if (changed || previousPlan !== plan || statusChanged) {
     const orgId = client.orgId;
     // Lazy: agent-publish pulls in the whole calendar/voice stack.
     after(() =>
@@ -196,17 +267,14 @@ async function unlockAfterInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 }
 
 /**
- * A self-serve business's phone number waits for a card (number-gate.ts). The
- * moment one is on file, hand it over — after the response, so Stripe isn't
- * kept waiting on the voice vendor. Idempotent: a business that already has a
- * number is skipped, and the first-provision lock stops a replay buying twice.
+ * A paying or carded business may have its phone number (number-gate.ts). The
+ * moment a card is on file or a payment lands, hand it over — after the
+ * response, so Stripe isn't kept waiting on the voice vendor. Idempotent: a
+ * business that already has a number is skipped, and the first-provision lock
+ * stops a replay buying twice.
  */
 function unlockNumberIfPaid(clientId: string, status: SubStatus): void {
-  // "active" only: a Stripe trial ("trialing") has a card but no payment yet,
-  // and a number waits for a payment (number-gate.ts). When the trial
-  // converts, customer.subscription.updated → active (or invoice.paid) lands
-  // here again — so a missing invoice event still hands the number over.
-  if (status !== "active") return;
+  if (status !== "active" && status !== "trialing") return;
   after(() =>
     provisionNumberAfterPayment(clientId).catch((err) =>
       logger.warn("stripe.webhook.number_after_payment_failed", {
@@ -276,8 +344,9 @@ export async function POST(req: Request): Promise<Response> {
       }
     } else if (event.type.startsWith("customer.subscription.")) {
       const sub = event.data.object as Stripe.Subscription;
-      const clientId = sub.metadata?.clientId;
+      const clientId = await clientIdForSubscription(sub);
       if (clientId) unlockNumberIfPaid(clientId, await upsert(clientId, sub));
+      else logger.warn("stripe.webhook.subscription_unknown_client", { subscriptionId: sub.id, type: event.type });
     } else if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
       // Trial ending or first real payment. customer.subscription.updated
       // usually arrives too; this is the backup so the texting number is
@@ -285,7 +354,10 @@ export async function POST(req: Request): Promise<Response> {
       await unlockAfterInvoicePaid(event.data.object);
     } else if (event.type === "invoice.payment_failed") {
       // Status itself arrives as customer.subscription.updated (past_due);
-      // this is the owner's heads-up so they can fix the card in time.
+      // this is the heads-up — the owner, with the next retry date, and Ari,
+      // once per invoice — so the card is fixed before the retries run out.
+      // Nothing is switched off here: the hold only starts when the
+      // subscription itself ends (canceled / unpaid; billing-hold.ts).
       await notifyPaymentFailed(event.data.object);
     }
   } catch (err) {

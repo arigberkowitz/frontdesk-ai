@@ -121,3 +121,28 @@ describe("runTrialLapse", () => {
     expect((await runTrialLapse(NOW)).released).toBe(0);
   });
 });
+
+describe("runTrialLapse — a Stripe trial that never paid", () => {
+  async function cardTrial(sub: Partial<typeof schema.subscriptions.$inferInsert>) {
+    const c = await trial({ status: "live", trialEndsAt: null });
+    await db.insert(schema.subscriptions).values({ clientId: c.id, plan: "starter", status: "canceled", ...sub });
+    return c;
+  }
+
+  it("releases the number once the canceled, never-paid subscription is past the grace", async () => {
+    const c = await cardTrial({ currentPeriodEnd: new Date(NOW.getTime() - 4 * DAY), firstPaidAt: null });
+    expect((await runTrialLapse(NOW)).released).toBe(1);
+    expect(deleteNumber).toHaveBeenCalledWith("+14155550100");
+    const after = await get(c.id);
+    expect(after?.retellPhoneNumber).toBeNull();
+    expect(after?.status).toBe("paused");
+    expect(after?.setupFlags?.trialLapsedAt).toBeTruthy(); // paying later turns it back on
+  });
+
+  it("keeps the number for a business that ever paid, or one still inside the grace", async () => {
+    await cardTrial({ currentPeriodEnd: new Date(NOW.getTime() - 4 * DAY), firstPaidAt: new Date(NOW.getTime() - 40 * DAY) });
+    await cardTrial({ currentPeriodEnd: new Date(NOW.getTime() - DAY), firstPaidAt: null });
+    expect((await runTrialLapse(NOW)).released).toBe(0);
+    expect(deleteNumber).not.toHaveBeenCalled();
+  });
+});

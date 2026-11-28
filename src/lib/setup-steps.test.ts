@@ -83,9 +83,9 @@ describe("buildSetupSteps", () => {
 
   it("going live needs the agent AND a phone number", () => {
     expect(byKey({ ...fresh, agentId: "agent_1" }).live.done).toBe(false);
-    expect(byKey({ ...fresh, agentId: "agent_1" }).live.hint).toMatch(/comes with your first payment — pick a plan under Plans/);
+    expect(byKey({ ...fresh, agentId: "agent_1" }).live.hint).toMatch(/Make one test call in your browser and its own phone number is set up/);
     expect(byKey({ ...fresh, agentId: "agent_1" }).live.hint).not.toMatch(/Get my phone number/);
-    expect(byKey({ ...fresh, agentId: "agent_1" }).live.href).toBe("/portal/guidelines#plans");
+    expect(byKey({ ...fresh, agentId: "agent_1" }).live.href).toBe("/portal/guidelines#test-call");
     expect(byKey({ ...fresh, agentId: "agent_1", aiNumber: "(415) 555-0100" }).live.done).toBe(true);
     expect(byKey(done).live.doneHint).toMatch(/picks up changes automatically/);
   });

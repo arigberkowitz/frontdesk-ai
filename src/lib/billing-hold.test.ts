@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { LAPSE_GRACE_DAYS, numberReleaseDate, onTrialHold, type BillingHoldFacts } from "./billing-hold";
+import {
+  LAPSE_GRACE_DAYS,
+  numberReleaseDate,
+  onBillingHold,
+  onPaymentHold,
+  onTrialHold,
+  type BillingHoldFacts,
+  type PaymentHoldFacts,
+} from "./billing-hold";
 
 const endsAt = new Date("2026-10-16T17:00:00.000Z");
 const ended: BillingHoldFacts = { status: "trial", comped: false, trialEndsAt: endsAt, subscriptionStatus: null };
@@ -36,5 +44,39 @@ describe("onTrialHold — a trial that ended unpaid only takes messages", () => 
   it("the number is released three days after the trial ends", () => {
     expect(LAPSE_GRACE_DAYS).toBe(3);
     expect(numberReleaseDate(endsAt).toISOString()).toBe("2026-10-19T17:00:00.000Z");
+  });
+});
+
+
+describe("onPaymentHold — a live plan whose subscription ended only takes messages", () => {
+  const live: PaymentHoldFacts = { status: "live", comped: false, subscriptionStatus: "active", stripeUnpaid: false };
+
+  it("canceled (retries ran out, or the owner's cancellation took effect) is a hold", () => {
+    expect(onPaymentHold({ ...live, subscriptionStatus: "canceled" })).toBe(true);
+  });
+
+  it("Stripe 'unpaid' (stored as past_due + flag) is a hold; plain past_due (still retrying) is not", () => {
+    expect(onPaymentHold({ ...live, subscriptionStatus: "past_due", stripeUnpaid: true })).toBe(true);
+    expect(onPaymentHold({ ...live, subscriptionStatus: "past_due" })).toBe(false);
+  });
+
+  it("paying, carded, comped, off-Stripe deals and non-live businesses are never on it", () => {
+    for (const s of ["active", "trialing", null]) expect(onPaymentHold({ ...live, subscriptionStatus: s })).toBe(false);
+    expect(onPaymentHold({ ...live, comped: true, subscriptionStatus: "canceled" })).toBe(false);
+    expect(onPaymentHold({ ...live, status: "trial", subscriptionStatus: "canceled" })).toBe(false);
+    expect(onPaymentHold({ ...live, status: "paused", subscriptionStatus: "canceled" })).toBe(false);
+  });
+
+  it("onBillingHold is either hold", () => {
+    const now = new Date("2026-11-27T12:00:00Z");
+    expect(
+      onBillingHold({ status: "trial", comped: false, trialEndsAt: new Date("2026-11-20"), subscriptionStatus: null, stripeUnpaid: false }, now),
+    ).toBe(true);
+    expect(
+      onBillingHold({ status: "live", comped: false, trialEndsAt: null, subscriptionStatus: "canceled", stripeUnpaid: false }, now),
+    ).toBe(true);
+    expect(
+      onBillingHold({ status: "live", comped: false, trialEndsAt: null, subscriptionStatus: "active", stripeUnpaid: false }, now),
+    ).toBe(false);
   });
 });

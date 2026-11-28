@@ -11,7 +11,7 @@ This is the whole deal, in plain English. One page, no surprises.
 
 An AI receptionist that answers your business line 24/7. It greets callers,
 answers questions from information you approve, books appointments on your
-calendar, takes messages when it can't book, and texts or emails you the moment
+calendar once you connect it, takes messages when it can't book, and texts or emails you the moment
 something needs your attention. You get a web portal showing every call,
 recording, transcript, booking, and lead.
 

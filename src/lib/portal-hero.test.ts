@@ -37,7 +37,7 @@ describe("portal hero helpers", () => {
       label: "Your AI is only taking messages",
     });
     expect(heroStatus({ clientStatus: "trial", aiLive: false, setupDone: 3, setupTotal: 9, trialEnded: true }).label).toBe(
-      "Free trial ended · pick a plan to get your number",
+      "Free trial ended · pick a plan to turn it back on",
     );
     expect(heroStatus({ clientStatus: "live", aiLive: true, setupDone: 9, setupTotal: 9, trialEnded: true }).tone).toBe("live");
     const s = heroStatus({ clientStatus: "draft", aiLive: false, setupDone: 3, setupTotal: 9 });

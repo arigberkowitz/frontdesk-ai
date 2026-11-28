@@ -53,6 +53,10 @@ async function main(): Promise<void> {
       "customer.subscription.created",
       "customer.subscription.updated",
       "customer.subscription.deleted",
+      // Payments: a trial converting / a renewal (records first_paid_at and
+      // hands over the number) and a declined card (owner + Ari emailed).
+      "invoice.paid",
+      "invoice.payment_failed",
     ],
   });
   console.log(`✓ Webhook:     ${url}`);

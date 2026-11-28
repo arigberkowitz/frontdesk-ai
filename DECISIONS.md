@@ -928,3 +928,33 @@ pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
 - **Silent repeat callers are only suggested.** 3+ calls of ≤10s or with nothing said, and no
   real conversation → a "Worth blocking" suggestion. Nothing is blocked until the owner taps.
 - No migration (jsonb), no new env vars, no vendor settings, no paid add-ons.
+## 2026-11-27 — Free trials get a real phone number again; Stripe billing events; honest copy
+
+- **Trials get their own number again** (Ari: "Give trials a phone number again"). The cold
+  email offers a 14-day free trial, and a trial you can only hear in a browser isn't the product.
+  `number-gate.ts` now unlocks a number for a running trial once the owner has made **one test
+  call** (the browser test call counts; any row in `calls`), and for an operator-approved trial
+  straight away. A saved card (Stripe `trialing`) unlocks it again too. The Retell webhook asks
+  for the number on a trial's `call_ended`, so it appears within a minute of the first test call
+  with no extra button press ("Get my phone number" still works by hand).
+- **Cost guardrails kept or added:** one number per business (first-provision lock, unchanged);
+  a platform-wide cap of `TRIAL_NUMBERS_PER_DAY = 25` numbers bought for unpaid trials in any
+  24 hours (`setup_flags.trialNumberAt`; past it the owner is told "ready tomorrow" and a warning
+  is logged); an ended or lapsed trial never gets one; the messages-only hold and the 3-day
+  release (`billing-hold.ts`, `trial-lapse.ts`) are unchanged, and the release now also covers a
+  Stripe trial that was canceled without ever paying. Signup rate limits, BotID and the WAF rule
+  are untouched. Minute caps and spam handling are untouched.
+- **Stripe webhook:** `customer.subscription.*` events that lack `metadata.clientId` (plan
+  changes made in Stripe's own portal/dashboard) now find the business by subscription or
+  customer id. `invoice.paid` records `first_paid_at` and hands over the number (unchanged).
+  `invoice.payment_failed` still emails the owner on every retry and now emails Ari once per
+  invoice. Nothing is switched off while Stripe retries; when the subscription ends (`canceled`,
+  or Stripe `unpaid`, remembered as `setup_flags.stripeUnpaidAt` because the enum stores it as
+  `past_due`) the live agent goes to the same messages-only hold and the owner and Ari are
+  emailed once. Paying again republishes the full agent. A paying customer's number is never
+  auto-released; Ari decides.
+- **"Start my plan now"** stays, as its own card for a business on a Stripe trial.
+- **Copy:** no "live the same afternoon"; booking is promised only "once you connect your
+  calendar"; no "text summary after every call" (alerts go out when it books or takes a
+  message; every call's recording and summary are in the dashboard).
+- No migration (all new state is in `setup_flags` jsonb); no new env vars; no vendor settings.
