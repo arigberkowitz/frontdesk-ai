@@ -60,6 +60,7 @@ export default async function PortalSettingsFeaturesPage({
     smartRebookingEnabled: client.smartRebookingEnabled,
     outboundRecoveryEnabled: client.outboundRecoveryEnabled,
     reviewRequestsEnabled: client.reviewRequestsEnabled,
+    reviewRequestsAllowed: access ? access.has("review_requests") : true,
     reviewUrl: client.reviewUrl ?? null,
     recallEnabled: client.recallEnabled,
     recallServiceCount: clientServices.filter((s) => s.recallIntervalDays).length,

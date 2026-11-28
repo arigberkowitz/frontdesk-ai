@@ -404,6 +404,26 @@ export const clients = pgTable(
         operatorNumberHoldAt?: string;
         /** The signup matched an operator fraud flag, so no free trial was started. */
         trialBlocked?: boolean;
+        /**
+         * Last automatic (or Retry) prompt push failed (ISO). Cleared on a
+         * successful sync. The operator agent tab shows "Update failed — Retry"
+         * while this is set. No migration: jsonb flag only.
+         */
+        agentSyncFailedAt?: string | null;
+        /**
+         * Win-back texts (Pro; lib/winback.ts). Off unless the owner turns it
+         * on. `months` is how long a customer has to be away; `lastRunMonth`
+         * ("2026-11", business time zone) is dedupe state for "once a month".
+         * jsonb rather than columns so it ships without a migration; the send
+         * history lives in sms_messages (kind "winback").
+         */
+        winback?: { enabled?: boolean; months?: number; template?: string | null; lastRunMonth?: string | null };
+        /**
+         * Hours after a visit ends before the review request goes out (Pro;
+         * lib/review-requests.ts REVIEW_DELAY_OPTIONS). Unset = 2. The switch
+         * and link stay in clients.review_requests_enabled / review_url.
+         */
+        reviewDelayHours?: number;
       }>()
       .notNull()
       .default({}),

@@ -13,13 +13,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { StepResult } from "@/lib/operator/controls";
+import type { ChecklistLine, StepResult } from "@/lib/operator/controls";
 
 /** What every operator route answers with (controls.ts ControlResult, or an orphan delete). */
 export interface ControlResponse {
   ok: boolean;
   message: string;
   steps?: StepResult[];
+  /** Full delete: what each vendor still holds, re-queried. */
+  checklist?: ChecklistLine[];
 }
 
 /**
@@ -96,6 +98,7 @@ export function ControlDialog({
             {result ? (
               <div className="space-y-3 text-left">
                 <p className={failed ? "font-medium text-destructive" : "font-medium text-emerald-700"}>{result.message}</p>
+                {result.checklist?.length ? <Checklist lines={result.checklist} /> : null}
                 {result.steps?.length ? <StepList steps={result.steps} /> : null}
               </div>
             ) : (
@@ -158,6 +161,40 @@ export function ControlDialog({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  );
+}
+
+/**
+ * The proof: what each vendor still holds right now, asked again after the work.
+ * Green only when a line is zero; a red line means it is NOT clean, whatever else says "done".
+ */
+export function Checklist({ lines }: { lines: ChecklistLine[] }) {
+  const clean = lines.every((l) => l.zero);
+  return (
+    <div
+      role="group"
+      aria-label="Verification"
+      data-testid="delete-checklist"
+      className={`rounded-lg border p-3 ${clean ? "border-emerald-200 bg-emerald-50" : "border-destructive/40 bg-destructive/5"}`}
+    >
+      <p className={`mb-1.5 text-xs font-semibold uppercase tracking-wide ${clean ? "text-emerald-800" : "text-destructive"}`}>
+        {clean ? "Checked just now: all zero" : "Checked just now: not clean"}
+      </p>
+      <ul className="space-y-1 text-sm">
+        {lines.map((l) => (
+          <li key={l.vendor} className="flex items-start gap-2">
+            {l.zero ? (
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-label="Zero" />
+            ) : (
+              <XCircle className="mt-0.5 size-4 shrink-0 text-destructive" aria-label="Not zero" />
+            )}
+            <span className="text-foreground">
+              <span className="font-medium">{l.vendor}:</span> {l.text}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

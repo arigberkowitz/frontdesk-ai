@@ -1,55 +1,41 @@
 import "server-only";
 import { and, desc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { agentRuns, appointments, clients, reminders, type Client } from "@/db/schema";
+import { appointments, clients, reminders, type Client } from "@/db/schema";
 import { createReminder } from "@/lib/data/reminders";
-import { isOptedOut } from "@/lib/data/sms-optouts";
-import { getCustomerLanguage } from "@/lib/data/customer-languages";
-import { getConsentedPhones, isConsented } from "@/lib/data/sms-consents";
+import { filterByFeature } from "@/lib/plan-access";
 import { isDeliverableUrl } from "@/lib/webhooks-out";
+import { loadTextHistory, spamPhoneKeys } from "@/lib/data/revenue-texts";
+import { revenueClientGate, sendRevenueTexts, type RevenueRecipient } from "@/lib/revenue-send";
+import { MIN_DAYS_BETWEEN_REVENUE_TEXTS, phoneKey } from "@/lib/revenue-texts";
 import {
-  REVIEW_DELAY_HOURS,
   REVIEW_MAX_AGE_HOURS,
+  REVIEW_MIN_DAYS_BETWEEN,
+  reviewDelayOf,
   reviewRequestBody,
   shouldAskForReview,
   type ReviewCandidate,
 } from "@/lib/review-requests";
-import { notifier } from "@/lib/notifier";
 import { logger } from "@/lib/logger";
 import { mapLimit, outOfBudget } from "./util";
 
 /**
- * Ask the customers we just served to say so publicly.
+ * Ask the customers we just served to say so publicly (Pro).
  *
  * For a local service business, search reviews decide who gets called at all,
- * and the moment to ask is a few hours after a good visit — not in a monthly
- * campaign. Everything needed was already here: we know the appointment
- * happened, we have the number, and we already send texts.
- *
- * Every guardrail from the recovery loop applies, for the same reasons:
- *  - OPT-IN per client, and useless without a review URL they chose
- *  - one ask per appointment, and never twice to the same number within 90 days
- *  - local daytime only, per-client daily cap
- *  - templated body, never model-written — this goes out unattended
- *  - STOP is checked before every send and printed in every message
- *  - a provider that isn't configured burns nothing: no row, still eligible
+ * and the moment to ask is a couple of hours after the visit. Guardrails:
+ *  - Pro only, enforced here (filterByFeature) and in the settings action
+ *  - opt-in per business, and useless without a review link they chose
+ *  - waits the owner's delay after the appointment ends (default 2 hours)
+ *  - one ask per appointment, never twice to the same number within 90 days
+ *  - the shared revenue-text fence (revenue-send.ts): consent, STOP, owner
+ *    blocks, spam numbers, the business's send hours, per-person cap across
+ *    all follow-ups, Spanish texts, a clean skip while texting isn't approved
+ *  - templated body, never model-written, and no review gating: everyone gets
+ *    the same direct ask
  */
 
 const MAX_SENDS_PER_CLIENT = 25;
-
-function localHour(tz: string | null): number {
-  try {
-    return Number(
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: tz ?? "America/Los_Angeles",
-        hour: "numeric",
-        hour12: false,
-      }).format(new Date()),
-    );
-  } catch {
-    return 12;
-  }
-}
 
 export interface ReviewRunResult {
   clientId: string;
@@ -58,10 +44,7 @@ export interface ReviewRunResult {
   skipped?: string;
 }
 
-export async function requestReviewsForClient(
-  client: Client,
-  now = new Date(),
-): Promise<ReviewRunResult> {
+export async function requestReviewsForClient(client: Client, now = new Date()): Promise<ReviewRunResult> {
   const base: ReviewRunResult = { clientId: client.id, clientName: client.name, sent: 0 };
 
   const reviewUrl = client.reviewUrl?.trim();
@@ -71,151 +54,120 @@ export async function requestReviewsForClient(
   // is a phishing lesson nobody needs.
   if (!isDeliverableUrl(reviewUrl)) return { ...base, skipped: "review_url_not_allowed" };
 
-  const hour = localHour(client.timezone);
-  if (hour < 9 || hour >= 19) return { ...base, skipped: "outside_daytime" };
+  const gate = await revenueClientGate(client, now);
+  if (gate) return { ...base, skipped: gate };
 
-  // The window: ended long enough ago to ask, recently enough to be welcome.
-  const newest = new Date(now.getTime() - REVIEW_DELAY_HOURS * 3_600_000);
-  const oldest = new Date(now.getTime() - REVIEW_MAX_AGE_HOURS * 3_600_000);
-  const recent = await db.query.appointments.findMany({
-    where: and(
-      eq(appointments.clientId, client.id),
-      inArray(appointments.status, ["booked", "confirmed"]),
-      gte(appointments.startAt, oldest),
-      lte(appointments.startAt, newest),
-      isNull(appointments.deletedAt),
-    ),
-    orderBy: [desc(appointments.startAt)],
-    limit: 100,
-  });
-  if (recent.length === 0) return { ...base, skipped: "nothing_to_ask_about" };
-
-  // One query for the whole ask-history of these appointments, plus every
-  // review request this client has ever sent, so the 90-day rule can be
-  // answered per phone number without a query each.
-  const asked = await db.query.reminders.findMany({
-    where: and(
-      eq(reminders.clientId, client.id),
-      eq(reminders.kind, "review_request"),
-      inArray(reminders.status, ["queued", "sent"]),
-    ),
-    orderBy: [desc(reminders.createdAt)],
-    limit: 1000,
-  });
-  const askedAppointment = new Set(asked.map((r) => r.appointmentId).filter(Boolean));
-  // Map an appointment id back to the number it went to, so "this phone was
-  // asked recently" can be resolved from the same rows.
-  const apptById = new Map(recent.map((a) => [a.id, a]));
-  const lastAskByPhone = new Map<string, Date>();
-  for (const r of asked) {
-    const phone = r.appointmentId ? apptById.get(r.appointmentId)?.customerPhone : null;
-    if (!phone) continue;
-    const key = phone.replace(/\D/g, "").slice(-10);
-    if (!lastAskByPhone.has(key)) lastAskByPhone.set(key, r.createdAt);
-  }
-
-  const due = recent.filter((a) => {
-    const key = (a.customerPhone ?? "").replace(/\D/g, "").slice(-10);
-    const candidate: ReviewCandidate = {
-      appointmentId: a.id,
-      customerName: a.customerName,
-      customerPhone: a.customerPhone,
-      status: a.status,
-      startAt: a.startAt,
-      endAt: a.endAt,
-      askedAt: askedAppointment.has(a.id) ? new Date(0) : null,
-      lastAskedThisPhoneAt: lastAskByPhone.get(key) ?? null,
-    };
-    return shouldAskForReview(candidate, now);
-  });
-  if (due.length === 0) return { ...base, skipped: "nothing_due" };
-
-  const [run] = await db
-    .insert(agentRuns)
-    .values({ clientId: client.id, kind: "review_request" })
-    .returning();
-
-  let sent = 0;
-  let notSent = 0;
-  let noConsent = 0;
-  // Only customers with a stored consent to texts from this business.
-  const consented = await getConsentedPhones(client.id, "review_request");
+  const delayHours = reviewDelayOf(client.setupFlags);
   try {
-    for (const appt of due.slice(0, MAX_SENDS_PER_CLIENT)) {
-      const to = appt.customerPhone!.trim();
-      if (!isConsented(consented, to)) {
-        noConsent += 1;
-        continue;
-      }
-      if (await isOptedOut(to, client.id)) continue;
-      const language = await getCustomerLanguage(client.id, to);
-      const body = reviewRequestBody({
-        businessName: client.name,
-        customerName: appt.customerName,
-        reviewUrl,
-        language,
-      });
-      const result = await notifier.sendSms({
-        to,
-        body,
-        log: { clientId: client.id, kind: "review_request", appointmentId: appt.id },
-      });
-      if (result.skipped) {
-        notSent += 1;
-        continue;
-      }
-      const failed = !result.ok;
-      await createReminder(client.id, {
-        appointmentId: appt.id,
-        leadId: null,
-        channel: "sms",
-        kind: "review_request",
-        status: failed ? "failed" : "sent",
-        sentAt: failed ? null : new Date(),
-        error: failed ? (result.error ?? "Send failed") : null,
-      });
-      if (!failed) sent += 1;
-    }
-    if (run) {
-      await db
-        .update(agentRuns)
-        .set({
-          status: "succeeded",
-          finishedAt: new Date(),
-          stats: { attempted: due.length, sent, notSent, noConsent, feature: "review_requests" },
-        })
-        .where(eq(agentRuns.id, run.id));
-    }
-    if (notSent > 0) {
-      logger.warn("agents.reviews.provider_unavailable", { clientId: client.id, notSent });
-    }
-    return { ...base, sent, ...(notSent > 0 && sent === 0 ? { skipped: "sms_not_configured" } : {}) };
+    // The window: ended long enough ago to ask, recently enough to be welcome.
+    const newest = new Date(now.getTime() - delayHours * 3_600_000);
+    const oldest = new Date(now.getTime() - REVIEW_MAX_AGE_HOURS * 3_600_000);
+    const recent = await db.query.appointments.findMany({
+      where: and(
+        eq(appointments.clientId, client.id),
+        inArray(appointments.status, ["booked", "confirmed"]),
+        gte(appointments.startAt, oldest),
+        lte(appointments.startAt, newest),
+        isNull(appointments.deletedAt),
+      ),
+      orderBy: [desc(appointments.startAt)],
+      limit: 100,
+    });
+    if (recent.length === 0) return { ...base, skipped: "nothing_to_ask_about" };
+
+    // Per appointment: was this visit already asked about?
+    const asked = await db.query.reminders.findMany({
+      where: and(
+        eq(reminders.clientId, client.id),
+        eq(reminders.kind, "review_request"),
+        inArray(
+          reminders.appointmentId,
+          recent.map((a) => a.id),
+        ),
+      ),
+      columns: { appointmentId: true },
+    });
+    const askedAppointment = new Set(asked.map((r) => r.appointmentId).filter(Boolean));
+    // Per number: any review request in the last 90 days, whatever visit it
+    // was about — read from the texts themselves, so it holds across visits.
+    const [history, spam] = await Promise.all([
+      loadTextHistory(client.id, "review_request", {
+        kindWindowDays: REVIEW_MIN_DAYS_BETWEEN,
+        capWindowDays: MIN_DAYS_BETWEEN_REVENUE_TEXTS,
+        now,
+      }),
+      spamPhoneKeys(client.id, now),
+    ]);
+
+    const due = recent.filter((a) => {
+      const candidate: ReviewCandidate = {
+        appointmentId: a.id,
+        customerName: a.customerName,
+        customerPhone: a.customerPhone,
+        status: a.status,
+        startAt: a.startAt,
+        endAt: a.endAt,
+        askedAt: askedAppointment.has(a.id) ? new Date(0) : null,
+        lastAskedThisPhoneAt: history.lastOfKind.get(phoneKey(a.customerPhone) ?? "") ?? null,
+      };
+      return shouldAskForReview(candidate, now, delayHours);
+    });
+    if (due.length === 0) return { ...base, skipped: "nothing_due" };
+
+    const recipients: RevenueRecipient[] = due.map((appt) => ({
+      phone: appt.customerPhone!,
+      appointmentId: appt.id,
+      body: (language) => reviewRequestBody({ businessName: client.name, customerName: appt.customerName, reviewUrl, language }),
+      onAttempt: async (res) => {
+        await createReminder(client.id, {
+          appointmentId: appt.id,
+          leadId: null,
+          channel: "sms",
+          kind: "review_request",
+          status: res.ok ? "sent" : "failed",
+          sentAt: res.ok ? now : null,
+          error: res.ok ? null : (res.error ?? "Send failed"),
+        });
+      },
+    }));
+    const res = await sendRevenueTexts(client, {
+      kind: "review_request",
+      purpose: "review_request",
+      recipients,
+      history,
+      spam,
+      maxSends: MAX_SENDS_PER_CLIENT,
+      now,
+    });
+    logger.info("review_requests.run", { clientId: client.id, due: due.length, ...res });
+    return {
+      ...base,
+      sent: res.sent + res.queued,
+      ...(res.providerUnavailable ? { skipped: "sms_not_configured" } : {}),
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (run) {
-      await db
-        .update(agentRuns)
-        .set({ status: "failed", finishedAt: new Date(), error: message })
-        .where(eq(agentRuns.id, run.id));
-    }
     logger.error("agents.reviews.failed", { clientId: client.id, error: message });
-    return { ...base, sent, skipped: `error: ${message}` };
+    return { ...base, skipped: `error: ${message}` };
   }
 }
 
-/** Daily entry point: every live client that turned this on. */
-export async function runReviewRequests(budgetMs = 240_000): Promise<ReviewRunResult[]> {
+/** Entry point: every business that turned this on AND is on Pro. */
+export async function runReviewRequests(budgetMs = 240_000, now = new Date()): Promise<ReviewRunResult[]> {
   const deadline = Date.now() + budgetMs;
-  const active = await db.query.clients.findMany({
+  const enabled = await db.query.clients.findMany({
     where: and(
-      eq(clients.status, "live"),
+      inArray(clients.status, ["live", "trial"]),
       eq(clients.reviewRequestsEnabled, true),
       isNull(clients.deletedAt),
     ),
   });
-  return mapLimit(active, 3, async (client) => {
+  // The plan gate, enforced where the texts are sent — not just on the switch.
+  const onPro = await filterByFeature(enabled, "review_requests");
+  if (enabled.length > onPro.length) logger.info("review_requests.plan_gated", { count: enabled.length - onPro.length });
+  return mapLimit(onPro, 3, async (client) => {
     const base: ReviewRunResult = { clientId: client.id, clientName: client.name, sent: 0 };
     if (outOfBudget(deadline)) return { ...base, skipped: "time_budget" };
-    return requestReviewsForClient(client);
+    return requestReviewsForClient(client, now);
   });
 }

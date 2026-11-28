@@ -1028,6 +1028,46 @@ pending): Google stays `calendar.events` + `calendar.freebusy`, Microsoft stays
   / "Upgrade — pay $X today", not "you keep the rest of your free trial".
 - No migration, no new env vars, no Stripe Dashboard or vendor setting changes.
 
+## Full delete: nothing bills afterwards, and it proves it (operator)
+
+- **Delete company** (`src/lib/operator/full-delete.ts`) now also: cancels queued texts,
+  reminders, callbacks and waitlist offers and drops push subscriptions; releases every
+  Retell number tied to the business (the one on file, any bound to its agent, any
+  nicknamed with its id); releases every Twilio number the app bought for it and deletes
+  its toll-free verification (free; a failure there never blocks); revokes the Google
+  grant and removes the stored calendar token or Cal.com key (we never registered a
+  Cal.com webhook, so there is none to remove); cancels every Stripe subscription now
+  (DB row, the customer's other open ones, and anything Stripe stamped with the
+  business id), cancels schedules first, voids open invoices, deletes drafts and pending
+  charges, and expires open Checkout sessions. No refund, no proration, no final invoice.
+- **No shared Twilio sender, ever.** Only numbers named `FrontDesk SMS · <business>`
+  and never `TWILIO_FROM_NUMBER`. The Messaging Service and the sole-proprietor A2P
+  brand/campaign are platform-wide (one campaign, one number), not created per
+  business, so there is nothing per-business to delete there.
+- **Verification before success.** After the vendor steps the code re-asks Retell
+  (numbers, agent, LLM), Twilio (numbers) and Stripe (active subscriptions, open and
+  draft invoices, pending charges, schedules, open checkouts) and checks our own
+  calendar token and queued work. Every line must be zero or the run fails, the company
+  stays locked and listed with its pointers, and Retry finishes it. A vendor that isn't
+  configured counts as "can't be checked", not as clean, if the business held anything there.
+- **Permanently delete now** runs the same pipeline and only then erases our records,
+  in one transaction: the client row (cascades calls, leads, messages, knowledge,
+  appointments, customers' numbers, subscriptions mirror…), the business's portal users
+  (never operators), the audit rows that name it, and stored webhook payloads that
+  mention its id. Retell's own copies of the calls are deleted best effort (not
+  billable, so a failure there never blocks). It re-counts the rows afterwards and fails
+  if any remain. What stays on purpose: Stripe's own records, the global
+  `sms_opt_outs` list (a STOP must keep being honored), any fraud flag the operator
+  chose to record, and one receipt (`operator.permanent_delete`) holding only id, name,
+  actor and time.
+- **Deleted businesses** card on the Platform page lists businesses that were closed or
+  deleted but are still in the database, flags what they still point at, and offers
+  Permanently delete now. (A customer closing their own account still only soft-deletes:
+  it does not release the number or cancel the subscription. Follow-up, not changed here.)
+- **Retell list endpoints.** `GET /list-agents` was removed on 2026-07-31; the Orphans
+  scan now uses `POST /v2/list-agents`. Phone numbers and LLMs already used the v2 lists.
+- No migration, no env var, no vendor setting changes.
+
 ## 2026-11-27 — Website chat is Pro, runs in an iframe, and is locked to the owner's domains
 
 - **Pro only.** New plan feature `website_chat` (src/lib/plan-access.ts): Pro and legacy Scale,

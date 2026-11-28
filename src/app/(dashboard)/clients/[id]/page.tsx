@@ -25,6 +25,7 @@ import { StatusBadge } from "@/components/clients/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { ClientDetail } from "@/components/clients/client-detail";
 import { PromptChangelog } from "@/components/clients/prompt-changelog";
+import { QuoteFollowupSection } from "@/components/portal/quote-followup-section";
 
 export default async function ClientPage({
   params,
@@ -183,6 +184,7 @@ export default async function ClientPage({
             : null,
         }}
       />
+      <QuoteFollowupSection clientId={client.id} isAdmin />
       <PromptChangelog versions={versions} />
     </div>
   );

@@ -158,6 +158,8 @@ export interface FeatureFacts {
   smartRebookingEnabled: boolean;
   outboundRecoveryEnabled: boolean;
   reviewRequestsEnabled: boolean;
+  /** Pro only. Optional so older callers fail open; the save action re-checks. */
+  reviewRequestsAllowed?: boolean;
   reviewUrl: string | null;
   recallEnabled: boolean;
   /** Services with a "book them again after" interval. */
@@ -392,6 +394,9 @@ export function featureRows(
       summary: "Text customers your review link after a visit.",
       explainer: ex.reviewRequests,
       on: f.reviewRequestsEnabled,
+      locked: f.reviewRequestsAllowed === false && !f.reviewRequestsEnabled
+        ? { note: "Review requests come with Pro.", href: "/portal/settings#plan", label: "Upgrade to Pro" }
+        : undefined,
       needs: !f.reviewRequestsEnabled && !f.reviewUrl?.trim()
         ? { note: "Add your review link first.", href: FOLLOW_UPS, label: "Add link" }
         : undefined,

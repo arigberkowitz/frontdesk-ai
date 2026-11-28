@@ -1,9 +1,27 @@
 import "server-only";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, count, eq, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { alertContacts, auditLog, clients, clientTollfree, smsQueue, subscriptions, users } from "@/db/schema";
+import {
+  alertContacts,
+  appointments,
+  auditLog,
+  callCallbacks,
+  calls,
+  clients,
+  clientTollfree,
+  knowledgeItems,
+  leads,
+  pushSubscriptions,
+  reminders,
+  smsMessages,
+  smsQueue,
+  subscriptions,
+  users,
+  waitlistEntries,
+  webhookEvents,
+} from "@/db/schema";
 import { FREE_EMAIL_DOMAINS } from "@/lib/auth-guard";
-import type { ControlClient, ControlStore } from "./controls";
+import type { ControlClient, ControlStore, RemainingRows, ScheduledWork } from "./controls";
 import type { ActiveHoldings, OrphanStore } from "./orphans";
 import { matchesBlock, TRIAL_BLOCK_ACTION, type BlockedIdentity } from "./trial-block";
 
@@ -42,7 +60,11 @@ export function liveStore(): ControlStore & OrphanStore {
     },
     async getTollfree(clientId) {
       const [row] = await db
-        .select({ phoneNumber: clientTollfree.phoneNumber, phoneNumberSid: clientTollfree.phoneNumberSid })
+        .select({
+          phoneNumber: clientTollfree.phoneNumber,
+          phoneNumberSid: clientTollfree.phoneNumberSid,
+          verificationSid: clientTollfree.verificationSid,
+        })
         .from(clientTollfree)
         .where(eq(clientTollfree.clientId, clientId))
         .limit(1);
@@ -104,6 +126,82 @@ export function liveStore(): ControlStore & OrphanStore {
       } catch {
         // swallowed on purpose
       }
+    },
+    async cancelScheduledWork(clientId) {
+      const now = new Date();
+      const texts = await db
+        .update(smsQueue)
+        .set({ status: "dropped", result: "Company deleted by operator", updatedAt: now })
+        .where(and(eq(smsQueue.clientId, clientId), eq(smsQueue.status, "queued")))
+        .returning({ id: smsQueue.id });
+      const rem = await db
+        .update(reminders)
+        .set({ status: "failed", error: "Company deleted by operator", updatedAt: now })
+        .where(and(eq(reminders.clientId, clientId), eq(reminders.status, "queued")))
+        .returning({ id: reminders.id });
+      const cb = await db
+        .update(callCallbacks)
+        .set({ status: "skipped", skipReason: "Company deleted by operator", updatedAt: now })
+        .where(and(eq(callCallbacks.clientId, clientId), eq(callCallbacks.status, "pending")))
+        .returning({ id: callCallbacks.id });
+      const wl = await db
+        .update(waitlistEntries)
+        .set({ status: "cancelled", updatedAt: now })
+        .where(and(eq(waitlistEntries.clientId, clientId), eq(waitlistEntries.status, "waiting")))
+        .returning({ id: waitlistEntries.id });
+      const push = await db.delete(pushSubscriptions).where(eq(pushSubscriptions.clientId, clientId)).returning({ id: pushSubscriptions.id });
+      const w: ScheduledWork = {
+        queuedTexts: texts.length,
+        queuedReminders: rem.length,
+        pendingCallbacks: cb.length,
+        waitingWaitlist: wl.length,
+        pushSubscriptions: push.length,
+      };
+      return w;
+    },
+    async pendingWork(clientId) {
+      const n = async (q: Promise<{ n: number }[]>) => (await q)[0]?.n ?? 0;
+      return {
+        queuedTexts: await n(db.select({ n: count() }).from(smsQueue).where(and(eq(smsQueue.clientId, clientId), eq(smsQueue.status, "queued")))),
+        queuedReminders: await n(db.select({ n: count() }).from(reminders).where(and(eq(reminders.clientId, clientId), eq(reminders.status, "queued")))),
+        pendingCallbacks: await n(db.select({ n: count() }).from(callCallbacks).where(and(eq(callCallbacks.clientId, clientId), eq(callCallbacks.status, "pending")))),
+        waitingWaitlist: await n(db.select({ n: count() }).from(waitlistEntries).where(and(eq(waitlistEntries.clientId, clientId), eq(waitlistEntries.status, "waiting")))),
+        pushSubscriptions: await n(db.select({ n: count() }).from(pushSubscriptions).where(eq(pushSubscriptions.clientId, clientId))),
+      };
+    },
+    async listRetellCallIds(clientId) {
+      const rows = await db.select({ id: calls.retellCallId }).from(calls).where(eq(calls.clientId, clientId)).limit(5000);
+      return rows.map((r) => r.id).filter((x): x is string => Boolean(x));
+    },
+    async purgeBusiness(clientId, ids) {
+      await db.transaction(async (tx) => {
+        // The audit trail that names this business goes; the operator's fraud flags are the one thing kept.
+        await tx.delete(auditLog).where(and(eq(auditLog.clientId, clientId), ne(auditLog.action, TRIAL_BLOCK_ACTION)));
+        // Its portal users. Never an operator (the platform owner / agency staff).
+        await tx.delete(users).where(and(eq(users.clientId, clientId), ne(users.role, "operator")));
+        // Stored vendor payloads that carry its ids (transcripts, addresses). The rows stay for webhook dedupe.
+        const needles = [clientId, ids.agentId].filter((x): x is string => Boolean(x));
+        for (const needle of needles) {
+          await tx.update(webhookEvents).set({ payload: null }).where(sql`${webhookEvents.payload}::text like ${"%" + needle + "%"}`);
+        }
+        // Everything else cascades from the client row (calls, leads, messages, knowledge, appointments, ...).
+        await tx.delete(clients).where(eq(clients.id, clientId));
+      });
+      return this.remainingRows(clientId);
+    },
+    async remainingRows(clientId): Promise<RemainingRows> {
+      const n = async (q: Promise<{ n: number }[]>) => (await q)[0]?.n ?? 0;
+      return {
+        client: await n(db.select({ n: count() }).from(clients).where(eq(clients.id, clientId))),
+        calls: await n(db.select({ n: count() }).from(calls).where(eq(calls.clientId, clientId))),
+        leads: await n(db.select({ n: count() }).from(leads).where(eq(leads.clientId, clientId))),
+        messages: await n(db.select({ n: count() }).from(smsMessages).where(eq(smsMessages.clientId, clientId))),
+        knowledge: await n(db.select({ n: count() }).from(knowledgeItems).where(eq(knowledgeItems.clientId, clientId))),
+        appointments: await n(db.select({ n: count() }).from(appointments).where(eq(appointments.clientId, clientId))),
+        users: await n(db.select({ n: count() }).from(users).where(and(eq(users.clientId, clientId), ne(users.role, "operator")))),
+        subscriptions: await n(db.select({ n: count() }).from(subscriptions).where(eq(subscriptions.clientId, clientId))),
+        other: await n(db.select({ n: count() }).from(auditLog).where(and(eq(auditLog.clientId, clientId), ne(auditLog.action, TRIAL_BLOCK_ACTION)))),
+      };
     },
     async activeHoldings(): Promise<ActiveHoldings> {
       const rows = await db

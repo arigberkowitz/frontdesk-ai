@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
@@ -8,7 +7,7 @@ import { audit } from "@/lib/data/audit";
 import { assertClientAccess } from "@/lib/auth-guard";
 import { assertClientInOrg } from "@/lib/data/clients";
 import { planAccessFor, UPGRADE_MESSAGES } from "@/lib/plan-access";
-import { syncAgentPrompt } from "@/lib/agent-publish";
+import { applyClientEdit, withSyncNote } from "@/lib/agent-publish";
 import { logger } from "@/lib/logger";
 import { type ActionState } from "./types";
 
@@ -46,26 +45,18 @@ export async function setReceptionistPowerAction(
     await db.update(clients).set({ status: "paused" }).where(eq(clients.id, clientId));
   }
 
-  // Push the matching behavior to the live phone agent immediately.
-  try {
-    await syncAgentPrompt(client.orgId, clientId);
-  } catch (err) {
-    logger.warn("receptionist.power.sync_failed", {
-      clientId,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
+  const sync = await applyClientEdit(user, clientId);
 
   logger.info("receptionist.power", { clientId, on: turnOn });
   void audit({ clientId, actor: user.id, action: "receptionist.power", detail: { on: turnOn } });
-  revalidatePath("/portal", "layout");
-  revalidatePath(`/clients/${clientId}`);
   return turnOn
-    ? { ok: true, message: "Receptionist is back on — answering, booking, and alerting as before." }
+    ? { ok: true, message: withSyncNote("Receptionist is back on — answering, booking, and alerting as before.", sync) }
     : {
         ok: true,
-        message:
+        message: withSyncNote(
           "Receptionist turned off. Callers hear a brief message and can leave their name and number; nothing else runs until you turn it back on.",
+          sync,
+        ),
       };
 }
 
@@ -100,25 +91,16 @@ export async function setAnsweringModeAction(
 
   await db.update(clients).set({ answeringMode: mode }).where(eq(clients.id, clientId));
 
-  const client = await db.query.clients.findFirst({ where: eq(clients.id, clientId) });
-  if (client?.retellAgentId) {
-    try {
-      await syncAgentPrompt(client.orgId, clientId);
-    } catch (err) {
-      logger.warn("receptionist.mode.sync_failed", {
-        clientId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
+  const sync = await applyClientEdit(user, clientId);
 
   logger.info("receptionist.answering_mode", { clientId, mode });
-  revalidatePath("/portal", "layout");
   return {
     ok: true,
-    message:
+    message: withSyncNote(
       mode === "missed_only"
         ? "Backup mode: your AI now answers only the calls you miss. Set up conditional forwarding with your carrier so missed calls reach it."
         : "Full receptionist: your AI answers every call. Forward your business line so calls reach it.",
+      sync,
+    ),
   };
 }

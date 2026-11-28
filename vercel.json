@@ -6,6 +6,38 @@
       "schedule": "30 13 * * *"
     },
     {
+      "path": "/api/cron/quote-followup",
+      "schedule": "40 15 * * *"
+    },
+    {
+      "path": "/api/cron/quote-followup",
+      "schedule": "40 17 * * *"
+    },
+    {
+      "path": "/api/cron/quote-followup",
+      "schedule": "40 19 * * *"
+    },
+    {
+      "path": "/api/cron/quote-followup",
+      "schedule": "40 21 * * *"
+    },
+    {
+      "path": "/api/cron/quote-followup",
+      "schedule": "40 23 * * *"
+    },
+    {
+      "path": "/api/cron/quote-followup",
+      "schedule": "40 1 * * *"
+    },
+    {
+      "path": "/api/cron/quote-followup",
+      "schedule": "40 3 * * *"
+    },
+    {
+      "path": "/api/cron/quote-followup",
+      "schedule": "40 5 * * *"
+    },
+    {
       "path": "/api/cron/retention",
       "schedule": "45 12 * * *"
     },
@@ -208,6 +240,34 @@
     {
       "path": "/api/cron/morning-unbooked",
       "schedule": "15 18 * * *"
+    },
+    {
+      "path": "/api/cron/winback",
+      "schedule": "10 17 * * *"
+    },
+    {
+      "path": "/api/cron/winback",
+      "schedule": "10 20 * * *"
+    },
+    {
+      "path": "/api/cron/winback",
+      "schedule": "10 23 * * *"
+    },
+    {
+      "path": "/api/cron/review-requests",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/review-requests",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/review-requests",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/review-requests",
+      "schedule": "0 1 * * *"
     }
   ]
 }

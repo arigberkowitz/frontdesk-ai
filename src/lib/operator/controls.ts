@@ -1,6 +1,5 @@
-import { confirmationMatches } from "@/lib/account-close";
 import type { SuspendedFlag } from "./suspension";
-import { identityFrom, type BlockedIdentity } from "./trial-block";
+import type { BlockedIdentity } from "./trial-block";
 
 /**
  * The operator's own controls over a business: release its phone number,
@@ -48,6 +47,49 @@ export interface OperatorProviders {
   stripeResume(subscriptionId: string): Promise<"resumed" | "canceled" | "not_paused">;
   /** Rebuild the live agent from the DB (messages-only / full prompt). */
   republishAgent(orgId: string, clientId: string): Promise<void>;
+
+  /* ---- full delete: everything that could still bill, found by re-asking the vendors ---- */
+  /**
+   * Every Retell number that belongs to this business: the one on file, any bound
+   * to its agent, and any nicknamed with its id ("Riley (8d787138)").
+   */
+  retellNumbersFor(q: { clientId: string; agentId: string | null; phone: string | null }): Promise<string[]>;
+  retellAgentExists(agentId: string): Promise<boolean>;
+  retellLlmExists(llmId: string): Promise<boolean>;
+  /** Permanently delete one Retell call record (recording + transcript). Best effort, never billable. */
+  retellDeleteCall(callId: string): Promise<Outcome>;
+  twilioNumberExists(sid: string): Promise<boolean>;
+  /** Numbers in our Twilio account the app bought for this business ("FrontDesk SMS · <name>"). Never the shared sender. */
+  twilioNumbersNamed(friendlyName: string): Promise<{ sid: string; phone: string }[]>;
+  /** Toll-free verification we filed for the business. Free, so a failure here never blocks. */
+  twilioDeleteTollfreeVerification(sid: string): Promise<Outcome>;
+  /** Not-yet-canceled subscriptions Stripe stamped with this business's id (finds ones our DB lost track of). */
+  stripeSubscriptionsByClient(clientId: string): Promise<string[]>;
+  /**
+   * After the subscriptions are canceled: cancel schedules, void or delete unpaid
+   * invoices, remove pending invoice items, expire open checkout sessions.
+   */
+  stripeWindDown(q: { clientId: string; customerId: string | null }): Promise<StripeWindDown>;
+  /** Re-ask Stripe what could still bill. */
+  stripeInventory(q: { clientId: string; customerId: string | null }): Promise<StripeInventory>;
+  /** Revoke the calendar grant we hold. "manual" = the provider has no revoke call (owner removes the app). */
+  revokeCalendar(provider: string | null, encryptedSecret: string | null): Promise<"revoked" | "none" | "manual">;
+}
+
+export interface StripeWindDown {
+  schedulesCanceled: number;
+  invoicesVoided: number;
+  draftInvoicesDeleted: number;
+  pendingItemsRemoved: number;
+  checkoutsExpired: number;
+}
+
+export interface StripeInventory {
+  activeSubscriptions: number;
+  openInvoices: number;
+  pendingItems: number;
+  activeSchedules: number;
+  openCheckouts: number;
 }
 
 export interface ControlClient {
@@ -61,6 +103,8 @@ export interface ControlClient {
   retellPhoneNumber: string | null;
   smsNumber: string | null;
   ownerEmail: string | null;
+  calendarProvider: string | null;
+  calendarSecret: string | null;
   setupFlags: {
     suspended?: SuspendedFlag;
     operatorNumberHoldAt?: string;
@@ -81,6 +125,34 @@ export interface ClientPatch {
   retellPhoneNumber?: null;
   smsNumber?: null;
   deletedAt?: Date;
+  calendarProvider?: null;
+  calendarSecret?: null;
+  calendarId?: null;
+  calendarAccount?: null;
+  calendarConnectedAt?: null;
+  calendarBusyIds?: null;
+}
+
+/** Counts of what is still waiting to fire for a business. */
+export interface ScheduledWork {
+  queuedTexts: number;
+  queuedReminders: number;
+  pendingCallbacks: number;
+  waitingWaitlist: number;
+  pushSubscriptions: number;
+}
+
+/** Rows left in our own database for a business (permanent delete re-checks these). */
+export interface RemainingRows {
+  client: number;
+  calls: number;
+  leads: number;
+  messages: number;
+  knowledge: number;
+  appointments: number;
+  users: number;
+  subscriptions: number;
+  other: number;
 }
 
 export interface ControlStore {
@@ -90,7 +162,7 @@ export interface ControlStore {
   mergeFlags(clientId: string, set: Record<string, unknown>, remove?: string[]): Promise<void>;
   getSubscription(clientId: string): Promise<ControlSubscription | null>;
   markSubscriptionStatus(clientId: string, status: "canceled" | "paused" | "active"): Promise<void>;
-  getTollfree(clientId: string): Promise<{ phoneNumber: string | null; phoneNumberSid: string | null } | null>;
+  getTollfree(clientId: string): Promise<{ phoneNumber: string | null; phoneNumberSid: string | null; verificationSid?: string | null } | null>;
   clearTollfree(clientId: string): Promise<void>;
   /** Mark queued customer texts for the business as dropped; returns how many. */
   dropQueuedTexts(clientId: string): Promise<number>;
@@ -100,6 +172,23 @@ export interface ControlStore {
   /** Must throw on failure: a fraud flag that silently didn't save is worse than none. */
   writeTrialBlock(clientId: string, identity: BlockedIdentity, detail: Record<string, unknown>): Promise<void>;
   audit(entry: { clientId: string | null; actor: string; action: string; detail: Record<string, unknown> }): Promise<void>;
+
+  /* ---- full delete ---- */
+  /** Cancel everything that would still fire: queued texts, reminders, callbacks, waitlist offers; drop push subscriptions. Returns what was cleared. */
+  cancelScheduledWork(clientId: string): Promise<ScheduledWork>;
+  /** What is still queued (read-only), to prove the above worked. */
+  pendingWork(clientId: string): Promise<ScheduledWork>;
+  /** Retell call ids we hold for the business, for deleting the vendor's copies on a permanent delete. */
+  listRetellCallIds(clientId: string): Promise<string[]>;
+  /**
+   * PERMANENT: delete the business's rows (calls, leads, messages, knowledge,
+   * customers' phone numbers, its portal users) and scrub the audit log + stored
+   * webhook payloads that mention it, then write the one minimal receipt.
+   * Never touches operator users or the fraud-flag records.
+   */
+  purgeBusiness(clientId: string, ids: { agentId: string | null; phone: string | null }): Promise<RemainingRows>;
+  /** Re-count what is left for the business. All zero after a purge. */
+  remainingRows(clientId: string): Promise<RemainingRows>;
 }
 
 export interface ControlDeps {
@@ -122,7 +211,14 @@ export type StepId =
   | "retell_llm"
   | "line"
   | "stripe"
+  | "stripe_cleanup"
   | "queued_texts"
+  | "scheduled"
+  | "calendar"
+  | "twilio_verification"
+  | "verify"
+  | "retell_calls"
+  | "db_purge"
   | "fraud_flag"
   | "soft_delete"
   | "unsuspend";
@@ -135,7 +231,14 @@ export interface StepResult {
   error?: string;
 }
 
-export type ControlAction = "release_number" | "release_voice_number" | "delete_agent" | "suspend" | "reactivate" | "delete_company";
+export type ControlAction =
+  | "release_number"
+  | "release_voice_number"
+  | "delete_agent"
+  | "suspend"
+  | "reactivate"
+  | "delete_company"
+  | "permanent_delete";
 
 export interface ControlResult {
   ok: boolean;
@@ -145,6 +248,16 @@ export interface ControlResult {
   message: string;
   steps: StepResult[];
   failedSteps: StepId[];
+  /** Full delete: what each vendor still holds after the run, re-queried. Success needs every line at zero. */
+  checklist?: ChecklistLine[];
+}
+
+export interface ChecklistLine {
+  vendor: "Retell" | "Twilio" | "Stripe" | "Calendar" | "Jobs" | "Database";
+  /** "0 numbers, 0 agents, 0 LLMs" */
+  text: string;
+  /** True only when everything that line counts is zero. */
+  zero: boolean;
 }
 
 function errMsg(err: unknown): string {
@@ -153,7 +266,7 @@ function errMsg(err: unknown): string {
   return m.replace(/\s+/g, " ").slice(0, 240);
 }
 
-async function step(
+export async function step(
   steps: StepResult[],
   id: StepId,
   label: string,
@@ -169,7 +282,7 @@ async function step(
   }
 }
 
-function finish(action: ControlAction, steps: StepResult[], okMessage: string, failMessage?: string): ControlResult {
+export function finish(action: ControlAction, steps: StepResult[], okMessage: string, failMessage?: string): ControlResult {
   const failedSteps = steps.filter((s) => s.status === "failed").map((s) => s.step);
   const ok = failedSteps.length === 0;
   return {
@@ -185,7 +298,7 @@ function finish(action: ControlAction, steps: StepResult[], okMessage: string, f
   };
 }
 
-const notFound = (action: ControlAction): ControlResult => ({
+export const notFound = (action: ControlAction): ControlResult => ({
   ok: false,
   action,
   httpStatus: 404,
@@ -194,12 +307,12 @@ const notFound = (action: ControlAction): ControlResult => ({
   failedSteps: [],
 });
 
-const nowOf = (deps: ControlDeps) => (deps.now?.() ?? new Date()).toISOString();
+export const nowOf = (deps: ControlDeps) => (deps.now?.() ?? new Date()).toISOString();
 
 /* ------------------------------ step groups ------------------------------ */
 
 /** Release the Retell number (after detaching it) and the Twilio texting number we bought. */
-async function releaseNumberSteps(
+export async function releaseNumberSteps(
   deps: ControlDeps,
   clientId: string,
   steps: StepResult[],
@@ -251,7 +364,7 @@ async function releaseNumberSteps(
 }
 
 /** Delete the Retell agent, then its LLM, clearing the ids as each goes. */
-async function deleteAgentSteps(deps: ControlDeps, clientId: string, steps: StepResult[]): Promise<void> {
+export async function deleteAgentSteps(deps: ControlDeps, clientId: string, steps: StepResult[]): Promise<void> {
   const { providers: p, store } = deps;
   const client = (await store.getClient(clientId))!;
 
@@ -300,7 +413,7 @@ async function deleteAgentSteps(deps: ControlDeps, clientId: string, steps: Step
 }
 
 /** Stripe: cancel immediately (no refund) or pause, for the stored subscription and any other open ones. */
-async function stripeSteps(
+export async function stripeSteps(
   deps: ControlDeps,
   clientId: string,
   mode: { action: "cancel" | "pause" | "none"; prorate: boolean },
@@ -553,105 +666,3 @@ export async function reactivateCompany(deps: ControlDeps, actor: Actor, clientI
   return res;
 }
 
-export interface DeleteCompanyOptions {
-  /** What the operator typed; must match the business name. */
-  confirm: string;
-  /** Record email / phone / domain so they can't start another free trial. */
-  blockFraud: boolean;
-  reason?: string;
-}
-
-export async function deleteCompany(
-  deps: ControlDeps,
-  actor: Actor,
-  clientId: string,
-  opts: DeleteCompanyOptions,
-): Promise<ControlResult> {
-  const { store } = deps;
-  const client = await store.getClient(clientId);
-  if (!client) return notFound("delete_company");
-  if (client.deletedAt) {
-    return { ok: true, action: "delete_company", httpStatus: 200, message: "This company is already deleted.", steps: [], failedSteps: [] };
-  }
-  if (!confirmationMatches(opts.confirm, client.name)) {
-    return {
-      ok: false,
-      action: "delete_company",
-      httpStatus: 400,
-      message: `Type “${client.name}” exactly to confirm.`,
-      steps: [],
-      failedSteps: [],
-    };
-  }
-  const steps: StepResult[] = [];
-  const ids = { phone: client.retellPhoneNumber, agentId: client.retellAgentId, llmId: client.retellLlmId };
-
-  // 1. Lock: out of the portal and every job right now, line detached. This is
-  //    the same state as Suspend, marked `deleting` so it can't be reactivated.
-  await step(steps, "lock", "Lock the company (portal blocked, jobs skip it)", async () => {
-    const existing = client.setupFlags?.suspended;
-    const record: SuspendedFlag = {
-      at: existing?.at ?? nowOf(deps),
-      by: existing?.by ?? actor.id,
-      mode: "off",
-      previousStatus: existing?.previousStatus ?? client.status,
-      ...(opts.reason ? { reason: opts.reason.slice(0, 300) } : {}),
-      stripe: { action: "cancel", prorate: false },
-      deleting: true,
-    };
-    await store.mergeFlags(clientId, { suspended: record });
-    await store.patchClient(clientId, { status: "paused" });
-  });
-  await step(steps, "queued_texts", "Drop queued customer texts", async () => {
-    const n = await store.dropQueuedTexts(clientId);
-    return n === 0 ? { status: "skipped", detail: "None waiting" } : { detail: `${n} dropped` };
-  });
-
-  // 2-4. Vendor resources.
-  await releaseNumberSteps(deps, clientId, steps);
-  await deleteAgentSteps(deps, clientId, steps);
-  await stripeSteps(deps, clientId, { action: "cancel", prorate: false }, steps);
-
-  // 5. Fraud flag (optional). Throws on failure, which fails this step.
-  if (opts.blockFraud) {
-    await step(steps, "fraud_flag", "Block this email / phone / domain from a new free trial", async () => {
-      const who = await store.identitiesFor(clientId);
-      const identity = identityFrom({ emails: [client.ownerEmail, ...who.emails], phones: who.phones }, (d) => store.isFreeEmailDomain(d));
-      if (identity.emails.length === 0 && identity.phones.length === 0) {
-        return { status: "skipped", detail: "No customer email or phone on file to block" };
-      }
-      await store.writeTrialBlock(clientId, identity, { businessName: client.name, reason: opts.reason ?? null, by: actor.email });
-      return { detail: `${identity.emails.length} email(s), ${identity.phones.length} phone(s)${identity.domain ? `, @${identity.domain}` : ""}` };
-    });
-  } else {
-    steps.push({ step: "fraud_flag", label: "Fraud flag", status: "skipped", detail: "Not requested" });
-  }
-
-  // 6. Soft-delete ONLY when every vendor step is clean. Until then the company
-  //    stays in the list (locked) so the operator can see it and press Retry.
-  if (steps.every((s) => s.status !== "failed")) {
-    await step(steps, "soft_delete", "Remove from lists; call data purges on the 90-day schedule", async () => {
-      await store.patchClient(clientId, { deletedAt: deps.now?.() ?? new Date() });
-    });
-  } else {
-    steps.push({
-      step: "soft_delete",
-      label: "Remove from lists",
-      status: "failed",
-      error: "Waiting on the failed step above — the company is locked but still listed so you can retry.",
-    });
-  }
-
-  const res = finish(
-    "delete_company",
-    steps,
-    "Company deleted. Its number and agent are released, its subscription is canceled, and it's gone from your lists. Call data purges in 90 days.",
-  );
-  await store.audit({
-    clientId,
-    actor: actor.id,
-    action: "operator.delete_company",
-    detail: { by: actor.email, ok: res.ok, name: client.name, blockFraud: opts.blockFraud, reason: opts.reason ?? null, ids, steps },
-  });
-  return res;
-}

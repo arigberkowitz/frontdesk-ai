@@ -5,11 +5,11 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 /**
- * Daily review-request sweep.
+ * Review-request sweep, a few times a day.
  *
- * Scheduled late afternoon UTC so it lands in the US afternoon — the agent
- * enforces each client's own 9am–7pm local window on top, and only picks up
- * visits that ended at least three hours ago.
+ * Runs every couple of hours across the US day so the owner's delay (default
+ * 2 hours after the visit ends) means roughly that. The agent enforces each
+ * business's own 9 AM–7 PM local window and the Pro plan on top.
  */
 export async function GET(req: Request): Promise<Response> {
   const denied = authorizeCron(req, "review-requests");
