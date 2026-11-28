@@ -6,9 +6,8 @@ import { requireClientEditor, requireOperator } from "@/lib/auth-guard";
 import { agentConfigSchema, emptyToNull } from "@/lib/validation";
 import { assertClientInOrg, getClient, updateClient } from "@/lib/data/clients";
 import { createAgentVersion } from "@/lib/data/agent-versions";
-import { openingLine } from "@/lib/prompt";
-import { agentToolsFor, buildPromptForClient } from "@/lib/agent-publish";
-import { DEFAULT_VOICE_ID, getRetellClient, updateAgentVoice } from "@/lib/retell";
+import { applyClientEdit, buildPromptForClient, withSyncNote } from "@/lib/agent-publish";
+import { DEFAULT_VOICE_ID, updateAgentVoice } from "@/lib/retell";
 import { integrations } from "@/lib/env";
 import { clientMayActivate } from "@/lib/data/trial";
 import { OWNER_PHONE_ERROR, runProvision } from "@/lib/provision";
@@ -54,6 +53,7 @@ export async function saveAgentConfigAction(
   // Push a voice change straight to the live Retell agent — a DB-only save would
   // otherwise leave the provisioned agent on its old voice until the next
   // re-provision. (Mirrors the client-portal voice picker.)
+  let voiceError: string | null = null;
   if (
     existing?.retellAgentId &&
     integrations.retell() &&
@@ -62,18 +62,25 @@ export async function saveAgentConfigAction(
     try {
       await updateAgentVoice(existing.retellAgentId, newVoiceId || DEFAULT_VOICE_ID, existing.languages);
     } catch (err) {
-      revalidatePath(`/clients/${clientId}`);
-      return {
-        ok: false,
-        error: `Saved, but updating the live agent's voice failed: ${
-          err instanceof Error ? err.message : "unknown"
-        }. It'll apply next time you provision.`,
-      };
+      voiceError = err instanceof Error ? err.message : "unknown";
     }
   }
 
-  revalidatePath(`/clients/${clientId}`);
-  return { ok: true };
+  // Greeting, name, guidance, booking rules and the disclosure all live in the
+  // published prompt — push them now. Never call runProvision from a save: that
+  // path can buy a phone number.
+  const sync = await applyClientEdit(user, clientId);
+  if (voiceError) {
+    return {
+      ok: false,
+      error: withSyncNote(
+        `Saved, but updating the live agent's voice failed: ${voiceError}.`,
+        sync,
+      ),
+      data: { sync },
+    };
+  }
+  return { ok: true, message: withSyncNote("Saved.", sync), data: { sync } };
 }
 
 /**
@@ -140,7 +147,12 @@ export async function provisionAgentPortalAction(
   return result;
 }
 
-/** Snapshot a new version and push the rebuilt prompt to Retell (§B5). */
+/**
+ * Manual retry: push the current prompt (and speech settings) to the live
+ * receptionist, then snapshot a version. Saves already do this automatically;
+ * this is the "Retry" control when that push failed. Never provisions a
+ * number.
+ */
 export async function publishAgentAction(
   _prev: ActionState,
   formData: FormData,
@@ -151,34 +163,31 @@ export async function publishAgentAction(
   const client = await getClient(user.orgId, clientId);
   if (!client) return { ok: false, error: "Client not found." };
 
-  const prompt = buildPromptForClient(client, {
-      staffAllowed: (await planAccessFor(client)).has("staff_mode"),
-    });
-
-  if (client.retellLlmId && integrations.retell()) {
-    try {
-      await getRetellClient().llm.update(client.retellLlmId, {
-        general_prompt: prompt,
-        begin_message: openingLine(client),
-        // Keep tools in lockstep with the prompt: a prompt that mentions
-        // cancel_appointment (or a changed escalation number) must ship the
-        // matching tool set, or agents provisioned earlier hallucinate calls.
-        general_tools: agentToolsFor(client, clientId),
-      });
-    } catch (err) {
-      return {
-        ok: false,
-        error: `Retell update failed: ${err instanceof Error ? err.message : "unknown"}`,
-      };
-    }
+  const sync = await applyClientEdit(user, clientId);
+  if (sync === "failed") {
+    return {
+      ok: false,
+      error: "We couldn't update the live receptionist just now. Try again in a minute.",
+      data: { sync },
+    };
+  }
+  if (sync === "not_provisioned") {
+    return {
+      ok: false,
+      error: "This business doesn't have a live receptionist yet.",
+      data: { sync },
+    };
   }
 
+  const prompt = buildPromptForClient(client, {
+    staffAllowed: (await planAccessFor(client)).has("staff_mode"),
+  });
   await createAgentVersion(clientId, {
     promptSnapshot: prompt,
     knowledgeSnapshot: client.knowledgeItems,
     publishedBy: user.id,
-    notes: notes || null,
+    notes: notes || "Retry sync",
   });
   revalidatePath(`/clients/${clientId}`);
-  return { ok: true };
+  return { ok: true, message: "Live receptionist is up to date.", data: { sync } };
 }

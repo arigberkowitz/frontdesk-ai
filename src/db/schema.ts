@@ -404,6 +404,12 @@ export const clients = pgTable(
         operatorNumberHoldAt?: string;
         /** The signup matched an operator fraud flag, so no free trial was started. */
         trialBlocked?: boolean;
+        /**
+         * Last automatic (or Retry) prompt push failed (ISO). Cleared on a
+         * successful sync. The operator agent tab shows "Update failed — Retry"
+         * while this is set. No migration: jsonb flag only.
+         */
+        agentSyncFailedAt?: string | null;
       }>()
       .notNull()
       .default({}),

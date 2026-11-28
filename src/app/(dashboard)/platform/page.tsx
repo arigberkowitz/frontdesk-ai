@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/auth-guard";
-import { listAllWorkspaces } from "@/lib/data/platform";
+import { listAllWorkspaces, listDeletedBusinesses } from "@/lib/data/platform";
 import { integrationHealth } from "@/lib/data/integration-health";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/clients/status-badge";
 import { AdoptWorkspace } from "@/components/platform/adopt-workspace";
 import { IntegrationHealth } from "@/components/platform/integration-health";
 import { OrphansCard } from "@/components/operator/orphans-card";
+import { DeletedBusinessesCard } from "@/components/operator/deleted-businesses-card";
 import { LocalDateTime } from "@/components/local-datetime";
 import type { ClientStatus } from "@/db/schema";
 
@@ -18,6 +19,7 @@ export const metadata: Metadata = { title: "Platform" };
 export default async function PlatformPage() {
   const admin = await requireSuperAdmin();
   const workspaces = await listAllWorkspaces();
+  const deleted = await listDeletedBusinesses();
   const health = integrationHealth();
   const selfServe = workspaces.filter((w) => w.kind === "business").length;
 
@@ -31,6 +33,8 @@ export default async function PlatformPage() {
       <IntegrationHealth {...health} />
 
       <OrphansCard />
+
+      <DeletedBusinessesCard rows={deleted.map((d) => ({ id: d.id, name: d.name, deletedAt: d.deletedAt.toISOString(), holds: d.holds }))} />
 
       <div className="space-y-3">
         {workspaces.map((w) => (
