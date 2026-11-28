@@ -33,7 +33,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
               Privacy
             </Link>
             <Link href="/sms-consent" className="hover:text-foreground">
-              SMS Consent
+              SMS consent
             </Link>
             <Link href="/contact" className="hover:text-foreground">
               Contact

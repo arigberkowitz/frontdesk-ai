@@ -85,9 +85,9 @@ export default function TermsPage() {
         <Section title="5. Fees and trials">
           <p>
             Paid plans are billed monthly (or yearly) per business location. When you sign up and
-            subscribe yourself, there is no setup fee. If you subscribe during your free trial, your
-            card is saved at checkout and first charged when the trial ends; otherwise the first
-            period is charged at checkout.
+            subscribe yourself, there is no setup fee. Your first period is charged at checkout when
+            you choose a plan, including if you choose one during your free trial, and paying ends
+            the trial.
             A one-time setup fee applies only where we set the service up for you, and is shown at
             purchase before you pay. Every new account starts with a 14-day free trial: we do
             not ask for a card during it, it is never charged, and it does not become a paid plan

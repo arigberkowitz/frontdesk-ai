@@ -79,7 +79,7 @@ export const PLANS: Record<PlanKey, Plan> = {
     description: "Single-location businesses getting started with 24/7 coverage.",
     highlights: [
       "24/7 AI receptionist — every call answered",
-      "Appointment booking + confirmation texts",
+      "Appointment booking + confirmation & reminder texts",
       "Lead capture & instant owner alerts",
       LANGUAGE_HIGHLIGHT,
       "Spam & robocall screening",

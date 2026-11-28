@@ -65,12 +65,17 @@ export function TrustSection({ demoPhone }: { demoPhone?: string | null }) {
             </>
           ) : (
             <>
-              <p className="mt-3 font-medium">Want to hear it on a real call?</p>
+              <p className="mt-3 font-medium">Hear it answer for your own business</p>
               <p className="mt-2 text-sm text-muted-foreground">
+                <Link href="/sign-up" className="font-medium text-foreground underline underline-offset-4">
+                  Start free
+                </Link>
+                , paste your website, and make a test call in your browser a few minutes later. No
+                card. Rather we set it up for you?{" "}
                 <Link href="/contact" className="font-medium text-foreground underline underline-offset-4">
                   Get in touch
-                </Link>{" "}
-                and we&apos;ll set you up with a live demo.
+                </Link>
+                .
               </p>
             </>
           )}
