@@ -34,6 +34,20 @@ export type ChatSmsPurpose = "booking_confirmation" | "cancel_code" | "deposit_r
 
 /** One visitor message. False once the business hit today's cap. */
 export async function allowChatTurn(clientId: string): Promise<boolean> {
+  return (await startChatTurn(clientId, null)).ok;
+}
+
+/**
+ * Same cap as allowChatTurn, and returns the turn's row so the route can
+ * record what the turn produced (recordChatTurnOutcome). The row's `stats`
+ * carries the widget's per-page conversation id, which is what "chats" on the
+ * dashboard counts. No new table and no migration: the rows already exist for
+ * the cap.
+ */
+export async function startChatTurn(
+  clientId: string,
+  conversationId: string | null,
+): Promise<{ ok: boolean; runId: string | null }> {
   try {
     const since = new Date(Date.now() - DAY_MS);
     const [row] = await db
@@ -44,17 +58,78 @@ export async function allowChatTurn(clientId: string): Promise<boolean> {
       );
     if ((row?.n ?? 0) >= CHAT_TURNS_PER_CLIENT_PER_DAY) {
       logger.warn("chat.limit.client_daily_turns", { clientId });
-      return false;
+      return { ok: false, runId: null };
     }
-    await db.insert(agentRuns).values({
-      clientId,
-      kind: "web_chat_turn",
-      status: "succeeded",
-      finishedAt: new Date(),
-    });
-    return true;
+    const [inserted] = await db
+      .insert(agentRuns)
+      .values({
+        clientId,
+        kind: "web_chat_turn",
+        status: "succeeded",
+        finishedAt: new Date(),
+        stats: conversationId ? { conversation: conversationId } : null,
+      })
+      .returning({ id: agentRuns.id });
+    return { ok: true, runId: inserted?.id ?? null };
   } catch {
-    return consumeAttempt(`chat-turns:${clientId}`, CHAT_TURNS_PER_CLIENT_PER_DAY, DAY_MS).ok;
+    return { ok: consumeAttempt(`chat-turns:${clientId}`, CHAT_TURNS_PER_CLIENT_PER_DAY, DAY_MS).ok, runId: null };
+  }
+}
+
+/**
+ * What one chat turn produced: a lead taken (take_message succeeded) and/or a
+ * booking made (book_appointment succeeded). Counted only from tool results
+ * that said success, never from what the model wrote. Best effort: a failed
+ * write loses a dashboard count, never the visitor's reply.
+ */
+export async function recordChatTurnOutcome(
+  clientId: string,
+  runId: string | null,
+  outcome: { leads: number; bookings: number },
+): Promise<void> {
+  if (!runId || (outcome.leads <= 0 && outcome.bookings <= 0)) return;
+  try {
+    const patch = JSON.stringify({ leads: outcome.leads, bookings: outcome.bookings });
+    await db
+      .update(agentRuns)
+      .set({ stats: sql`coalesce(${agentRuns.stats}, '{}'::jsonb) || ${patch}::jsonb` })
+      .where(and(eq(agentRuns.id, runId), eq(agentRuns.clientId, clientId)));
+  } catch (err) {
+    logger.warn("chat.outcome_record_failed", { clientId, error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+export interface WebChatStats {
+  days: number;
+  /** Distinct widget conversations that reached the model. */
+  chats: number;
+  /** Leads the chat captured (take_message succeeded). */
+  leads: number;
+  /** Bookings the chat made (book_appointment succeeded). */
+  bookings: number;
+}
+
+/**
+ * Website chat numbers for the dashboard, from the same agent_runs rows. Null
+ * when they can't be read (e.g. the web_chat_turn enum migration hasn't run),
+ * so the dashboard says nothing rather than showing a made-up zero.
+ */
+export async function getWebChatStats(clientId: string, days = 30): Promise<WebChatStats | null> {
+  try {
+    const since = new Date(Date.now() - days * DAY_MS);
+    const [row] = await db
+      .select({
+        chats: sql<number>`count(distinct ${agentRuns.stats}->>'conversation')::int`,
+        leads: sql<number>`coalesce(sum((${agentRuns.stats}->>'leads')::int), 0)::int`,
+        bookings: sql<number>`coalesce(sum((${agentRuns.stats}->>'bookings')::int), 0)::int`,
+      })
+      .from(agentRuns)
+      .where(
+        and(eq(agentRuns.clientId, clientId), eq(agentRuns.kind, "web_chat_turn"), gte(agentRuns.startedAt, since)),
+      );
+    return { days, chats: row?.chats ?? 0, leads: row?.leads ?? 0, bookings: row?.bookings ?? 0 };
+  } catch {
+    return null;
   }
 }
 

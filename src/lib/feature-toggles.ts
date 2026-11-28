@@ -171,6 +171,8 @@ export interface FeatureFacts {
   morningUnbookedTextEnabled: boolean;
   ownerEmail: string | null;
   chatWidgetEnabled: boolean;
+  /** The business's plan includes website chat (Pro, trials, comped). Defaults to true when omitted. */
+  chatWidgetAllowed?: boolean;
 }
 
 export interface FeatureRowView {
@@ -246,6 +248,7 @@ export function confirmNotesFor(
 }
 
 export const STAFF_MODE_LOCKED_NOTE = "Included with Pro. Upgrade to book by team member.";
+export const CHAT_WIDGET_LOCKED_NOTE = "Included with Pro. Upgrade to put your AI on your website.";
 
 export function featureRows(
   f: FeatureFacts,
@@ -484,8 +487,15 @@ export function featureRows(
       summary: "Your AI as a chat bubble on your site.",
       explainer: ex.chatWidget,
       on: f.chatWidgetEnabled,
+      // Pro only: shown, not hidden. An owner already on it can still switch it off.
+      locked: f.chatWidgetAllowed === false && !f.chatWidgetEnabled
+        ? { note: CHAT_WIDGET_LOCKED_NOTE, href: `${FOLLOW_UPS}#website-chat`, label: "Upgrade to Pro" }
+        : undefined,
+      warning: f.chatWidgetAllowed === false && f.chatWidgetEnabled
+        ? { note: "Paused on your website until you're on Pro. Your settings are saved." }
+        : undefined,
       confirmNotes: null,
-      href: `${FOLLOW_UPS}#advanced`,
+      href: `${FOLLOW_UPS}#website-chat`,
     },
   ];
   return rows;

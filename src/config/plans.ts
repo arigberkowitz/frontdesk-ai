@@ -99,6 +99,7 @@ export const PLANS: Record<PlanKey, Plan> = {
       "Everything in Starter",
       "One tap: your AI calls a lead back for you",
       "Staff mode — team members with their own calendars",
+      "Website chat — the same AI answers visitors on your site, takes leads and books",
       "Every night we review your calls and suggest better answers for you to approve",
     ],
   },

@@ -23,6 +23,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { PortalHero } from "@/components/portal/portal-hero";
 import { MetricCard } from "@/components/metric-card";
 import { ValueCardSection, ValueCardSkeleton } from "@/components/portal/value-card";
+import { WebsiteChatStatsSection } from "@/components/portal/website-chat-stats";
 import { Card, CardContent } from "@/components/ui/card";
 import { CallActivity } from "@/components/portal/call-activity";
 import { CallHealthPanel } from "@/components/portal/call-health-panel";
@@ -336,6 +337,12 @@ export default async function PortalOverviewPage({
         <MetricCard icon="bookings" label={`${capVocab(v.appointments)} booked`} value={String(m.bookings)} href="/portal/appointments" breakdown={apptBreakdown} spark={series.bookings} sparkLabels={labelsFor("bookings", (n) => plural(n, v.appointment, v.appointments))} trend={trend.bookings} sparkColor="#10b981" />
         <MetricCard icon="afterHours" label="After-hours saves" value={String(m.afterHoursCalls)} href="/portal/calls" breakdown={afterHoursBreakdown} spark={series.afterHours} sparkLabels={labelsFor("afterHours", (n) => plural(n, "after-hours call", "after-hours calls"))} trend={trend.afterHours} sparkColor="#f59e0b" className="sm:col-span-2 lg:col-span-1" />
       </div>
+
+      {client ? (
+        <Suspense fallback={null}>
+          <WebsiteChatStatsSection client={client} />
+        </Suspense>
+      ) : null}
 
       {hasAttention ? (
         <section className="space-y-3" aria-labelledby="needs-you">

@@ -128,7 +128,8 @@ export function buildCsp(opts: CspOptions): string {
     ["font-src", ["'self'", "data:"]],
     ["connect-src", connect],
     // Clerk's bot check (Cloudflare Turnstile) renders in an iframe on sign-up.
-    ["frame-src", ["https://challenges.cloudflare.com"]],
+    // 'self': the website chat preview in the portal is our own /widget/frame.
+    ["frame-src", ["'self'", "https://challenges.cloudflare.com"]],
     ["worker-src", ["'self'", "blob:"]],
     ["media-src", ["'self'", "blob:"]],
     ["manifest-src", ["'self'"]],
@@ -137,9 +138,9 @@ export function buildCsp(opts: CspOptions): string {
     // Stripe Checkout and the billing portal are reached by redirect after a
     // form post, and browsers apply form-action to that redirect target.
     ["form-action", ["'self'", "https://checkout.stripe.com", "https://billing.stripe.com"]],
-    // Nothing of ours is meant to be framed. The website chat widget is a
-    // script (public/widget.js) that runs inside the customer's page, not an
-    // iframe of ours, so no route needs an exception.
+    // No app page is meant to be framed. The one exception, the website chat
+    // iframe (/widget/frame), never gets this policy: the proxy skips it and
+    // the route sends its own CSP with the owner's domains in frame-ancestors.
     ["frame-ancestors", ["'none'"]],
   ];
 
