@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { PROTECTED_ROUTE_PATTERNS } from "@/lib/route-access";
+import { cspHeadersFor } from "@/lib/csp";
 import {
   isUsableVisitorId,
   newVisitorId,
@@ -126,6 +127,18 @@ export default clerkMiddleware(async (auth, req) => {
  */
 function nextWithVisitorId(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
+  // Content-Security-Policy (see src/lib/csp.ts, which also holds the one
+  // switch from report-only to enforcing). The policy goes on the REQUEST so
+  // Next and Clerk can read the nonce off it while rendering, and on the
+  // response so the browser applies it. Pages only: API routes return JSON and
+  // never reach this function.
+  const csp = cspHeadersFor({
+    nodeEnv: process.env.NODE_ENV,
+    clerkPublishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+    sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  });
+  requestHeaders.set("x-nonce", csp.nonce);
+  requestHeaders.set(csp.name, csp.value);
   const existing = req.cookies.get(VISITOR_COOKIE)?.value;
   const hasId = isUsableVisitorId(existing);
   const id = hasId ? existing : newVisitorId();
@@ -135,6 +148,7 @@ function nextWithVisitorId(req: NextRequest) {
     requestHeaders.set("cookie", header ? `${header}; ${cookie}` : cookie);
   }
   const res = NextResponse.next({ request: { headers: requestHeaders } });
+  res.headers.set(csp.name, csp.value);
   if (!hasId) {
     const secure = req.nextUrl.protocol === "https:";
     res.cookies.set(VISITOR_COOKIE, id, visitorCookieOptions(secure));

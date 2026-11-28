@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono, Fraunces, Sora } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
@@ -59,13 +60,23 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Every page is rendered per request, because the Content-Security-Policy
+  // nonce (src/proxy.ts) is new for each request and Next can only stamp it on
+  // scripts while rendering one — a prerendered page has no nonce, so its
+  // inline scripts would be blocked once the policy enforces. Reading the
+  // request headers is what opts the page in. Nearly every route was already
+  // dynamic (Clerk auth); this adds only the legal pages, /contact and the SSO
+  // callback, which are small.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <ClerkProvider
+      // Lets Clerk put the nonce on the script tag that loads clerk-js.
+      nonce={nonce}
       // Use the in-app /sign-in and /sign-up pages (the custom animated flow)
       // instead of Clerk's hosted Account Portal. After auth, land on "/" so the
       // root route can send each role to the right home.
@@ -80,7 +91,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} ${sora.variable} h-full antialiased`}
       >
         <body className="min-h-full flex flex-col">
-          <ThemeProvider>
+          <ThemeProvider nonce={nonce}>
             <TooltipProvider delay={150}>{children}</TooltipProvider>
             <Toaster richColors closeButton />
             {/* Page views and custom funnel events (see src/lib/funnel-events.ts).
