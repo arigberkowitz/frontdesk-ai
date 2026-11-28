@@ -15,6 +15,7 @@ import { Field } from "@/components/form/field";
 import { NativeSelect } from "@/components/form/native-select";
 import { DateRangePicker } from "@/components/portal/date-range-picker";
 import { DAYS } from "@/config/options";
+import { clockLabel } from "@/lib/week-grid";
 
 export interface TimeOffBlock {
   id: string;
@@ -27,11 +28,17 @@ export interface TimeOffBlock {
   windowLabel: string | null;
 }
 
-/** "Lunch · Every day, 12:00–13:00" / "Thanksgiving · Nov 27, 9:00 AM – Nov 28, 5:00 PM" */
+/** "Lunch · Every day, 12 PM–1 PM" / "Thanksgiving · Nov 27, 9:00 AM – Nov 28, 5:00 PM" */
 function describe(b: TimeOffBlock): string {
   if (b.windowLabel) return b.windowLabel;
   const when = b.dayOfWeek == null ? "Every day" : `${DAYS[b.dayOfWeek]?.label ?? "?"}s`;
-  return `${when}, ${b.startTime}–${b.endTime}`;
+  return `${when}, ${hm(b.startTime)}–${hm(b.endTime)}`;
+}
+
+/** "13:30" → "1:30 PM", the way the rest of the Hours page shows times. */
+function hm(t: string | null): string {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t ?? "");
+  return m ? clockLabel(Number(m[1]) * 60 + Number(m[2])) : (t ?? "");
 }
 
 export function TimeOffCard({

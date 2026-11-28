@@ -1,6 +1,6 @@
 /**
  * Tone rules, product-help facts, and a light post-pass for the owner
- * copilot (Frontdesk Assistant). Pure: no I/O, safe to import from the
+ * copilot (FrontDesk Assistant). Pure: no I/O, safe to import from the
  * client or from tests.
  */
 

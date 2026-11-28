@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, CalendarPlus } from "lucide-react";
+import { Apple, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CircleHelp, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -171,7 +171,7 @@ export function CalendarConnect({
               className={`h-auto flex-col gap-1 py-3 ${choice === "google" ? "border-primary" : ""}`}
               onClick={() => setChoice(choice === "google" ? "" : "google")}
             >
-              <span className="text-base font-semibold">G</span>
+              <CalendarDays className="size-5" aria-hidden />
               <span className="text-xs font-normal">Google Calendar</span>
             </Button>
           ) : null}
@@ -184,7 +184,7 @@ export function CalendarConnect({
                 <Link href={`/api/calendar/microsoft/connect?client=${clientId}${fromQs}`} prefetch={false} />
               }
             >
-              <span className="text-base font-semibold">O</span>
+              <Mail className="size-5" aria-hidden />
               <span className="text-xs font-normal">Outlook / 365</span>
             </Button>
           ) : (
@@ -193,7 +193,7 @@ export function CalendarConnect({
               className={`h-auto flex-col gap-1 py-3 ${choice === "outlook" ? "border-primary" : ""}`}
               onClick={() => setChoice(choice === "outlook" ? "" : "outlook")}
             >
-              <span className="text-base font-semibold">O</span>
+              <Mail className="size-5" aria-hidden />
               <span className="text-xs font-normal">Outlook / 365</span>
             </Button>
           )}
@@ -202,7 +202,7 @@ export function CalendarConnect({
             className={`h-auto flex-col gap-1 py-3 ${choice === "apple" ? "border-primary" : ""}`}
             onClick={() => setChoice(choice === "apple" ? "" : "apple")}
           >
-            <span className="text-base font-semibold">A</span>
+            <Apple className="size-5" aria-hidden />
             <span className="text-xs font-normal">Apple Calendar</span>
           </Button>
           <Button
@@ -210,7 +210,7 @@ export function CalendarConnect({
             className={`h-auto flex-col gap-1 py-3 ${choice === "calcom" ? "border-primary" : ""}`}
             onClick={() => setChoice(choice === "calcom" ? "" : "calcom")}
           >
-            <span className="text-base font-semibold">C</span>
+            <CalendarClock className="size-5" aria-hidden />
             <span className="text-xs font-normal">Cal.com</span>
           </Button>
           <Button
@@ -218,7 +218,7 @@ export function CalendarConnect({
             className={`h-auto flex-col gap-1 py-3 ${choice === "other" ? "border-primary" : ""}`}
             onClick={() => setChoice(choice === "other" ? "" : "other")}
           >
-            <span className="text-base font-semibold">?</span>
+            <CircleHelp className="size-5" aria-hidden />
             <span className="text-xs font-normal">Other / not sure</span>
           </Button>
         </div>

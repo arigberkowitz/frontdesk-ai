@@ -25,7 +25,7 @@ const STARTERS = [
 
 /** Agent #6 — chat over the business's own data (calls, leads, bookings, FAQ).
  *  `card` is the original standalone panel. `plain` is the body inside the
- *  portal-wide Frontdesk Assistant bubble (no second title or card chrome). */
+ *  portal-wide FrontDesk Assistant bubble (no second title or card chrome). */
 export function CopilotChat({ variant = "card" }: { variant?: "card" | "plain" }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");

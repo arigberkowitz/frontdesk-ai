@@ -315,10 +315,10 @@ function WidgetMock({ businessName, agentName }: { businessName: string; agentNa
           Hi! I&apos;m {agentName}, the AI receptionist for {businessName}. What can I help with?
         </p>
         <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 px-3 py-2 text-white">
-          Are you open Saturday?
+          Can someone come out Saturday?
         </p>
         <p className="w-fit max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-foreground">
-          I can check that and book you in. What do you need done?
+          I can help with that. What do you need done, and is morning or afternoon better?
         </p>
       </div>
       <figcaption className="border-t px-3 py-2 text-[11px] text-muted-foreground">Preview. Turns on with Pro.</figcaption>

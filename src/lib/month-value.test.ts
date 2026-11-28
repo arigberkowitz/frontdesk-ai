@@ -18,7 +18,7 @@ describe("buildValueCard", () => {
       base,
     );
     expect(v.amount).toBe("$960");
-    expect(v.headline).toBe("Frontdesk booked you $960 this month");
+    expect(v.headline).toBe("FrontDesk booked you $960 this month");
     expect(v.notes.map((n) => n.text)).toEqual([
       "From 4 appointments that happened since October 1, each at its service's price.",
       "Plus $450 booked for later in October (2 appointments) — it counts once it happens.",

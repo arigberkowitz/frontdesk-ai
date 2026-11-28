@@ -137,7 +137,7 @@ export function CallHealthPanel({
                 tone={summary.earlyHangup > 0 ? "warn" : "ok"}
               />
               <Stat
-                label="Ended with no way to call back"
+                label="Ended without a name or message"
                 value={summary.noContactCaptured}
                 tone={summary.noContactCaptured > 0 ? "warn" : "ok"}
               />
@@ -217,7 +217,7 @@ export function CallHealthPanel({
             <strong className="text-foreground">
               {waste.spamCalls} spam {waste.spamCalls === 1 ? "call" : "calls"}
             </strong>{" "}
-            reached your number this month — {formatDuration(waste.spamSeconds)} of them. Your AI
+            reached your number this month ({formatDuration(waste.spamSeconds)} in total). Your AI
             handled these so you didn&apos;t have to, and they don&apos;t count toward anything you
             pay for.
           </p>

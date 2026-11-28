@@ -1,5 +1,5 @@
 /**
- * The Overview value card ("Frontdesk booked you $X this month") — the pure
+ * The Overview value card ("FrontDesk booked you $X this month") — the pure
  * part: raw month counts in, the exact copy out. No DB, client-safe, tested.
  *
  * Honesty rules:
@@ -34,7 +34,7 @@ export interface ValueCardView {
   monthLabel: string;
   /** null when the revenue query failed. */
   amount: string | null;
-  /** Full sentence (screen readers, tests): "Frontdesk booked you $960 this month". */
+  /** Full sentence (screen readers, tests): "FrontDesk booked you $960 this month". */
   headline: string;
   /** The words around the big number: lead · amount · trail. */
   lead: string;
@@ -68,7 +68,7 @@ export function buildValueCard(
 
   let amount: string | null = null;
   let headline: string;
-  let lead = "Frontdesk booked you";
+  let lead = "FrontDesk booked you";
   let trail = "this month";
   const r = s.revenue;
   if (!r) {
@@ -76,7 +76,7 @@ export function buildValueCard(
   } else {
     amount = formatCurrencyCents(r.earnedCents);
     if (r.earnedCents > 0) {
-      headline = `Frontdesk booked you ${amount} this month`;
+      headline = `FrontDesk booked you ${amount} this month`;
     } else {
       headline = `Nothing earned yet in ${month}`;
       lead = `Earned so far in ${month}`;

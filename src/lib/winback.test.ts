@@ -37,7 +37,7 @@ describe("the text", () => {
   it("names the business, what they had, and the opt-out line", () => {
     const t = winbackBody({ business: "Bright Smile Dental", firstName: "Maria", serviceName: "Teeth Cleaning" });
     expect(t).toBe(
-      "Hi Maria, it's Bright Smile Dental. It's been a while since your teeth cleaning. Want to get your next visit on the calendar? Reply to this text and we'll find a time. Reply STOP to opt out.",
+      "Hi Maria, it's Bright Smile Dental. It's been a while since your teeth cleaning. Want to get back on the calendar? Reply to this text and we'll find a time. Reply STOP to opt out.",
     );
   });
   it("uses the owner's wording in English and the Spanish default for Spanish speakers", () => {

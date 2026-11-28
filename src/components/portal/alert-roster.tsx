@@ -11,6 +11,7 @@ import {
   toggleAlertContactAction,
 } from "@/lib/actions/alert-contacts";
 import type { AlertContact } from "@/db/schema";
+import { formatPhone } from "@/lib/format";
 
 /**
  * "Who gets alerts" — the business's routing roster. Alerts (bookings, leads,
@@ -53,7 +54,7 @@ export function AlertRoster({
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{c.name}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {[c.email, c.phone].filter(Boolean).join(" · ") || "no contact info"}
+                    {[c.email, c.phone ? formatPhone(c.phone) : null].filter(Boolean).join(" · ") || "no contact info"}
                   </p>
                 </div>
                 <form action={toggleAlertContactAction}>
