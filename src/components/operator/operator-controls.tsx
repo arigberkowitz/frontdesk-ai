@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, PhoneOff, PlayCircle, ShieldAlert, Trash2, Unplug } from "lucide-react";
+import { Ban, Flame, PhoneOff, PlayCircle, ShieldAlert, Trash2, Unplug } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,32 @@ export interface OperatorControlsProps {
   suspended: { at: string; mode: "off" | "messages_only"; reason?: string; stripe: { action: "cancel" | "pause" | "none" }; deleting?: boolean } | null;
 }
 
-type Which = null | "release" | "agent" | "suspend" | "reactivate" | "delete";
+type Which = null | "release" | "agent" | "suspend" | "reactivate" | "delete" | "purge";
+
+/** The plain-English list of what the delete buttons do, shared by Delete company and Permanently delete now. */
+export function deleteSteps(a: {
+  phoneLine: string | null;
+  textingNumber: string | null;
+  hasAgent: boolean;
+  subWord: string;
+  blockFraud: boolean;
+  permanent: boolean;
+}): string[] {
+  return [
+    "Lock the company: portal blocked, jobs/texts/emails stop",
+    "Cancel every scheduled text, reminder, callback and waitlist offer, and remove push subscriptions",
+    a.phoneLine ?? "No Retell number on file (any other number at Retell tied to this business is released too)",
+    a.textingNumber ? `Release the Twilio texting number ${formatPhone(a.textingNumber)} and delete its toll-free verification` : "Release any Twilio texting number we bought for it",
+    a.hasAgent ? "Delete the Retell agent and its LLM" : "No Retell agent on file",
+    "Revoke and remove its calendar connection (Google token, Cal.com key)",
+    `Cancel ${a.subWord} immediately — no refund, no proration; void unpaid invoices, remove pending charges, cancel schedules and open checkouts`,
+    "Ask Retell, Twilio and Stripe again what they still hold, and stop unless every count is zero",
+    a.permanent
+      ? "Then erase its calls, leads, messages, knowledge, customers' numbers, portal users and audit trail from our database, and Retell's copies of the calls. Only a minimal receipt (id, name, who, when) stays; billing records stay in Stripe"
+      : "Then hide it from every list; call data is purged on the existing 90-day schedule (billing/legal records and the audit log stay)",
+    a.blockFraud ? "Block this owner's email, phone and company domain from starting another free trial" : "Not block them from a new free trial",
+  ];
+}
 
 /**
  * Operator-only controls (rendered on the operator's client page; every request
@@ -54,8 +79,13 @@ export function OperatorControls(p: OperatorControlsProps) {
       if (res.ok) toast.success(label);
     };
   }
+  // After a permanent delete the page behind the dialog no longer exists, so we only leave it once the
+  // operator has read the verification and closed the dialog.
+  const [purged, setPurged] = useState(false);
   const close = (o: boolean) => {
-    if (!o) setOpen(null);
+    if (o) return;
+    setOpen(null);
+    if (purged) router.push("/clients");
   };
 
   const phoneLine = p.phone ? `Release ${formatPhone(p.phone)} at Retell (it stops billing monthly)` : null;
@@ -130,6 +160,10 @@ export function OperatorControls(p: OperatorControlsProps) {
           <Button variant="destructive" onClick={() => setOpen("delete")}>
             <Trash2 className="size-4" />
             Delete company
+          </Button>
+          <Button variant="destructive" onClick={() => setOpen("purge")} data-testid="permanent-delete-button">
+            <Flame className="size-4" />
+            Permanently delete now
           </Button>
         </div>
       </CardContent>
@@ -258,16 +292,8 @@ export function OperatorControls(p: OperatorControlsProps) {
         onOpenChange={close}
         title={`Delete ${p.name}?`}
         typeToConfirm={p.name}
-        willHappen={[
-          "Lock the company: portal blocked, jobs/texts/emails stop, queued texts dropped",
-          phoneLine ?? "No Retell number on file",
-          p.textingNumber ? `Release the Twilio texting number ${formatPhone(p.textingNumber)}` : "No Twilio texting number",
-          p.agentId || p.llmId ? "Delete the Retell agent and its LLM" : "No Retell agent on file",
-          `Cancel ${subWord} immediately — no refund, no proration`,
-          "Hide it from every list; call data is purged on the existing 90-day schedule (billing/legal records and the audit log stay)",
-          blockFraud ? "Block this owner's email, phone and company domain from starting another free trial" : "Not block them from a new free trial",
-        ]}
-        note="Deleting can't be undone from here. If a step fails, the company stays locked and listed so you can press Retry."
+        willHappen={deleteSteps({ phoneLine, textingNumber: p.textingNumber, hasAgent: Boolean(p.agentId || p.llmId), subWord, blockFraud, permanent: false })}
+        note="Deleting can't be undone from here. It ends by asking Retell, Twilio and Stripe again and only says it's done when every count is zero. If anything isn't, the company stays locked and listed so you can press Retry."
         confirmLabel="Delete company"
         extra={
           <label className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
@@ -280,6 +306,35 @@ export function OperatorControls(p: OperatorControlsProps) {
         }
         send={(typed) => postControl(url, { action: "delete_company", confirm: typed, blockFraud, reason: reason.trim() || undefined })}
         onDone={done("Company deleted")}
+      />
+
+      {/* Permanently delete now */}
+      <ControlDialog
+        open={open === "purge"}
+        onOpenChange={close}
+        title={`Permanently delete ${p.name} — everything, right now?`}
+        typeToConfirm={p.name}
+        willHappen={deleteSteps({ phoneLine, textingNumber: p.textingNumber, hasAgent: Boolean(p.agentId || p.llmId), subWord, blockFraud, permanent: true })}
+        note="This erases the business's records immediately and can't be undone. It only starts erasing our records after Retell, Twilio and Stripe have each been asked again and show zero — so you can't end up with data gone but a charge still running."
+        confirmLabel="Permanently delete now"
+        extra={
+          <label className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
+            <input type="checkbox" className="mt-1" checked={blockFraud} onChange={(e) => setBlockFraud(e.target.checked)} />
+            <span>
+              Fraud flag — block this email, phone and company domain from a new free trial
+              <span className="block text-xs text-muted-foreground">The one thing kept on purpose. Public email providers (gmail.com…) are never blocked by domain.</span>
+            </span>
+          </label>
+        }
+        send={(typed) => postControl(url, { action: "permanent_delete", confirm: typed, blockFraud })}
+        onDone={(res) => {
+          if (res.ok) {
+            setPurged(true);
+            toast.success("Permanently deleted");
+          } else {
+            router.refresh();
+          }
+        }}
       />
     </Card>
   );

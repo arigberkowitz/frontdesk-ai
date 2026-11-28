@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Actor, ControlDeps, ControlResult } from "./controls";
-import { deleteAgent, deleteCompany, reactivateCompany, releaseNumber, releaseVoiceNumber, suspendCompany } from "./controls";
+import { deleteAgent, reactivateCompany, releaseNumber, releaseVoiceNumber, suspendCompany } from "./controls";
+import { deleteCompany, permanentDelete } from "./full-delete";
 import { deleteOrphan, listOrphans, type OrphanProviders, type OrphanReport, type OrphanStore } from "./orphans";
 import type { AccessDecision } from "./access";
 
@@ -29,6 +30,12 @@ const body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("reactivate") }),
   z.object({
     action: z.literal("delete_company"),
+    confirm: z.string().max(200),
+    blockFraud: z.boolean().default(false),
+    reason: z.string().max(300).optional(),
+  }),
+  z.object({
+    action: z.literal("permanent_delete"),
     confirm: z.string().max(200),
     blockFraud: z.boolean().default(false),
     reason: z.string().max(300).optional(),
@@ -81,6 +88,9 @@ export async function handleClientControl(
       break;
     case "delete_company":
       result = await deleteCompany(deps, actor, clientId, b);
+      break;
+    case "permanent_delete":
+      result = await permanentDelete(deps, actor, clientId, b);
       break;
   }
   return Response.json(result, { status: result.httpStatus });
