@@ -100,6 +100,7 @@ export const PLANS: Record<PlanKey, Plan> = {
       "One tap: your AI calls a lead back for you",
       "Staff mode — team members with their own calendars",
       "Every night we review your calls and suggest better answers for you to approve",
+      "Win-back texts: once a month, past customers who haven't been back get a text inviting them to book",
     ],
   },
   // Retired: folded into Pro. Kept defined, and only defined, so any
@@ -117,6 +118,17 @@ export const PLANS: Record<PlanKey, Plan> = {
     highlights: [],
   },
 };
+
+/**
+ * What Pro adds that the lower plans don't, in a few words each. The billing
+ * card's comparison line reads this, so it can't drift from the pricing page.
+ */
+export const PRO_EXTRAS: readonly string[] = [
+  "AI callbacks to leads",
+  "staff calendars",
+  "nightly call reviews",
+  "win-back texts",
+];
 
 export const DEFAULT_PLAN: PlanKey = "pro";
 export const TRIAL_DAYS = 14;

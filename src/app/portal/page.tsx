@@ -40,6 +40,7 @@ import { AiLearnings } from "@/components/portal/ai-learnings";
 import { UnansweredQuestions } from "@/components/portal/unanswered-questions";
 import { FollowUpChannels } from "@/components/portal/followup-channels";
 import { AiFeaturesSection, AiFeaturesSkeleton } from "@/components/portal/ai-features-section";
+import { RevenueTextsSection } from "@/components/portal/revenue-texts-section";
 import { LiveAlerts } from "@/components/portal/live-alerts";
 import { Milestones } from "@/components/portal/milestones";
 import { formatCurrencyCents, formatDateTime, formatPhone } from "@/lib/format";
@@ -396,6 +397,14 @@ export default async function PortalOverviewPage({
 
       {/* Did texting missed callers back or calling them back work better? */}
       {followUpComparison ? <FollowUpChannels data={followUpComparison} /> : null}
+
+      {/* Pro follow-up texts: what they did (Pro), or what they would have
+          done for this business, in its own numbers (lower plans). */}
+      {client ? (
+        <Suspense fallback={null}>
+          <RevenueTextsSection client={client} />
+        </Suspense>
+      ) : null}
 
       {/* The optional AI jobs, each with its own switch and what it did lately. */}
       {client ? (

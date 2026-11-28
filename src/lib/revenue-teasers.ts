@@ -1,0 +1,48 @@
+/**
+ * What a locked Pro feature would have done for THIS business, in its own
+ * numbers. Pure, so the wording rules are tested: real counts only, and when
+ * the count is zero or there isn't enough history, a plain generic line —
+ * never an invented number.
+ */
+import { monthsLabel } from "@/lib/winback";
+
+export interface TeaserCopy {
+  /** The headline: a real count, or the generic line. */
+  line: string;
+  /** The honest follow-on (who Pro could actually text), or null. */
+  detail: string | null;
+  /** True when `line` is built from this business's data. */
+  fromData: boolean;
+}
+
+const n = (v: number) => v.toLocaleString("en-US");
+
+/**
+ * How many of the people in a teaser Pro could actually have texted. Only
+ * people with a stored yes to texts (and no STOP) are ever texted, so the
+ * teaser says so instead of promising a text to everyone it counted.
+ */
+export function reachLine(total: number, textable: number, phrases: { all: string; some: string }): string {
+  if (textable >= total) return phrases.all;
+  if (textable > 0) return `${n(textable)} of them said yes to texts, so ${phrases.some}.`;
+  return "None of them said yes to texts on a call yet, so Pro couldn't text them. Customers who say yes when they book can get these.";
+}
+
+export function winbackTeaser(input: { due: number; textable: number; months: number }): TeaserCopy {
+  if (input.due <= 0) {
+    return {
+      line: "Once a month, Pro texts past customers who haven't been back in a while (a 6-month cleaning, a yearly tune-up) and invites them to book.",
+      detail: null,
+      fromData: false,
+    };
+  }
+  const who = input.due === 1 ? "1 past customer hasn't" : `${n(input.due)} past customers haven't`;
+  return {
+    line: `${who} been back in ${monthsLabel(input.months)} or more.`,
+    detail: reachLine(input.due, input.textable, {
+      all: "Pro would text each of them once this month and invite them to book.",
+      some: "Pro would text them once this month and invite them to book",
+    }),
+    fromData: true,
+  };
+}

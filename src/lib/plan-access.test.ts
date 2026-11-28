@@ -53,3 +53,14 @@ describe("resolveFeatures", () => {
     expect(f.has("all_calls")).toBe(true);
   });
 });
+
+describe("revenue texts are Pro only", () => {
+  it("locks win-back on Missed-Call Rescue and Starter, opens it on Pro", () => {
+    expect(resolveFeatures({ status: "live", comped: false, subscriptionPlan: "backup" }).has("winback")).toBe(false);
+    expect(resolveFeatures({ status: "live", comped: false, subscriptionPlan: "starter" }).has("winback")).toBe(false);
+    expect(resolveFeatures({ status: "live", comped: false, subscriptionPlan: "pro" }).has("winback")).toBe(true);
+  });
+  it("lets trials try it, like every other Pro feature", () => {
+    expect(resolveFeatures({ status: "trial", comped: false, subscriptionPlan: null }).has("winback")).toBe(true);
+  });
+});
