@@ -54,7 +54,7 @@ describe("Spanish texts", () => {
 
   it("review request", () => {
     expect(reviewRequestBody({ businessName: b, customerName: "María", reviewUrl: "https://g.page/r/x", language: "es" })).toBe(
-      `Hola María, ¡gracias por elegir a Joe's Plumbing! Si le atendimos bien, una breve reseña nos ayuda mucho: https://g.page/r/x ${STOP_ES}`,
+      `Hola María, ¡gracias por elegir a Joe's Plumbing! ¿Nos deja una breve reseña? Nos ayuda mucho: https://g.page/r/x ${STOP_ES}`,
     );
   });
 

@@ -102,6 +102,7 @@ export const PLANS: Record<PlanKey, Plan> = {
       "Every night we review your calls and suggest better answers for you to approve",
       "Quote follow-up: callers who asked for a price and didn't book get a text a day later and a week later",
       "Win-back texts: once a month, past customers who haven't been back get a text inviting them to book",
+      "Review requests: a text with your Google review link a couple of hours after each visit",
     ],
   },
   // Retired: folded into Pro. Kept defined, and only defined, so any
@@ -130,6 +131,7 @@ export const PRO_EXTRAS: readonly string[] = [
   "nightly call reviews",
   "quote follow-up texts",
   "win-back texts",
+  "review requests",
 ];
 
 export const DEFAULT_PLAN: PlanKey = "pro";

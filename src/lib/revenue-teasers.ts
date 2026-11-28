@@ -47,6 +47,25 @@ export function quoteTeaser(input: { asked: number; textable: number; days: numb
   };
 }
 
+export function reviewTeaser(input: { visits: number; textable: number; days: number }): TeaserCopy {
+  if (input.visits <= 0) {
+    return {
+      line: "A couple of hours after each visit, Pro texts the customer your Google review link. One ask per customer every 90 days.",
+      detail: null,
+      fromData: false,
+    };
+  }
+  const what = input.visits === 1 ? "1 booked visit" : `${n(input.visits)} booked visits`;
+  return {
+    line: `In the last ${input.days} days, ${what} could have gotten a review request.`,
+    detail: reachLine(input.visits, input.textable, {
+      all: "Pro would have texted each customer your review link.",
+      some: "Pro would have texted them your review link",
+    }),
+    fromData: true,
+  };
+}
+
 export function winbackTeaser(input: { due: number; textable: number; months: number }): TeaserCopy {
   if (input.due <= 0) {
     return {

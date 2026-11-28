@@ -14,7 +14,7 @@ import { type PlanKey } from "@/config/plans";
  *   backup   → the AI answers missed calls only
  *   starter  → full 24/7 receptionist
  *   pro      → + outbound AI callbacks, staff mode, nightly AI improvement/QA,
- *              and the revenue texts (win-back, …). Those are Pro only, by
+ *              and the revenue texts (quote follow-up, win-back, review requests). Pro only, by
  *              Ari's call (Nov 2026): the extras live on the top plan, and
  *              the lower plans show them locked with what they would have done.
  *
@@ -38,6 +38,8 @@ export type PlanFeature =
   | "ai_improvement"
   /** Monthly "it's been a while" texts to past customers. */
   | "winback"
+  /** A Google-review text after a visit. */
+  | "review_requests"
   /** Day-1 / day-7 texts to callers who asked for a price and didn't book. */
   | "quote_followup";
 
@@ -47,6 +49,7 @@ const EVERYTHING: readonly PlanFeature[] = [
   "staff_mode",
   "ai_improvement",
   "winback",
+  "review_requests",
   "quote_followup",
 ];
 
@@ -54,7 +57,7 @@ const EVERYTHING: readonly PlanFeature[] = [
  * The revenue texts: Pro only. The locked cards, the dashboard teaser and the
  * billing comparison all read this list, so adding one here adds it everywhere.
  */
-export const REVENUE_FEATURES = ["quote_followup", "winback"] as const satisfies readonly PlanFeature[];
+export const REVENUE_FEATURES = ["quote_followup", "winback", "review_requests"] as const satisfies readonly PlanFeature[];
 export type RevenueFeature = (typeof REVENUE_FEATURES)[number];
 
 const PLAN_FEATURES: Record<PlanKey, readonly PlanFeature[]> = {
@@ -79,6 +82,8 @@ export const UPGRADE_MESSAGES: Record<PlanFeature, string> = {
     "Quote follow-up texts are a Pro feature. Upgrade to Pro and callers who asked for a price but didn't book get a text a day later and a week later.",
   winback:
     "Win-back texts are a Pro feature. Upgrade to Pro and past customers who haven't been back get a text inviting them to book.",
+  review_requests:
+    "Review requests are a Pro feature. Upgrade to Pro and customers get a text with your review link a couple of hours after their visit.",
 };
 
 export interface AccessInput {
