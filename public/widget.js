@@ -17,7 +17,7 @@
   var key = script.getAttribute("data-key");
   if (!key) {
     if (script.getAttribute("data-client")) {
-      console.warn("FrontDesk chat: this snippet is out of date. Copy the new one from Settings → Follow-ups → For your website.");
+      console.warn("FrontDesk chat: this snippet is out of date. Copy the new one from Settings → Follow-ups → Chat on your website.");
     }
     return;
   }
