@@ -27,7 +27,7 @@ vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: 
 
 import { callMeNowAction } from "./call-me";
 
-const form = (phone = "(415) 747-5690") => {
+const form = (phone = "(415) 555-0142") => {
   const f = new FormData();
   f.set("clientId", "8d787138-bf6e-47a6-9e49-36ea6596cd7d");
   f.set("phone", phone);
@@ -51,7 +51,7 @@ describe("callMeNowAction", () => {
     expect(r.ok).toBe(true);
     const arg = m.createPhoneCall.mock.calls[0][0] as Record<string, unknown>;
     expect(arg.from_number).toBe("+12272382281");
-    expect(arg.to_number).toBe("+14157475690");
+    expect(arg.to_number).toBe("+14155550142");
     expect(arg.override_agent_id).toBe("agent_247832e0068ae1b08fe5812956");
   });
 

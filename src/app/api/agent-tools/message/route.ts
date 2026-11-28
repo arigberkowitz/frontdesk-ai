@@ -10,6 +10,7 @@ import { recordSmsConsent } from "@/lib/data/sms-consents";
 import { normalizeCustomerLanguage } from "@/lib/languages";
 import { planAccessFor } from "@/lib/plan-access";
 import { quoteConsentAskOn, quoteConsentWordingFor } from "@/lib/revenue/quote-consent";
+import { messageConsentWordingFor, parseTextConsentAsks } from "@/lib/text-consent-asks";
 import { parseSettings as parseQuoteSettings } from "@/lib/revenue/quote-followup";
 import { logger } from "@/lib/logger";
 
@@ -72,6 +73,22 @@ export async function POST(req: Request): Promise<Response> {
       });
     } else {
       logger.info("agent-tools.message.quote_consent_ignored", { clientId: client.id });
+    }
+  }
+
+  // "Can we text you about your message?" (text-consent-asks.ts). Same rules
+  // as the quote ask: voice only, a clear yes, and the owner's switch on now.
+  const messageYes = args.message_text_consent === true || String(args.message_text_consent ?? "") === "true";
+  if (messageYes && phone && channel === "voice") {
+    if (parseTextConsentAsks(client.setupFlags).message) {
+      await recordSmsConsent({
+        clientId: client.id,
+        phone,
+        callId: callRow?.id ?? null,
+        wording: messageConsentWordingFor(normalizeCustomerLanguage(String(args.language ?? "")) ?? null),
+      });
+    } else {
+      logger.info("agent-tools.message.message_consent_ignored", { clientId: client.id });
     }
   }
 

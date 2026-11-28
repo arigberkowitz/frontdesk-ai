@@ -134,7 +134,7 @@ export function PortalSidebar({
 const BAR: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Overview", href: "/portal", icon: LayoutGrid },
   { label: "Calls", href: "/portal/calls", icon: Phone },
-  { label: "Bookings", href: "/portal/appointments", icon: CalendarDays },
+  { label: "Appointments", href: "/portal/appointments", icon: CalendarDays },
   { label: "Leads", href: "/portal/leads", icon: Inbox },
 ];
 

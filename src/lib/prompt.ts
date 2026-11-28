@@ -4,6 +4,7 @@ import { formatCurrencyCents } from "./format";
 import { hasCustomVocab, isFieldService, vocabFor } from "./vocab";
 import { languagePromptRules, parseLanguages } from "./languages";
 import { quoteConsentPromptRule } from "./revenue/quote-consent";
+import { followupConsentPromptRule, messageConsentPromptRule } from "./text-consent-asks";
 
 /**
  * Builds the Retell LLM `general_prompt` from a client's profile, services,
@@ -54,6 +55,10 @@ export interface PromptClient {
    * follow-up is on, AND the owner turned this ask on. Default off.
    */
   quoteTextConsentAsk?: boolean;
+  /** Owner switch (text-consent-asks.ts): ask booked callers for follow-up texts. Default off. */
+  followupTextConsentAsk?: boolean;
+  /** Owner switch (text-consent-asks.ts): ask message-takers whether we can text them. Default off. */
+  messageTextConsentAsk?: boolean;
 }
 
 export interface PromptService {
@@ -472,6 +477,18 @@ export function buildGeneralPrompt(input: BuildPromptInput): string {
     // its AI asking callers to be texted.
     client.quoteTextConsentAsk === true
       ? quoteConsentPromptRule({ spanish: parseLanguages(client.languages).includes("es") })
+      : null,
+    // Owner-controlled (Settings → Follow-ups → Ask callers about texts). Both
+    // off by default. Win-back, review and recall texts need the follow-up yes;
+    // the booking yes alone doesn't cover them (sms-consents.ts).
+    canBook && client.followupTextConsentAsk === true
+      ? followupConsentPromptRule({ spanish: parseLanguages(client.languages).includes("es") })
+      : null,
+    client.messageTextConsentAsk === true
+      ? messageConsentPromptRule({
+          spanish: parseLanguages(client.languages).includes("es"),
+          quoteAskOn: client.quoteTextConsentAsk === true,
+        })
       : null,
     "If the caller wants to cancel an appointment: use cancel_appointment (it finds the booking by the number they're calling from; for their security it can't cancel a booking made under a different number — if so, take a message so the team can call that number back). Read the appointment back and get a clear yes before cancelling, then confirm it's done and offer to rebook them for another time.",
     handoffMode === "never"

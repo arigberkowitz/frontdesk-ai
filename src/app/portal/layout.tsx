@@ -128,7 +128,10 @@ export default async function PortalLayout({ children }: { children: React.React
             <PortalSidebar showTeam={showTeam} unreadMessages={unreadMessages} />
           </div>
         </aside>
-        <main className="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-6 sm:pb-28 md:pb-10 lg:px-10 lg:pt-10">
+        {/* Phones: the bottom padding clears the tab bar AND the assistant
+            bubble that floats above it (bubble top ≈ 9.5rem + safe area), so
+            the last card on every page can scroll fully into view. */}
+        <main className="min-w-0 flex-1 px-4 pb-[calc(10.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-6 md:pb-10 lg:px-10 lg:pt-10">
           <div className="fd-fade-up fd-portal-content mx-auto w-full max-w-5xl">{children}</div>
         </main>
       </div>

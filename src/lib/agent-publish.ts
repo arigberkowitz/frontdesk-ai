@@ -14,6 +14,7 @@ import { env, integrations } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { planAccessFor } from "@/lib/plan-access";
 import { quoteConsentAskOn } from "@/lib/revenue/quote-consent";
+import { parseTextConsentAsks } from "@/lib/text-consent-asks";
 import { parseSettings as parseQuoteSettings } from "@/lib/revenue/quote-followup";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -43,6 +44,7 @@ export function agentToolsFor(
     client.waitlistEnabled,
     emergencyTransferFor(client),
     opts.quoteConsentAsk ?? false,
+    parseTextConsentAsks(client.setupFlags),
   );
 }
 
@@ -111,6 +113,8 @@ export function buildPromptForClient(
       emergencyTransfer247: emergencyTransferFor(client) != null,
       tripFeeCents: client.tripFeeCents,
       quoteTextConsentAsk: opts.quoteConsentAsk === true,
+      followupTextConsentAsk: parseTextConsentAsks(client.setupFlags).followup,
+      messageTextConsentAsk: parseTextConsentAsks(client.setupFlags).message,
     },
     services: client.services,
     hours: client.businessHours,

@@ -1,4 +1,5 @@
 import "server-only";
+import { parseTextConsentAsks } from "@/lib/text-consent-asks";
 import { revalidatePath } from "next/cache";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -107,6 +108,7 @@ export async function runProvision(
       waitlistEnabled: client.waitlistEnabled,
       emergencyNumber: emergencyTransferFor(client),
       quoteTextConsent: planOpts.quoteConsentAsk,
+      consentAsks: parseTextConsentAsks(client.setupFlags),
       languages: client.languages,
       timezone: client.timezone,
       voiceId: client.voiceId,

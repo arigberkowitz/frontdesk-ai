@@ -183,7 +183,7 @@ export function AlertsForm({ client, isAdmin = true }: { client: Client; isAdmin
           <div id="daily-briefing" className="scroll-mt-24">
             <Field
               label="Morning briefing email"
-              hint="Each morning (between 7 and 10am your time): yesterday's calls, bookings and cancellations, who needs a call back, today's schedule, and anything urgent — written by your AI from your call log. Sent to the alerts email above."
+              hint="Each morning (between 7 and 10 AM your time): yesterday's calls, bookings and cancellations, who needs a call back, today's schedule, and anything urgent — written by your AI from your call log. Sent to the alerts email above."
             >
               <NativeSelect
                 name="dailyBriefingEnabled"
@@ -270,13 +270,13 @@ export function HumanTouchForm({ client }: { client: Client }) {
           </Field>
           <Field
             label="When is a real person reachable?"
-            hint="Optional. Your AI mentions this when offering a human, e.g. 'weekdays 9am–5pm'."
+            hint="Optional. Your AI mentions this when offering a human, e.g. 'weekdays 9 AM–5 PM'."
             error={handoff.fieldErrors?.humanHoursNote}
           >
             <Input
               name="humanHoursNote"
               defaultValue={client.humanHoursNote ?? ""}
-              placeholder="Weekdays 9am–5pm"
+              placeholder="Weekdays 9 AM–5 PM"
             />
           </Field>
           <div className="flex justify-end">

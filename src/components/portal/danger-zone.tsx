@@ -84,7 +84,7 @@ export function DangerZone({
               title="Close this account"
               description={`Your AI receptionist stops answering immediately. Your calls, bookings, leads and settings are kept for 90 days in case you change your mind, then permanently deleted. ${
                 hasBilling
-                  ? "To stop being charged, cancel your plan under Manage billing above."
+                  ? "Your subscription is canceled at the same moment, so you won't be charged again."
                   : "You haven't added a card, so there's nothing to cancel and you won't be charged."
               }`}
             />
@@ -97,6 +97,24 @@ export function DangerZone({
             ) : (
               <form action={action} className="space-y-3">
                 <input type="hidden" name="clientId" value={clientId} />
+                <div
+                  role="alert"
+                  className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm"
+                >
+                  <p className="font-medium">When you close {businessName}:</p>
+                  <ul className="mt-1.5 list-disc space-y-1 pl-5 text-muted-foreground">
+                    <li>Your AI receptionist stops answering calls right away.</li>
+                    {hasBilling ? (
+                      <li>
+                        Your subscription is canceled immediately. You won&apos;t be charged again, and
+                        the rest of this billing period isn&apos;t refunded.
+                      </li>
+                    ) : (
+                      <li>There&apos;s no card on file, so there&apos;s nothing to charge or cancel.</li>
+                    )}
+                    <li>Your data is kept for 90 days, then permanently deleted.</li>
+                  </ul>
+                </div>
                 <label className="block text-sm" htmlFor="confirm">
                   Type <span className="font-semibold">{businessName}</span> to confirm.
                 </label>
@@ -135,7 +153,8 @@ export function DangerZone({
               <a href={`mailto:${SUPPORT_EMAIL}`} className="underline underline-offset-2">
                 {SUPPORT_EMAIL}
               </a>{" "}
-              within 90 days and it can be brought back exactly as it was.
+              within 90 days and it can be brought back exactly as it was. You&apos;d pick a plan again
+              to restart billing.
             </p>
           </div>
         ) : null}

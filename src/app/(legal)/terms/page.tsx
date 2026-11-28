@@ -92,8 +92,10 @@ export default function TermsPage() {
             purchase before you pay. Every new account starts with a 14-day free trial: we do
             not ask for a card during it, it is never charged, and it does not become a paid plan
             unless you choose one — if you do nothing, it simply ends. We may also grant free access
-            for a longer or unlimited period at our discretion. Fees are non-refundable except where required by law. You can cancel at any time and
-            keep the service until the end of the period you have paid for. We may change pricing
+            for a longer or unlimited period at our discretion. Fees are non-refundable except where required by law. You can cancel your plan at any time and
+            keep the service until the end of the period you have paid for. Closing your account
+            instead ends the service and cancels your plan immediately, with no further charges and
+            no refund for the rest of that period. We may change pricing
             with at least 30 days&rsquo; notice, effective at your next billing cycle.
           </p>
         </Section>

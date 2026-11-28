@@ -156,7 +156,7 @@ export function ReviewRequestsCard({
           <ul className="space-y-1 text-xs text-muted-foreground">
             <li>· Sent {delayLabel(delay)} after the appointment ends, never before, between {hourLabel(SEND_START_HOUR)} and {hourLabel(SEND_END_HOUR)} your time.</li>
             <li>· One per visit, and never twice to the same person within {REVIEW_MIN_DAYS_BETWEEN} days.</li>
-            <li>· Only customers who said yes to texts; never to someone who replied STOP, a number you blocked, or a caller marked as spam. At most one follow-up text per person every {MIN_DAYS_BETWEEN_REVENUE_TEXTS} days.</li>
+            <li>· Only customers who said yes to follow-up texts (see <a href="#text-consent" className="underline underline-offset-2">Ask callers about texts</a>); a yes to booking texts alone isn&apos;t enough. Never to someone who replied STOP, a number you blocked, or a caller marked as spam. At most one follow-up text per person every {MIN_DAYS_BETWEEN_REVENUE_TEXTS} days.</li>
             <li>· Everyone gets the same ask. We never check whether they were happy first; Google doesn&rsquo;t allow that.</li>
             <li>· Cancellations and no-shows are never asked.</li>
           </ul>

@@ -39,7 +39,7 @@ const client = (over: Record<string, unknown> = {}) =>
   ({ id: A, name: "Lawyers for justice", timezone: "America/Los_Angeles", smsAlertsEnabled: true, ...over }) as unknown as import("@/db/schema").Client;
 const stranded = { problems: ["stranded_asking_for_human"], notes: ["They asked for a person."] };
 const NOW = new Date("2026-11-10T17:57:58Z");
-const call = (startAt: Date | null = new Date("2026-11-10T17:56:06Z")) => ({ id: CALL, fromNumber: "+14157475690", startAt });
+const call = (startAt: Date | null = new Date("2026-11-10T17:56:06Z")) => ({ id: CALL, fromNumber: "+14155550142", startAt });
 
 beforeAll(async () => {
   await pg.exec(`

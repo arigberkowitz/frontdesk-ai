@@ -77,7 +77,7 @@ export async function callLeadWithAiAction(
   if (!withinTextingHours(new Date(), client.timezone)) {
     return {
       ok: false,
-      error: "It's outside calling hours where you are (9am–8pm). Try again in the morning.",
+      error: "It's outside calling hours where you are (9 AM–8 PM). Try again in the morning.",
     };
   }
 

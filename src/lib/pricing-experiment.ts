@@ -29,7 +29,9 @@ export const PRICING_HEADLINE_COPY: Record<
   { title: string; sub: string }
 > = {
   control: {
-    title: "Simple, flat pricing",
+    // Both arms say "One flat monthly price" (Ari, Nov 2026); the test now
+    // compares only the subhead: "one price per location" vs the real prices.
+    title: "One flat monthly price",
     sub: "Two weeks free, no card. One price per location after that, and no setup fee — ever",
   },
   variant: {

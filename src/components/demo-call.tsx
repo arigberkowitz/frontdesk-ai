@@ -91,7 +91,7 @@ const SCENARIOS: Scenario[] = [
   },
   {
     key: "emergency",
-    tab: "2am emergency",
+    tab: "2 AM emergency",
     duration: "0:19",
     turns: [
       { who: "ai", text: "Thanks for calling! This is Riley, the AI assistant. How can I help?" },
@@ -129,10 +129,30 @@ const SCENARIOS: Scenario[] = [
   },
 ];
 
+/**
+ * Until texting is carrier-approved (SMS_ENABLED), the booking sample must not
+ * claim a text went out. The consent question stays: the AI still asks, and
+ * the yes is recorded for when texts turn on.
+ */
+function withTexting(s: Scenario, live: boolean): Scenario {
+  if (live || s.key !== "booking") return s;
+  return {
+    ...s,
+    turns: s.turns.map((t) =>
+      t.text.endsWith(" That text is on its way.")
+        ? { ...t, text: t.text.replace(" That text is on its way.", " See you then.") }
+        : t,
+    ),
+    outcomes: s.outcomes.map((o) =>
+      o.label === "Confirmation texted" ? { ...o, label: "OK to text, once texting is on" } : o,
+    ),
+  };
+}
+
 /** Interactive "what a call sounds like" sample. Pick the call; watch it play. */
-export function DemoCall() {
+export function DemoCall({ textingLive = true }: { textingLive?: boolean } = {}) {
   const [active, setActive] = useState(SCENARIOS[0].key);
-  const scenario = SCENARIOS.find((s) => s.key === active) ?? SCENARIOS[0];
+  const scenario = withTexting(SCENARIOS.find((s) => s.key === active) ?? SCENARIOS[0], textingLive);
 
   return (
     // text-card-foreground is load-bearing: this card sits inside the hero's

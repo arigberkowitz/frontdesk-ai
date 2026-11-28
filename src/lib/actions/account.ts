@@ -11,8 +11,10 @@ import { syncAgentPrompt } from "@/lib/agent-publish";
 import { RETENTION_DAYS } from "@/lib/retention";
 import { notifier } from "@/lib/notifier";
 import { env } from "@/lib/env";
+import { SUPPORT_EMAIL } from "@/config/contact";
 import { logger } from "@/lib/logger";
 import { confirmationMatches } from "@/lib/account-close";
+import { cancelBillingOnClose, type CloseBillingDeps, type CloseBillingResult } from "@/lib/account-close-billing";
 import { type ActionState } from "./types";
 
 /**
@@ -29,6 +31,12 @@ import { type ActionState } from "./types";
  * answering that line and keeps booking appointments into a calendar nobody is
  * reading any more. So the agent is paused FIRST and the delete only records
  * once the line is quiet.
+ *
+ * Billing stops in the same step. Every open Stripe subscription is canceled
+ * immediately (no proration, no final invoice), so closing can never leave a
+ * customer paying for a line that no longer answers. If Stripe can't be
+ * reached the account is NOT marked closed and the owner is told to retry, the
+ * same rule as the agent stop above.
  *
  * Deletion is deferred, not immediate, and the copy says so. The 90-day window
  * is the same one `retention.ts` already enforces and the same one §7 of the
@@ -52,7 +60,15 @@ export async function closeAccountAction(
   const client = await db.query.clients.findFirst({ where: eq(clients.id, clientId) });
   if (!client) return { ok: false, error: "Business not found." };
   if (client.deletedAt) {
-    return { ok: true, message: "This account is already closed." };
+    // Idempotent: a repeat close still makes sure nothing can bill.
+    const again = await stopBilling(clientId, user.id);
+    if (again.status === "failed") {
+      return {
+        ok: false,
+        error: `This account is closed, but we couldn't confirm billing is canceled. Email ${SUPPORT_EMAIL} and we'll cancel it by hand.`,
+      };
+    }
+    return { ok: true, message: "This account is already closed, and billing is canceled." };
   }
   if (!confirmationMatches(typed, client.name)) {
     return {
@@ -79,6 +95,14 @@ export async function closeAccountAction(
     };
   }
 
+  const billing = await stopBilling(clientId, user.id);
+  if (billing.status === "failed") {
+    return {
+      ok: false,
+      error: `Your AI receptionist has stopped answering, but we couldn't cancel your subscription just now, so the account isn't closed yet and you haven't been charged anything new. Please try again in a minute, or email ${SUPPORT_EMAIL} and we'll cancel it by hand.`,
+    };
+  }
+
   await softDeleteClient(user.orgId, clientId);
 
   logger.info("account.closed", { clientId, actor: user.id });
@@ -90,13 +114,49 @@ export async function closeAccountAction(
   void notifier.sendEmail({
     to: env.ALERT_EMAIL,
     subject: `Account closed — ${client.name}`,
-    text: `${client.name} closed their FrontDesk AI account.\n\nClosed by: ${user.email}\nStatus before closing: ${client.status}\nData is scheduled for permanent deletion in ${RETENTION_DAYS} days and can be restored until then by clearing deleted_at.`,
+    text: `${client.name} closed their FrontDesk AI account.\n\nClosed by: ${user.email}\nStatus before closing: ${client.status}\nBilling: ${billingLine(billing)}\nData is scheduled for permanent deletion in ${RETENTION_DAYS} days and can be restored until then by clearing deleted_at.`,
   });
 
   revalidatePath("/portal", "layout");
   revalidatePath(`/clients/${clientId}`);
   return {
     ok: true,
-    message: `Account closed. Your receptionist has stopped answering, and your data will be permanently deleted in ${RETENTION_DAYS} days — email support before then if you want it back.`,
+    message: `Account closed. Your receptionist has stopped answering${billing.status === "canceled" ? ", your subscription is canceled and you won't be charged again" : ""}, and your data will be permanently deleted in ${RETENTION_DAYS} days — email support before then if you want it back.`,
   };
+}
+
+function billingLine(b: CloseBillingResult): string {
+  if (b.status === "canceled") return `canceled ${b.ids.join(", ")} (no refund, no proration, no final invoice)`;
+  if (b.status === "already_canceled") return "already canceled";
+  if (b.status === "none") return "no subscription";
+  return `FAILED: ${b.error}`;
+}
+
+/** Cancel every open subscription for the business, and log what happened. */
+async function stopBilling(clientId: string, actor: string): Promise<CloseBillingResult> {
+  // Lazy: the vendor module pulls in Twilio, Retell and Stripe clients.
+  const [{ liveProviders }, { liveStore }] = await Promise.all([
+    import("@/lib/operator/providers"),
+    import("@/lib/operator/store"),
+  ]);
+  const p = liveProviders();
+  const store = liveStore();
+  const deps: CloseBillingDeps = {
+    stripeConfigured: p.configured.stripe,
+    getSubscription: (id) => store.getSubscription(id),
+    markSubscriptionStatus: (id, status) => store.markSubscriptionStatus(id, status),
+    stripeCancel: (id, o) => p.stripeCancel(id, o),
+    stripeOpenSubscriptionsFor: (id) => p.stripeOpenSubscriptionsFor(id),
+    stripeSubscriptionsByClient: (id) => p.stripeSubscriptionsByClient(id),
+  };
+  const result = await cancelBillingOnClose(clientId, deps);
+  if (result.status === "failed") {
+    logger.error("account.close.billing_cancel_failed", { clientId, error: result.error });
+  } else {
+    logger.info("account.close.billing", { clientId, status: result.status, ids: "ids" in result ? result.ids : [] });
+    if (result.status === "canceled") {
+      void audit({ clientId, actor, action: "account.billing_canceled", detail: { subscriptions: result.ids } });
+    }
+  }
+  return result;
 }

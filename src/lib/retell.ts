@@ -196,6 +196,8 @@ export function buildAgentTools(
   emergencyNumber?: string | null,
   /** The owner turned on "ask price callers if we can text them" (and Pro + quote follow-up are on). */
   quoteTextConsent = false,
+  /** Owner switches for the follow-up and message text-consent asks (text-consent-asks.ts). */
+  consentAsks: { followup?: boolean; message?: boolean } = {},
 ) {
   const transferTo = toE164(escalationNumber);
   const emergencyTo = toE164(emergencyNumber);
@@ -244,6 +246,15 @@ export function buildAgentTools(
             description:
               "True ONLY if the caller clearly agreed to be texted the confirmation, a reminder, and a quick follow-up about this visit after you asked them in those words. Anything less than a clear yes is false. Giving you a phone number is not agreement.",
           },
+          ...(consentAsks.followup
+            ? {
+                followup_text_consent: {
+                  type: "boolean",
+                  description:
+                    "True ONLY if you asked the exact follow-up-texts question (separate from the booking texts) and the caller clearly said yes. false if they said no, hesitated, or you didn't ask.",
+                },
+              }
+            : {}),
           language: {
             type: "string",
             description:
@@ -315,6 +326,19 @@ export function buildAgentTools(
             description:
               "true ONLY for a genuine emergency (flooding, burst pipe, no heat, gas smell, no power, a safety problem). The owner is texted and emailed immediately.",
           },
+          ...(consentAsks.message
+            ? {
+                message_text_consent: {
+                  type: "boolean",
+                  description:
+                    "True ONLY if you asked the exact message-text question and the caller clearly said yes. false if they said no, hesitated, or you didn't ask.",
+                },
+                language: {
+                  type: "string",
+                  description: "Code of the language you asked in, e.g. \"en\" or \"es\".",
+                },
+              }
+            : {}),
           ...(quoteTextConsent
             ? {
                 text_consent: {
@@ -447,6 +471,7 @@ export interface ProvisionAgentInput {
   emergencyNumber?: string | null;
   /** Attach text_consent to take_message (quote-consent.ts). Must match the prompt. */
   quoteTextConsent?: boolean;
+  consentAsks?: { followup?: boolean; message?: boolean };
   /** Client languages setting (see lib/languages.ts). Decides the agent's speech model. */
   languages?: string | null;
   /** Business IANA timezone; sets the agent clock for {{current_time}}. */
@@ -551,6 +576,7 @@ export async function provisionAgentForClient(
     input.waitlistEnabled ?? false,
     input.emergencyNumber,
     input.quoteTextConsent ?? false,
+    input.consentAsks ?? {},
   );
 
   // 1. LLM — create or update by stored id.

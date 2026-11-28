@@ -194,6 +194,8 @@ export interface CallbackStats {
   skipped: number;
   pending: number;
   failed: number;
+  /** Skipped rows by skip_reason, so the owner can see WHY (e.g. no consent). */
+  skippedBy: Record<string, number>;
   recent: Pick<CallCallbackRow, "id" | "customerPhone" | "reason" | "status" | "skipReason" | "channel" | "createdAt">[];
 }
 
@@ -215,7 +217,14 @@ export async function callbackStats(clientId: string, days = 7): Promise<Callbac
     .orderBy(desc(callCallbacks.createdAt))
     .limit(500);
   const count = (s: string) => rows.filter((r) => r.status === s).length;
+  const skippedBy: Record<string, number> = {};
+  for (const r of rows) {
+    if (r.status !== "skipped") continue;
+    const k = r.skipReason ?? "other";
+    skippedBy[k] = (skippedBy[k] ?? 0) + 1;
+  }
   return {
+    skippedBy,
     sent: count("sent"),
     skipped: count("skipped"),
     pending: count("pending"),

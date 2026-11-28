@@ -21,7 +21,7 @@ const { CONSENT_WORDING_VERSION, coveredPhones, getConsentedPhones, hasSmsConsen
 
 describe("stored SMS consent gate", () => {
   it("matches numbers regardless of formatting", () => {
-    const set = coveredPhones([{ phone: "+14155550100", wording: CONSENT_WORDING_VERSION }], "recall");
+    const set = coveredPhones([{ phone: "+14155550100", wording: CONSENT_WORDING_VERSION }], "lead_followup");
     expect(isConsented(set, "(415) 555-0100")).toBe(true);
     expect(isConsented(set, "4155550100")).toBe(true);
     expect(isConsented(set, "+14155550101")).toBe(false);
@@ -68,7 +68,47 @@ describe("consent asked in the caller's language", () => {
 describe("consent script versions", () => {
   it("rows recorded under the older booking-v1 script still count", () => {
     for (const w of ["booking-v1", "booking-v1-es", "booking-v2", "booking-v2-es"]) {
-      expect(isConsented(coveredPhones([{ phone: "+14155550100", wording: w }], "review_request"), "+14155550100")).toBe(true);
+      expect(isConsented(coveredPhones([{ phone: "+14155550100", wording: w }], "rebook"), "+14155550100")).toBe(true);
     }
+  });
+});
+
+describe("consent scope: follow-up/marketing texts need their own yes", () => {
+  const one = (wording: string, purpose: Parameters<typeof coveredPhones>[1]) =>
+    isConsented(coveredPhones([{ phone: "+14155550100", wording }], purpose), "+14155550100");
+
+  it("a booking-only yes does NOT cover win-back, review requests or recall", () => {
+    for (const w of ["booking-v1", "booking-v2", "booking-v2-es"]) {
+      expect(one(w, "winback")).toBe(false);
+      expect(one(w, "review_request")).toBe(false);
+      expect(one(w, "recall")).toBe(false);
+    }
+  });
+
+  it("the follow-up yes covers win-back, review requests and recall, in any language", () => {
+    for (const w of ["followup-v1", "followup-v1-es"]) {
+      expect(one(w, "winback")).toBe(true);
+      expect(one(w, "review_request")).toBe(true);
+      expect(one(w, "recall")).toBe(true);
+    }
+  });
+
+  it("the follow-up yes is not a booking yes", () => {
+    expect(one("followup-v1", "rebook")).toBe(false);
+    expect(one("followup-v1", "missed_call")).toBe(false);
+  });
+
+  it("a quote yes or a message yes never covers marketing texts", () => {
+    for (const w of ["quote-v1", "message-v1"]) {
+      expect(one(w, "winback")).toBe(false);
+      expect(one(w, "review_request")).toBe(false);
+    }
+  });
+
+  it("the message yes covers the missed-call text-back and replies about that message", () => {
+    expect(one("message-v1", "missed_call")).toBe(true);
+    expect(one("message-v1-es", "lead_followup")).toBe(true);
+    expect(one("message-v1", "portal_reply")).toBe(true);
+    expect(one("message-v1", "quote_followup")).toBe(false);
   });
 });

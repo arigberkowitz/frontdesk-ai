@@ -150,17 +150,34 @@ export default function PrivacyPage() {
             the messaging program.
           </p>
           <p>
-            <strong>How we use it:</strong> solely to send you the transactional messages you agreed
-            to — an appointment confirmation, a reminder before the appointment, and any follow-up
-            you specifically asked for. We do not use it for marketing, we do not sell it, and we do
-            not use it to build advertising profiles.
+            <strong>How we use it:</strong> solely to send, on behalf of the business you called,
+            the kinds of texts you agreed to on that call. Each kind has its own, separate yes:
           </p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              <strong>Booking texts:</strong> the confirmation, reminders, any reschedule notice and
+              one follow-up about a visit you booked (typically 1&ndash;4 per booking).
+            </li>
+            <li>
+              <strong>Message texts:</strong> a reply about a message you left, and one text if a
+              later call to the business drops.
+            </li>
+            <li>
+              <strong>Quote follow-up:</strong> at most two texts about a price you asked for.
+            </li>
+            <li>
+              <strong>Follow-up texts:</strong> review requests, &ldquo;you&rsquo;re due&rdquo;
+              reminders and win-back check-ins from the business, no more than a couple a month.
+              Only if you said yes to that separate, optional question; a yes to booking texts
+              never covers them.
+            </li>
+          </ul>
           <p>
-            Callers who verbally agree on a call may receive appointment confirmations, reminders,
-            and requested follow-up texts from the business they called.{" "}
-            <strong>Message frequency varies</strong> — typically one to three messages per booking.{" "}
+            We (FrontDesk AI) never use your number for our own marketing, we do not sell it, and we
+            do not use it to build advertising profiles. <strong>Message frequency varies.</strong>{" "}
             <strong>Message and data rates may apply.</strong> Reply STOP to opt out or HELP for
-            help. Consent to receive texts is not a condition of any purchase.
+            help. Consent to receive texts is not a condition of any purchase. The exact questions
+            the AI asks are on our SMS Consent page.
           </p>
           <p>
             <strong>

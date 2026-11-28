@@ -4,7 +4,7 @@ import { cleanEmail } from "../email-address";
 
 describe("promisesCodeSend", () => {
   it("catches the production reply", () => {
-    expect(promisesCodeSend("Let me send a verification code to 415-747-5690.")).toBe(true);
+    expect(promisesCodeSend("Let me send a verification code to 415-555-0142.")).toBe(true);
     expect(promisesCodeSend("I'll text you a code now")).toBe(true);
     expect(promisesCodeSend("I've sent a code to that number.")).toBe(true);
   });

@@ -9,14 +9,7 @@ import { SetupChecklist } from "@/components/portal/setup-checklist";
 import { DangerZone } from "@/components/portal/danger-zone";
 import { LegacySettingsHash } from "@/components/portal/legacy-settings-hash";
 import { toSafeClient } from "@/lib/client-safe";
-import { ManageBilling } from "@/components/portal/manage-billing";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { subscriptionInterval } from "@/lib/subscription-interval";
-import { PlanCard } from "@/components/portal/plan-card";
-import { minutesUsage, periodStart } from "@/lib/minutes";
-import { countedMinutesSince } from "@/lib/minute-cap-run";
-import { PLANS, type PlanKey } from "@/config/plans";
-import { env } from "@/lib/env";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
 
@@ -44,33 +37,12 @@ export default async function PortalSettingsPage({
     ? await db
         .select({
           customerId: subscriptions.stripeCustomerId,
-          plan: subscriptions.plan,
-          status: subscriptions.status,
-          currentPeriodEnd: subscriptions.currentPeriodEnd,
-          subId: subscriptions.stripeSubscriptionId,
-          monthlyPriceCents: subscriptions.monthlyPriceCents,
         })
         .from(subscriptions)
         .where(and(eq(subscriptions.clientId, clientId), isNull(subscriptions.deletedAt)))
         .orderBy(desc(subscriptions.createdAt))
         .limit(1)
     : [];
-
-  const planKey =
-    sub?.plan && sub.plan in PLANS && (sub.status === "active" || sub.status === "trialing")
-      ? (sub.plan as PlanKey)
-      : null;
-  let usage = null;
-  const interval = planKey ? await subscriptionInterval(sub?.subId) : "month";
-  if (planKey) {
-    // Same count the minute-cap emails use: robocalls and blocked callers don't count.
-    const used = await countedMinutesSince(
-      clientId,
-      periodStart(sub!.currentPeriodEnd),
-      client.setupFlags?.blockedNumbers ?? [],
-    );
-    usage = minutesUsage(used * 60, PLANS[planKey].includedMinutes);
-  }
 
   return (
     <div className="space-y-6">
@@ -96,8 +68,15 @@ export default async function PortalSettingsPage({
         status={{ ...setup, finishedAt: setup.finishedAt?.toISOString() ?? null }}
       />
       )}
-      {planKey && usage ? <PlanCard clientId={clientId} plan={planKey} usage={usage} interval={interval} paidMonthlyCents={sub?.monthlyPriceCents ?? null} plusTax={env.STRIPE_AUTOMATIC_TAX} /> : null}
-      {sub?.customerId ? <ManageBilling clientId={clientId} /> : null}
+      {editAccess.isAdmin ? (
+        <p className="rounded-xl border bg-card px-5 py-4 text-sm text-muted-foreground">
+          Your plan, card and invoices are under{" "}
+          <Link href="/portal/settings/billing" className="font-medium text-foreground underline underline-offset-2">
+            Plan &amp; billing
+          </Link>
+          .
+        </p>
+      ) : null}
       <DangerZone clientId={clientId} businessName={client.name} isAdmin={editAccess.isAdmin} hasBilling={Boolean(sub?.customerId)} />
     </div>
   );

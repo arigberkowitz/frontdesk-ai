@@ -47,7 +47,7 @@ export async function notifyPaymentFailed(invoice: Stripe.Invoice): Promise<bool
     return false;
   }
   const amount = `$${((invoice.amount_due ?? 0) / 100).toFixed(2)}`;
-  const fixUrl = `${env.APP_URL}/portal/settings`;
+  const fixUrl = `${env.APP_URL}/portal/settings/billing`;
   const retry = invoice.next_payment_attempt
     ? ` We'll try again on ${new Date(invoice.next_payment_attempt * 1000).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: client.timezone ?? "UTC" })}.`
     : "";
@@ -57,10 +57,10 @@ export async function notifyPaymentFailed(invoice: Stripe.Invoice): Promise<bool
     html:
       `<p>Hi ${esc(client.name)},</p>` +
       `<p>We couldn't charge your card for your FrontDesk AI subscription (${amount}).${esc(retry)}</p>` +
-      `<p>To keep your AI receptionist answering, update your card: <a href="${fixUrl}">Settings → Billing → Manage billing</a>.</p>`,
+      `<p>To keep your AI receptionist answering, update your card: <a href="${fixUrl}">Settings → Plan & billing → Manage billing</a>.</p>`,
     text:
       `Hi ${client.name},\n\nWe couldn't charge your card for your FrontDesk AI subscription (${amount}).${retry}\n\n` +
-      `To keep your AI receptionist answering, update your card: ${fixUrl} (Settings → Billing → Manage billing).`,
+      `To keep your AI receptionist answering, update your card: ${fixUrl} (Settings → Plan & billing → Manage billing).`,
   });
   await notifyAdminOnce(clientId, client, "paymentFailedInvoice", invoice.id ?? "unknown", {
     subject: `Payment failed: ${client.name} (${amount})`,
@@ -136,7 +136,7 @@ export async function notifyBillingHold(
   });
   const to = client.ownerEmail?.trim();
   if (!to) return;
-  const fixUrl = `${env.APP_URL}/portal/settings`;
+  const fixUrl = `${env.APP_URL}/portal/settings/billing`;
   const plansUrl = `${env.APP_URL}/portal/guidelines?plans=open#plans`;
   const lead =
     reason === "unpaid"
@@ -146,7 +146,7 @@ export async function notifyBillingHold(
     lead,
     "Your AI still answers your line, but it only takes messages now: the caller's name, number and reason, sent to you. It doesn't book appointments or answer questions.",
     reason === "unpaid"
-      ? `Update your card and everything is back within a minute: ${fixUrl} (Settings → Billing → Manage billing).`
+      ? `Update your card and everything is back within a minute: ${fixUrl} (Settings → Plan & billing → Manage billing).`
       : `Pick a plan and everything is back within a minute: ${plansUrl}`,
     "If you don't plan to come back, undo your call forwarding (dial *73 from your business phone; AT&T/T-Mobile: ##21#) so your callers reach you directly.",
   ];

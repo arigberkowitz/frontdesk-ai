@@ -133,7 +133,7 @@ function aiFeatureStatusInner(
       if (stats.lastBriefingSentAt) {
         return { tone: "on", text: `Last sent ${relativeDay(stats.lastBriefingSentAt, now, tz)}` };
       }
-      return { tone: "on", text: "On · the first one arrives the next morning, 7–10am" };
+      return { tone: "on", text: "On · the first one arrives the next morning, 7–10 AM" };
     }
     case "morningUnbookedText": {
       if (!flags.morningUnbookedTextEnabled) return { tone: "off", text: "Off · no morning text" };
@@ -143,7 +143,7 @@ function aiFeatureStatusInner(
       if (stats.lastMorningTextSentAt) {
         return { tone: "on", text: `Last sent ${relativeDay(stats.lastMorningTextSentAt, now, tz)}` };
       }
-      return { tone: "on", text: "On · texts you 8–11am, only when someone didn't book" };
+      return { tone: "on", text: "On · texts you 8–11 AM, only when someone didn't book" };
     }
   }
 }

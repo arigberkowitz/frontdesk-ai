@@ -67,8 +67,8 @@ export default function ContactPage() {
         </p>
         <p>
           <strong className="text-foreground">Stop receiving texts?</strong>{" "}
-          Reply STOP to any message
-          and the carrier blocks it immediately — you don&apos;t need to email anyone for that. See{" "}
+          Reply STOP to any message and the texts stop right away. You&apos;ll get one last text
+          confirming it, and you don&apos;t need to email anyone. See{" "}
           <Link href="/sms-consent" className="underline underline-offset-2">
             SMS consent
           </Link>{" "}

@@ -33,7 +33,7 @@ const RESCUE_STEPS = [
   {
     icon: MessageSquare,
     chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
-    title: "Texts or emails you right away",
+    title: "Alerts you right away",
     body: `Every missed call becomes a lead in your pocket — in ${LANGUAGE_COUNT} languages.`,
   },
 ];
@@ -224,7 +224,7 @@ export function OnboardingWelcome({
         <h1 className="font-heading text-3xl font-semibold tracking-tight">Welcome to FrontDesk AI</h1>
         <p className="mx-auto max-w-lg text-muted-foreground">
           {plan === "backup"
-            ? `You answer when you can. When you can't, your AI picks up, books the job or takes a message, and texts or emails you right away. It speaks ${LANGUAGE_COUNT} languages, and you pick up to ${MAX_LANGUAGES}.`
+            ? `You answer when you can. When you can't, your AI picks up, books the job or takes a message, and alerts you right away. It speaks ${LANGUAGE_COUNT} languages, and you pick up to ${MAX_LANGUAGES}.`
             : `Your AI receptionist answers every call, books appointments, and takes messages — around the clock. It speaks ${LANGUAGE_COUNT} languages, and you pick up to ${MAX_LANGUAGES}.`}{" "}
           Let&apos;s get yours set up. It only takes a couple of minutes.
         </p>

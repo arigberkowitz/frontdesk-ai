@@ -136,7 +136,7 @@ describe("morning 'didn't book' text switch", () => {
       text: "Off · no morning text",
     });
     expect(aiFeatureStatus("morningUnbookedText", mOn, stats({}), opts).text).toBe(
-      "On · texts you 8–11am, only when someone didn't book",
+      "On · texts you 8–11 AM, only when someone didn't book",
     );
     expect(aiFeatureStatus("morningUnbookedText", mOn, stats({ lastMorningTextSentAt: now }), opts).text).toBe(
       "Last sent today",

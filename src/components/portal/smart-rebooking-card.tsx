@@ -57,7 +57,7 @@ export function SmartRebookingCard({
           </div>
           <ul className="space-y-1 text-xs text-muted-foreground">
             <li>· Nothing is sent until you press &ldquo;Ask customers to rebook&rdquo; and confirm.</li>
-            <li>· Only to customers who agreed to texts about their booking, never after STOP, 9am–8pm.</li>
+            <li>· Only to customers who agreed to texts about their booking, never after STOP, 9 AM–8 PM.</li>
             <li>· Times offered are real openings on your calendar, re-checked when they reply.</li>
             <li>· Offers stay open {REBOOK_OFFER_HOURS} hours. Anything other than 1/2/3/NO comes to you in Messages.</li>
             <li>· A cancelled slot goes to your waitlist (if on) when it&rsquo;s still bookable.</li>

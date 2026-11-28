@@ -48,7 +48,7 @@ export const pricingHeadlineFlag = flag<HeadlineVariant, Entities>({
 });
 
 /**
- * Which plan card gets the “Most popular” highlight. Control is Pro, which
+ * Which plan card gets the “Recommended” highlight. Control is Pro, which
  * is what the page already does. The variant highlights Starter instead.
  */
 export const pricingHighlightFlag = flag<HighlightVariant, Entities>({

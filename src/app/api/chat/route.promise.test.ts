@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 const CLIENT_ID = "11111111-1111-4111-8111-111111111111";
 const calls: Array<Record<string, unknown>> = [];
 const replies = [
-  { content: [{ type: "text", text: "Let me send a verification code to 415-747-5690." }] },
-  { content: [{ type: "tool_use", id: "t1", name: "cancel_appointment", input: { phone: "4157475690" } }] },
+  { content: [{ type: "text", text: "Let me send a verification code to 415-555-0142." }] },
+  { content: [{ type: "tool_use", id: "t1", name: "cancel_appointment", input: { phone: "4155550142" } }] },
   { content: [{ type: "text", text: "I've texted a 6-digit code to that number — type it here." }] },
 ];
 const create = vi.fn(async (req: Record<string, unknown>) => (calls.push(req), replies[calls.length - 1]));
@@ -32,7 +32,7 @@ describe("chat never promises a code without sending it", () => {
     const res = await POST(new Request("https://app.test/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json", origin: "https://app.test", "x-forwarded-for": "198.51.100.7" },
-      body: JSON.stringify({ key: "fdw_testkeytestkeytestkey1234", parent: "https://acme.example", messages: [{ role: "user", content: "cancel my booking for 415-747-5690" }] }),
+      body: JSON.stringify({ key: "fdw_testkeytestkeytestkey1234", parent: "https://acme.example", messages: [{ role: "user", content: "cancel my booking for 415-555-0142" }] }),
     }));
     const body = await res.json();
     expect(calls[1].tool_choice).toEqual({ type: "tool", name: "cancel_appointment" });

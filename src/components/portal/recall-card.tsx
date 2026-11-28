@@ -87,6 +87,13 @@ export function RecallCard({
             <li>· Sent up to {RECALL_LEAD_DAYS} days before they&rsquo;re due, so there are still slots left.</li>
             <li>· Never to someone who already has an appointment booked.</li>
             <li>· At most one invitation per customer every {RECALL_MIN_DAYS_BETWEEN} days.</li>
+            <li>
+              · Only customers who said yes to follow-up texts (see{" "}
+              <a href="#text-consent" className="underline underline-offset-2">
+                Ask callers about texts
+              </a>
+              ); a yes to booking texts alone isn&apos;t enough.
+            </li>
             <li>· Daytime only, and never to someone who replied STOP.</li>
           </ul>
 

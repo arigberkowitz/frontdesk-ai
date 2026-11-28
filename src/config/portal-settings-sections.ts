@@ -16,6 +16,7 @@ export type SettingsSectionKey =
   | "calendar"
   | "follow-ups"
   | "team"
+  | "billing"
   | "help";
 
 export interface SettingsSection {
@@ -72,6 +73,13 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     ownerOnly: true,
   },
   {
+    key: "billing",
+    label: "Plan & billing",
+    href: "/portal/settings/billing",
+    description: "Your plan, trial days left, changing plan, your card and invoices.",
+    ownerOnly: true,
+  },
+  {
     key: "help",
     label: "Help",
     href: "/portal/settings/help",
@@ -105,6 +113,8 @@ const LEGACY_HASHES: Record<string, string> = {
   recovery: "/portal/settings/follow-ups",
   team: "/portal/settings/team",
   help: "/portal/settings/help",
+  billing: "/portal/settings/billing",
+  plans: "/portal/settings/billing#plans",
   features: "/portal/settings/features",
 };
 

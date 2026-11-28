@@ -23,7 +23,7 @@ const OPTIONS: Array<{
   {
     value: "open_hours",
     title: "Only while you're open",
-    body: "Callers get put through during your hours. After hours your AI takes a message instead — nobody's phone rings at 11pm.",
+    body: "Callers get put through during your hours. After hours your AI takes a message instead — nobody's phone rings at 11 PM.",
     icon: Clock,
   },
   {

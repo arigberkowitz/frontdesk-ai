@@ -43,7 +43,7 @@ export async function saveHoursAction(
   if (badDay) {
     return {
       ok: false,
-      error: `${badDay} closes before it opens. Times are 24-hour — 5pm is 17:00. Fix that day and save again.`,
+      error: `${badDay} closes before it opens. Times are 24-hour — 5 PM is 17:00. Fix that day and save again.`,
     };
   }
 
