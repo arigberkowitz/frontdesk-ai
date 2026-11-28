@@ -103,8 +103,11 @@ export function buildCsp(opts: CspOptions): string {
     // (443, 992, 2082, 8443, 18443). Seen on Clerk's dev instance; the live
     // instance may or may not have it switched on, and this is harmless if not.
     "https://*.client.protect.clerk.com:*",
-    // Browser test call (Retell's web SDK is LiveKit underneath): signaling
-    // over wss, plus https for LiveKit's region lookup.
+    // Browser test call, retell-client-js-sdk 3.x: the v3 "gateway" transport
+    // signals over HTTPS to api.retellai.com/webrtc-proxy/{callId}. The
+    // LiveKit transport (legacy startCall without a transport field) still
+    // uses the Retell LiveKit cloud host.
+    "https://api.retellai.com",
     "https://*.livekit.cloud",
     "wss://*.livekit.cloud",
   ];

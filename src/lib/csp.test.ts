@@ -79,6 +79,7 @@ describe("buildCsp (production)", () => {
       "https://clerk-telemetry.com",
       "https://*.clerk-telemetry.com",
       "https://*.client.protect.clerk.com:*",
+      "https://api.retellai.com",
       "https://*.livekit.cloud",
       "wss://*.livekit.cloud",
     ]);

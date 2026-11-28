@@ -288,6 +288,7 @@ export default async function PortalGuidelinesPage({
             women={women}
             men={men}
             unusableSavedName={unusableSavedName}
+            agentName={client.agentName}
           />
         </CardContent>
       </Card>
