@@ -6,6 +6,7 @@ import { logger } from "./../logger";
 import { normalizePhone } from "./sms-optouts";
 import { LANGUAGE_OPTIONS, normalizeCustomerLanguage } from "@/lib/languages";
 import { QUOTE_CONSENT_WORDING } from "@/lib/revenue/quote-consent";
+import { FOLLOWUP_CONSENT_WORDING, MESSAGE_CONSENT_WORDING } from "@/lib/text-consent-asks";
 
 /**
  * The exact consent script version currently in force. This string is the
@@ -118,44 +119,49 @@ export type ConsentPurpose =
   | "rebook"
   /**
    * Pro win-back: "it's been a while — want to book?" to a past customer.
-   * Same policy call as recall; see src/lib/agents/winback.ts.
+   * Needs the follow-up consent (followup-v1); see src/lib/agents/winback.ts.
    */
   | "winback";
+
+/** followup-v1 and message-v1 and their translations (text-consent-asks.ts). */
+const translations = (base: string): string[] => [
+  base,
+  ...LANGUAGE_OPTIONS.filter((l) => l.code !== "en").map((l) => `${base}-${l.code}`),
+];
+const FOLLOWUP_V1_WORDINGS: readonly string[] = translations(FOLLOWUP_CONSENT_WORDING);
+const MESSAGE_V1_WORDINGS: readonly string[] = translations(MESSAGE_CONSENT_WORDING);
 
 /**
  * Which recorded consent wordings cover which kind of text.
  *
- * TODO(Ari): this is a policy decision, not a code one. Today the only script
- * is "booking-v1" ("text you the confirmation and a reminder"), and it is
- * mapped to every purpose so these features keep working for customers who
- * did agree to texts. The published /sms-consent policy says no marketing
- * texts; if recall and review requests are judged promotional, remove
- * "booking-v1" from those two lists (they'll then send to nobody) until a
- * separate consent script and campaign use case exist.
+ * Decided by Ari (Nov 2026): consent is scoped.
+ *  - Booking consent (booking-v1/v2: "the confirmation, a reminder, and a quick
+ *    follow-up about this visit") covers texts about THAT booking and the
+ *    caller's own enquiry: reschedules, no-show recovery, lead and quote
+ *    follow-up, an owner's reply, the missed-call text-back.
+ *  - Win-back, review-request and recall texts are follow-up/marketing texts.
+ *    They need the separate, optional follow-up yes (followup-v1), asked by the
+ *    AI only when the owner turns it on. A booking-only consent is NOT enough,
+ *    so with the ask off these send to nobody. /sms-consent and the privacy
+ *    policy describe exactly this.
+ *  - message-v1 (asked when taking a message) covers texts about that message
+ *    and a later missed-call text-back, never marketing.
+ *  - quote-v1 covers only the quote follow-up.
+ * Whether a missed caller who agreed to NOTHING may be texted once is a legal
+ * call for Ari/counsel (DECISIONS.md "Missed-call text-back"); until then they
+ * aren't.
  */
 export const CONSENT_COVERAGE: Record<ConsentPurpose, readonly string[]> = {
-  recall: BOOKING_V1_WORDINGS,
-  review_request: BOOKING_V1_WORDINGS,
-  recovery_lead: BOOKING_V1_WORDINGS,
+  recall: FOLLOWUP_V1_WORDINGS,
+  review_request: FOLLOWUP_V1_WORDINGS,
+  winback: FOLLOWUP_V1_WORDINGS,
+  recovery_lead: [...BOOKING_V1_WORDINGS, ...MESSAGE_V1_WORDINGS],
   recovery_no_show: BOOKING_V1_WORDINGS,
-  lead_followup: BOOKING_V1_WORDINGS,
+  lead_followup: [...BOOKING_V1_WORDINGS, ...MESSAGE_V1_WORDINGS],
   quote_followup: [...BOOKING_V1_WORDINGS, ...QUOTE_V1_WORDINGS],
-  portal_reply: BOOKING_V1_WORDINGS,
-  // TODO(Ari): same policy call as above. booking-v1 covers it so a returning
-  // customer who agreed to texts can be texted back after a dropped call. A
-  // first-time caller who hung up early has usually agreed to nothing, so they
-  // will NOT be texted until a consent wording covers this purpose (or counsel
-  // decides a one-off reply to their own call needs none — then this gate in
-  // src/lib/agents/missed-call-callback.ts is the single place to change).
-  missed_call: BOOKING_V1_WORDINGS,
-  // A text about an appointment they booked and agreed to texts about —
-  // squarely what booking-v1 ("confirmation and a reminder") describes.
+  portal_reply: [...BOOKING_V1_WORDINGS, ...MESSAGE_V1_WORDINGS],
+  missed_call: [...BOOKING_V1_WORDINGS, ...MESSAGE_V1_WORDINGS],
   rebook: BOOKING_V1_WORDINGS,
-  // TODO(Ari): the same policy call as recall above — a past customer who
-  // said yes to texts when they booked. If win-back is judged promotional,
-  // remove booking-v1/v2 here and it sends to nobody until a marketing
-  // consent script exists.
-  winback: BOOKING_V1_WORDINGS,
 };
 
 /** Pure: the set of numbers (normalized digits) whose consent rows cover `purpose`. */
@@ -209,4 +215,19 @@ export async function hasSmsConsent(
 ): Promise<boolean> {
   if (!normalizePhone(phone ?? "")) return false;
   return isConsented(await getConsentedPhones(clientId, purpose), phone);
+}
+
+/**
+ * How many numbers have agreed to each kind of text, for the owner's settings
+ * card. "followup" is who win-back, review and recall texts can reach.
+ */
+export async function countConsentsByScope(
+  clientId: string,
+): Promise<{ booking: number; followup: number; textBack: number }> {
+  const scopes = { booking: "rebook", followup: "winback", textBack: "missed_call" } as const;
+  const out = { booking: 0, followup: 0, textBack: 0 };
+  for (const [k, purpose] of Object.entries(scopes) as [keyof typeof out, ConsentPurpose][]) {
+    out[k] = (await getConsentedPhones(clientId, purpose)).size;
+  }
+  return out;
 }

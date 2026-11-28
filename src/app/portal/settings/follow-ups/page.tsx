@@ -26,6 +26,9 @@ import { getWebChatStats } from "@/lib/data/chat-limits";
 import { DEFAULT_AGENT_NAME } from "@/lib/prompt";
 import { QuoteFollowupSection } from "@/components/portal/quote-followup-section";
 import { WinbackSection } from "@/components/portal/winback-section";
+import { TextConsentCard } from "@/components/portal/text-consent-card";
+import { parseTextConsentAsks } from "@/lib/text-consent-asks";
+import { countConsentsByScope } from "@/lib/data/sms-consents";
 
 export const metadata: Metadata = { title: "Follow-ups · Settings" };
 
@@ -41,6 +44,9 @@ export default async function PortalSettingsFollowUpsPage() {
   const waitingCount = client.waitlistEnabled
     ? (await listWaiting(clientId).catch(() => [])).length
     : 0;
+
+  const consentAsks = parseTextConsentAsks(client.setupFlags);
+  const consentCounts = await countConsentsByScope(clientId).catch(() => null);
 
   const missedCallStats = client.missedCallTextsEnabled
     ? await callbackStats(clientId).catch(() => null)
@@ -89,6 +95,13 @@ export default async function PortalSettingsFollowUpsPage() {
             return false;
           }
         })()}
+      />
+      <TextConsentCard
+        clientId={clientId}
+        followup={consentAsks.followup}
+        message={consentAsks.message}
+        counts={consentCounts}
+        isAdmin={editAccess.isAdmin}
       />
       <MissedCallCard
         clientId={clientId}

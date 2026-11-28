@@ -102,3 +102,34 @@ describe("owner-controlled quote text consent ask", () => {
   });
 });
 
+
+describe("owner-controlled follow-up and message text consent asks", () => {
+  type T = { name: string; parameters: { properties: Record<string, unknown> } };
+  const tool = (tools: unknown[], n: string) => tools.find((x) => (x as T).name === n) as T;
+
+  it("are not in the prompt or the tools unless switched on", () => {
+    const p = base({ bookingEnabled: true });
+    expect(p).not.toMatch(/followup_text_consent/);
+    expect(p).not.toMatch(/message_text_consent/);
+    const tools = buildAgentTools("https://x.test", "c1", null);
+    expect(tool(tools, "book_appointment").parameters.properties.followup_text_consent).toBeUndefined();
+    expect(tool(tools, "take_message").parameters.properties.message_text_consent).toBeUndefined();
+  });
+
+  it("the follow-up ask is a separate optional question with its own tool argument", () => {
+    const p = base({ bookingEnabled: true, followupTextConsentAsk: true });
+    expect(p).toContain("is it okay if we also text you now and then");
+    expect(p).toContain("followup_text_consent");
+    const tools = buildAgentTools("https://x.test", "c1", null, "always", null, false, null, false, { followup: true });
+    expect(tool(tools, "book_appointment").parameters.properties.followup_text_consent).toBeTruthy();
+    expect(tool(tools, "take_message").parameters.properties.message_text_consent).toBeUndefined();
+  });
+
+  it("the message ask goes on take_message", () => {
+    const p = base({ messageTextConsentAsk: true, languages: "en,es" });
+    expect(p).toContain("Is it okay if we text you at this number about your message");
+    expect(p).toContain("sobre su mensaje");
+    const tools = buildAgentTools("https://x.test", "c1", null, "always", null, false, null, false, { message: true });
+    expect(tool(tools, "take_message").parameters.properties.message_text_consent).toBeTruthy();
+  });
+});

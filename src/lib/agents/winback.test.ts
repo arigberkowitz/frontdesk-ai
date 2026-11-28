@@ -79,8 +79,10 @@ beforeEach(async () => {
   await appt(PRO, UPCOMING, daysAhead(7));
   await appt(STARTER, DUE, daysAgo(210));
   for (const phone of [DUE, SPANISH, RECENT, UPCOMING, STOPPED, BLOCKED, SPAM]) {
-    await pg.query(`INSERT INTO sms_consents (client_id, phone, wording) VALUES ($1, $2, 'booking-v2'), ($3, $2, 'booking-v2')`, [PRO, phone, STARTER]);
+    await pg.query(`INSERT INTO sms_consents (client_id, phone, wording) VALUES ($1, $2, 'followup-v1'), ($3, $2, 'followup-v1')`, [PRO, phone, STARTER]);
   }
+  // Agreed to booking texts only: win-back needs the separate follow-up yes.
+  await pg.query(`INSERT INTO sms_consents (client_id, phone, wording) VALUES ($1, $2, 'booking-v2')`, [PRO, NO_CONSENT]);
   await pg.query(`INSERT INTO sms_opt_outs (phone) VALUES ('14155550106')`);
   await pg.query(`INSERT INTO customer_languages (client_id, phone, language) VALUES ($1, '14155550102', 'es')`, [PRO]);
   await pg.query(`INSERT INTO calls (client_id, from_number, outcome) VALUES ($1, $2, 'spam')`, [PRO, SPAM]);

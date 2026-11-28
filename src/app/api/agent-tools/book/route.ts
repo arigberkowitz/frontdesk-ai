@@ -27,6 +27,7 @@ import {
 import { serviceLocation } from "@/lib/service-location";
 import { sendBookingConfirmation } from "@/lib/appointment-texts";
 import { recordSmsConsent } from "@/lib/data/sms-consents";
+import { followupConsentWordingFor, parseTextConsentAsks } from "@/lib/text-consent-asks";
 import { rememberCustomerLanguage } from "@/lib/data/customer-languages";
 import { normalizeCustomerLanguage } from "@/lib/languages";
 import { allowChatSms } from "@/lib/data/chat-limits";
@@ -464,6 +465,25 @@ export async function POST(req: Request): Promise<Response> {
     after(() =>
       recordSmsConsent({ clientId: client.id, phone: customerPhone, callId: callRow?.id, language }),
     );
+    // The separate, optional follow-up ask (win-back, review, recall texts).
+    // Voice only, and only while the owner's switch is on RIGHT NOW: a stale
+    // prompt from before they switched it off records nothing.
+    const followupYes =
+      args.followup_text_consent === true || String(args.followup_text_consent ?? "") === "true";
+    if (followupYes && channel === "voice") {
+      if (parseTextConsentAsks(client.setupFlags).followup) {
+        after(() =>
+          recordSmsConsent({
+            clientId: client.id,
+            phone: customerPhone,
+            callId: callRow?.id,
+            wording: followupConsentWordingFor(language),
+          }),
+        );
+      } else {
+        logger.info("agent-tools.book.followup_consent_ignored", { clientId: client.id });
+      }
+    }
   }
   if (mayText) {
     after(() =>

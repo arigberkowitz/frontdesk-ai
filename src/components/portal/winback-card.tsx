@@ -158,7 +158,7 @@ export function WinbackCard({
           </figure>
 
           <ul className="space-y-1 text-xs text-muted-foreground">
-            <li>· Only past customers who booked with you and said yes to texts. Never a bought list.</li>
+            <li>· Only past customers who said yes to follow-up texts (see <a href="#text-consent" className="underline underline-offset-2">Ask callers about texts</a>). A yes to booking texts alone isn&apos;t enough. Never a bought list.</li>
             <li>· One text per customer every {monthsLabel(months)}, and never to someone who already has a visit booked.</li>
             <li>· Sent between {hour(SEND_START_HOUR)} and {hour(SEND_END_HOUR)} your time, and at most one of these texts per person every {MIN_DAYS_BETWEEN_REVENUE_TEXTS} days across all follow-ups.</li>
             <li>· Never to someone who replied STOP, a number you blocked, or a caller marked as spam.</li>
